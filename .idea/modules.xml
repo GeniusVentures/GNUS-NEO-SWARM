@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/GeniusLLM.iml" filepath="$PROJECT_DIR$/.idea/GeniusLLM.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/Genius-MOS-SLM.iml" filepath="$PROJECT_DIR$/.idea/Genius-MOS-SLM.iml" />
     </modules>
   </component>
 </project>
