@@ -1,0 +1,60 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"jsonFile" : "directory-.-Debug-f5ebdc15457944623624.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.30"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "Genius-MOS-SLM",
+					"targetIndexes" : 
+					[
+						0
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "Genius-MOS-SLM::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-Genius-MOS-SLM-Debug-29f8e0bbcb4d790a1b24.json",
+					"name" : "Genius-MOS-SLM",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/Volumes/SSDevelopment/Development/GeniusVentures/GeniusNetwork/Genius-MOS-SLM/cmake-build-debug",
+		"source" : "/Volumes/SSDevelopment/Development/GeniusVentures/GeniusNetwork/Genius-MOS-SLM"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 7
+	}
+}

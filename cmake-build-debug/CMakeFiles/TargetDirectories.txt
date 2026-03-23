@@ -1,0 +1,3 @@
+/Volumes/SSDevelopment/Development/GeniusVentures/GeniusNetwork/Genius-MOS-SLM/cmake-build-debug/CMakeFiles/Genius-MOS-SLM.dir
+/Volumes/SSDevelopment/Development/GeniusVentures/GeniusNetwork/Genius-MOS-SLM/cmake-build-debug/CMakeFiles/edit_cache.dir
+/Volumes/SSDevelopment/Development/GeniusVentures/GeniusNetwork/Genius-MOS-SLM/cmake-build-debug/CMakeFiles/rebuild_cache.dir
