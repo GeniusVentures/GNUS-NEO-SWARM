@@ -23,6 +23,7 @@ Combining PRD + TDD + System Architecture Blueprint
 8. [08 Roadmap and Risks](./08-roadmap-and-risks.md)
 9. [09 Future Compatibility and Positioning](./09-future-and-positioning.md)
 10. [10 AI Safety](./10-ai-safety.md)
+11. [11 Distributed Swarm Thinking Context Architecture](./11-distributed-swarm-thinking-context.m)
 
 ---
 

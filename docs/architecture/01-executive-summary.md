@@ -6,7 +6,14 @@
 
 # **1\. Executive Summary**
 
-Genius LLM v1 is a distributed, modular, reputation-weighted large language model system built on GNUS.ai infrastructure.
+Genius LLM v.01 is a distributed, modular, reputation-weighted large language model system built on GNUS.ai infrastructure.
+
+* Genius LLM is evolving from a modular routed model into a distributed swarm thinking system.
+* Future operation includes:
+  * memory-guided context assembly
+  * primary/secondary expert orchestration
+  * synthesis of multiple specialist outputs
+  * inspectable thinking traces
 
 The system:
 
