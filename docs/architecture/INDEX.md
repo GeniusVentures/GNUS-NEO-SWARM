@@ -6,7 +6,7 @@
 
 This documentation set is a:
 
-Product & Technical Design Specification (PTDS)  
+Product & Technical Design Specification (PTDS)
 Combining PRD + TDD + System Architecture Blueprint
 
 ---
@@ -25,12 +25,10 @@ Combining PRD + TDD + System Architecture Blueprint
 10. [10 AI Safety](./10-ai-safety.md)
 11. [11 Distributed Swarm Thinking Context Architecture](./11-distributed-swarm-thinking-context.md)
 12. [12 Secure Agent Architecture](./12-secure-agent-architecture.md)
-
+13. [13 EGGROLL Swarm Retraining Architecture](./13-eggroll-swarm-retraining.md)
 
 ---
 
-
 ## **Suggested Reading Order**
 
-Start with the executive summary and system overview, then move through the model, routing, consensus, grounding, and agentic memory sections before reviewing execution planning, risks, and long-term positioning.
-
+Start with the executive summary and system overview, then move through the model, routing, consensus, grounding, and agentic memory sections before reviewing execution planning, risks, long-term positioning, swarm-thinking architecture, secure agent architecture, and the EGGROLL retraining layer.
