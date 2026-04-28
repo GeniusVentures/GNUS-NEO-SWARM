@@ -26,7 +26,7 @@ Combining PRD + TDD + System Architecture Blueprint
 11. [11 Distributed Swarm Thinking Context Architecture](./11-distributed-swarm-thinking-context.md)
 12. [12 Secure Agent Architecture](./12-secure-agent-architecture.md)
 13. [13 EGGROLL Swarm Retraining Architecture](./13-eggroll-swarm-retraining.md)
-
+14. [14 Personalized Cognitive Critical Thinking](./14-cognitive-retaining-system.md)
 ---
 
 ## **Suggested Reading Order**
