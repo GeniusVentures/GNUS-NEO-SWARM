@@ -1,6 +1,5 @@
-# Architecture for Facilitating AI Agents in the GNUS.ai Decentralized AI System (Chat Genius-Integrated)
-
-## Product Technical Design Specification
+# 17 Architecture for Facilitating AI Agents in the GNUS.ai Decentralized AI System (Chat Genius-Integrated)
+## 17.1 Product Technical Design Specification
 
 This document specifies the architecture for the Chat Genius AI Agents subsystem running
 on the GNUS.ai Swarm Operating System. It is integrated with the Chat Genius MVP plan and
@@ -16,9 +15,9 @@ state transitions, and implementation notes. It also incorporates the Security H
 Layer additions requested for Tool Intermediary gating, zero-trust sandboxing, signed
 WASM modules, and provenance-aware memory.
 
-### 1) Goals and Success Criteria
+### 17.1.1 Goals and Success Criteria
 
-#### 1.1 Primary goals
+#### 17.1.1.1 Primary goals
 
 Decentralized agent execution
 Route each request to the smallest set of best-fit experts across the swarm while preserving
@@ -44,7 +43,7 @@ Security by default
 No specialist, aggregator, or tool adapter may directly cause side effects without passing
 through a deterministic, auditable, capability-scoped security choke-point.
 
-#### 1.2 MVP targets (from plan)
+#### 17.1.1.2 MVP targets (from plan)
 
 Quality retention
 - Less than 0.2 perplexity drop after the teaching + compression pipeline target.
@@ -63,7 +62,7 @@ Security targets
 - 100 percent of Trusted Memory writes must contain provenance metadata and consensus
   attestation where required.
 
-#### 1.3 Non-goals for MVP
+#### 17.1.1.3 Non-goals for MVP
 
 - Full formal verification of all WASM modules.
 - Universal support for arbitrary third-party tools.
@@ -71,9 +70,9 @@ Security targets
 - Global cross-swarm consensus for all memory writes. MVP scope is local swarm consensus
   for Trusted Memory promotion.
 
-### 2) System Overview (Agent Subsystem on GNUS Swarm OS)
+### 17.1.2 System Overview (Agent Subsystem on GNUS Swarm OS)
 
-#### 2.1 Layer model
+#### 17.1.2.1 Layer model
 
 The subsystem is decomposed into layers to preserve separation of concerns and to allow
 independent scaling, auditing, and policy hardening.
@@ -129,7 +128,7 @@ independent scaling, auditing, and policy hardening.
   - secure aggregation where required
   - privacy policy enforcement
 
-##### 2.1.1 Layer interactions
+##### 17.1.2.1.1 Layer interactions
 
 The normal query path is:
 Client/API -> Router -> Experts -> Tool Intermediary (if tools proposed) -> Aggregator ->
@@ -139,7 +138,7 @@ The normal learning path is:
 Memory write candidate -> surprise gate + provenance gate -> CRDT merge -> learning queue ->
 router/specialist/subspace updates
 
-##### 2.1.2 Security hardening insertion rationale
+##### 17.1.2.1.2 Security hardening insertion rationale
 
 The Tool Intermediary layer exists specifically because tool-using agents introduce a
 fundamentally different threat model than pure generation. A specialist that can browse,
@@ -149,7 +148,7 @@ all proposal logic and all side effects. This design preserves the MoA architect
 reducing the attack surface of prompt injection, memory poisoning, hidden instructions,
 and capability escalation.
 
-#### 2.2 Node roles (typical deployment)
+#### 17.1.2.2 Node roles (typical deployment)
 
 A GNUS node may host one or more roles. Local 10-node swarms use the same interfaces as
 wide-area deployments.
@@ -192,7 +191,7 @@ wide-area deployments.
   - human approval pause logic
   - attestation generation
 
-##### 2.2.1 Node colocation rules
+##### 17.1.2.2.1 Node colocation rules
 
 - Small swarms MAY co-locate Router + Aggregator + Tool Intermediary on one node.
 - Expert worker nodes SHOULD remain isolated from the settlement role.
@@ -201,7 +200,7 @@ wide-area deployments.
 - Memory/index nodes that handle Trusted Memory SHOULD run stronger audit logging and
   stricter policy envelopes than nodes that only hold Untrusted Memory.
 
-##### 2.2.2 Trust tiers for node roles
+##### 17.1.2.2.2 Trust tiers for node roles
 
 Suggested trust ranking for routing and memory promotion:
 - Tier A: Settlement/verifier, Tool Intermediary, Trusted Memory nodes
@@ -209,11 +208,11 @@ Suggested trust ranking for routing and memory promotion:
 - Tier C: Specialist workers
 - Tier D: Opportunistic public compute nodes
 
-### 3) Core Components
+### 17.1.3 Core Components
 
-#### 3.1 Router Service (Query -> Plan)
+#### 17.1.3.1 Router Service (Query -> Plan)
 
-##### 3.1.1 Responsibilities
+##### 17.1.3.1.1 Responsibilities
 
 The Router Service is responsible for converting a user query plus policy context into a
 signed execution plan.
@@ -227,7 +226,7 @@ Responsibilities:
 - choose tool policy and memory mode
 - emit a signed execution plan suitable for settlement and auditing
 
-##### 3.1.2 Inputs
+##### 17.1.3.1.2 Inputs
 
 - user query
 - conversation context
@@ -236,7 +235,7 @@ Responsibilities:
 - swarm health/reputation signals
 - workspace/project policy
 
-##### 3.1.3 Outputs
+##### 17.1.3.1.3 Outputs
 
 Execution plan fields:
 - request_id
@@ -251,7 +250,7 @@ Execution plan fields:
 - sandbox_profile
 - plan_signature
 
-##### 3.1.4 Execution plan schema
+##### 17.1.3.1.4 Execution plan schema
 
 Example JSON schema:
 
@@ -299,7 +298,7 @@ Example JSON schema:
 }
 ```
 
-##### 3.1.5 Routing algorithm (conceptual pseudocode)
+##### 17.1.3.1.5 Routing algorithm (conceptual pseudocode)
 
 ```ruby
 function route(request, context, policy, memory_hints, swarm_state):
@@ -316,9 +315,9 @@ function route(request, context, policy, memory_hints, swarm_state):
     return sign(plan)
 ```
 
-#### 3.2 Specialist Expert Services (Micro/Nano SLMs)
+#### 17.1.3.2 Specialist Expert Services (Micro/Nano SLMs)
 
-##### 3.2.1 Responsibilities
+##### 17.1.3.2.1 Responsibilities
 
 Each Specialist Expert Service produces a proposal response optimized for a niche domain,
 format, or role.
@@ -330,14 +329,14 @@ Responsibilities:
 - optionally propose tool_calls[]
 - never directly execute side effects
 
-##### 3.2.2 Key properties
+##### 17.1.3.2.2 Key properties
 
 - domain specialization via niche data + instruction tuning
 - optional teacher prior via universal subspaces
 - versioned artifacts: model + config + policy manifest
 - signed WASM packaging for non-core specialist logic
 
-##### 3.2.3 Specialist output package schema
+##### 17.1.3.2.3 Specialist output package schema
 
 ```json
 {
@@ -363,7 +362,7 @@ Responsibilities:
 }
 ```
 
-##### 3.2.4 Signed WASM module rules
+##### 17.1.3.2.4 Signed WASM module rules
 
 All non-core specialist logic runs as signed WASM modules.
 
@@ -376,7 +375,7 @@ Requirements:
 - Direct host escape, unrestricted filesystem access, unrestricted network, and direct
   credential access are prohibited.
 
-##### 3.2.5 WASM capability manifest format
+##### 17.1.3.2.5 WASM capability manifest format
 
 Example manifest:
 
@@ -407,7 +406,7 @@ Example manifest:
 }
 ```
 
-##### 3.2.6 Tool proposals are proposals only
+##### 17.1.3.2.6 Tool proposals are proposals only
 
 Specialists may emit tool_calls[] but MUST NOT execute them.
 All tool_calls[] are proposals only. A proposal becomes executable only after:
@@ -416,9 +415,9 @@ All tool_calls[] are proposals only. A proposal becomes executable only after:
 - required human approval is obtained
 - signed attestation is produced
 
-#### 3.3 MoA Aggregator Service (Proposals -> Final Answer)
+#### 17.1.3.3 MoA Aggregator Service (Proposals -> Final Answer)
 
-##### 3.3.1 Responsibilities
+##### 17.1.3.3.1 Responsibilities
 
 - synthesize multiple proposals into a final response
 - resolve conflicts and low-confidence disagreements
@@ -427,7 +426,7 @@ All tool_calls[] are proposals only. A proposal becomes executable only after:
 - verify intermediary attestation on any tool-derived data
 - produce final metadata for memory writeback and settlement
 
-##### 3.3.2 Inputs
+##### 17.1.3.3.2 Inputs
 
 - original query + context
 - specialist proposals
@@ -435,7 +434,7 @@ All tool_calls[] are proposals only. A proposal becomes executable only after:
 - tool intermediary attestations and sanitized tool outputs
 - policy constraints
 
-##### 3.3.3 Outputs
+##### 17.1.3.3.3 Outputs
 
 - final response
 - agreement/divergence score
@@ -444,7 +443,7 @@ All tool_calls[] are proposals only. A proposal becomes executable only after:
 - memory write suggestions
 - aggregator signature
 
-##### 3.3.4 Aggregation logic pseudocode
+##### 17.1.3.3.4 Aggregation logic pseudocode
 
 ```ruby
 function aggregate(query, proposals, tool_outputs, memory, policy):
@@ -457,16 +456,16 @@ function aggregate(query, proposals, tool_outputs, memory, policy):
     return final
 ```
 
-#### 3.4 Surprise-Gated Memory Service
+#### 17.1.3.4 Surprise-Gated Memory Service
 
-###### 3.4.1 Responsibilities
+##### 17.1.3.4.1 Responsibilities
 
 - decide what to store, when to store it, and how to index it
 - provide retrieval for routing and generation grounding
 - maintain provenance and trust class metadata
 - replicate and converge memory state across the swarm
 
-##### 3.4.2 Memory classes
+##### 17.1.3.4.2 Memory classes
 
 Original logical classes:
 - Episodic
@@ -478,7 +477,7 @@ Trust partition overlay:
 - Trusted Memory
 - Untrusted Memory
 
-##### 3.4.3 Trusted Memory definition
+##### 17.1.3.4.3 Trusted Memory definition
 
 Trusted Memory includes information that may safely influence:
 - routing
@@ -493,7 +492,7 @@ A Trusted Memory candidate typically must satisfy:
 - safe_to_memorize = true from Tool Intermediary when tool-derived
 - multi-node local swarm attestation threshold
 
-##### 3.4.4 Untrusted Memory definition
+##### 17.1.3.4.4 Untrusted Memory definition
 
 Untrusted Memory includes:
 - raw or summarized web content
@@ -505,7 +504,7 @@ Untrusted Memory may be used only for grounding and reasoning support after summ
 and instruction-scrub passes. It MUST NOT directly define user invariants, routing rules,
 or system policy.
 
-##### 3.4.5 Surprise and provenance gate formula
+##### 17.1.3.4.5 Surprise and provenance gate formula
 
 Conceptually:
 
@@ -517,19 +516,19 @@ Promotion rules:
 - Else if trusted_score >= trusted_threshold: write as Trusted Memory
 - Else: write as Untrusted Memory or reject depending on policy
 
-##### 3.4.6 Retrieval rule
+##### 17.1.3.4.6 Retrieval rule
 
 Before any retrieved chunk is injected into a reasoning prompt:
 - run instruction scrubber
 - annotate provenance class
 - downgrade or exclude if policy requires trusted_only
 
-##### 3.4.7 Replication rule change
+##### 17.1.3.4.7 Replication rule change
 
 - Trusted Memory requires minimum 2/3 consensus in local swarm before CRDT merge.
 - Untrusted Memory may replicate with weaker thresholds but MUST retain provenance flags.
 
-##### 3.4.8 Memory event schema
+##### 17.1.3.4.8 Memory event schema
 
 ```json
 {
@@ -549,15 +548,15 @@ Before any retrieved chunk is injected into a reasoning prompt:
 }
 ```
 
-#### 3.5 Universal Subspace Service (Teaching/Distillation Plane)
+#### 17.1.3.5 Universal Subspace Service (Teaching/Distillation Plane)
 
-##### 3.5.1 Responsibilities
+##### 17.1.3.5.1 Responsibilities
 
 - maintain low-dimensional subspace bases derived from teacher models
 - train specialists by learning coefficients in that basis and optional adapters
 - package and deploy specialists across the swarm with version control
 
-##### 3.5.2 Pipeline
+##### 17.1.3.5.2 Pipeline
 
 1. Teacher analysis
 2. Universal subspace extraction
@@ -566,16 +565,16 @@ Before any retrieved chunk is injected into a reasoning prompt:
 5. Artifact packaging and signing
 6. Swarm distribution and deployment attestation
 
-#### 3.6 Task Settlement and Attestations (Fast-DAG)
+#### 17.1.3.6 Task Settlement and Attestations (Fast-DAG)
 
-##### 3.6.1 Responsibilities
+##### 17.1.3.6.1 Responsibilities
 
 - represent work as auditable tasks
 - tie compute to escrow/payout logic
 - support re-run sampling, checksums, and proof receipts
 - store references to intermediary attestations
 
-##### 3.6.2 Task record schema
+##### 17.1.3.6.2 Task record schema
 
 ```json
 {
@@ -590,31 +589,31 @@ Before any retrieved chunk is injected into a reasoning prompt:
 }
 ```
 
-#### 3.7 Privacy and Secure Collaboration (MPC)
+#### 17.1.3.7 Privacy and Secure Collaboration (MPC)
 
-##### 3.7.1 Responsibilities
+##### 17.1.3.7.1 Responsibilities
 
 - enforce privacy policies for sensitive prompts, memory, or learning signals
 - support secure aggregation where multi-node outputs must be combined without revealing
   raw inputs
 
-##### 3.7.2 MPC attachment points
+##### 17.1.3.7.2 MPC attachment points
 
 - expert inference boundary
 - aggregation boundary
 - memory write boundary
 - federated learning boundary
 
-#### 3.8 Tool Intermediary Service
+#### 17.1.3.8 Tool Intermediary Service
 
-##### 3.8.1 Purpose
+##### 17.1.3.8.1 Purpose
 
 The Tool Intermediary Service is the mandatory security choke-point between any agent logic
 and any real-world side effects, and between external tool outputs and durable memory.
 It exists to neutralize tool-output prompt injection, prompt traps, capability escalation,
 and unsafe memory contamination.
 
-##### 3.8.2 Responsibilities
+##### 17.1.3.8.2 Responsibilities
 
 The Tool Intermediary Service MUST:
 - receive every tool_calls[] from specialists or the MoA Aggregator
@@ -624,7 +623,7 @@ The Tool Intermediary Service MUST:
 - emit a signed attestation before allowing real execution or memory writeback
 - support optional human approval gating
 
-##### 3.8.3 Inputs
+##### 17.1.3.8.3 Inputs
 
 - original query + execution plan
 - proposed tool_calls[]
@@ -632,7 +631,7 @@ The Tool Intermediary Service MUST:
 - tool adapter policy profile
 - current session/user/workspace policy
 
-##### 3.8.4 Outputs
+##### 17.1.3.8.4 Outputs
 
 - dry_run_result
 - attestation
@@ -640,7 +639,7 @@ The Tool Intermediary Service MUST:
 - human_approval_required
 - rejection_reason when blocked
 
-##### 3.8.5 Dry-run result schema
+##### 17.1.3.8.5 Dry-run result schema
 
 ```json
 {
@@ -660,7 +659,7 @@ The Tool Intermediary Service MUST:
 }
 ```
 
-##### 3.8.6 Attestation schema
+##### 17.1.3.8.6 Attestation schema
 
 ```json
 {
@@ -680,7 +679,7 @@ The Tool Intermediary Service MUST:
 }
 ```
 
-##### 3.8.7 Sanitized data schema
+##### 17.1.3.8.7 Sanitized data schema
 
 ```json
 {
@@ -697,7 +696,7 @@ The Tool Intermediary Service MUST:
 }
 ```
 
-##### 3.8.8 Deterministic dry-run logic pseudocode
+##### 17.1.3.8.8 Deterministic dry-run logic pseudocode
 
 ```ruby
 function dry_run_tool_call(query, plan, tool_call, manifest, policy):
@@ -719,7 +718,7 @@ function dry_run_tool_call(query, plan, tool_call, manifest, policy):
     return simulated, sanitized, attestation, approval
 ```
 
-##### 3.8.9 Instruction scrubber pseudocode
+##### 17.1.3.8.9 Instruction scrubber pseudocode
 
 ```ruby
 function instruction_scrub(text):
@@ -740,7 +739,7 @@ function instruction_scrub(text):
     return scrubbed, findings
 ```
 
-##### 3.8.10 Trap detection categories
+##### 17.1.3.8.10 Trap detection categories
 
 The detector should support at least:
 - prompt injection phrases
@@ -751,7 +750,7 @@ The detector should support at least:
 - suspicious high-entropy payload markers in media metadata
 - encoded content markers requiring additional review
 
-##### 3.8.11 Human approval gating policy
+##### 17.1.3.8.11 Human approval gating policy
 
 Human approval should be required when one or more are true:
 - tool writes or mutates external state
@@ -760,13 +759,13 @@ Human approval should be required when one or more are true:
 - tool result contains severe risk flags
 - user/session/workspace policy requires step-by-step mode
 
-##### 3.8.12 Real execution after approval
+##### 17.1.3.8.12 Real execution after approval
 
 Only after a valid attestation and any required approval may the real tool execution happen.
 Real execution should run in a sandbox profile at least as strict as the dry-run profile,
 except for explicitly granted side-effect capabilities.
 
-##### 3.8.13 Zero-trust sandbox rules
+##### 17.1.3.8.13 Zero-trust sandbox rules
 
 Mandatory rules for all experts and intermediaries:
 - default-deny capability model
@@ -776,9 +775,9 @@ Mandatory rules for all experts and intermediaries:
 - no ambient network, filesystem, credential, or device permissions
 - clock, randomness, and IPC should be mediated by host policy
 
-### 4) End-to-End Data Flows
+### 17.1.4 End-to-End Data Flows
 
-#### 4.1 Primary inference flow (user query)
+#### 17.1.4.1 Primary inference flow (user query)
 
 1. Ingress receives request, authenticates session, loads policy.
 2. Memory retrieval fetches relevant context snippets.
@@ -794,7 +793,7 @@ Mandatory rules for all experts and intermediaries:
 10. Surprise-gated memory evaluates candidate updates and commits approved memory events.
 11. Settlement finalizes task record, verifies attestations, allocates payouts.
 
-##### 4.1.1 Detailed sequence notes
+##### 17.1.4.1.1 Detailed sequence notes
 
 - Experts may return immediately with an answer and optional tool proposal.
 - Aggregator may either wait for tool results or produce a provisional answer depending on
@@ -802,7 +801,7 @@ Mandatory rules for all experts and intermediaries:
 - Tool-derived outputs that fail sanitization may still be retained in audit logs but must
   not enter reasoning prompts or Trusted Memory.
 
-#### 4.2 Learning flow (surprise-driven improvement)
+#### 17.1.4.2 Learning flow (surprise-driven improvement)
 
 1. Surprise gate approves a memory update and emits a learning event.
 2. Learning events are queued by niche/domain and fed into:
@@ -811,16 +810,16 @@ Mandatory rules for all experts and intermediaries:
    - aggregator improvement
    - subspace coefficient training updates
 
-##### 4.2.1 Learning flow security note
+##### 17.1.4.2.1 Learning flow security note
 
 - Untrusted Memory MUST NOT directly enter specialist training pipelines without additional
   curation and policy approval.
 - Trusted Memory promotion criteria must be stricter for training use than for retrieval
   use.
 
-### 5) Interfaces and Data Contracts
+### 17.1.5 Interfaces and Data Contracts
 
-#### 5.1 Agent service contracts
+#### 17.1.5.1 Agent service contracts
 
 Each agent service exposes:
 - request schema
@@ -828,7 +827,7 @@ Each agent service exposes:
 - error schema
 - attestation schema where applicable
 
-#### 5.2 Processing definitions (GNUS processing schema alignment)
+#### 17.1.5.2 Processing definitions (GNUS processing schema alignment)
 
 Agent work is expressible as processing passes:
 - inference
@@ -836,7 +835,7 @@ Agent work is expressible as processing passes:
 - data_transform
 - retrain
 
-##### 5.2.1 Updated processing schema entries
+##### 17.1.5.2.1 Updated processing schema entries
 
 Suggested new schema entities:
 - ToolProposal
@@ -847,7 +846,7 @@ Suggested new schema entities:
 - MemoryProvenanceMetadata
 - TrustClass
 
-##### 5.2.2 Example ToolProposal schema
+##### 17.1.5.2.2 Example ToolProposal schema
 
 ```json
 {
@@ -864,7 +863,7 @@ Suggested new schema entities:
 }
 ```
 
-##### 5.2.3 Example ToolAttestation schema
+##### 17.1.5.2.3 Example ToolAttestation schema
 
 ```json
 {
@@ -884,22 +883,22 @@ Suggested new schema entities:
 }
 ```
 
-### 6) Reliability, Fault Tolerance, and Quality Control
+### 17.1.6 Reliability, Fault Tolerance, and Quality Control
 
-#### 6.1 Fault tolerance
+#### 17.1.6.1 Fault tolerance
 
 - retry on node failure
 - reroute to next-best expert
 - allow partial MoA completion when acceptable
 - exclude unstable nodes using health-aware routing
 
-##### 6.1.1 Tool Intermediary fault handling
+##### 17.1.6.1.1 Tool Intermediary fault handling
 
 - If intermediary unavailable, block tool execution rather than bypassing policy.
 - If dry-run times out, classify as failure and require retry or human intervention.
 - If sanitizer fails closed, tool output is unusable for reasoning and memory.
 
-#### 6.2 Quality safeguards
+#### 17.1.6.2 Quality safeguards
 
 - cross-expert agreement checks
 - fallback expert escalation for high divergence
@@ -907,13 +906,13 @@ Suggested new schema entities:
 - tool dry-run attestation verification
 - provenance-aware memory retrieval
 
-##### 6.2.1 Additional safety gates
+##### 17.1.6.2.1 Additional safety gates
 
 - aggregator rejects proposal payloads incorporating un-attested tool outputs
 - router may request trusted_only mode for high-stakes queries
 - high-risk tools require human approval by default
 
-### 7) MVP Implementation Mapping (4 Weeks)
+### 17.1.7 MVP Implementation Mapping (4 Weeks)
 
 Week 1 Foundations
 - Router baseline + expert registry + policy envelope
@@ -943,9 +942,9 @@ Week 4 Benchmarks, Hardening, and Demo
 - End-to-end dry-run + attestation tests
 - Human-in-the-loop UI hooks for tool gating
 
-### 8) Metrics and Observability
+### 17.1.8 Metrics and Observability
 
-#### 8.1 Minimum events to log per task
+#### 17.1.8.1 Minimum events to log per task
 
 - routing decision + experts chosen + confidence
 - per-expert latency, tokens, errors
@@ -954,7 +953,7 @@ Week 4 Benchmarks, Hardening, and Demo
 - settlement: attestation status + payout outcome
 - tool intermediary: dry-run status + sanitizer findings + approval state
 
-#### 8.2 Primary dashboard metrics
+#### 17.1.8.2 Primary dashboard metrics
 
 - end-to-end latency p50/p95
 - routing overhead
@@ -968,7 +967,7 @@ Week 4 Benchmarks, Hardening, and Demo
 - untrusted-to-trusted promotion rate
 - trusted memory 2/3 consensus latency
 
-#### 8.3 Recommended alerting thresholds
+#### 17.1.8.3 Recommended alerting thresholds
 
 - any direct tool execution without attestation: critical
 - Trusted Memory write without consensus state: critical
@@ -976,7 +975,7 @@ Week 4 Benchmarks, Hardening, and Demo
 - dry-run timeout p95 over threshold: warning
 - human approval queue backlog above threshold: warning
 
-### 9) Open Decisions for Next Iteration
+### 17.1.9 Open Decisions for Next Iteration
 
 - standard expert capability ontology for routing
 - attestation strictness vs latency tradeoffs
@@ -988,9 +987,9 @@ Week 4 Benchmarks, Hardening, and Demo
 - default policy templates for step-by-step human gating per user/session
 - sanitizer coverage requirements for HTML/PDF/media
 
-### 10) Implementation Notes and Recommendations
+### 17.1.10 Implementation Notes and Recommendations
 
-#### 10.1 Why tool proposals must be indirect
+#### 17.1.10.1 Why tool proposals must be indirect
 
 The architecture intentionally prevents experts from executing tools directly because expert
 models are optimized for task completion, not host security. The Tool Intermediary exists to
@@ -998,13 +997,13 @@ separate generation from authority. This makes prompt injection materially harde
 hostile content must pass through deterministic policy and sanitization before affecting the
 world.
 
-#### 10.2 Why trusted and untrusted memory must be separated
+#### 17.1.10.2 Why trusted and untrusted memory must be separated
 
 A system that learns from tools and the web will otherwise eventually poison its own
 routing and invariants. The Trusted/Untrusted split prevents short-lived, tool-derived,
 or unverified external data from silently becoming durable system guidance.
 
-#### 10.3 Why signed WASM is preferable for specialist logic
+#### 17.1.10.3 Why signed WASM is preferable for specialist logic
 
 Signed WASM provides:
 - portable packaging
@@ -1016,7 +1015,7 @@ Signed WASM provides:
 This is consistent with the GNUS Secure Agent Protocol direction and reduces the risk of
 native plugin drift and capability abuse.
 
-#### 10.4 Recommended first implementation order
+#### 17.1.10.4 Recommended first implementation order
 
 1. Enforce tool proposals as proposals only.
 2. Build Tool Intermediary dry-run + attestation path.
@@ -1026,7 +1025,7 @@ native plugin drift and capability abuse.
 6. Move specialist runtime into signed WASM with capability manifests.
 7. Harden sandbox profiles per platform.
 
-### 11) Hand-off Instructions for Next Engineer or LLM
+### 17.1.11 Hand-off Instructions for Next Engineer or LLM
 
 Expand this PTDS into implementation tickets with the following deliverables:
 
@@ -1046,7 +1045,7 @@ Expand this PTDS into implementation tickets with the following deliverables:
   - memory poisoning attempts
   - missing or forged attestations
 
-### 12) Summary
+### 17.1.12 Summary
 
 This Product Technical Design Specification preserves the original GNUS.ai Chat Genius
 agent architecture while making it substantially more implementation-ready. The design still
@@ -1056,3 +1055,6 @@ is a security hardening layer that inserts a Tool Intermediary choke-point, defa
 sandboxing, signed WASM specialists, and provenance-aware memory promotion. Together,
 these measures reduce the most important agent-specific attack classes without abandoning
 the decentralized performance and auditability goals of the original system.
+
+---
+[Previous: Distributed Swarm Thinking Context Architecture](./11-distributed-swarm-thinking-context.md) | [Architecture Index](./INDEX.md) | [Next: Eggroll Swarm Retraining](./13-eggroll-swarm-retraining.md)

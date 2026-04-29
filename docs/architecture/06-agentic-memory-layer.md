@@ -1,12 +1,6 @@
-# **06. Agentic Memory Layer (GAML v1)**
-
-[Previous: 05 Grounding and Retrieval](./05-grounding.md) | [Architecture Index](./INDEX.md) | [Next: 07 Execution and Performance](./07-execution-and-performance.md)
-
----
-
 # **8.4 GNUS Agentic Memory Layer (GAML v1)**
 
-## **Purpose**
+## **8.4.1 Purpose**
 
 The GNUS Agentic Memory Layer (GAML) introduces structured, reasoning-based long-term memory into Genius LLM v1.
 
@@ -24,7 +18,7 @@ This makes Genius LLM memory-native rather than prompt-extended.
 
 ---
 
-## **8.4.1 Architectural Position**
+## **8.4.2 Architectural Position**
 
 GAML operates between:
 
@@ -50,11 +44,11 @@ Final Response
 
 ---
 
-## **8.4.2 Memory Object Model**
+## **8.4.3 Memory Object Model**
 
 All long-term memory is stored as structured objects:
 
-```
+```ruby
 MemoryObject {
   id: UUID
   entity: string
@@ -76,7 +70,7 @@ No vector embeddings are required.
 
 ---
 
-## **8.4.3 Ingestion Pipeline (Observer Agents)**
+## **8.4.4 Ingestion Pipeline (Observer Agents)**
 
 When new information enters the system (conversation, task result, user preference), GAML executes three lightweight observer agents:
 
@@ -88,7 +82,7 @@ Ingestion overhead: ~10–20% compute per task.
 
 ---
 
-## **8.4.4 Agentic Retrieval Mechanism**
+## **8.4.5 Agentic Retrieval Mechanism**
 
 For each memory query, GAML launches parallel retrieval agents:
 
@@ -105,7 +99,7 @@ Fully parallelizable across swarm nodes.
 
 ---
 
-## **8.4.5 Swarm Memory Consensus**
+## **8.4.6 Swarm Memory Consensus**
 
 When multiple nodes return conflicting memory states:
 
@@ -120,7 +114,7 @@ This prevents memory poisoning and maintains decentralized trust integrity.
 
 ---
 
-## **8.4.6 Performance & Overhead Impact**
+## **8.4.7 Performance & Overhead Impact**
 
 Estimated impact in Swarm Mode:
 
@@ -137,7 +131,7 @@ Compared to vector-based RAG:
 
 ---
 
-## **8.4.7 Strategic Impact**
+## **8.4.8 Strategic Impact**
 
 GAML transforms Genius LLM v1 from:
 
@@ -156,6 +150,6 @@ GAML v1 is intentionally lightweight.
 Future versions may hybridize with semantic indexing if required.
 
 ---
+[Previous: Grounding and Retrieval](./05-grounding.md) | [Architecture Index](./INDEX.md) | [Next: Execution and Performance](./07-execution-and-performance.md)
 
-[Previous: 05 Grounding and Retrieval](./05-grounding.md) | [Architecture Index](./INDEX.md) | [Next: 07 Execution and Performance](./07-execution-and-performance.md)
 

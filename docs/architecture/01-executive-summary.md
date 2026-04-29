@@ -1,10 +1,4 @@
-# **01. Executive Summary**
-
-[Architecture Index](./INDEX.md) | [Next: 02 System Overview](./02-system-overview.md)
-
----
-
-# **1\. Executive Summary**
+# **1. Executive Summary**
 
 Genius LLM v.01 is a distributed, modular, reputation-weighted large language model system built on GNUS.ai infrastructure.
 
@@ -29,9 +23,9 @@ This is a Specialized Adaptable Intelligence Fabric.
 
 ---
 
-# **2\. System Objectives**
+# **2. System Objectives**
 
-### **Primary Goals**
+## **2.1. Primary Goals**
 
 1. ✅ Distributed inference across GNUS nodes.
 2. ✅ FP4 v3 quantized core model.
@@ -40,7 +34,7 @@ This is a Specialized Adaptable Intelligence Fabric.
 5. ✅ Knowledge grounding via Grokipedia.
 6. ✅ Measurable improvement vs naive single-model baseline.
 
-### **Secondary Goals**
+## **2.2. Secondary Goals**
 
 * Energy-efficient inference.
 * Scalability across nodes.
@@ -48,5 +42,5 @@ This is a Specialized Adaptable Intelligence Fabric.
 
 ---
 
-[Architecture Index](./INDEX.md) | [Next: 02 System Overview](./02-system-overview.md)
+[Architecture Index](./INDEX.md) | [Next: System Overview](./02-system-overview.md)
 

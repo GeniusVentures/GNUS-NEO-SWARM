@@ -1,12 +1,11 @@
-# 11 Distributed Swarm Thinking Context Architecture
-
-## Purpose
+# 16 Distributed Swarm Thinking Context Architecture
+## 16.1 Purpose
 
 This document extends the Genius LLM v1 architecture with a swarm-native thinking context model that explains how routing, memory, specialists, synthesis, and user-visible reasoning traces work together. It is intended to complement the existing v1 documents rather than replace them.
 
 The goal is to make Genius LLM more than a routed collection of specialists. Instead, the system should support structured collaborative reasoning across local and distributed workers, while keeping the reasoning process inspectable, modular, and efficient.
 
-## Why this section exists
+## 16.2 Why this section exists
 
 The current v1 documentation describes:
 
@@ -26,7 +25,7 @@ That is a strong MVP foundation, but it does not yet fully describe the emerging
 
 This document formalizes those concepts so future routing, specialist, and quantization decisions have a shared reference.
 
-## Architectural intent
+## 16.3 Architectural intent
 
 Genius LLM should evolve from a simple routed model into a distributed swarm reasoning system with five cooperating layers:
 
@@ -38,31 +37,31 @@ Genius LLM should evolve from a simple routed model into a distributed swarm rea
 
 This allows the system to divide cognitive labor across small, specialized models instead of forcing one dense model to perform planning, solving, verification, formatting, and reconciliation all at once.
 
-## Core design principles
+## 16.4 Core design principles
 
-### 1. Structured collaborative reasoning over monolithic reasoning
+### 16.4.1 Structured collaborative reasoning over monolithic reasoning
 
 Instead of distilling one global reasoning style into one model, Genius LLM should let multiple specialists contribute distinct reasoning functions such as planning, solving, checking, and refinement.
 
-### 2. Memory-guided context instead of brute-force long context
+### 16.4.2 Memory-guided context instead of brute-force long context
 
 The system should retrieve and assemble compact, high-value context using Bridge Blocks, facts, and user preferences rather than pushing large raw histories into the prompt.
 
-### 3. Inspectable swarm thinking
+### 16.4.3 Inspectable swarm thinking
 
 The system should preserve a structured record of which specialists were called, what context they used, what they produced, and how the final answer was formed.
 
-### 4. Reputation-aware specialization
+### 16.4.4 Reputation-aware specialization
 
 Consensus and routing should consider specialist-specific reputation rather than relying only on generic node quality.
 
-### 5. Quantization-aware modularity
+### 16.4.5 Quantization-aware modularity
 
 Specialist boundaries should be chosen so that FP4 Ultra, Turbo Quant, and Sparse-V can be applied efficiently to the core model, specialists, and execution stages without unnecessary coupling.
 
-## System overview
+## 16.5 System overview
 
-### High-level flow
+### 16.5.1 High-level flow
 
 1. User sends a request.
 2. Router and memory governor determine task type, complexity, and required context.
@@ -73,9 +72,9 @@ Specialist boundaries should be chosen so that FP4 Ultra, Turbo Quant, and Spars
 7. A structured thinking trace is recorded and optionally exposed in the interface.
 8. New facts and Bridge Blocks are written back to memory.
 
-## Thinking context model
+## 16.6 Thinking context model
 
-### Definition
+### 16.6.1 Definition
 
 A thinking context is the structured, inspectable representation of how the swarm arrived at an answer.
 
@@ -89,15 +88,15 @@ It is not raw hidden chain-of-thought. Instead, it is a high-level event and art
 - synthesis decisions
 - final answer lineage
 
-### Why this matters
+### 16.6.2 Why this matters
 
 This lets Genius LLM provide the benefits of inspectable reasoning without depending on exposing unrestricted internal token-level chain-of-thought.
 
 It also creates a reusable debugging and training artifact for improving routing, verification, and consensus.
 
-## Memory and context construction
+## 16.7 Memory and context construction
 
-### Bridge Blocks
+### 16.7.1 Bridge Blocks
 
 Bridge Blocks are structured memory chunks that summarize short windows of prior interaction, task state, or workflow history. They should be small enough to retrieve efficiently and rich enough to preserve multi-step context.
 
@@ -110,7 +109,7 @@ Suggested contents:
 - timestamps
 - confidence and freshness metadata
 
-### Fact store
+### 16.7.2 Fact store
 
 The fact store contains typed memory entries such as:
 
@@ -120,24 +119,24 @@ The fact store contains typed memory entries such as:
 - active branch, environment, or file references
 - confirmed constraints and invariants
 
-### Profile layer
+### 16.7.3 Profile layer
 
 A profile layer stores stable user or project preferences such as tone, preferred language, formatting preferences, and workflow constraints.
 
-### Retrieval flow
+### 16.7.4 Retrieval flow
 
 1. Lightweight prefilter based on tags, recency, task type, and entities.
 2. Memory governor selects the most relevant Bridge Blocks and facts.
 3. Temporal and policy conflicts are resolved.
 4. A compact context packet is generated for experts.
 
-## Specialist taxonomy
+## 16.8 Specialist taxonomy
 
 The current v1 documents describe the Semantic Core, Grammar Specialist, and Math Specialist. The swarm architecture suggests a more explicit distinction between role specialists and domain specialists.
 
-### Role specialists
+### 16.8.1 Role specialists
 
-#### Planner and Memory Governor Specialist
+#### 16.8.1.1 Planner and Memory Governor Specialist
 
 Responsibilities:
 
@@ -149,7 +148,7 @@ Responsibilities:
 
 This can initially be a mode of the existing router and later become a distinct specialist or adapter.
 
-#### Primary Draft Specialist
+#### 16.8.1.2 Primary Draft Specialist
 
 Responsibilities:
 
@@ -159,7 +158,7 @@ Responsibilities:
 
 This may be the Semantic Core in some requests, but should be treated as a role with explicit performance targets.
 
-#### Verifier Specialist
+#### 16.8.1.3 Verifier Specialist
 
 Responsibilities:
 
@@ -167,7 +166,7 @@ Responsibilities:
 - compare draft outputs against retrieved facts and tool results
 - flag contradictions, omissions, and invalid assumptions
 
-#### Synthesizer or Arbiter Specialist
+#### 16.8.1.4 Synthesizer or Arbiter Specialist
 
 Responsibilities:
 
@@ -176,7 +175,7 @@ Responsibilities:
 - preserve the strongest parts of each contributor
 - generate a trace of what changed and why
 
-#### Refiner and Formatter Specialist
+#### 16.8.1.5 Refiner and Formatter Specialist
 
 Responsibilities:
 
@@ -185,17 +184,17 @@ Responsibilities:
 - apply user or project style preferences
 - separate language cleanup from logical verification
 
-### Domain specialists
+### 16.8.2 Domain specialists
 
-#### Numeric Specialist
+#### 16.8.2.1 Numeric Specialist
 
 Focused on arithmetic, ratios, finance-style calculations, word problems, and numeric decomposition.
 
-#### Symbolic Math Specialist
+#### 16.8.2.2 Symbolic Math Specialist
 
 Focused on algebraic manipulation, equations, symbolic forms, and mathematically structured derivations.
 
-#### Tool and Execution Specialist
+#### 16.8.2.3 Tool and Execution Specialist
 
 Focused on:
 
@@ -205,23 +204,23 @@ Focused on:
 - retry logic
 - integrating tool outputs safely into ongoing reasoning
 
-#### Code Specialist
+#### 16.8.2.4 Code Specialist
 
 Focused on source-level reasoning, patch generation, implementation details, and development workflows.
 
-#### Grounding Specialist
+#### 16.8.2.5 Grounding Specialist
 
 Focused on retrieval-backed answer shaping, claim alignment, and evidence-aware response drafting.
 
-## Recommended evolution from current v1 specialists
+## 16.9 Recommended evolution from current v1 specialists
 
-### Current v1 state
+### 16.9.1 Current v1 state
 
 - Semantic Core
 - Grammar Specialist
 - Math Specialist
 
-### Recommended near-term v1.5 state
+### 16.9.2 Recommended near-term v1.5 state
 
 - Semantic Core
 - Planner and Memory Governor
@@ -229,7 +228,7 @@ Focused on retrieval-backed answer shaping, claim alignment, and evidence-aware 
 - Math Verifier
 - Refiner and Formatter Specialist
 
-### Recommended medium-term state
+### 16.9.3 Recommended medium-term state
 
 - Semantic Core
 - Planner and Memory Governor
@@ -243,9 +242,9 @@ Focused on retrieval-backed answer shaping, claim alignment, and evidence-aware 
 - Grounding Specialist
 - Code Specialist
 
-## Routing model
+## 16.10 Routing model
 
-### MVP routing
+### 16.10.1 MVP routing
 
 The current rule-based router can be extended without major architectural changes.
 
@@ -260,7 +259,7 @@ Suggested routing heuristics:
 - ambiguous or multi-part task: Planner and Memory Governor first
 - high complexity or uncertainty: swarm mode with synthesis
 
-### Future learned routing
+### 16.10.2 Future learned routing
 
 A learned router can later use features such as:
 
@@ -272,13 +271,13 @@ A learned router can later use features such as:
 - disagreement between nodes or specialists
 - required grounding level
 
-## Execution patterns
+## 16.11 Execution patterns
 
-### 1. Core-only response
+### 16.11.1 Core-only response
 
 For simple requests, the Semantic Core can answer directly.
 
-### 2. Sequential specialist chain
+### 16.11.2 Sequential specialist chain
 
 The system can run:
 
@@ -286,11 +285,11 @@ The system can run:
 
 This is useful on a single node or where network overhead must be minimized.
 
-### 3. Distributed swarm execution
+### 16.11.3 Distributed swarm execution
 
 A fast primary expert generates a draft while secondary experts review or augment it in parallel. A synthesis stage combines outputs into one final answer.
 
-### 4. Streaming draft with delayed refinement
+### 16.11.4 Streaming draft with delayed refinement
 
 The system may stream the primary draft to the user immediately while:
 
@@ -300,7 +299,7 @@ The system may stream the primary draft to the user immediately while:
 
 This provides low latency while preserving swarm quality improvements.
 
-## Thinking trace schema
+## 16.12 Thinking trace schema
 
 A thinking trace should be a structured artifact, not an opaque text blob.
 
@@ -318,7 +317,7 @@ Suggested fields:
 - final answer ID
 - reputation updates triggered
 
-### Example trace sections
+### 16.12.1 Example trace sections
 
 - Routing
 - Memory used
@@ -327,15 +326,15 @@ Suggested fields:
 - Synthesis changes
 - Final response lineage
 
-## Relation to consensus and reputation
+## 16.13 Relation to consensus and reputation
 
 The reputation and consensus layer should evolve from broad domain scores toward role-aware and specialist-aware scores.
 
-### Current score types
+### 16.13.1 Current score types
 
 The current design tracks global and skill-oriented scores such as math and grammar.
 
-### Recommended future score types
+### 16.13.2 Recommended future score types
 
 - Planner score
 - Numeric solve score
@@ -347,25 +346,25 @@ The current design tracks global and skill-oriented scores such as math and gram
 
 This allows the swarm to weight outputs not only by node quality but also by demonstrated competence in specific reasoning roles.
 
-## Interaction with FP4 Ultra, Turbo Quant, and Sparse-V
+## 16.14 Interaction with FP4 Ultra, Turbo Quant, and Sparse-V
 
-### Semantic Core
+### 16.14.1 Semantic Core
 
 The Semantic Core is the best target for aggressive compression, because it is always active and dominates memory footprint.
 
-### Small specialists
+### 16.14.2 Small specialists
 
 Role and domain specialists can often be smaller and more targeted. This makes them strong candidates for task-specific quantization strategies, including more aggressive compression where accuracy permits.
 
-### Verifier and router models
+### 16.14.3 Verifier and router models
 
 Verifier, planner, and formatting specialists may benefit from different compression tradeoffs than the primary draft model. They often prioritize consistency and control over raw generative breadth.
 
-### Sparse-V implications
+### 16.14.4 Sparse-V implications
 
 Sparse-V style execution is especially attractive for verifier, planner, and gating models if activation patterns are predictable and routing decisions can be made cheaply.
 
-### Open quantization questions
+### 16.14.5 Open quantization questions
 
 The existing documentation does not yet define:
 
@@ -376,7 +375,7 @@ The existing documentation does not yet define:
 
 These should be documented in future revisions.
 
-## LoRA and distillation implications
+## 16.15 LoRA and distillation implications
 
 The current architecture discussions suggest two possible implementation paths:
 
@@ -385,7 +384,7 @@ The current architecture discussions suggest two possible implementation paths:
 
 Both are compatible with the swarm-thinking design, but the documentation does not yet lock in one choice.
 
-### Recommended documentation additions
+### 16.15.1 Recommended documentation additions
 
 The architecture set should later specify:
 
@@ -395,7 +394,7 @@ The architecture set should later specify:
 - what teacher data is used for each specialist
 - what evaluation sets measure each specialist role
 
-### Distillation targets by role
+### 16.15.2 Distillation targets by role
 
 Potential distillation targets include:
 
@@ -407,75 +406,7 @@ Potential distillation targets include:
 
 This is different from monolithic reasoning distillation and should be described as role-specific distillation rather than only domain-specific fine-tuning.
 
-## Missing information to be added across the document set
-
-The existing 01 to 10 documents describe the v1 system well, but the following items still need explicit treatment.
-
-### In system overview documents
-
-Add:
-
-- swarm-thinking lifecycle
-- primary versus secondary expert roles
-- synthesis stage responsibilities
-- inspectable thinking trace model
-
-### In model and router documents
-
-Add:
-
-- planner and memory governor role
-- distinction between routing for latency and routing for quality
-- specialist selection for verification and synthesis
-
-### In grounding documents
-
-Add:
-
-- when grounding is invoked before versus after drafting
-- how grounding interacts with verifier and synthesizer roles
-
-### In reputation and consensus documents
-
-Add:
-
-- specialist-role scores beyond math and grammar
-- how synthesis and verification outputs update reputation
-- disagreement handling between solver and verifier specialists
-
-### In execution documents
-
-Add:
-
-- streaming draft plus delayed refinement mode
-- cross-node pub-sub draft propagation
-- single-node chained specialist execution versus distributed execution
-
-### In memory documents
-
-Add:
-
-- Bridge Block schema
-- fact schema
-- trace schema
-- memory writeback rules after synthesis
-
-### In future-positioning documents
-
-Add:
-
-- how swarm thinking differentiates Genius from monolithic reasoning models
-- why inspectable collaborative reasoning matters strategically
-
-## Proposed updates to INDEX.md
-
-Add this document to the table of contents after the existing ten sections.
-
-Suggested entry:
-
-- [11 Distributed Swarm Thinking Context Architecture](11-distributed-swarm-thinking-context.md)
-
-## Summary
+## 16.16 Summary
 
 The distributed swarm thinking context architecture turns Genius LLM from a simple modular model into a collaborative reasoning system.
 
@@ -489,3 +420,6 @@ It does this by making the following explicit:
 - future specialist-aware consensus
 
 This architecture is the bridge between the current Genius LLM v1 MVP and a more advanced distributed SLM swarm capable of transparent, modular, and reputation-aware reasoning.
+
+---
+[Previous: AI Safety](./10-ai-safety.md) | [Architecture Index](./INDEX.md) | [Next: Secure Agent Architecture](./12-secure-agent-architecture.md)

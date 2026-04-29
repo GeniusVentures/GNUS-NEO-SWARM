@@ -1,1 +1,4 @@
 .DS_Store
+gnus-poc/data/analysis
+gnus-poc/data/specialists
+gnus-poc/models/specialists_mlx

@@ -1,12 +1,5 @@
-# **13. EGGROLL Swarm Retraining Architecture**
-
-[Previous: 12 Secure Agent Architecture](./12-secure-agent-architecture.md) | [Architecture Index](./INDEX.md)
-
----
-
-# **16. EGGROLL Swarm Retraining Architecture**
-
-## **16.1 Purpose**
+# **18. EGGROLL Swarm Retraining Architecture**
+## **18.1 Purpose**
 
 This document defines how Genius LLM extends beyond distributed inference into distributed retraining using an EGGROLL-style evolutionary optimization workflow mapped onto GNUS.ai swarm infrastructure.
 
@@ -17,7 +10,7 @@ This architecture treats retraining as a first-class GNUS.ai operating system pr
 
 ---
 
-## **16.2 Architectural Position**
+## **18.2 Architectural Position**
 
 Within the Genius LLM system, the major architectural roles become:
 
@@ -37,7 +30,7 @@ EGGROLL therefore complements the current design rather than replacing it.
 
 ---
 
-## **16.3 Why EGGROLL Fits GNUS.ai**
+## **18.3 Why EGGROLL Fits GNUS.ai**
 
 Traditional distributed backpropagation assumes:
 
@@ -76,38 +69,38 @@ That property aligns naturally with:
 
 ---
 
-## **16.4 Design Principles**
+## **18.4 Design Principles**
 
 The EGGROLL retraining layer follows these principles:
 
-### **16.4.1 Locality First**
+### **18.4.1 Locality First**
 
 Training work should preferentially remain within local beehives or sub-swarms that already hold the relevant model, adapter, task shard, or domain context.
 
-### **16.4.2 Deterministic Reconstruction over Tensor Shipment**
+### **18.4.2 Deterministic Reconstruction over Tensor Shipment**
 
 Low-rank perturbations should be reconstructed from deterministic seeds rather than transmitted as full tensors.
 
-### **16.4.3 Compact Fitness over Gradient Exchange**
+### **18.4.3 Compact Fitness over Gradient Exchange**
 
 Workers should return compact fitness signals, validation metadata, and attestations rather than full gradients or optimizer state.
 
-### **16.4.4 Adapter-Oriented Evolution**
+### **18.4.4 Adapter-Oriented Evolution**
 
 The preferred first retraining targets are specialist adapters or specialist micro-models rather than full core-model retraining.
 
-### **16.4.5 Reputation-Gated Promotion**
+### **18.4.5 Reputation-Gated Promotion**
 
 No retrained artifact should be promoted by raw fitness alone.
 Promotion requires validation, safety checks, and reputation-aware acceptance.
 
-### **16.4.6 Hierarchical Swarm Aggregation**
+### **18.4.6 Hierarchical Swarm Aggregation**
 
 Retraining should scale from local room coordinators to higher-level aggregators rather than assuming a single global coordinator.
 
 ---
 
-## **16.5 Relationship to LoRA and Mixture of Specialists**
+## **18.5 Relationship to LoRA and Mixture of Specialists**
 
 EGGROLL does not eliminate LoRA, adapter-based tuning, or specialist modularity.
 
@@ -125,7 +118,7 @@ This makes Genius LLM a system that can evolve specialist capability using swarm
 
 ---
 
-## **16.6 Core Training Primitive**
+## **18.6 Core Training Primitive**
 
 The basic EGGROLL retraining primitive is:
 
@@ -148,7 +141,7 @@ This primitive is intentionally compact and swarm-friendly.
 
 ---
 
-## **16.7 GNUS Processing Room Mapping**
+## **18.7 GNUS Processing Room Mapping**
 
 EGGROLL retraining should be implemented over GNUS processing rooms.
 
@@ -165,7 +158,7 @@ It can reuse the processing-room model already used for distributed work assignm
 
 ---
 
-## **16.8 Beehives and Locality-Aware Sub-Swarms**
+## **18.8 Beehives and Locality-Aware Sub-Swarms**
 
 A beehive is a locality-aware sub-swarm that shares one or more of the following:
 
@@ -191,7 +184,7 @@ Higher-level swarm retraining should aggregate across beehives rather than forci
 
 ---
 
-## **16.9 Deterministic Perturbation Reconstruction**
+## **18.9 Deterministic Perturbation Reconstruction**
 
 Perturbations should be reconstructed from deterministic seeds rather than stored or transmitted in full.
 
@@ -219,7 +212,7 @@ This enables:
 
 ---
 
-## **16.10 Worker Execution Model**
+## **18.10 Worker Execution Model**
 
 A retraining worker performs the following steps:
 
@@ -235,7 +228,7 @@ This workload is intentionally closer to inference than to classical synchronize
 
 ---
 
-## **16.11 Fitness Packet Design**
+## **18.11 Fitness Packet Design**
 
 Fitness packets should be small, signed, and auditable.
 
@@ -262,7 +255,7 @@ Model-size-independent communication is a core design goal.
 
 ---
 
-## **16.12 Aggregation Model**
+## **18.12 Aggregation Model**
 
 The local coordinator aggregates worker fitness packets into a weighted update.
 
@@ -285,7 +278,7 @@ This preserves locality while allowing wider adoption of successful specialist u
 
 ---
 
-## **16.13 Reputation and Validation Extensions**
+## **18.13 Reputation and Validation Extensions**
 
 Retraining introduces new trust problems because workers return compact scalar-like signals that are cheap to fake.
 
@@ -309,18 +302,18 @@ These extend the current reputation architecture rather than replacing it.
 
 ---
 
-## **16.14 Embedded Retraining Loop**
+## **18.14 Embedded Retraining Loop**
 
 The Genius LLM system should support an embedded retraining loop.
 
-### **16.14.1 Normal Inference Path**
+### **18.14.1 Normal Inference Path**
 
 1. Router selects core + specialists.
 2. Swarm executes inference.
 3. Aggregator produces final result.
 4. Grounding, safety, and memory processes evaluate outcome quality.
 
-### **16.14.2 Learning Event Creation**
+### **18.14.2 Learning Event Creation**
 
 A learning event may be emitted when one or more are true:
 
@@ -331,7 +324,7 @@ A learning event may be emitted when one or more are true:
 * user feedback is strongly positive or negative
 * repeated workflow success creates a strong pattern
 
-### **16.14.3 Retraining Conversion**
+### **18.14.3 Retraining Conversion**
 
 The learning event becomes a retraining job targeting a specific component such as:
 
@@ -344,7 +337,7 @@ The learning event becomes a retraining job targeting a specific component such 
 * code specialist
 * synthesizer or arbiter
 
-### **16.14.4 Artifact Publication**
+### **18.14.4 Artifact Publication**
 
 If validation passes, the new adapter or specialist version is:
 
@@ -358,13 +351,13 @@ This makes retraining part of normal swarm operation rather than a separate offl
 
 ---
 
-## **16.15 Best Initial Retraining Targets**
+## **18.15 Best Initial Retraining Targets**
 
 The first retraining targets should be specialist components with clear reward functions.
 
 Recommended initial targets:
 
-### **16.15.1 Numeric Specialist / Math Verifier**
+### **18.15.1 Numeric Specialist / Math Verifier**
 
 Reward signals:
 
@@ -372,7 +365,7 @@ Reward signals:
 * symbolic verification success
 * arithmetic consistency
 
-### **16.15.2 Router / Planner Specialist**
+### **18.15.2 Router / Planner Specialist**
 
 Reward signals:
 
@@ -380,7 +373,7 @@ Reward signals:
 * latency-adjusted utility
 * specialist selection accuracy
 
-### **16.15.3 Formatter / Schema Specialist**
+### **18.15.3 Formatter / Schema Specialist**
 
 Reward signals:
 
@@ -389,7 +382,7 @@ Reward signals:
 * formatting correctness
 * user preference match
 
-### **16.15.4 Grounding Specialist**
+### **18.15.4 Grounding Specialist**
 
 Reward signals:
 
@@ -397,7 +390,7 @@ Reward signals:
 * contradiction reduction
 * improved citation alignment
 
-### **16.15.5 Code Specialist**
+### **18.15.5 Code Specialist**
 
 Reward signals:
 
@@ -410,7 +403,7 @@ These targets are preferred because they are easier to score and safer to valida
 
 ---
 
-## **16.16 Safety and Governance Constraints**
+## **18.16 Safety and Governance Constraints**
 
 EGGROLL retraining must follow the same safety and trust principles as inference.
 
@@ -427,7 +420,7 @@ This ensures retraining does not become a backdoor for poisoning the specialist 
 
 ---
 
-## **16.17 Constraints and Non-Goals**
+## **18.17 Constraints and Non-Goals**
 
 This architecture does not imply that arbitrary low-end devices can immediately retrain large dense models without other design changes.
 
@@ -450,37 +443,37 @@ Full-core training should be treated as a later-stage research direction.
 
 ---
 
-## **16.18 Rollout Plan**
+## **18.18 Rollout Plan**
 
-### **Phase 1 — Single-Machine Proof**
+### **18.18.1 Phase 1 — Single-Machine Proof**
 
 * deterministic perturbation reconstruction
 * specialist adapter target
 * compact fitness aggregation
 * validation loop
 
-### **Phase 2 — Local Beehive**
+### **18.18.2 Phase 2 — Local Beehive**
 
 * 10 to 50 heterogeneous peers
 * one room host
 * local task shards
 * direct fitness packet return
 
-### **Phase 3 — GNUS Processing Room Integration**
+### **18.18.3 Phase 3 — GNUS Processing Room Integration**
 
 * training-room lifecycle
 * IPFS-lite artifact addressing
 * gRPC or libp2p coordination integration
 * signed worker results
 
-### **Phase 4 — Reputation and Redundancy**
+### **18.18.4 Phase 4 — Reputation and Redundancy**
 
 * duplicate assignments
 * challenge tasks
 * trainer score updates
 * suspicious worker quarantine
 
-### **Phase 5 — Hierarchical Swarm Aggregation**
+### **18.18.5 Phase 5 — Hierarchical Swarm Aggregation**
 
 * beehive aggregators
 * cross-beehive promotion
@@ -489,7 +482,7 @@ Full-core training should be treated as a later-stage research direction.
 
 ---
 
-## **16.19 Strategic Positioning**
+## **18.19 Strategic Positioning**
 
 The strategic significance of this layer is that it makes training behave more like decentralized inference.
 
@@ -510,7 +503,7 @@ Together, these form a distributed adaptive intelligence system rather than only
 
 ---
 
-## **16.20 Summary**
+## **18.20 Summary**
 
 EGGROLL Swarm Retraining adds a new capability to Genius LLM:
 
@@ -526,4 +519,5 @@ It completes it by giving the swarm a native mechanism for improving its special
 
 ---
 
-[Previous: 12 Secure Agent Architecture](./12-secure-agent-architecture.md) | [Architecture Index](./INDEX.md)
+[Previous: Secure Agent Architecture](./12-secure-agent-architecture.md) | [Architecture Index](./INDEX.md) | [Next: Targeted Retraining and Hierarchical Critical Thinking Specialists](./14-cognitive-retaining-system.md)
+

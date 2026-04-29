@@ -1,10 +1,5 @@
-# **04. Reputation and Consensus**
 
-[Previous: 03 Model and Router](./03-model-and-router.md) | [Architecture Index](./INDEX.md) | [Next: 05 Grounding and Retrieval](./05-grounding.md)
-
----
-
-# **7\. Reputation-Based Consensus System**
+# **7 Reputation-Based Consensus System**
 
 This is the core differentiator.
 
@@ -14,14 +9,16 @@ This is the core differentiator.
 
 Each node maintains:
 
+```json
 Node {  
-Identity\_key  
-Global\_score  
-Math\_score  
-Grammar\_score  
-Latency\_score  
-Consistency\_score  
+  Identity_key  
+  Global_score  
+  Math_score  
+  Grammar_score  
+  Latency_score  
+  Consistency_score  
 }
+```
 
 Stored via:
 
@@ -35,64 +32,64 @@ Stored via:
 
 After each task:
 
-### **Accuracy Component**
+### **7.2.1 Accuracy Component**
 
 If ground truth available:
 
-Δscore \= α \* (accuracy \- baseline\_accuracy)
+Δscore = α * (accuracy - baseline_accuracy)
 
 If no ground truth:
 
-Δscore \= β \* (agreement\_with\_weighted\_consensus)
+Δscore = β * (agreement_with_weighted_consensus)
 
 ---
 
-### **Latency Component**
+### **7.2.2 Latency Component**
 
-Δscore\_latency \= \-γ \* (latency / median\_latency)
-
----
-
-### **Consistency Component**
-
-Δscore\_consistency \= δ \* (perplexity\_inverse\_normalized)
+Δscore_latency = -γ * (latency / median_latency)
 
 ---
 
-### **Final Update**
+### **7.2.3 Consistency Component**
 
-new\_score \= old\_score  
-\+ Δscore  
-\+ Δscore\_latency  
-\+ Δscore\_consistency
+Δscore_consistency = δ * (perplexity_inverse_normalized)
 
-Scores clipped to range \[0, 1\].
+---
+
+### **7.2.4 Final Update**
+
+new_score = old_score  
++ Δscore  
++ Δscore_latency  
++ Δscore_consistency
+
+Scores clipped to range [0, 1].
 
 ---
 
 ## **7.3 Weighted Consensus Algorithm**
 
-Each node i returns output O\_i with:
+Each node i returns output O_i with:
 
-* perplexity p\_i
-* reputation r\_i
+* perplexity p_i
+* reputation r_i
 
 Compute:
 
-weight\_i \= r\_i / (p\_i \+ ε)
+weight_i = r_i / (p_i + ε)
 
 Final output selected by:
 
 Option A (Weighted Voting):
 
-Select O\_k where Σ weight\_i(O\_i \== O\_k) is max
+Select O_k where Σ weight_i(O_i == O_k) is max
 
 Option B (Best Weighted Score):
 
-Select O\_i maximizing weight\_i
+Select O_i maximizing weight_i
 
 ---
-# **7.4 Consensus Engine Architecture (Protocol Layer)**
+## **7.4 Consensus Engine Architecture (Protocol Layer)**
 
 The Genius LLM v1 consensus system operates entirely at the application layer and is independent of GNUS blockchain consensus.
 
@@ -108,7 +105,7 @@ Unlike blockchain consensus, this is a **task-level deterministic weighted quoru
 
 ---
 
-## **7.4.1 Consensus Design Principles**
+### **7.4.1 Consensus Design Principles**
 
 The system follows these principles:
 
@@ -120,7 +117,7 @@ The system follows these principles:
 
 ---
 
-## **7.4.2 Swarm Execution Flow**
+### **7.4.2 Swarm Execution Flow**
 
 1. Client submits request to a GNUS node.
 2. That node becomes the **Requestor-Orchestrator**.
@@ -145,7 +142,7 @@ Each request defines its own temporary orchestration context.
 
 ---
 
-## **7.4.3 Consensus Message Types**
+### **7.4.3 Consensus Message Types**
 
 The consensus engine defines the following message types:
 
@@ -170,7 +167,7 @@ The consensus engine defines the following message types:
 
 ---
 
-## **7.4.4 Liveness Model**
+### **7.4.4 Liveness Model**
 
 Consensus must terminate within bounded time.
 
@@ -184,7 +181,7 @@ Timeout and quorum thresholds are tunable per execution mode.
 
 ---
 
-## **7.4.5 Byzantine Tolerance**
+### **7.4.5 Byzantine Tolerance**
 
 This is a weighted stochastic agreement system.
 
@@ -208,7 +205,7 @@ System is tolerant of:
 
 ---
 
-## **7.4.6 Reputation-Gated Participation**
+### **7.4.6 Reputation-Gated Participation**
 
 Nodes with:
 
@@ -226,7 +223,7 @@ This preserves swarm integrity without central enforcement.
 
 ---
 
-## **7.4.7 Genesis Anchor Model**
+### **7.4.7 Genesis Anchor Model**
 
 The initial network state includes a Genesis node (or nodes) with:
 
@@ -241,5 +238,5 @@ However:
 
 This ensures bootstrapping without long-term centralization.
 
-[Previous: 03 Model and Router](./03-model-and-router.md) | [Architecture Index](./INDEX.md) | [Next: 05 Grounding and Retrieval](./05-grounding.md)
+[Previous: Model and Router](./03-model-and-router.md) | [Architecture Index](./INDEX.md) | [Next: Grounding and Retrieval](./05-grounding.md)
 

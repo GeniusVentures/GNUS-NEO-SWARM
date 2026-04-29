@@ -1,10 +1,4 @@
-# **05. Grounding and Retrieval**
-
-[Previous: 04 Reputation and Consensus](./04-reputation-consensus.md) | [Architecture Index](./INDEX.md) | [Next: 06 Agentic Memory Layer](./06-agentic-memory-layer.md)
-
----
-
-# **8\. Grokipedia Integration**
+# **8 Grokipedia Integration**
 
 ---
 
@@ -40,7 +34,7 @@ After generation:
 
 ---
 
-## **8.4 Extended Grounding Memory**
+### **8.3.1 Extended Grounding Memory**
 
 The GNUS Agentic Memory Layer (GAML v1) extends the grounding architecture with structured long-term memory and distributed retrieval.
 
@@ -48,5 +42,5 @@ The GNUS Agentic Memory Layer (GAML v1) extends the grounding architecture with 
 
 ---
 
-[Previous: 04 Reputation and Consensus](./04-reputation-consensus.md) | [Architecture Index](./INDEX.md) | [Next: 06 Agentic Memory Layer](./06-agentic-memory-layer.md)
+[Previous: Reputation and Consensus](./04-reputation-consensus.md) | [Architecture Index](./INDEX.md) | [Next: Agentic Memory Layer](./06-agentic-memory-layer.md)
 
