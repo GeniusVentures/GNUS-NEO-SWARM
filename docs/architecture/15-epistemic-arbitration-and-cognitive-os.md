@@ -4,13 +4,13 @@
 
 This document extends the Genius Cognitive System and Genius LLM architecture with a formal Epistemic Arbitration Layer implemented as part of the emerging Cognitive OS.
 
-The purpose of this section is to describe how the Requestor Node, already responsible for synthesis and final arbitration, can evolve into a configurable epistemic control plane capable of selecting and executing multiple reasoning frameworks over Semantic Core outputs, ELM outputs, grounded facts, structured memory, and trust signals.
+The purpose of this section is to describe how the Requestor Node, already responsible for synthesis and final arbitration, can evolve into a configurable epistemic control plane capable of selecting and executing multiple reasoning frameworks over specialist outputs, grounded facts, structured memory, and trust signals.
 
 The central idea is simple:
 
 > Consensus alone determines which outputs are viable. Epistemic arbitration determines how viable outputs should be judged, challenged, and synthesized before final response emission.
 
-This architecture does not replace the existing Semantic Core, ELM system, GAML memory layer, grounding layer, or reputation-based consensus engine. Instead, it introduces a higher-order control layer that governs how all of those components are interpreted at the final stage of cognition.
+This architecture does not replace the existing Semantic Core, specialist system, GAML memory layer, grounding layer, or reputation-based consensus engine. Instead, it introduces a higher-order control layer that governs how all of those components are interpreted at the final stage of cognition.
 
 The initial motivation for this extension comes from two related observations:
 
@@ -37,7 +37,7 @@ The existing PTDS already defines many of the ingredients required for a Cogniti
 
 These include:
 
-- routed expert execution
+- routed specialist execution
 - structured memory via GAML
 - Bridge Blocks and fact-based context construction
 - grounding and validation
@@ -51,7 +51,7 @@ However, the current documentation still leaves an important architectural gap.
 The system explains:
 
 - how tasks are routed
-- how experts execute
+- how specialists execute
 - how memory is assembled
 - how trust is weighted
 - how outputs are grounded
@@ -73,7 +73,7 @@ The Genius system already contains the right primitives. This section makes thos
 
 ## 20.3 Architectural intent
 
-Genius Cognitive System should evolve from a routed expert architecture into a more complete Cognitive OS with six cooperating layers:
+Genius Cognitive System should evolve from a routed specialist architecture into a more complete Cognitive OS with six cooperating layers:
 
 1. Context and memory layer
 2. Routing and planning layer
@@ -89,7 +89,7 @@ A simplified high-level flow becomes:
 Client/API  
 -> Router and Planning Layer  
 -> Memory and Context Assembly  
--> Semantic Core and ELMs  
+-> Semantic Core and Specialists  
 -> Reputation-Weighted Consensus  
 -> Epistemic Arbitration Layer  
 -> Final Synthesis  
@@ -154,13 +154,13 @@ The reasoning machine itself should be definable through:
 - configuration schemas
 - plugin-provided implementations
 
-This gives the system the ability to evolve arbitration behavior without modifying inference kernels, router code, or expert weights.
+This gives the system the ability to evolve arbitration behavior without modifying inference kernels, router code, or specialist weights.
 
 ### 20.4.4 The Requestor Node is the correct control point
 
 The Requestor Node already receives:
 
-- expert drafts
+- specialist drafts
 - verifier outputs
 - critic outputs
 - memory packets
@@ -217,20 +217,20 @@ The Semantic Core still provides:
 
 Epistemic arbitration operates after candidate outputs exist.
 
-### 20.5.2 Relation to ELMs and experts
+### 20.5.2 Relation to specialists
 
-The arbitration layer depends on ELMs and specialists, including but not limited to:
+The arbitration layer depends on specialists, including but not limited to:
 
 - Planner and Memory Governor
-- Primary Draft ELM
-- Verifier ELM
-- Arbiter or Synthesizer ELM
-- Refiner and Formatter ELM
+- Primary Draft Specialist
+- Verifier Specialist
+- Synthesizer or Arbiter Specialist
+- Refiner and Formatter Specialist
 - Numeric Specialist
 - Symbolic Math Specialist
 - Tool and Execution Specialist
 - Code Specialist
-- Grounding ELM
+- Grounding Specialist
 - Hierarchical Critical Thinking Specialists
 
 It does not replace them.
@@ -276,7 +276,7 @@ The arbitration layer may consume:
 - Bridge Blocks
 - user or project preferences
 - confidence-scored memory objects
-- higher-trust vs lower-trust memory partitions
+- trusted vs untrusted memory partitions
 
 This gives the arbitration layer structured evidence rather than only prompt text.
 
@@ -336,7 +336,7 @@ This is the right place for epistemic arbitration because the Requestor Node alr
 - consensus-ranked outputs
 - memory packets
 - grounding signals
-- expert roles
+- specialist roles
 - reputation scores
 - latency metadata
 - policy flags
@@ -517,7 +517,7 @@ This is useful for:
 
 - multiple plausible drafts
 - uncertain world-state assumptions
-- conflicting expert outputs
+- conflicting specialist outputs
 - belief-state divergence across nodes
 - state-based contradiction handling
 
@@ -788,8 +788,6 @@ A hybrid branch may:
 
 ## 20.14 JSON-defined machine configuration
 
-### 20.14.1 Why configuration matters
-
 The machine definition should live in JSON or equivalent structured configuration.
 
 This allows:
@@ -800,7 +798,7 @@ This allows:
 - auditability
 - deterministic deployment across nodes
 
-### 20.14.2 Example machine definition
+### 20.14.1 Example machine definition
 
 ```json
 {
@@ -899,7 +897,7 @@ This allows:
 }
 ```
 
-### 20.14.3 Why this matters
+### 20.14.2 Why this matters
 
 A JSON machine like this is:
 
@@ -1086,7 +1084,7 @@ A representative `EpistemicContext` should include:
 
 - request ID
 - selected framework
-- expert drafts
+- specialist drafts
 - verifier outputs
 - HCTS outputs
 - GAML memory packets
@@ -1217,7 +1215,6 @@ Possible targets:
 - verifier usefulness
 - HCTS invocation policy
 - plugin quality scoring
-- arbitration policy tuning
 
 This makes epistemic arbitration not only a control layer but a learning signal generator.
 
@@ -1231,7 +1228,7 @@ Many systems now recognize the need for a reasoning layer above base models.
 
 What differentiates Genius is that it can combine:
 
-- routed experts
+- routed specialists
 - structured memory
 - distributed swarm execution
 - reputation-aware trust
@@ -1308,4 +1305,4 @@ It can also reason explicitly about how answers should be judged.
 
 ---
 
-[Previous: Targeted Retraining and Hierarchical Critical Thinking Specialists](./14-cognitive-retaining-system.md) | [Architecture Index](./INDEX.md)
+[Previous: Personalized Cognitive Critical Thinking](./14-cognitive-retaining-system.md) | [Architecture Index](./INDEX.md)
