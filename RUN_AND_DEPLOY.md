@@ -3,28 +3,21 @@
 > From a fresh build to a running node.
 >
 > **Current status:** The system runs in stub mode until MNN, SentencePiece,
-> libp2p, and secp256k1 are linked. See `AgentDocs/PRODUCTION_ROADMAP.md`
+> and secp256k1 are linked. See `AgentDocs/PRODUCTION_ROADMAP.md`
 > for the task list to enable each dependency.
 > Sections marked ⚠️ describe features that are not yet functional.
 
 ---
 
-## SGProcessing Phases — What They Mean
+## SGProcessing Phases
 
-The inference engine has two operating modes defined in `SGProcessingBridge`:
+**Phase 1 — Local (development/testing)**
+`Neo Swarm → Input + .mnn → SGProcessingManager → Output → Neo Swarm → Human readable`
+Use `SGProcessingManager/dev_proc_data_types`. Reference: `SuperGenius/test/src/processing_datatypes/`
 
-**Phase 1 — Direct MNN (local inference)**
-Runs the model directly on this machine using MNN.
-No network needed. This is what `--mode single` and `--mode specialist` use.
-Enable with: `--model models/mistral-7b.mnn` (no `--network` flag).
-
-**Phase 2 — GNUS Network dispatch**
-Sends the job to the SuperGenius GNUS network via gRPC.
-The swarm processes it and returns a consensus result.
-Enable with: `--mode swarm --network`.
-
-Phase 1 must work before Phase 2. The sections below follow this order —
-Phase 3 (real model) covers Phase 1, Phase 4 (swarm) covers Phase 2.
+**Phase 2 — Network (production)**
+`Neo Swarm → Input + .mnn → SuperGenius → GNUS network → Output → Neo Swarm → Human readable`
+Requires a running SuperGenius node. Phase 1 must work first.
 
 ---
 
@@ -255,44 +248,18 @@ Expected output once MNN is linked:
 
 ## Phase 4 — Swarm Mode (Multiple Nodes) ⚠️
 
-> **Not yet available.** Requires libp2p to be linked.
-> See `AgentDocs/PRODUCTION_ROADMAP.md` Task 4.1.
+> **Not yet available.** Requires Task 4.1 (connect `SubmitNetwork()` to SuperGenius gRPC).
+> See `AgentDocs/PRODUCTION_ROADMAP.md`. Requires a running SuperGenius node.
 
-Once libp2p is linked, run two nodes on the same machine:
+Once Task 4.1 is complete:
 
-**Terminal 1 — Node A:**
 ```bash
 neo-swarm \
   --model models/mistral-7b.mnn \
-  --mode swarm \
   --network \
-  --port 50051 \
-  --key node-a.key \
-  --db reputation-a.db
-```
-
-**Terminal 2 — Node B:**
-```bash
-neo-swarm \
-  --model models/mistral-7b.mnn \
-  --mode swarm \
-  --network \
-  --port 50052 \
-  --key node-b.key \
-  --db reputation-b.db
-```
-
-**Terminal 3 — Send a query:**
-```bash
-neo-swarm \
-  --model models/mistral-7b.mnn \
-  --mode swarm \
-  --network \
+  --sg-endpoint 192.168.1.10:50051 \
   --prompt "What is 1234 × 5678?"
 ```
-
-Nodes on the same LAN discover each other automatically via mDNS.
-No bootstrap configuration needed.
 
 ---
 
@@ -423,7 +390,7 @@ OPTIONS
 MODES
   single      Fast, one node, core LLM only
   specialist  Core LLM + math or grammar expert (auto-detected by router)
-  swarm       Multiple nodes, weighted consensus  ⚠️ requires libp2p
+  swarm       Multiple nodes, weighted consensus  ⚠️ requires SuperGenius gRPC (Task 4.1)
   auto        Router decides based on prompt content (default)
 
 KEY FILES

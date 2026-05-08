@@ -17,26 +17,24 @@ Tasks are ordered by dependency — do them top to bottom.
 
 ---
 
-## SGProcessing Phases — Overview
+## SGProcessing Phases
+
+**Phase 1 — Local (development/testing)**
+`Neo Swarm → Input + .mnn → SGProcessingManager → Output → Neo Swarm → Human readable`
+Use `SGProcessingManager/dev_proc_data_types`. Reference: `SuperGenius/test/src/processing_datatypes/`
+
+**Phase 2 — Network (production)**
+`Neo Swarm → Input + .mnn → SuperGenius → GNUS network → Output → Neo Swarm → Human readable`
+SuperGenius is already built at `SuperGenius/build/OSX/Release/`. Phase 2 requires a running SuperGenius node.
 
 The `SGProcessingBridge` (`src/core/sgprocessing/SGProcessingBridge.hpp`) has
-two distinct operating modes that represent the two stages of GNUS integration:
+two distinct operating modes:
 
-**Phase 1 — Direct MNN inference (local)**
-`network_mode_ = false` (default)
-The bridge calls `ProcessingManager::Create()` and `Process()` directly on the
-local machine using the MNN engine. No network required. This is the first
-milestone — get real inference working on a single node.
+**Phase 1** — `network_mode_ = false` (default)
+Calls `ProcessingManager::Create()` + `Process()` locally. No network required.
 
-**Phase 2 — GNUS network dispatch**
-`network_mode_ = true`
-The bridge dispatches the job through `gRPCForSuperGenius` to the SuperGenius
-GNUS network, where it is processed by the distributed swarm. This is the
-production target — jobs run across the network, not just locally.
-
-Currently both phases are stubbed. Phase 1 is blocked on Task 1.1 (MNN) and
-Task 1.2 (SentencePiece). Phase 2 is blocked on Task 4.1 (libp2p) and
-Task 4.2 (gRPC server) plus Phase 1 being complete first.
+**Phase 2** — `network_mode_ = true`
+Dispatches via `gRPCForSuperGenius` to a SuperGenius node. Requires Phase 1 complete first.
 
 ---
 
@@ -120,6 +118,21 @@ endif()
 
 **Done when:** Tokenizer logs `"SentencePiece loaded"` and decoded output is
 real words, not `"1234 5678 9012"`.
+
+---
+
+### Task 1.3 — Add FP4_ULTRA processor to SGProcessingManager
+**Priority: High**
+
+`FP4_ULTRA` is already in the `InputFormat` enum and `Generators.hpp` on `dev_proc_data_types`. Missing: a processor class in `SGProcessingManager/src/processors/`.
+
+**Steps:**
+1. Add `processing_processor_mnn_fp4ultra.cpp/.hpp` following the pattern of existing processors
+2. Register it in `ProcessingManager.cpp` for `DataType::FP4_ULTRA`
+3. PR into `SGProcessingManager/dev_proc_data_types`
+4. Update `SGProcessingBridge.cpp`: `case InputFormat::FP4_ULTRA: return "fp4_ultra";`
+
+**Done when:** FP4_ULTRA input passes through `ProcessingManager::Create()` + `Process()`.
 
 ---
 
@@ -270,60 +283,39 @@ without crashing.
 
 ---
 
-## Phase 4 — Networking (required for real swarm mode)
+## Phase 4 — GNUS Network Connection
 
 ---
 
-### Task 4.1 — Link libp2p for real P2P networking
+### Task 4.1 — Implement SubmitNetwork() to call SuperGenius via gRPC
 **Priority: High**
 
 **What:**
-`P2PNode` has the full libp2p integration written and commented out behind
-`#ifdef GENIUS_HAS_LIBP2P`. Without it, swarm mode falls back to single-node.
+`SGProcessingBridge::SubmitNetwork()` currently returns `Error::NotImplemented`.
+The SuperGenius network already runs — GNUS-NEO-SWARM connects to it as a client.
+Once Phase 1 works locally, it is a matter of sending the same job through SuperGenius.
 
 **Files:**
-- `cmake/CommonBuildParameters.cmake`
-- `src/network/CMakeLists.txt`
-- `src/network/P2PNode.cpp` — uncomment the gossip publish calls
+- `src/core/sgprocessing/SGProcessingBridge.cpp` — implement `SubmitNetwork()`
+- `src/core/sgprocessing/SGProcessingBridge.hpp` — add `endpoint_` to `Config`
 
 **Steps:**
-1. Add to cmake:
-```cmake
-set(libp2p_DIR "${_THIRDPARTY_BUILD_DIR}/libp2p/lib/cmake/libp2p")
-find_package(libp2p CONFIG QUIET)
-if(libp2p_FOUND)
-    add_compile_definitions(GENIUS_HAS_LIBP2P)
-endif()
-```
-2. In `P2PNode.cpp`, uncomment:
-```cpp
-// gossip_->publish(kTaskTopic, payload);
-// gossip_->publish(kCRDTTopic, crdt_data);
-```
-3. Wire up BasicHost + GossipSub initialisation in `P2PNode::Start()`.
+1. Add `endpoint_` to `SGProcessingBridge::Config`: `std::string endpoint_ = "localhost:50051";`
+2. Use `gRPCForSuperGenius` (already in `SuperGenius/gRPCForSuperGenius/`) to send the JSON schema from `BuildSchemaJson()` to the SuperGenius node
+3. Return the raw output bytes
 
-**Done when:** Two `neo-swarm` processes on the same machine discover each
-other via mDNS and exchange a task via GossipSub.
+**Done when:** `SubmitNetwork()` returns real output bytes from a SuperGenius node.
 
 ---
 
-### Task 4.2 — Replace gRPC Serve() sleep loop with real server
-**Priority: High**
+### Task 4.2 — Add --sg-endpoint CLI flag
+**Priority: Medium**
 
-**What:**
-`GeniusAPIServer::Serve()` is a `while(running_) sleep_for(100ms)` loop.
-It logs "serving on port X" but never binds to that port.
+**File:** `src/genius_node.cpp`
 
-**File:** `src/api/GeniusAPIServer.cpp`
+Add `--sg-endpoint <host:port>` to set `SGProcessingBridge::Config::endpoint_`.
 
-**Steps:**
-1. Add gRPC dependency to cmake.
-2. Implement a gRPC service that wraps `GeniusAPIServer::Process()`.
-3. The proto definition is already at `proto/genius_api.proto`.
-4. Replace the sleep loop with `grpc_server->Wait()`.
-
-**Done when:** `curl` or `grpcurl` can send a chat request to port 50051 and
-get a real response back.
+**Done when:** `neo-swarm --network --sg-endpoint 192.168.1.10:50051` dispatches to the specified node.
 
 ---
 
@@ -532,11 +524,12 @@ generated, like ChatGPT.
 |---|------|----------|--------|
 | 1.1 | Link MNN + load model | **Critical** | Real inference |
 | 1.2 | Link SentencePiece | **Critical** | Real text output |
+| 1.3 | FP4_ULTRA processor in SGProcessingManager | **High** | Neo Swarm data type |
 | 2.1 | Link secp256k1 | **High** | Real node identity |
 | 2.2 | Fix MessageSigning::Verify | **High** | Message auth |
 | 3.1 | Link RocksDB | **High** | Persistent reputation |
-| 4.1 | Link libp2p | **High** | Real swarm mode |
-| 4.2 | Real gRPC server | **High** | External API |
+| 4.1 | Connect SubmitNetwork() to SuperGenius gRPC | **High** | GNUS network dispatch |
+| 4.2 | Add --sg-endpoint CLI flag | **Medium** | Operator config |
 | 3.2 | Fix deserialize crash | **Medium** | Stability |
 | 5.2 | Fix GeniusSlmInit re-init | **Medium** | FFI correctness |
 | 6.1 | Security tests | **High** | After 2.1/2.2 |
@@ -557,11 +550,12 @@ The system is production ready when:
 
 - [ ] `GeniusAPIServer` logs `"Core model loaded"` (not stub mode)
 - [ ] Chat responses contain real natural language (not numeric token IDs)
+- [ ] FP4_ULTRA handled natively by SGProcessingManager
+- [ ] SGProcessingManager on `dev_proc_data_types` ✅ (done)
 - [ ] `NodeIdentity` uses a real secp256k1 keypair
 - [ ] `MessageSigning::Verify` rejects tampered messages
 - [ ] `ReputationStorage` persists to RocksDB across restarts
-- [ ] `P2PNode` connects to at least one real peer via libp2p
-- [ ] `GeniusAPIServer::Serve()` binds to a real port and handles requests
+- [ ] `SubmitNetwork()` dispatches to SuperGenius gRPC
 - [ ] All test suites pass including security and FFI tests
 - [ ] Flutter app runs on a real device and gets real responses
 - [ ] No hardcoded vocab size, no sleep loops, no always-true Verify

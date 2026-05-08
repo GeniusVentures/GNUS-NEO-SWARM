@@ -154,9 +154,15 @@ namespace sgns::neoswarm::core
             if ( dim > 0 ) flat_width *= dim;
         }
 
-        // Build shape array for input_nodes
+        // Build shape array for input_nodes and output_nodes
         nlohmann::json shape_json = nlohmann::json::array();
         for ( const auto &dim : shape ) shape_json.push_back( dim );
+
+        // Chunking parameters — block_len is the chunk size for processing,
+        // chunk_stride is the step between chunks.
+        // For LLM inference: block_len = sequence length, chunk_stride = block_len (no overlap)
+        const int64_t block_len    = shape.empty() ? flat_width : shape.back();
+        const int64_t chunk_stride = block_len;
 
         // Ensure URIs are absolute
         const std::string abs_model_uri = EnsureAbsoluteUri( model_uri );
@@ -190,9 +196,9 @@ namespace sgns::neoswarm::core
         input_decl["type"]             = type_str;
         input_decl["format"]           = format_str;
         input_decl["dimensions"]       = {
-            { "width",        flat_width },
-            { "block_len",    flat_width },
-            { "chunk_stride", flat_width }
+            { "width",        flat_width  },
+            { "block_len",    block_len   },
+            { "chunk_stride", chunk_stride }
         };
         doc["inputs"] = nlohmann::json::array( { input_decl } );
 
@@ -214,6 +220,7 @@ namespace sgns::neoswarm::core
         output_node["name"]   = "output";
         output_node["type"]   = "tensor";
         output_node["target"] = "output:inferenceOutput";
+        output_node["shape"]  = shape_json;
 
         nlohmann::json model_config;
         model_config["source_uri_param"] = abs_model_uri;
