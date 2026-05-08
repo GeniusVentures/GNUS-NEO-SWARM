@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package genius.api;
+
+option cc_generic_services = true;
+
+// ---------------------------------------------------------------------------
+// Client-facing gRPC service (PTDS §4.2)
+// ---------------------------------------------------------------------------
+service GeniusAPI {
+    // Synchronous inference
+    rpc Infer(InferRequest) returns (InferResponse);
+
+    // Streaming token-by-token inference
+    rpc StreamInfer(InferRequest) returns (stream InferToken);
+
+    // Node status and health
+    rpc GetNodeStatus(Empty) returns (NodeStatus);
+}
+
+message Empty {}
+
+message InferRequest {
+    string task_id    = 1;
+    string prompt     = 2;
+    int32  mode       = 3;  // 0=SingleNode, 1=Specialist, 2=Swarm
+    int32  max_tokens = 4;
+    float  temperature = 5;
+}
+
+message InferResponse {
+    string task_id         = 1;
+    string output          = 2;
+    int32  mode_used       = 3;
+    int32  route_used      = 4;
+    double total_latency_ms = 5;
+    bool   success         = 6;
+    string error_message   = 7;
+    repeated GroundingFact grounding_facts = 8;
+}
+
+message InferToken {
+    string token   = 1;
+    bool   is_last = 2;
+}
+
+message GroundingFact {
+    string source          = 1;
+    string content         = 2;
+    float  relevance_score = 3;
+}
+
+message NodeStatus {
+    string node_id       = 1;
+    bool   is_running    = 2;
+    int32  connected_peers = 3;
+    double reputation_score = 4;
+    string model_loaded  = 5;
+    string backend       = 6;
+}
