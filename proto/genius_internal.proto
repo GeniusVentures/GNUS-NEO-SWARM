@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package genius.internal;
+
+// ---------------------------------------------------------------------------
+// Inter-node messages for task broadcast and result aggregation (PTDS §4.2)
+// ---------------------------------------------------------------------------
+message TaskMessage {
+    string task_id    = 1;
+    string prompt     = 2;
+    int32  mode       = 3;
+    int32  max_tokens = 4;
+    float  temperature = 5;
+    string sender_id  = 6;
+    bytes  signature  = 7;  // ed25519 signature of task payload
+}
+
+message ResultMessage {
+    string task_id    = 1;
+    string node_id    = 2;
+    string output     = 3;
+    float  perplexity = 4;
+    double latency_ms = 5;
+    bytes  signature  = 6;  // ed25519 signature of result payload
+}

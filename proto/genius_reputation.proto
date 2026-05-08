@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package genius.reputation;
+
+// ---------------------------------------------------------------------------
+// Reputation data types for CRDT sync (PTDS §7.1)
+// ---------------------------------------------------------------------------
+message NodeReputationProto {
+    string identity_key      = 1;
+    double global_score      = 2;
+    double math_score        = 3;
+    double grammar_score     = 4;
+    double latency_score     = 5;
+    double consistency_score = 6;
+    uint64 task_count        = 7;
+    uint64 last_updated_ms   = 8;
+}
+
+message ReputationSyncMessage {
+    repeated NodeReputationProto entries = 1;
+    string sender_peer_id               = 2;
+    uint64 timestamp_ms                 = 3;
+}

@@ -1,3 +1,6 @@
 [submodule "build"]
 	path = build
 	url = ../cmaketemplate.git
+[submodule "SGProcessingManager"]
+    path = SGProcessingManager
+    url = https://github.com/GeniusVentures/SGProcessingManager.git
