@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.30)
 
-project(Genius-MOS-SLM
+project(GNUS-NEO-SWARM
     VERSION 1.0.0
     DESCRIPTION "GNUS NEO SWARM — Decentralised swarm of Nano Language Models"
     LANGUAGES CXX
@@ -149,7 +149,7 @@ install(FILES src/genius_slm_chat_c.h DESTINATION include/genius)
 # Summary
 # ---------------------------------------------------------------------------
 message(STATUS "")
-message(STATUS "=== Genius-MOS-SLM Configuration ===")
+message(STATUS "=== GNUS-NEO-SWARM Configuration ===")
 message(STATUS "  Build type:      ${CMAKE_BUILD_TYPE}")
 message(STATUS "  C++ standard:    ${CMAKE_CXX_STANDARD}")
 message(STATUS "  Tests:           ${GENIUS_BUILD_TESTS}")
