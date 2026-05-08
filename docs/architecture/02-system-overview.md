@@ -1,10 +1,4 @@
-# **02. System Overview**
-
-[Previous: 01 Executive Summary](./01-executive-summary.md) | [Architecture Index](./INDEX.md) | [Next: 03 Model and Router](./03-model-and-router.md)
-
----
-
-# **3\. System Architecture Overview**
+# **3 System Architecture Overview**
 
 Client API  
 ↓ Router Layer  
@@ -21,11 +15,11 @@ Client API
 
 ---
 
-# **4\. GNUS Component Mapping**
+# **4 GNUS Component Mapping**
 
 ## 4.1 Compute Layer
 
-## The Compute Layer handles the hardware-level execution and optimization of the models on the GNUS nodes, ensuring high-throughput and energy-efficient inference, in line with the system's primary goals.
+The Compute Layer handles the hardware-level execution and optimization of the models on the GNUS nodes, ensuring high-throughput and energy-efficient inference, in line with the system's primary goals.
 
 * **MNN: Model runtime**  
   This serves as the optimized deep learning inference engine responsible for executing the Core LLM and Specialist Modules efficiently on the diverse hardware found across the GNUS network.
@@ -36,9 +30,9 @@ Client API
 * **CUDA/Vulkan shaders: Tile-based decode & matmul**  
   These are leveraged for high-performance, optimized numerical operations, specifically for tile-based decode and matrix multiplication (matmul) of the compressed weights during runtime.
 
-### FP4 Design
+### 4.1.1 FP4 Design
 
-## The custom quantization uses the FP4 v3 codec, which is designed for minimal overhead and maximum efficiency. It operates using **64x64 macroblocks** with a **per-block scale**. The design includes an **Activation-aware scale search** and ensures that the compressed weights are **decoded in shared memory at inference time** for ultra-low latency execution.
+The custom quantization uses the FP4 v3 codec, which is designed for minimal overhead and maximum efficiency. It operates using **64x64 macroblocks** with a **per-block scale**. The design includes an **Activation-aware scale search** and ensures that the compressed weights are **decoded in shared memory at inference time** for ultra-low latency execution.
 
 ---
 
@@ -69,5 +63,5 @@ The **4.3 Security Layer** is designed to establish trust, ensure data integrity
 
 ---
 
-[Previous: 01 Executive Summary](./01-executive-summary.md) | [Architecture Index](./INDEX.md) | [Next: 03 Model and Router](./03-model-and-router.md)
+[Previous: Executive Summary](./01-executive-summary.md) | [Architecture Index](./INDEX.md) | [Next: Model and Router](./03-model-and-router.md)
 

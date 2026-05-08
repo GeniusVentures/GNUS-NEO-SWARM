@@ -1,6 +1,5 @@
-# 14. Targeted Retraining and Hierarchical Critical Thinking Specialists
-
-## 14.1 Overview
+# 19. Targeted Retraining and Hierarchical Critical Thinking Specialists
+## 19.1 Overview
 
 GNUS Cognitive Systems introduce a **Targeted Retraining** framework combined with a **Hierarchical Critical Thinking Specialist (HCTS)** architecture to enable continuously improving, personalized cognition without requiring full model retraining.
 
@@ -8,13 +7,13 @@ This approach maintains a **stable intelligence core** while dynamically adaptin
 
 ---
 
-## 14.2 Targeted Retraining
+## 19.2 Targeted Retraining
 
 Targeted Retraining is defined as:
 
 > Continuous, fine-grained adaptation of user-specific cognitive behavior through lightweight updates to adapters, routing weights, critic weights, and memory—without modifying the base model.
 
-### Key Properties
+### 19.2.1 Key Properties
 
 - **Local Adaptation**
   - Updates occur at the user or node level
@@ -33,11 +32,11 @@ Targeted Retraining is defined as:
 
 ---
 
-## 14.3 EGGROLL-Based Optimization
+## 19.3 EGGROLL-Based Optimization
 
 GNUS leverages **EGGROLL-style retraining** for optimizing cognitive behavior under noisy, non-differentiable conditions.
 
-### Why EGGROLL
+### 19.3.1 Why EGGROLL
 
 Traditional gradient-based training is insufficient for:
 
@@ -52,14 +51,14 @@ EGGROLL enables:
 - **efficient on-device or swarm-assisted training**
 - **optimization without explicit loss functions**
 
-### Optimization Targets
+### 19.3.2 Optimization Targets
 
 - Adapter parameters (LoRA / micro-experts)
 - Routing decisions (expert selection)
 - Critic weighting distributions
 - Exploration vs alignment balance
 
-### Reward Signals
+### 19.3.3 Reward Signals
 
 - user acceptance / rejection
 - user edits (delta-based correction)
@@ -69,11 +68,11 @@ EGGROLL enables:
 
 ---
 
-## 14.4 Hierarchical Critical Thinking Specialists (HCTS)
+## 19.4 Hierarchical Critical Thinking Specialists (HCTS)
 
 The HCTS system introduces multiple layers of structured critique aligned with the Cognitive Twin hierarchy.
 
-### Hierarchical Structure
+### 19.4.1 Hierarchical Structure
 
 - Generic Human Critic
 - Country / Cultural Critic
@@ -87,7 +86,7 @@ Each critic operates as an independent reasoning module or micro-expert.
 
 ---
 
-## 14.5 Functional Responsibilities
+## 19.5 Functional Responsibilities
 
 Each HCTS layer performs:
 
@@ -102,7 +101,7 @@ Outputs are not binary judgments, but **multi-perspective evaluations**.
 
 ---
 
-## 14.6 Bias-Aware Reasoning
+## 19.6 Bias-Aware Reasoning
 
 GNUS does not attempt to eliminate bias. Instead:
 
@@ -120,18 +119,18 @@ The system compares conclusions across contexts to detect instability and hidden
 
 ---
 
-## 14.7 Cognitive Resistance Layer
+## 19.7 Cognitive Resistance Layer
 
 The HCTS feeds into a **Cognitive Resistance Layer**, which determines the level of challenge applied to the user.
 
-### Modes
+### 19.7.1 Modes
 
 - Mirror Mode → minimal resistance  
 - Nudge Mode → light alternative framing  
 - Challenge Mode → explicit tradeoffs and contradictions  
 - Adversarial Mode → strong opposing arguments  
 
-### Adaptive Friction Triggers
+### 19.7.2 Adaptive Friction Triggers
 
 - high-confidence / low-evidence outputs
 - high-impact decisions
@@ -141,7 +140,7 @@ The HCTS feeds into a **Cognitive Resistance Layer**, which determines the level
 
 ---
 
-## 14.8 Integration with Cognitive Twin
+## 19.8 Integration with Cognitive Twin
 
 The Cognitive Twin provides:
 
@@ -155,7 +154,7 @@ The HCTS evaluates:
 
 ---
 
-## 14.9 Continuous Learning Loop
+## 19.9 Continuous Learning Loop
 
 Each interaction generates a **Cognitive Training Event**:
 
@@ -181,7 +180,7 @@ This data drives Targeted Retraining via:
 
 ---
 
-## 14.10 System Outcome
+## 19.10 System Outcome
 
 This combined architecture enables:
 
@@ -193,10 +192,13 @@ This combined architecture enables:
 
 ---
 
-## 14.11 Summary
+## 19.11 Summary
 
 > GNUS Cognitive Systems maintain a stable intelligence core while continuously improving personalized cognition through targeted retraining and hierarchical critical thinking.
 
 This transforms static inference into:
 
 > A dynamic, self-improving cognitive process operating across distributed compute systems.
+
+---
+[Previous: EGGROLL Swarm Retraining Architecture](./13-eggroll-swarm-retraining.md) | [Architecture Index](./INDEX.md)

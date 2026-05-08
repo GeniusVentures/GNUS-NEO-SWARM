@@ -1,10 +1,4 @@
-# **09. Future Compatibility and Positioning**
-
-[Previous: 08 Roadmap and Risks](./08-roadmap-and-risks.md) | [Architecture Index](./INDEX.md)
-
----
-
-# **13\. Future Compatibility**
+# **13 Future Compatibility**
 
 When latent world models mature:
 
@@ -24,7 +18,7 @@ Architecture remains intact.
 
 ---
 
-# **14\. Strategic Positioning**
+# **14 Strategic Positioning**
 
 Genius LLM v1 is:
 
@@ -43,6 +37,7 @@ It aligns with:
 
 ---
 
-[Previous: 08 Roadmap and Risks](./08-roadmap-and-risks.md) | [Architecture Index](./INDEX.md)
+[Previous: Roadmap and Risks](./08-roadmap-and-risks.md) | [Architecture Index](./INDEX.md) | [Next: AI Safety](./10-ai-safety.md)
+
 
 

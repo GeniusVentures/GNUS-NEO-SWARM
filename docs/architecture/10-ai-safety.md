@@ -1,6 +1,4 @@
-# **15. AI Safety**
-
-## **15.1 Safety Philosophy**
+# **15 AI Safety Philosophy**
 
 Genius LLM v1 is:
 
@@ -21,11 +19,11 @@ Safety enforcement must be:
 
 ---
 
-## **15.2 Safety Architecture Model**
+## **15.1 Safety Architecture Model**
 
 Safety operates on three layers:
 
-### Layer 1 — Node-Level Enforcement (Authoritative)
+### 15.1.1 Layer 1 — Node-Level Enforcement (Authoritative)
 
 Each node:
 
@@ -41,7 +39,7 @@ Unsafe outputs result in:
 
 ---
 
-### Layer 2 — Reputation-Based Enforcement
+### 15.1.2 Layer 2 — Reputation-Based Enforcement
 
 If a node repeatedly:
 
@@ -56,7 +54,7 @@ Nodes that ignore policy lose swarm influence.
 
 ---
 
-### Layer 3 — Client-Side Preference Filtering
+### 15.1.3 Layer 3 — Client-Side Preference Filtering
 
 Clients may:
 
@@ -68,7 +66,7 @@ This allows regional flexibility without central enforcement.
 
 ---
 
-## **15.3 Safety Profile Declaration**
+## **15.2 Safety Profile Declaration**
 
 Each node advertises:
 
@@ -92,7 +90,7 @@ Nodes choose which signed profiles to adopt.
 
 ---
 
-## **15.4 No GeoIP Enforcement**
+## **15.3 No GeoIP Enforcement**
 
 The system does not:
 
@@ -104,7 +102,7 @@ Region profile is declared by node and filtered by client preference.
 
 ---
 
-## **15.5 Grokipedia Safety Integration**
+## **15.4 Grokipedia Safety Integration**
 
 After consensus:
 
@@ -116,7 +114,7 @@ This integrates safety and grounding into a unified trust model.
 
 ---
 
-## **15.6 Safety in Swarm Mode**
+## **15.5 Safety in Swarm Mode**
 
 In Swarm Mode:
 
@@ -133,7 +131,7 @@ Safety is therefore emergent through:
 
 ---
 
-## **15.7 Compliance & Liability Model**
+## **15.6 Compliance & Liability Model**
 
 Genius LLM v1:
 
@@ -144,3 +142,5 @@ Genius LLM v1:
 
 This model aligns with decentralized network design principles.
 
+---
+[Previous: Future and Positioning](./09-future-and-positioning.md) | [Architecture Index](./INDEX.md) | [Next: Distributed Swarm Thinking Context Architecture](./11-distributed-swarm-thinking-context.md)

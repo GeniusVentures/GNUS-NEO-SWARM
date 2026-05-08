@@ -1,14 +1,6 @@
-# **07. Execution and Performance**
+# **9. Execution and Performance - Execution Modes and Performance Targets**
 
-[Previous: 06 Agentic Memory Layer](./06-agentic-memory-layer.md) | [Architecture Index](./INDEX.md) | [Next: 08 Roadmap and Risks](./08-roadmap-and-risks.md)
-
----
-
-# **9\. Execution Modes**
-
----
-
-## **Mode 1 — Single Node**
+## **9.1 Mode 1 — Single Node**
 
 * Core LLM only.
 * Fast.
@@ -16,14 +8,14 @@
 
 ---
 
-## **Mode 2 — Specialist Mode**
+## **9.2 Mode 2 — Specialist Mode**
 
-* Core \+ Grammar OR Math.
+* Core + Grammar OR Math.
 * Sequential execution.
 
 ---
 
-## **Mode 3 — Swarm Mode**
+## **9.3 Mode 3 — Swarm Mode**
 
 * Multiple nodes execute.
 * Weighted consensus.
@@ -31,7 +23,7 @@
 
 ---
 
-# **10\. Performance Targets**
+# **10 Performance Targets**
 
 Metric
 
@@ -59,6 +51,6 @@ near-linear up to 4 nodes
 
 ---
 
-[Previous: 06 Agentic Memory Layer](./06-agentic-memory-layer.md) | [Architecture Index](./INDEX.md) | [Next: 08 Roadmap and Risks](./08-roadmap-and-risks.md)
+[Previous: Agentic Memory Layer](./06-agentic-memory-layer.md) | [Architecture Index](./INDEX.md) | [Next: Roadmap and Risks](./08-roadmap-and-risks.md)
 
 

@@ -1,14 +1,8 @@
-# **08. Roadmap and Risks**
-
-[Previous: 07 Execution and Performance](./07-execution-and-performance.md) | [Architecture Index](./INDEX.md) | [Next: 09 Future Compatibility and Positioning](./09-future-and-positioning.md)
+# **11 4-Week Execution Plan**
 
 ---
 
-# **11\. 4-Week Execution Plan**
-
----
-
-## **Week 1 — Core FP4 Integration**
+## **11.1 Week 1 — Core FP4 Integration**
 
 * Base model selection.
 * FP4 v3 quantization pipeline.
@@ -19,7 +13,7 @@ Deliverable: `genius-core-alpha`
 
 ---
 
-## **Week 2 — Specialists \+ Router**
+## **11.2 Week 2 — Specialists + Router**
 
 * Grammar micro-model integration.
 * Math specialist integration.
@@ -29,7 +23,7 @@ Deliverable: `genius-modular-alpha`
 
 ---
 
-## **Week 3 — Reputation Consensus**
+## **11.3 Week 3 — Reputation Consensus**
 
 * Implement reputation storage.
 * Implement weighted consensus.
@@ -40,7 +34,7 @@ Deliverable: `genius-swarm-beta`
 
 ---
 
-## **Week 4 — Grokipedia \+ Benchmarks**
+## **11.4 Week 4 — Grokipedia + Benchmarks**
 
 * Grokipedia retrieval integration.
 * Factual validation layer.
@@ -51,7 +45,7 @@ Deliverable: `Genius LLM v1 Beta`
 
 ---
 
-# **12\. Risk Analysis**
+# **12 Risk Analysis**
 
 Risk
 
@@ -75,6 +69,6 @@ Keep rule-based v1
 
 ---
 
-[Previous: 07 Execution and Performance](./07-execution-and-performance.md) | [Architecture Index](./INDEX.md) | [Next: 09 Future Compatibility and Positioning](./09-future-and-positioning.md)
+[Previous: Execution and Performance](./07-execution-and-performance.md) | [Architecture Index](./INDEX.md) | [Next: Future Compatibility and Positioning](./09-future-and-positioning.md)
 
 
