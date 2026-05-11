@@ -40,7 +40,7 @@
 
 ---
 
-# **10 Performance Targets**
+# **10. Performance Targets**
 
 Metric
 
@@ -76,4 +76,4 @@ choose the lowest-cost path among retrieval, memory, private ELM invocation, and
 
 ---
 
-[Previous: Agentic Memory Layer](./06-agentic-memory-layer.md) | [Architecture Index](./INDEX.md) | [Next: Roadmap and Risks](./08-roadmap-and-risks.md)
+[Previous: Agentic Memory Layer (GAML v1)](./06-agentic-memory-layer.md) | [Architecture Index](./INDEX.md) | [Next: Roadmap and Risks](./08-roadmap-and-risks.md)
