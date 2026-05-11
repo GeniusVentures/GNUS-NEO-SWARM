@@ -174,4 +174,4 @@ Genius LLM v1:
 This model aligns with decentralized network design principles.
 
 ---
-[Previous: Future and Positioning](./09-future-and-positioning.md) | [Architecture Index](./INDEX.md) | [Next: Distributed Swarm Thinking Context Architecture](./11-distributed-swarm-thinking-context.md)
+[Previous: Future Compatibility and Positioning](./09-future-and-positioning.md) | [Architecture Index](./INDEX.md) | [Next: Distributed Swarm Thinking Context Architecture](./11-distributed-swarm-thinking-context.md)
