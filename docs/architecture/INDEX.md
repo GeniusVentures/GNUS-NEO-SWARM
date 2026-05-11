@@ -27,13 +27,8 @@ Combining PRD + TDD + System Architecture Blueprint
 12. [12 Secure Agent Architecture](./12-secure-agent-architecture.md)
 13. [13 EGGROLL Swarm Retraining Architecture](./13-eggroll-swarm-retraining.md)
 14. [14 Targeted Retraining and Hierarchical Critical Thinking Specialists](./14-cognitive-retaining-system.md)
-15. [15 Epistemic Arbitration and Cognitive OS Extensions](./15-epistemic-arbitration-and-cognitive-os.md)
 ---
 
 ## **Suggested Reading Order**
 
-<<<<<<< HEAD
-Start with the executive summary and system overview, then move through the model, routing, consensus, grounding, and agentic memory sections before reviewing execution planning, risks, long-term positioning, swarm-thinking architecture, secure agent architecture, and the retraining layers.
-=======
 Start with the executive summary and system overview, then move through the model, routing, consensus, grounding, and agentic memory sections before reviewing execution planning, risks, long-term positioning, swarm-thinking architecture, secure agent architecture, the retraining layers, and finally the epistemic arbitration extension.
->>>>>>> 67b5803 (Adding ELM update, term I coined "Expert Language Model")
