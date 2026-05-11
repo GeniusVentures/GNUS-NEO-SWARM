@@ -3,48 +3,65 @@
 
 #include <stddef.h>
 
-#if defined(_WIN32)
-#if defined(GENIUS_SLM_CHAT_C_EXPORTS)
-#define GENIUS_SLM_CHAT_C_API __declspec(dllexport)
+#if defined( _WIN32 )
+#    if defined( GENIUS_SLM_CHAT_C_EXPORTS )
+#        define GENIUS_SLM_CHAT_C_API __declspec( dllexport )
+#    else
+#        define GENIUS_SLM_CHAT_C_API __declspec( dllimport )
+#    endif
 #else
-#define GENIUS_SLM_CHAT_C_API __declspec(dllimport)
-#endif
-#else
-#define GENIUS_SLM_CHAT_C_API
+#    define GENIUS_SLM_CHAT_C_API
 #endif
 
-#if defined(__cplusplus)
-#define GENIUS_SLM_CHAT_C_NOEXCEPT noexcept
+#if defined( __cplusplus )
+#    define GENIUS_SLM_CHAT_C_NOEXCEPT noexcept
 extern "C"
 {
 #else
-#define GENIUS_SLM_CHAT_C_NOEXCEPT
+#    define GENIUS_SLM_CHAT_C_NOEXCEPT
 #endif
 
 /**
- * \brief Creates a stub OpenAI v1-style chat completion response.
+ * \brief Initialises the Genius SLM engine.
  *
- * The current implementation returns a fixed UTF-8 JSON payload that matches
- * the general shape of a `/v1/chat/completions` response.
+ * Must be called before \c GeniusSlmChatCompletionsCreate if a real model is
+ * available. If not called, the engine starts in stub mode (returns canned
+ * responses) which is useful for UI development and testing.
  *
- * \param requestJson Optional UTF-8 JSON request payload. The stub currently
- * ignores the payload contents.
- * \return Heap-allocated UTF-8 JSON string, or `NULL` on allocation failure.
- * The caller must release the returned buffer with `GeniusSlmStringFree`.
+ * \param modelPath      Path to the MNN model file, or NULL for stub mode.
+ * \param knowledgePath  Path to a Grokipedia facts CSV, or NULL to disable.
+ * \return 0 on success, -1 on failure.
  */
-GENIUS_SLM_CHAT_C_API char * GeniusSlmChatCompletionsCreate(const char * requestJson) GENIUS_SLM_CHAT_C_NOEXCEPT;
+GENIUS_SLM_CHAT_C_API int GeniusSlmInit( const char * modelPath,
+                                          const char * knowledgePath ) GENIUS_SLM_CHAT_C_NOEXCEPT;
+
+/**
+ * \brief Creates an OpenAI v1-style chat completion response.
+ *
+ * Parses the last user message from \p requestJson, routes it through the
+ * GeniusAPIServer pipeline (router → inference → optional specialist), and
+ * returns a JSON string matching the /v1/chat/completions response schema.
+ *
+ * If \c GeniusSlmInit has not been called, the engine initialises in stub
+ * mode on the first call.
+ *
+ * \param requestJson  UTF-8 JSON request in OpenAI v1 format, or NULL.
+ * \return Heap-allocated UTF-8 JSON string. The caller must release it with
+ *         \c GeniusSlmStringFree. Returns NULL only on allocation failure.
+ */
+GENIUS_SLM_CHAT_C_API char * GeniusSlmChatCompletionsCreate(
+    const char * requestJson ) GENIUS_SLM_CHAT_C_NOEXCEPT;
 
 /**
  * \brief Releases a string buffer returned by the chat FFI API.
  *
- * \param value Heap-allocated string returned by
- * `GeniusSlmChatCompletionsCreate`. `NULL` is allowed.
+ * \param value  Heap-allocated string returned by
+ *               \c GeniusSlmChatCompletionsCreate. NULL is allowed.
  */
-GENIUS_SLM_CHAT_C_API void GeniusSlmStringFree(char * value) GENIUS_SLM_CHAT_C_NOEXCEPT;
+GENIUS_SLM_CHAT_C_API void GeniusSlmStringFree( char * value ) GENIUS_SLM_CHAT_C_NOEXCEPT;
 
-#if defined(__cplusplus)
+#if defined( __cplusplus )
 }
 #endif
 
 #endif // GENIUS_MOS_SLM_GENIUS_SLM_CHAT_C_H
-
