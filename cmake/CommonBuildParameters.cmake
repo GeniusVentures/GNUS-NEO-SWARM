@@ -21,37 +21,7 @@ if(NOT DEFINED utf8_range_DIR)
     set(utf8_range_DIR "${_THIRDPARTY_BUILD_DIR}/protobuf/lib/cmake/utf8_range")
 endif()
 
-<<<<<<< Updated upstream
 include(${PROJECT_ROOT}/cmake/functions.cmake)
-=======
-# --------------------------------------------------------
-# Set config of protobuf project
-if (NOT DEFINED Protobuf_DIR)
-    set(Protobuf_DIR "${_THIRDPARTY_BUILD_DIR}/protobuf/lib/cmake/protobuf")
-endif()
-if (NOT DEFINED Protobuf_INCLUDE_DIR)
-    set(Protobuf_INCLUDE_DIR "${_THIRDPARTY_BUILD_DIR}/protobuf/include")
-endif()
-if(NOT DEFINED PROTOC_EXECUTABLE)
-    set(PROTOC_EXECUTABLE "${_THIRDPARTY_BUILD_DIR}/protobuf/bin/protoc${CMAKE_EXECUTABLE_SUFFIX}")
-endif()
-
-set(Protobuf_PROTOC_EXECUTABLE ${PROTOC_EXECUTABLE} CACHE PATH "Initial cache" FORCE)
-
-if(NOT TARGET protobuf::protoc)
-    add_executable(protobuf::protoc IMPORTED)
-endif()
-
-if(EXISTS "${Protobuf_PROTOC_EXECUTABLE}")
-    set_target_properties(protobuf::protoc PROPERTIES
-            IMPORTED_LOCATION ${Protobuf_PROTOC_EXECUTABLE})
-endif()
-
-# protoc definition
-get_target_property(PROTOC_LOCATION protobuf::protoc IMPORTED_LOCATION)
-print("PROTOC_LOCATION: ${PROTOC_LOCATION}")
-
->>>>>>> Stashed changes
 
 # --------------------------------------------------------
 # Set config of openssl project
