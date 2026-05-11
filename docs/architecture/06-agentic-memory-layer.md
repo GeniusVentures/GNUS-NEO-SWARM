@@ -2,17 +2,17 @@
 
 ## **8.4.1 Purpose**
 
-The GNUS Agentic Memory Layer (GAML) introduces structured, reasoning-based long-term memory into Genius LLM v1.
+The GNUS Agentic Memory Layer (GAML) introduces structured, reasoning-oriented long-term memory into Genius LLM v1.
 
-Unlike traditional RAG pipelines that rely on embedding similarity and vector databases, GAML treats retrieval as a distributed reasoning problem.
+Unlike traditional RAG pipelines that rely only on embedding similarity and vector databases, GAML treats retrieval as a governed cognitive process involving bridge blocks, facts, policies, events, trust metadata, and orchestration-aware selection.
 
 GAML enables:
 
 * Persistent structured memory across GNUS nodes
 * Multi-hop reasoning over historical state
 * Temporal coherence enforcement
-* Swarm-consensus memory resolution
-* Reduced dependency on embeddings
+* Swarm-consensus memory resolution where required
+* Reduced dependency on brute-force transcript replay
 
 This makes Genius LLM memory-native rather than prompt-extended.
 
@@ -22,23 +22,24 @@ This makes Genius LLM memory-native rather than prompt-extended.
 
 GAML operates between:
 
-* Router Layer
-* Core / Specialist Inference
-* Grokipedia Grounding
+* Router / Planner Layer
+* Memory Governor
+* Semantic Core / Expert Execution
+* Grounding and Verification
 
 Updated flow:
 
 Client API  
 ↓  
-Router  
+Router / Planner  
 ↓  
-GAML Retrieval  
+GAML Retrieval + Memory Governor  
 ↓  
-Execution Nodes  
+Semantic Core / Expert Nodes  
 ↓  
-Reputation Consensus  
+Verification / Arbitration  
 ↓  
-Grokipedia Validation  
+Grounding Validation  
 ↓  
 Final Response
 
@@ -46,17 +47,19 @@ Final Response
 
 ## **8.4.3 Memory Object Model**
 
-All long-term memory is stored as structured objects:
+Long-term memory is stored as structured objects.
 
 ```ruby
 MemoryObject {
   id: UUID
   entity: string
-  type: {fact, event, policy, state}
+  type: {bridge_block, fact, policy, event, tenant_operational}
   payload: structured JSON
   timestamp: int64
   source_node: NodeID
   confidence_score: float
+  provenance_score: float
+  trust_class: {higher_trust, lower_trust}
 }
 ```
 
@@ -66,40 +69,64 @@ Stored via:
 * IPFS-lite (distributed replication)
 * CRDT synchronization (conflict resolution)
 
-No vector embeddings are required.
+Embeddings may still be used where useful, but they are not the sole definition of memory.
 
 ---
 
-## **8.4.4 Ingestion Pipeline (Observer Agents)**
+## **8.4.4 Ingestion Pipeline**
 
-When new information enters the system (conversation, task result, user preference), GAML executes three lightweight observer agents:
+When new information enters the system (conversation, task result, user preference, tool outcome), GAML evaluates multiple memory-oriented functions:
 
-1. **Fact Extractor** – converts raw output into atomic structured facts.
-2. **Context Mapper** – associates facts with session, task, and user context.
-3. **Temporal Tracker** – resolves updates, contradictions, and stale state.
+1. **Fact Extraction** – converts raw output into atomic structured facts where appropriate.
+2. **Context Mapping** – associates facts and events with session, task, workflow, and user context.
+3. **Temporal Tracking** – resolves updates, contradictions, and stale state.
+4. **Write Evaluation** – scores novelty, expected utility, provenance, and contamination risk before durable storage.
 
-Ingestion overhead: ~10–20% compute per task.
+The exact implementation may be heuristic, model-assisted, or hybrid depending on deployment stage.
 
 ---
 
 ## **8.4.5 Agentic Retrieval Mechanism**
 
-For each memory query, GAML launches parallel retrieval agents:
+For each memory query, GAML performs staged retrieval rather than raw log replay.
 
-* Direct Fact Agent
-* Implication Agent
-* Temporal Resolution Agent
+Representative retrieval stages:
 
-Each agent independently queries structured memory and returns candidate answers with reasoning traces.
+* metadata prefiltering
+* semantic matching where available
+* temporal resolution
+* policy and tenant boundary checks
+* memory governor selection of final context set
 
-Results are merged using reputation-weighted aggregation.
-
-Retrieval overhead: ~15–30% vs simple vector lookup  
-Fully parallelizable across swarm nodes.
+Results may be merged using reputation-weighted, policy-aware selection when multiple nodes return conflicting or overlapping state.
 
 ---
 
-## **8.4.6 Swarm Memory Consensus**
+## **8.4.6 Surprise-Gated Writes**
+
+Surprise remains useful, but only as one signal among several. A memory write is favored when it is:
+
+* novel
+* useful for future routing or generation
+* durable enough to matter
+* allowed under policy
+* consistent with the existing memory graph
+
+---
+
+## **8.4.7 Memory as Support for Experts**
+
+Memory is not only for the Semantic Core. It also provides expert-specific context, such as:
+
+* user style and formatting preferences for a Refiner or Formatter ELM
+* domain facts for a Math or Scientific ELM
+* prior tool state for a Tool-Support ELM
+* historical conflicts for an Arbiter ELM
+* tenant workflow rules for a private Operations ELM
+
+---
+
+## **8.4.8 Swarm Memory Consensus**
 
 When multiple nodes return conflicting memory states:
 
@@ -107,31 +134,38 @@ When multiple nodes return conflicting memory states:
     * Node reputation
     * Confidence score
     * Recency
-2. Conflict resolution is performed using CRDT + weighted voting.
-3. Final resolved memory is injected into inference context.
+    * Provenance / trust class
+2. Conflict resolution is performed using CRDT plus policy-aware weighted selection.
+3. Final resolved memory is injected into inference, grounding, or verification context.
 
 This prevents memory poisoning and maintains decentralized trust integrity.
 
 ---
 
-## **8.4.7 Performance & Overhead Impact**
+## **8.4.9 Replication and Convergence**
 
-Estimated impact in Swarm Mode:
-
-* +20–40% memory-related compute
-* Minimal GPU overhead (memory is CPU + storage dominated)
-* Horizontal scalability across GNUS nodes
-* Reduced hallucination risk via structured recall
-
-Compared to vector-based RAG:
-
-* Lower storage overhead
-* No embedding drift
-* Better temporal coherence
+Memory objects can be synchronized across devices and nodes using CRDT-style convergence and content-addressed integrity. This preserves local autonomy while enabling distributed continuity.
 
 ---
 
-## **8.4.8 Strategic Impact**
+## **8.4.10 Performance & Overhead Impact**
+
+Estimated impact in Swarm Mode:
+
+* Additional memory-related compute and storage overhead
+* Minimal GPU overhead relative to core inference in many deployments
+* Horizontal scalability across GNUS nodes
+* Reduced hallucination risk via structured recall
+
+Compared to purely transcript-based context replay:
+
+* Lower prompt bloat
+* Better temporal coherence
+* Better policy-aware context control
+
+---
+
+## **8.4.11 Strategic Impact**
 
 GAML transforms Genius LLM v1 from:
 
@@ -142,14 +176,13 @@ Distributed Cognitive System
 It aligns directly with:
 
 * Hierarchical Reasoning Model
-* Mixture-of-Experts execution
+* Semantic Core plus ELM execution
 * Reputation-weighted consensus
 * Distributed GNUS infrastructure
+* Secure memory governance for agentic workflows
 
-GAML v1 is intentionally lightweight.  
-Future versions may hybridize with semantic indexing if required.
+GAML v1 is intentionally practical.  
+Future versions may deepen semantic indexing, memory governance, and private operational memory support as needed.
 
 ---
 [Previous: Grounding and Retrieval](./05-grounding.md) | [Architecture Index](./INDEX.md) | [Next: Execution and Performance](./07-execution-and-performance.md)
-
-

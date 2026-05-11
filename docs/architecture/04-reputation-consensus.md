@@ -1,22 +1,25 @@
-
 # **7 Reputation-Based Consensus System**
 
-This is the core differentiator.
+This is a core differentiator of the GNUS cognitive architecture.
 
 ---
 
 ## **7.1 Reputation Data Model**
 
-Each node maintains:
+Each node maintains role-aware and domain-aware reputation signals.
 
 ```json
-Node {  
-  Identity_key  
-  Global_score  
-  Math_score  
-  Grammar_score  
-  Latency_score  
-  Consistency_score  
+Node {
+  Identity_key
+  Global_score
+  Planner_score
+  Math_score
+  Grounding_score
+  Verification_score
+  Formatting_score
+  Latency_score
+  Consistency_score
+  Safety_score
 }
 ```
 
@@ -32,15 +35,19 @@ Stored via:
 
 After each task:
 
-### **7.2.1 Accuracy Component**
+### **7.2.1 Accuracy / Quality Component**
 
-If ground truth available:
+If stronger validation or ground truth is available:
 
-Δscore = α * (accuracy - baseline_accuracy)
+Δscore = α * (quality - baseline_quality)
 
-If no ground truth:
+If no direct ground truth is available:
 
 Δscore = β * (agreement_with_weighted_consensus)
+
+If verifier or grounding evidence contradicts the result:
+
+Δscore_validation = -μ * contradiction_severity
 
 ---
 
@@ -52,16 +59,24 @@ If no ground truth:
 
 ### **7.2.3 Consistency Component**
 
-Δscore_consistency = δ * (perplexity_inverse_normalized)
+Δscore_consistency = δ * (consistency_signal)
 
 ---
 
-### **7.2.4 Final Update**
+### **7.2.4 Safety and Policy Component**
+
+Δscore_safety = λ * (safe_policy_compliance - violation_penalty)
+
+---
+
+### **7.2.5 Final Update**
 
 new_score = old_score  
 + Δscore  
++ Δscore_validation  
 + Δscore_latency  
-+ Δscore_consistency
++ Δscore_consistency  
++ Δscore_safety
 
 Scores clipped to range [0, 1].
 
@@ -69,14 +84,15 @@ Scores clipped to range [0, 1].
 
 ## **7.3 Weighted Consensus Algorithm**
 
-Each node i returns output O_i with:
+Each participating node or expert result `O_i` returns metadata such as:
 
-* perplexity p_i
+* confidence c_i
 * reputation r_i
+* grounding / verification quality signals v_i
 
 Compute:
 
-weight_i = r_i / (p_i + ε)
+weight_i = f( r_i, c_i, v_i )
 
 Final output selected by:
 
@@ -84,9 +100,9 @@ Option A (Weighted Voting):
 
 Select O_k where Σ weight_i(O_i == O_k) is max
 
-Option B (Best Weighted Score):
+Option B (Best Weighted Synthesis):
 
-Select O_i maximizing weight_i
+Select, merge, or revise the candidate set using an arbiter or synthesis stage informed by weight_i and divergence severity.
 
 ---
 ## **7.4 Consensus Engine Architecture (Protocol Layer)**
@@ -95,13 +111,14 @@ The Genius LLM v1 consensus system operates entirely at the application layer an
 
 This layer governs:
 
-* Swarm inference coordination
-* Result aggregation
-* Reputation-weighted selection
+* swarm inference coordination
+* result aggregation
+* verification and arbitration
+* reputation-weighted selection
 * Byzantine tolerance
-* Liveness guarantees
+* liveness guarantees
 
-Unlike blockchain consensus, this is a **task-level deterministic weighted quorum system**, not a ledger agreement protocol.
+Unlike blockchain consensus, this is a **task-level deterministic weighted coordination system**, not a ledger agreement protocol.
 
 ---
 
@@ -109,11 +126,12 @@ Unlike blockchain consensus, this is a **task-level deterministic weighted quoru
 
 The system follows these principles:
 
-1. **Fully Peer-to-Peer** — no gateway, no central coordinator.
-2. **Requestor Node as Orchestrator** — the node initiating the request acts as the temporary router.
-3. **Reputation-Weighted Agreement** — nodes influence outcome proportionally to performance history.
-4. **Liveness over Perfection** — the system prioritizes completion over infinite retry loops.
-5. **Deterministic Finalization** — final output selection must be reproducible.
+1. **Fully Peer-to-Peer** — no mandatory permanent central coordinator.
+2. **Requestor Node as Orchestrator** — the node initiating the request may act as the temporary router / planner.
+3. **Reputation-Weighted Agreement** — nodes influence outcome proportionally to role-relevant performance history.
+4. **Liveness over Perfection** — the system prioritizes bounded completion over infinite retry loops.
+5. **Deterministic Finalization** — final output selection and attestation must be reproducible.
+6. **Arbitration over flat voting when needed** — disagreements may be resolved through critique and synthesis rather than only majority selection.
 
 ---
 
@@ -124,16 +142,20 @@ The system follows these principles:
 3. Orchestrator:
     - Selects candidate nodes based on:
         - Reputation score
-        - Specialist relevance
+        - Role or domain relevance
         - Latency history
+        - Policy compatibility
     - Broadcasts task via libp2p.
 4. Execution nodes:
-    - Run inference locally.
+    - Run Semantic Core or expert inference locally.
     - Apply local safety policy.
     - Sign response.
     - Return output + metadata.
-5. Orchestrator:
-    - Applies weighted consensus algorithm.
+5. Optional verifier, grounding, or arbiter participants:
+    - Check candidate outputs.
+    - Report contradictions, evidence alignment, or merge decisions.
+6. Orchestrator:
+    - Applies weighted consensus or arbiter-mediated synthesis.
     - Validates safety profile compliance.
     - Produces final response.
 
@@ -148,19 +170,26 @@ The consensus engine defines the following message types:
 
 * **TASK_PROPOSAL**
     - Prompt
-    - Specialist routing metadata
+    - Routing metadata
     - Safety profile hash
     - Request ID
+    - Requested role or domain
 
 * **TASK_RESULT**
-    - Output text
-    - Perplexity
+    - Output text or structured payload
+    - Confidence
     - Latency
     - Safety flag
     - Node signature
 
+* **VERIFICATION_RESULT**
+    - Verification findings
+    - Grounding or policy notes
+    - Contradiction flags
+    - Verifier signature
+
 * **CONSENSUS_FINAL**
-    - Selected output
+    - Selected or synthesized output
     - Weight breakdown
     - Reputation deltas
     - Signed by requestor
@@ -173,9 +202,9 @@ Consensus must terminate within bounded time.
 
 Liveness rules:
 
-* If quorum of ≥ 2 nodes responds → finalize.
-* If insufficient quorum after timeout → degrade to single-node mode.
-* If responses conflict heavily → select highest weighted valid response.
+* If sufficient valid responses arrive -> finalize.
+* If insufficient quorum after timeout -> degrade to single-node or reduced-mode execution.
+* If responses conflict heavily -> select highest-weight valid response or escalate to arbiter-mediated synthesis.
 
 Timeout and quorum thresholds are tunable per execution mode.
 
@@ -187,21 +216,19 @@ This is a weighted stochastic agreement system.
 
 Failure modes addressed:
 
-* Malicious output
-* Low-quality output
-* Latency manipulation
-* Non-response
+* malicious output
+* low-quality output
+* latency manipulation
+* non-response
+* policy-incompatible output
 
 Mitigations:
 
-* Reputation decay
-* Consistency penalties
-* Latency penalties
-* Minimum history requirement before high influence
-
-System is tolerant of:
-
-* ≤ 33% malicious weighted reputation under default thresholds.
+* reputation decay
+* consistency penalties
+* latency penalties
+* verifier and grounding checks
+* minimum history requirement before high influence
 
 ---
 
@@ -212,6 +239,7 @@ Nodes with:
 * Reputation < threshold
 * Safety violations above limit
 * High divergence rate
+* Failed attestation history
 
 May:
 
@@ -225,7 +253,7 @@ This preserves swarm integrity without central enforcement.
 
 ### **7.4.7 Genesis Anchor Model**
 
-The initial network state includes a Genesis node (or nodes) with:
+The initial network state may include one or more bootstrap nodes with:
 
 * Bootstrap reputation = 1.0
 * Full participation rights
@@ -239,4 +267,3 @@ However:
 This ensures bootstrapping without long-term centralization.
 
 [Previous: Model and Router](./03-model-and-router.md) | [Architecture Index](./INDEX.md) | [Next: Grounding and Retrieval](./05-grounding.md)
-

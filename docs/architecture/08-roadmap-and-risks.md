@@ -1,43 +1,48 @@
-# **11 4-Week Execution Plan**
+# **11 Execution Roadmap**
 
 ---
 
-## **11.1 Week 1 — Core FP4 Integration**
+## **11.1 Phase 1 — Semantic Core Foundations**
 
 * Base model selection.
 * FP4 v3 quantization pipeline.
 * Validate activation error.
-* Deploy across 2 nodes.
+* Deploy across initial nodes.
 
 Deliverable: `genius-core-alpha`
 
 ---
 
-## **11.2 Week 2 — Specialists + Router**
+## **11.2 Phase 2 — Experts + Router / Planner**
 
-* Grammar micro-model integration.
-* Math specialist integration.
-* Routing logic implementation.
+* Initial role-based expert integration.
+* Initial domain-specialist integration.
+* Routing and planning logic implementation.
+* Grounding path selection.
+* Memory governor introduction.
 
 Deliverable: `genius-modular-alpha`
 
 ---
 
-## **11.3 Week 3 — Reputation Consensus**
+## **11.3 Phase 3 — Reputation, Memory, and Consensus**
 
 * Implement reputation storage.
-* Implement weighted consensus.
+* Implement weighted consensus and arbiter path.
 * Sync via CRDT.
+* Structured memory retrieval and write governance.
 * Multi-node task execution.
 
 Deliverable: `genius-swarm-beta`
 
 ---
 
-## **11.4 Week 4 — Grokipedia + Benchmarks**
+## **11.4 Phase 4 — Grounding, Private Customization, Secure Agent Path, and Benchmarks**
 
 * Grokipedia retrieval integration.
-* Factual validation layer.
+* Private grounding support.
+* Private memory and private ELM customization path.
+* Tool intermediary and attestation path.
 * Stress test.
 * Publish benchmark comparison.
 
@@ -53,22 +58,32 @@ Mitigation
 
 FP4 underperforms
 
-Fallback to INT4
+Fallback to INT4 or adjusted quantization policy
 
 Reputation gaming
 
-Require minimum history
+Require minimum history and verifier-aware scoring
 
 Swarm latency high
 
-Limit to 2–3 nodes initially
+Limit swarm width and prefer smallest effective cognitive set
 
 Routing instability
 
-Keep rule-based v1
+Keep rule-based v1 and phase in learned routing carefully
+
+Memory contamination
+
+Use provenance-aware write gates and trust classes
+
+Unsafe tool execution
+
+Require intermediary attestation and approval gates
+
+Customization path confusion
+
+Keep retrieval, memory, and private ELM adaptation as separate governed levers
 
 ---
 
 [Previous: Execution and Performance](./07-execution-and-performance.md) | [Architecture Index](./INDEX.md) | [Next: Future Compatibility and Positioning](./09-future-and-positioning.md)
-
-

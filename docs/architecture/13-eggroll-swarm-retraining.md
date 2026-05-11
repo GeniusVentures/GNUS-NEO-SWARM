@@ -4,7 +4,7 @@
 This document defines how Genius LLM extends beyond distributed inference into distributed retraining using an EGGROLL-style evolutionary optimization workflow mapped onto GNUS.ai swarm infrastructure.
 
 The goal is not to replace the existing Genius LLM architecture.
-The goal is to add a swarm-native retraining layer that allows specialist models and adapters to be improved using locality-aware peer coordination, deterministic perturbation reconstruction, compact fitness communication, and reputation-gated promotion.
+The goal is to add a swarm-native retraining layer that allows the Semantic Core, expert models, adapters, routing policies, and verifier-like modules to be improved using locality-aware peer coordination, deterministic perturbation reconstruction, compact fitness communication, and reputation-gated promotion.
 
 This architecture treats retraining as a first-class GNUS.ai operating system primitive.
 
@@ -14,7 +14,7 @@ This architecture treats retraining as a first-class GNUS.ai operating system pr
 
 Within the Genius LLM system, the major architectural roles become:
 
-* **Semantic Core + Specialists:** inference architecture
+* **Semantic Core + Experts:** inference architecture
 * **Router + Swarm Thinking Context:** execution and reasoning architecture
 * **GAML:** memory and structured recall architecture
 * **Reputation + Consensus:** trust and output selection architecture
@@ -22,9 +22,9 @@ Within the Genius LLM system, the major architectural roles become:
 
 This means:
 
-* **LoRA or adapter-style specialization remains valid as the adaptation artifact**
-* **Mixture of Specialists remains the inference strategy**
-* **EGGROLL becomes the distributed retraining and specialist-refresh mechanism**
+* **Adapter-style specialization remains valid as an adaptation artifact**
+* **Expert-based routed execution remains the inference strategy**
+* **EGGROLL becomes the distributed retraining and expert-refresh mechanism**
 
 EGGROLL therefore complements the current design rather than replacing it.
 
@@ -87,7 +87,7 @@ Workers should return compact fitness signals, validation metadata, and attestat
 
 ### **18.4.4 Adapter-Oriented Evolution**
 
-The preferred first retraining targets are specialist adapters or specialist micro-models rather than full core-model retraining.
+The preferred first retraining targets are expert adapters or specialist micro-models rather than full core-model retraining.
 
 ### **18.4.5 Reputation-Gated Promotion**
 
@@ -100,21 +100,21 @@ Retraining should scale from local room coordinators to higher-level aggregators
 
 ---
 
-## **18.5 Relationship to LoRA and Mixture of Specialists**
+## **18.5 Relationship to Adapters and Expert Execution**
 
-EGGROLL does not eliminate LoRA, adapter-based tuning, or specialist modularity.
+EGGROLL does not eliminate adapters, expert modularity, or routed execution.
 
 Instead:
 
-* **LoRA or low-rank adapters define the artifact being updated**
-* **Mixture of Specialists defines how inference uses those artifacts**
+* **Adapters define one class of artifact being updated**
+* **Expert execution defines how inference uses those artifacts**
 * **EGGROLL defines how the swarm improves them over time**
 
 Therefore the architectural progression becomes:
 
-Base Model -> Specialist Adapter / Specialist Micro-Model -> Routed Inference -> Outcome Signal -> EGGROLL Retraining Job -> Improved Specialist Version
+Base Model -> Expert Adapter / Expert Micro-Model -> Routed Inference -> Outcome Signal -> EGGROLL Retraining Job -> Improved Expert Version
 
-This makes Genius LLM a system that can evolve specialist capability using swarm-native retraining rather than relying exclusively on offline centralized fine-tuning.
+This makes Genius LLM a system that can evolve expert capability using swarm-native retraining rather than relying exclusively on offline centralized fine-tuning.
 
 ---
 
@@ -127,7 +127,7 @@ The basic EGGROLL retraining primitive is:
 At minimum, a training job should define:
 
 * target model version or base model CID
-* target adapter CID or specialist artifact ID
+* target adapter CID or expert artifact ID
 * perturbation rank
 * perturbation scale or sigma
 * perturbation seed or seed range
@@ -176,7 +176,7 @@ A beehive may specialize around:
 * a model family
 * a domain specialist
 * a language or region
-* a game title or application domain
+* an application domain
 * a user-data enclave
 * a hardware class such as GPU, CPU, mobile NPU, or low-memory edge device
 
@@ -218,7 +218,7 @@ A retraining worker performs the following steps:
 
 1. Resolve the referenced base model and adapter artifacts from local cache or IPFS-lite.
 2. Reconstruct the perturbation from the assigned seed and rank.
-3. Apply the perturbation to the target adapter or specialist parameters.
+3. Apply the perturbation to the target adapter or expert parameters.
 4. Execute the assigned task shard locally.
 5. Compute fitness according to the declared reward function.
 6. Package fitness output, latency, and attestation metadata.
@@ -520,4 +520,3 @@ It completes it by giving the swarm a native mechanism for improving its special
 ---
 
 [Previous: Secure Agent Architecture](./12-secure-agent-architecture.md) | [Architecture Index](./INDEX.md) | [Next: Targeted Retraining and Hierarchical Critical Thinking Specialists](./14-cognitive-retaining-system.md)
-

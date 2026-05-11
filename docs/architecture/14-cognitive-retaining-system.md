@@ -3,7 +3,7 @@
 
 GNUS Cognitive Systems introduce a **Targeted Retraining** framework combined with a **Hierarchical Critical Thinking Specialist (HCTS)** architecture to enable continuously improving, personalized cognition without requiring full model retraining.
 
-This approach maintains a **stable intelligence core** while dynamically adapting reasoning behavior at the individual level.
+This approach maintains a **stable Semantic Core** while dynamically adapting reasoning behavior at the individual, organizational, and specialist level.
 
 ---
 
@@ -11,20 +11,21 @@ This approach maintains a **stable intelligence core** while dynamically adaptin
 
 Targeted Retraining is defined as:
 
-> Continuous, fine-grained adaptation of user-specific cognitive behavior through lightweight updates to adapters, routing weights, critic weights, and memory—without modifying the base model.
+> Continuous, fine-grained adaptation of user-specific and role-specific cognitive behavior through lightweight updates to adapters, routing weights, critic weights, verification behavior, memory, and arbitration behavior—without requiring full base-model replacement.
 
 ### 19.2.1 Key Properties
 
 - **Local Adaptation**
-  - Updates occur at the user or node level
+  - Updates occur at the user, tenant, or node level
   - No global model retraining required
 
 - **Lightweight**
   - Operates on:
-    - LoRA/adapters
+    - adapters
     - routing weights
-    - critic weight distributions
+    - critic or verifier weight distributions
     - memory structures
+    - arbitration logic
 
 - **Non-Differentiable Optimization**
   - Supports reinforcement-style and implicit feedback signals
@@ -53,10 +54,11 @@ EGGROLL enables:
 
 ### 19.3.2 Optimization Targets
 
-- Adapter parameters (LoRA / micro-experts)
-- Routing decisions (expert selection)
-- Critic weighting distributions
+- Adapter parameters
+- Routing decisions
+- Critic or verifier weighting distributions
 - Exploration vs alignment balance
+- Arbitration strategies
 
 ### 19.3.3 Reward Signals
 
@@ -70,7 +72,7 @@ EGGROLL enables:
 
 ## 19.4 Hierarchical Critical Thinking Specialists (HCTS)
 
-The HCTS system introduces multiple layers of structured critique aligned with the Cognitive Twin hierarchy.
+The HCTS system introduces multiple layers of structured critique aligned with the broader cognitive hierarchy.
 
 ### 19.4.1 Hierarchical Structure
 
@@ -82,7 +84,15 @@ The HCTS system introduces multiple layers of structured critique aligned with t
 - Individual Cognitive Critic
 - Contrarian / Adversarial Critic
 
-Each critic operates as an independent reasoning module or micro-expert.
+Each critic operates as an independent reasoning module or specialist.
+
+Representative evaluation perspectives include:
+
+- logical integrity
+- professional standards
+- user personalization
+- adversarial robustness
+- grounded factual consistency
 
 ---
 
@@ -177,6 +187,7 @@ This data drives Targeted Retraining via:
 - adapter updates
 - critic influence tuning
 - routing refinement
+- arbitration refinement
 
 ---
 
@@ -194,7 +205,7 @@ This combined architecture enables:
 
 ## 19.11 Summary
 
-> GNUS Cognitive Systems maintain a stable intelligence core while continuously improving personalized cognition through targeted retraining and hierarchical critical thinking.
+> GNUS Cognitive Systems maintain a stable Semantic Core while continuously improving personalized cognition through targeted retraining and hierarchical critical thinking.
 
 This transforms static inference into:
 
