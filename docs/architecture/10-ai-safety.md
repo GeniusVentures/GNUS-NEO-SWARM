@@ -5,6 +5,7 @@ Genius LLM v1 is:
 * Fully decentralized
 * Peer-to-peer
 * Node-sovereign
+* Policy-aware
 
 Therefore:
 
@@ -16,20 +17,21 @@ Safety enforcement must be:
 * Reputation-enforced
 * Cryptographically declared
 * Client-selectable
+* Applied throughout routing, retrieval, memory, grounding, and tool execution
 
 ---
 
 ## **15.1 Safety Architecture Model**
 
-Safety operates on three layers:
+Safety operates on multiple layers:
 
 ### 15.1.1 Layer 1 — Node-Level Enforcement (Authoritative)
 
 Each node:
 
-* Runs a Safety Micro-Model locally.
+* Runs local safety screening.
 * Applies policy thresholds before returning results.
-* Signs output with declared safety profile hash.
+* Signs output with declared safety profile hash where applicable.
 
 Unsafe outputs result in:
 
@@ -45,6 +47,7 @@ If a node repeatedly:
 
 * Violates its declared safety profile
 * Produces flagged outputs
+* Fails secure execution or attestation requirements
 
 Then:
 
@@ -62,7 +65,20 @@ Clients may:
 * Reject nodes with incompatible safety declarations.
 * Run optional local filtering.
 
-This allows regional flexibility without central enforcement.
+This allows regional and organizational flexibility without central enforcement.
+
+---
+
+### 15.1.4 Layer 4 — Tool Intermediary Enforcement
+
+When tools are involved:
+
+* Proposed tool actions are dry-run and sanitized.
+* Capability checks are enforced.
+* High-risk actions can require approval.
+* Unattested side effects are blocked.
+
+This extends safety from content generation into real-world action control.
 
 ---
 
@@ -102,13 +118,13 @@ Region profile is declared by node and filtered by client preference.
 
 ---
 
-## **15.4 Grokipedia Safety Integration**
+## **15.4 Grounding Safety Integration**
 
-After consensus:
+After consensus or synthesis:
 
-* Generated output is validated against Grokipedia.
-* Contradictions reduce consistency score.
-* Severe policy violations reduce global score.
+* Generated output may be validated against Grokipedia or approved grounding sources.
+* Contradictions reduce consistency or grounding score.
+* Severe policy violations reduce global or safety score.
 
 This integrates safety and grounding into a unified trust model.
 
@@ -120,18 +136,32 @@ In Swarm Mode:
 
 1. All nodes run local safety checks.
 2. Orchestrator verifies safety flags.
-3. Outputs violating declared policy are excluded from consensus.
-4. Reputation updates are applied.
+3. Outputs violating declared policy are excluded or down-weighted.
+4. Verification and grounding can further constrain candidate outputs.
+5. Reputation updates are applied.
 
 Safety is therefore emergent through:
 
 * Local enforcement
 * Weighted consensus
 * Reputation decay
+* Verification and grounding
 
 ---
 
-## **15.6 Compliance & Liability Model**
+## **15.6 Safety-Aware Expert Patterns**
+
+Some deployments may use dedicated safety or policy experts to evaluate:
+
+* harmful instruction patterns
+* policy conflicts
+* action approval requirements
+* grounding escalation needs
+* private data handling constraints
+
+---
+
+## **15.7 Compliance & Liability Model**
 
 Genius LLM v1:
 
@@ -139,8 +169,9 @@ Genius LLM v1:
 * Does not centrally moderate.
 * Assigns enforcement responsibility to node operators.
 * Enables client-side selection of policy environments.
+* Requires explicit execution boundaries for tool use.
 
 This model aligns with decentralized network design principles.
 
 ---
-[Previous: Future and Positioning](./09-future-and-positioning.md) | [Architecture Index](./INDEX.md) | [Next: Distributed Swarm Thinking Context Architecture](./11-distributed-swarm-thinking-context.md)
+[Previous: Future Compatibility and Positioning](./09-future-and-positioning.md) | [Architecture Index](./INDEX.md) | [Next: Distributed Swarm Thinking Context Architecture](./11-distributed-swarm-thinking-context.md)

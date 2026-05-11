@@ -2,28 +2,45 @@
 
 ## **9.1 Mode 1 — Single Node**
 
-* Core LLM only.
+* Semantic Core only.
 * Fast.
 * Minimal overhead.
 
 ---
 
-## **9.2 Mode 2 — Specialist Mode**
+## **9.2 Mode 2 — ELM-Assisted Mode**
 
-* Core + Grammar OR Math.
-* Sequential execution.
+* Semantic Core + one or more role-based or domain-specific experts.
+* Typically sequential or lightly parallel execution.
+* Used when specialist assistance improves quality without full swarm overhead.
 
 ---
 
 ## **9.3 Mode 3 — Swarm Mode**
 
 * Multiple nodes execute.
-* Weighted consensus.
+* Weighted consensus or arbiter-mediated synthesis.
 * Reputation-based selection.
 
 ---
 
-# **10 Performance Targets**
+## **9.4 Mode 4 — Agent Mode**
+
+* Multi-step execution involving memory, grounding, verification, and optional tool use.
+* Secure tool path enforced through the Tool Intermediary.
+* Used for higher-complexity workflows.
+
+---
+
+## **9.5 Execution Strategy Principles**
+
+* **Local-first, distributed-second:** Execute locally when possible and escalate only when justified.
+* **Small effective cognitive sets:** Select the smallest effective set of ELMs and services rather than activating a large swarm by default.
+* **Roles over raw scale:** Prefer assigning the right expert role over scaling one model indiscriminately.
+
+---
+
+# **10. Performance Targets**
 
 Metric
 
@@ -31,26 +48,32 @@ Target
 
 Tokens/sec
 
-≥ INT4 baseline
+≥ INT4 baseline where comparable
 
 Memory usage
 
-≤ INT4
+≤ practical low-bit deployment envelope
 
-GSM8K accuracy
+Grounded quality
 
-≥ baseline
+≥ baseline single-model factual reliability
 
-Grammar quality
+Verification / formatting quality
 
 measurable improvement
 
 Multi-node scaling
 
-near-linear up to 4 nodes
+near-linear up to initial swarm targets where network conditions permit
+
+Tool safety overhead
+
+bounded and separately reported from inference latency
+
+Customization efficiency
+
+choose the lowest-cost path among retrieval, memory, private ELM invocation, and swarm consensus that still satisfies quality and policy requirements
 
 ---
 
-[Previous: Agentic Memory Layer](./06-agentic-memory-layer.md) | [Architecture Index](./INDEX.md) | [Next: Roadmap and Risks](./08-roadmap-and-risks.md)
-
-
+[Previous: Agentic Memory Layer (GAML v1)](./06-agentic-memory-layer.md) | [Architecture Index](./INDEX.md) | [Next: Roadmap and Risks](./08-roadmap-and-risks.md)
