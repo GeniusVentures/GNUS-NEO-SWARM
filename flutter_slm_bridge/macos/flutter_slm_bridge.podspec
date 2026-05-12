@@ -5,30 +5,25 @@
 Pod::Spec.new do |s|
   s.name             = 'flutter_slm_bridge'
   s.version          = '0.0.1'
-  s.summary          = 'A new Flutter FFI plugin project.'
-  s.description      = <<-DESC
-A new Flutter FFI plugin project.
-                       DESC
+  s.summary          = 'Genius SLM FFI bridge for GNUS NEO SWARM.'
+  s.description      = 'Flutter FFI plugin that wraps the Genius-MOS-SLM-FFI native library.'
   s.homepage         = 'http://example.com'
   s.license          = { :file => '../LICENSE' }
-  s.author           = { 'Your Company' => 'email@example.com' }
+  s.author           = { 'GNUS AI' => 'ssivakumar@gnus.ai' }
 
-  # This will ensure the source files in Classes/ are included in the native
-  # builds of apps using this FFI plugin. Podspec does not support relative
-  # paths, so Classes contains a forwarder C file that relatively imports
-  # `../src/*` so that the C sources can be shared among all target platforms.
   s.source           = { :path => '.' }
-  s.source_files = 'Classes/**/*'
+  s.source_files     = 'Classes/**/*'
 
-  # If your plugin requires a privacy manifest, for example if it collects user
-  # data, update the PrivacyInfo.xcprivacy file to describe your plugin's
-  # privacy impact, and then uncomment this line. For more information,
-  # see https://developer.apple.com/documentation/bundleresources/privacy_manifest_files
-  # s.resource_bundles = {'flutter_slm_bridge_privacy' => ['Resources/PrivacyInfo.xcprivacy']}
+  # Embed the pre-built dylib so it is copied into the app bundle Frameworks folder.
+  # Path is relative to this podspec file (flutter_slm_bridge/macos/).
+  s.vendored_libraries = '../../../build/OSX/Release/libGenius-MOS-SLM-FFI.dylib'
 
   s.dependency 'FlutterMacOS'
 
-  s.platform = :osx, '10.11'
-  s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
+  s.platform = :osx, '10.15'
+  s.pod_target_xcconfig = {
+    'DEFINES_MODULE' => 'YES',
+    'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386',
+  }
   s.swift_version = '5.0'
 end

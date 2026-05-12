@@ -11,7 +11,14 @@ const String _libName = 'Genius-MOS-SLM-FFI';
 
 /// The dynamic library containing the GeniusSlm symbols.
 final DynamicLibrary _dylib = () {
-  if (Platform.isMacOS || Platform.isIOS) {
+  if (Platform.isMacOS) {
+    // Use absolute path to the pre-built dylib during development.
+    // In a production app bundle this would be embedded via the podspec.
+    const dylib =
+        '/Volumes/Work/Gnus_ai/genius-llm-v1/GNUS-NEO-SWARM/build/OSX/Release/lib$_libName.dylib';
+    return DynamicLibrary.open(dylib);
+  }
+  if (Platform.isIOS) {
     return DynamicLibrary.open('$_libName.framework/$_libName');
   }
   if (Platform.isAndroid || Platform.isLinux) {

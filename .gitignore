@@ -2,3 +2,19 @@
 gnus-poc/data/analysis
 gnus-poc/data/specialists
 gnus-poc/models/specialists_mlx
+
+# Runtime files — never commit
+ui/node.key
+ui/reputation.db/
+*.key
+*.db
+
+# Flutter generated files
+**/flutter/generated_plugin_registrant.cc
+**/flutter/generated_plugin_registrant.h
+**/flutter/generated_plugins.cmake
+**/Flutter/Flutter-Debug.xcconfig
+**/Flutter/Flutter-Release.xcconfig
+**/Flutter/GeneratedPluginRegistrant.swift
+**/example/ios/Podfile
+**/example/macos/Podfile
