@@ -11,22 +11,22 @@
 
 ## What is true right now
 - Native repo exposes the original tiny static C++ library plus a new shared FFI target.
-- A minimal OpenAI v1-style chat ABI now exists here for stubbed chat completion responses.
+- A minimal OpenAI v1-style ELM chat ABI now exists here for stubbed chat completion responses.
 - `flutter_app/` and `flutter_slm_bridge/` now exist in this repo as staged scaffolds.
 - `flutter_app/lib/main.dart` is still the generated template app, and `flutter_slm_bridge/` still exposes the generated `sum` FFI surface.
 
 ## Completed in this checkpoint
 - Created `AgentDocs/PLAN.md`
 - Created `AgentDocs/CHECKPOINT.md`
-- Added `src/genius_slm_chat_c.h`
-- Added `src/genius_slm_chat_c.cpp`
-- Updated `CMakeLists.txt` to build `Genius-MOS-SLM-FFI`
+- Added `src/genius_elm_chat_c.h`
+- Added `src/genius_elm_chat_c.cpp`
+- Updated `CMakeLists.txt` to build `GNUS-NEO-SWARM-FFI`
 - Staged `flutter_app/` scaffold with `ffi` and `flutter_ai_toolkit` dependencies
 - Staged `flutter_slm_bridge/` FFI plugin scaffold, including its generated example app
 
 ## Not done yet
 - Native build verification is still pending until the required build environment is working.
-- `flutter_slm_bridge/` is not yet wired to `GeniusSlmChatCompletionsCreate` / `GeniusSlmStringFree`.
+- `flutter_slm_bridge/` is not yet wired to `GeniusElmChatCompletionsCreate` / `GeniusElmStringFree`.
 - `flutter_app/` is not yet calling the native chat stub or showing a chat UI.
 
 ## Next proposed single step
@@ -38,4 +38,3 @@ After the build environment is working, validate the native project build using 
 - `ninja` builds the native targets successfully
 - `flutter_slm_bridge/` exposes a minimal Dart wrapper for the existing native chat stub
 - `flutter_app/` can invoke the stubbed chat path end-to-end with no additional scope added
-

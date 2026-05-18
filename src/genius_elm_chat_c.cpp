@@ -1,4 +1,4 @@
-#include "genius_slm_chat_c.h"
+#include "genius_elm_chat_c.h"
 
 #include <cstdlib>
 #include <cstring>
@@ -27,18 +27,17 @@ namespace
     }
 }
 
-char * GeniusSlmChatCompletionsCreate(const char * requestJson) noexcept
+char * GeniusElmChatCompletionsCreate(const char * requestJson) noexcept
 {
     static_cast<void>(requestJson);
 
     const std::string responseJson =
-        R"JSON({"id":"chatcmpl-stub","object":"chat.completion","created":1742688000,"model":"Genius-MOS-SLM-stub","choices":[{"index":0,"message":{"role":"assistant","content":"Stub response from Genius-MOS-SLM. Local OpenAI v1 chat behavior will be implemented behind this ABI."},"finish_reason":"stop"}],"usage":{"prompt_tokens":0,"completion_tokens":0,"total_tokens":0}})JSON";
+        R"JSON({"id":"chatcmpl-stub","object":"chat.completion","created":1742688000,"model":"GNUS-NEO-SWARM-stub","choices":[{"index":0,"message":{"role":"assistant","content":"Stub response from GNUS-NEO-SWARM. Local OpenAI v1 chat behavior will be implemented behind this ABI."},"finish_reason":"stop"}],"usage":{"prompt_tokens":0,"completion_tokens":0,"total_tokens":0}})JSON";
 
     return DuplicateString(responseJson);
 }
 
-void GeniusSlmStringFree(char * value) noexcept
+void GeniusElmStringFree(char * value) noexcept
 {
     std::free(value);
 }
-

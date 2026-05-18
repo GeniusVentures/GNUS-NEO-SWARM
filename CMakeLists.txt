@@ -3,7 +3,7 @@ project(GNUS-NEO-SWARM)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_library(GNUS-NEO-SWARM STATIC src/slm_base.cpp)
+add_library(GNUS-NEO-SWARM STATIC src/elm_base.cpp)
 
 install(TARGETS GNUS-NEO-SWARM EXPORT ${PROJECT_NAME}Targets
         LIBRARY       DESTINATION ${CMAKE_INSTALL_LIBDIR}

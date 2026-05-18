@@ -2,7 +2,7 @@
  - The fully decentralized swarm where a Micro LLM router orchestrates specialist Nano Language Models into emergent ultra-smart intelligence.
 
 
-This is a Flutter UI and C++ library for the Decentralized Genius LLM Chat system
+This is the GNUS-NEO-SWARM Expert Language Model and application code for the parent GeniusCognitiveSystem.
 # GNUS NEO SWARM
 
 **GNUS NEO SWARM** is the decentralized peer-to-peer swarm architecture powering **GNUS** — the Globally Networked Ultra-Smart Artificial Intelligence ecosystem.
