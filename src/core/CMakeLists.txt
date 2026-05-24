@@ -81,8 +81,9 @@ endif()
 # ---------------------------------------------------------------------------
 # SGProcessingManager integration (pre-built from SuperGenius)
 # ---------------------------------------------------------------------------
-set(_SGPROC_INCLUDE "${PROJECT_ROOT}/SGProcessingManager/include")
-set(_SGPROC_GEN_INCLUDE "${PROJECT_ROOT}/SGProcessingManager/generated")
+# SGProcessingManager headers from SuperGenius sibling repo
+set(_SGPROC_INCLUDE "${PROJECT_ROOT}/../SuperGenius/SGProcessingManager/include")
+set(_SGPROC_GEN_INCLUDE "${PROJECT_ROOT}/../SuperGenius/SGProcessingManager/generated")
 set(_SGPROC_LIB_DIR "${_THIRDPARTY_BUILD_DIR}/SGProcessingManager/lib")
 
 find_library(_SGPROC_PROCESSING_BASE ProcessingBase PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)

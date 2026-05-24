@@ -8,6 +8,12 @@ ui/node.key
 ui/reputation.db/
 *.key
 *.db
+.export.log
+:memory:/
+reputation.db/
+mnn_cachefile.bin
+ui/mnn_cachefile.bin
+node.key
 
 # Flutter generated files
 **/flutter/generated_plugin_registrant.cc
