@@ -5,7 +5,7 @@ add_library(genius_specialists STATIC
 )
 
 target_include_directories(genius_specialists PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src>
+    $<BUILD_INTERFACE:${PROJECT_ROOT}/src>
     $<INSTALL_INTERFACE:include>
 )
 

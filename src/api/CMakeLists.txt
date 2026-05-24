@@ -3,7 +3,7 @@ add_library(genius_api STATIC
 )
 
 target_include_directories(genius_api PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src>
+    $<BUILD_INTERFACE:${PROJECT_ROOT}/src>
     $<INSTALL_INTERFACE:include>
 )
 

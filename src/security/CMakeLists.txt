@@ -4,7 +4,7 @@ add_library(genius_security STATIC
 )
 
 target_include_directories(genius_security PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src>
+    $<BUILD_INTERFACE:${PROJECT_ROOT}/src>
     $<INSTALL_INTERFACE:include>
 )
 

@@ -6,7 +6,7 @@ add_library(genius_reputation STATIC
 )
 
 target_include_directories(genius_reputation PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src>
+    $<BUILD_INTERFACE:${PROJECT_ROOT}/src>
     $<INSTALL_INTERFACE:include>
 )
 
