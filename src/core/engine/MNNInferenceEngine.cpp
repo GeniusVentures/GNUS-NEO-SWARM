@@ -1,8 +1,11 @@
 /**
  * @file       MNNInferenceEngine.cpp
- * @brief      MNN inference engine implementation
+ * @brief      MNN inference engine — cross-platform, config-driven
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
+ *
+ * No platform-specific code. GPU = Vulkan only (MoltenVK on Apple).
+ * Engine mode selected at runtime via Config::engine_mode_, not compile flags.
  */
 
 #include "MNNInferenceEngine.hpp"
@@ -51,6 +54,9 @@ namespace sgns::neoswarm::core
         }
     }
 
+    // -----------------------------------------------------------------------
+    // Construction / destruction
+    // -----------------------------------------------------------------------
     MNNInferenceEngine::MNNInferenceEngine() : cfg_( {} ) {}
     MNNInferenceEngine::MNNInferenceEngine( Config cfg ) : cfg_( std::move( cfg ) )
     {
@@ -68,12 +74,13 @@ namespace sgns::neoswarm::core
     }
 
     // -----------------------------------------------------------------------
-    // SelectBackend
+    // SelectBackend — Vulkan (cross-platform) or CPU
     // -----------------------------------------------------------------------
     int MNNInferenceEngine::SelectBackend() const
     {
 #ifdef GENIUS_HAS_MNN
-        return cfg_.use_gpu_ ? 7 : 0;  // 7 = MNN_FORWARD_VULKAN, 0 = MNN_FORWARD_CPU
+        // MNN_FORWARD_VULKAN = 7, MNN_FORWARD_CPU = 0
+        return ( cfg_.backend_ == "vulkan" ) ? 7 : 0;
 #else
         return 0;
 #endif
@@ -81,8 +88,12 @@ namespace sgns::neoswarm::core
 
     std::string MNNInferenceEngine::BackendName() const
     {
+        if ( cfg_.engine_mode_ == "sgprocessing" )
+        {
+            return cfg_.sg_network_mode_ ? "SGProcessing/Network" : "SGProcessing/Local";
+        }
 #ifdef GENIUS_HAS_MNN
-        return cfg_.use_gpu_ ? "MNN/Vulkan" : "MNN/CPU";
+        return ( cfg_.backend_ == "vulkan" ) ? "MNN/Vulkan" : "MNN/CPU";
 #else
         return "Stub/NoMNN";
 #endif
@@ -93,58 +104,276 @@ namespace sgns::neoswarm::core
     // -----------------------------------------------------------------------
     outcome::result<void> MNNInferenceEngine::LoadModel( const std::string &model_path )
     {
-        EngineLogger()->info( "Loading model: {} (backend={})", model_path, BackendName() );
+        EngineLogger()->info( "Loading model: {} (mode={}, backend={})",
+                              model_path, cfg_.engine_mode_, BackendName() );
 
-        if ( cfg_.use_sg_processing_ )
+        // ---- SGProcessing path (primary) ----
+        if ( cfg_.engine_mode_ == "sgprocessing" )
         {
             model_path_ = model_path;
-            if ( !bridge_ )
+
+            SGProcessingBridge::Config bridge_cfg;
+            bridge_cfg.network_mode_ = cfg_.sg_network_mode_;
+            bridge_ = std::make_unique<SGProcessingBridge>( bridge_cfg );
+
+            tensor_interpreter_ = std::make_unique<TensorInterpreter>();
+            if ( tokenizer_ )
             {
-                bridge_ = std::make_unique<SGProcessingBridge>();
+                tensor_interpreter_->SetTokenizer( tokenizer_ );
             }
-            if ( !tensor_interpreter_ )
-            {
-                tensor_interpreter_ = std::make_unique<TensorInterpreter>();
-                if ( tokenizer_ )
-                {
-                    tensor_interpreter_->SetTokenizer( tokenizer_ );
-                }
-            }
+
             if ( !ioc_ )
             {
                 ioc_ = std::make_shared<boost::asio::io_context>();
             }
+
             loaded_.store( true );
-            EngineLogger()->info( "Model path stored for SGProcessing delegation: {}", model_path );
+            EngineLogger()->info( "Model path stored for SGProcessing: {}", model_path );
             return outcome::success();
         }
 
+        // ---- MNN Interpreter path (fallback) ----
 #ifdef GENIUS_HAS_MNN
-        interpreter_.reset( MNN::Interpreter::createFromFile( model_path.c_str() ) );
-        if ( !interpreter_ )
+        if ( cfg_.engine_mode_ == "interpreter" )
         {
-            return outcome::failure( Error::ModelLoadFailed );
+            interpreter_.reset( MNN::Interpreter::createFromFile( model_path.c_str() ) );
+            if ( !interpreter_ )
+            {
+                return outcome::failure( Error::ModelLoadFailed );
+            }
+            MNN::ScheduleConfig sched_cfg;
+            sched_cfg.type      = static_cast<MNNForwardType>( SelectBackend() );
+            sched_cfg.numThread = cfg_.num_threads_;
+            session_ = interpreter_->createSession( sched_cfg );
+            if ( !session_ )
+            {
+                return outcome::failure( Error::ModelLoadFailed );
+            }
+            model_path_ = model_path;
+            loaded_.store( true );
+            EngineLogger()->info( "Model loaded (Interpreter, backend={})", BackendName() );
+            return outcome::success();
         }
-        MNN::ScheduleConfig sched_cfg;
-        sched_cfg.type      = static_cast<MNNForwardType>( SelectBackend() );
-        sched_cfg.numThread = cfg_.num_threads_;
-        session_ = interpreter_->createSession( sched_cfg );
-        if ( !session_ )
-        {
-            return outcome::failure( Error::ModelLoadFailed );
-        }
-#else
-        EngineLogger()->warn( "MNN not compiled in — running in stub mode" );
 #endif
 
+        // ---- Stub mode (no engine configured or MNN not compiled) ----
+        EngineLogger()->warn( "Engine mode '{}' — running in stub mode", cfg_.engine_mode_ );
         model_path_ = model_path;
         loaded_.store( true );
-        EngineLogger()->info( "Model loaded successfully" );
         return outcome::success();
     }
 
     // -----------------------------------------------------------------------
-    // RunForward
+    // Infer
+    // -----------------------------------------------------------------------
+    outcome::result<InferenceResponse> MNNInferenceEngine::Infer( const Task &task )
+    {
+        if ( !loaded_.load() )
+        {
+            return outcome::failure( Error::InferenceFailed );
+        }
+
+        // ---- Stub mode (no model loaded) ----
+        if ( model_path_.empty() )
+        {
+            InferenceResponse resp;
+            resp.output_     = "[stub response — no model loaded]";
+            resp.latency_ms_ = 1.0;
+            resp.node_id_    = task.node_id_;
+            resp.success_    = true;
+            return outcome::success( std::move( resp ) );
+        }
+
+        // ---- SGProcessing path (primary) ----
+        if ( cfg_.engine_mode_ == "sgprocessing" )
+        {
+            if ( !bridge_ || !tensor_interpreter_ )
+            {
+                return outcome::failure( Error::InferenceFailed );
+            }
+
+            auto t0 = std::chrono::steady_clock::now();
+
+            const sgns::InputFormat input_fmt = cfg_.use_fp4_
+                ? sgns::InputFormat::FP4_ULTRA
+                : sgns::InputFormat::FLOAT32;
+            const std::vector<int64_t> shape = { 1, static_cast<int64_t>( task.prompt_.size() ) };
+
+            auto bytes_res = bridge_->SubmitJob( model_path_, task.prompt_, input_fmt, shape, ioc_ );
+            if ( !bytes_res.has_value() )
+            {
+                return outcome::failure( bytes_res.error() );
+            }
+            auto text_res = tensor_interpreter_->Interpret( bytes_res.value(),
+                                                            sgns::InputFormat::FLOAT32 );
+            if ( !text_res.has_value() )
+            {
+                return outcome::failure( text_res.error() );
+            }
+
+            auto t1 = std::chrono::steady_clock::now();
+            InferenceResponse resp;
+            resp.output_     = text_res.value();
+            resp.latency_ms_ = std::chrono::duration<double, std::milli>( t1 - t0 ).count();
+            resp.node_id_    = task.node_id_;
+            resp.success_    = true;
+            return outcome::success( std::move( resp ) );
+        }
+
+        // ---- MNN Interpreter path (fallback) ----
+#ifdef GENIUS_HAS_MNN
+        if ( cfg_.engine_mode_ == "interpreter" )
+        {
+            if ( !tokenizer_ )
+            {
+                return outcome::failure( Error::InferenceFailed );
+            }
+
+            auto t0 = std::chrono::steady_clock::now();
+
+            auto enc_res = tokenizer_->Encode( task.prompt_ );
+            if ( !enc_res.has_value() )
+            {
+                return outcome::failure( enc_res.error() );
+            }
+            std::vector<int> input_ids = enc_res.value();
+            std::vector<int> generated;
+            generated.reserve( task.max_tokens_ );
+
+            std::string output_text;
+            float       total_log_prob = 0.0f;
+            int         token_count    = 0;
+
+            for ( uint32_t step = 0; step < task.max_tokens_; ++step )
+            {
+                std::vector<int> context_ids = input_ids;
+                context_ids.insert( context_ids.end(), generated.begin(), generated.end() );
+
+                auto logits_res = RunForward( context_ids );
+                if ( !logits_res.has_value() )
+                {
+                    return outcome::failure( logits_res.error() );
+                }
+
+                auto &logits = logits_res.value();
+                ApplyRepetitionPenalty( logits, generated, cfg_.repetition_penalty_ );
+                int next_token = SampleToken( logits, task.temperature_, cfg_.top_p_, cfg_.top_k_ );
+
+                float max_l   = *std::max_element( logits.begin(), logits.end() );
+                float sum_exp = 0.0f;
+                for ( auto v : logits ) sum_exp += std::exp( v - max_l );
+                total_log_prob += logits[next_token] - max_l - std::log( sum_exp );
+                ++token_count;
+
+                if ( tokenizer_->IsEOS( next_token ) ) break;
+                generated.push_back( next_token );
+
+                auto dec_res = tokenizer_->Decode( { next_token } );
+                if ( dec_res.has_value() ) output_text += dec_res.value();
+            }
+
+            auto   t1         = std::chrono::steady_clock::now();
+            double latency_ms = std::chrono::duration<double, std::milli>( t1 - t0 ).count();
+            float  perplexity = token_count > 0
+                ? std::exp( -total_log_prob / static_cast<float>( token_count ) )
+                : 1.0f;
+
+            InferenceResponse resp;
+            resp.output_     = output_text;
+            resp.perplexity_ = perplexity;
+            resp.latency_ms_ = latency_ms;
+            resp.node_id_    = task.node_id_;
+            resp.success_    = true;
+
+            EngineLogger()->debug( "Inference done: {} tokens, {:.1f} ms, perplexity={:.2f}",
+                                   generated.size(), latency_ms, perplexity );
+            return outcome::success( std::move( resp ) );
+        }
+#endif
+
+        // ---- Stub path ----
+        InferenceResponse resp;
+        resp.output_     = "[stub response — engine not configured]";
+        resp.latency_ms_ = 1.0;
+        resp.node_id_    = task.node_id_;
+        resp.success_    = true;
+        return outcome::success( std::move( resp ) );
+    }
+
+    // -----------------------------------------------------------------------
+    // StreamInfer
+    // -----------------------------------------------------------------------
+    outcome::result<void> MNNInferenceEngine::StreamInfer(
+        const Task                                       &task,
+        std::function<void( const std::string &token )>  callback )
+    {
+        if ( !loaded_.load() )
+        {
+            return outcome::failure( Error::InferenceFailed );
+        }
+
+        // SGProcessing does not support streaming yet — fall through to batch.
+        // Interpreter path supports token-by-token streaming.
+
+#ifdef GENIUS_HAS_MNN
+        if ( cfg_.engine_mode_ == "interpreter" )
+        {
+            if ( !tokenizer_ )
+            {
+                return outcome::failure( Error::InferenceFailed );
+            }
+
+            auto enc_res = tokenizer_->Encode( task.prompt_ );
+            if ( !enc_res.has_value() )
+            {
+                return outcome::failure( enc_res.error() );
+            }
+            std::vector<int> input_ids = enc_res.value();
+            std::vector<int> generated;
+
+            for ( uint32_t step = 0; step < task.max_tokens_; ++step )
+            {
+                std::vector<int> context_ids = input_ids;
+                context_ids.insert( context_ids.end(), generated.begin(), generated.end() );
+
+                auto logits_res = RunForward( context_ids );
+                if ( !logits_res.has_value() )
+                {
+                    return outcome::failure( logits_res.error() );
+                }
+
+                auto &logits = logits_res.value();
+                ApplyRepetitionPenalty( logits, generated, cfg_.repetition_penalty_ );
+                int next_token = SampleToken( logits, task.temperature_, cfg_.top_p_, cfg_.top_k_ );
+
+                if ( tokenizer_->IsEOS( next_token ) ) break;
+                generated.push_back( next_token );
+
+                auto dec_res = tokenizer_->Decode( { next_token } );
+                if ( dec_res.has_value() && callback )
+                {
+                    callback( dec_res.value() );
+                }
+            }
+            return outcome::success();
+        }
+#endif
+
+        // Fallback: run batch inference and emit the full result as one token.
+        auto result = Infer( task );
+        if ( !result.has_value() )
+        {
+            return outcome::failure( result.error() );
+        }
+        if ( callback )
+        {
+            callback( result.value().output_ );
+        }
+        return outcome::success();
+    }
+
+    // -----------------------------------------------------------------------
+    // RunForward — Interpreter path only
     // -----------------------------------------------------------------------
     outcome::result<std::vector<float>> MNNInferenceEngine::RunForward(
         const std::vector<int> &input_ids )
@@ -153,9 +382,9 @@ namespace sgns::neoswarm::core
         if ( !session_ )
         {
             // Stub: return random logits
-            std::vector<float>                     logits( 32000, 0.0f );
-            static std::mt19937                    rng( 42 );
-            std::normal_distribution<float>        dist( 0.0f, 1.0f );
+            std::vector<float>              logits( 32000, 0.0f );
+            static std::mt19937             rng( 42 );
+            std::normal_distribution<float> dist( 0.0f, 1.0f );
             for ( auto &v : logits ) v = dist( rng );
             return outcome::success( std::move( logits ) );
         }
@@ -268,177 +497,16 @@ namespace sgns::neoswarm::core
         for ( auto &p : probs ) p_sum += p.first;
         for ( auto &p : probs ) p.first /= p_sum;
 
-        static thread_local std::mt19937             rng( std::random_device{}() );
-        std::uniform_real_distribution<float>        dist( 0.0f, 1.0f );
-        float                                        r   = dist( rng );
-        float                                        acc = 0.0f;
+        static thread_local std::mt19937      rng( std::random_device{}() );
+        std::uniform_real_distribution<float> dist( 0.0f, 1.0f );
+        float                                 r   = dist( rng );
+        float                                 acc = 0.0f;
         for ( auto &p : probs )
         {
             acc += p.first;
             if ( r <= acc ) return p.second;
         }
         return probs.back().second;
-    }
-
-    // -----------------------------------------------------------------------
-    // Infer
-    // -----------------------------------------------------------------------
-    outcome::result<InferenceResponse> MNNInferenceEngine::Infer( const Task &task )
-    {
-        if ( !loaded_.load() )
-        {
-            return outcome::failure( Error::InferenceFailed );
-        }
-
-        if ( cfg_.use_sg_processing_ )
-        {
-            if ( !bridge_ || !tensor_interpreter_ )
-            {
-                return outcome::failure( Error::InferenceFailed );
-            }
-            auto t0 = std::chrono::steady_clock::now();
-
-            const sgns::InputFormat input_fmt = cfg_.use_fp4_
-                ? sgns::InputFormat::FP4_ULTRA
-                : sgns::InputFormat::FLOAT32;
-            const std::vector<int64_t> shape = { 1, static_cast<int64_t>( task.prompt_.size() ) };
-
-            auto bytes_res = bridge_->SubmitJob( model_path_, task.prompt_, input_fmt, shape, ioc_ );
-            if ( !bytes_res.has_value() )
-            {
-                return outcome::failure( bytes_res.error() );
-            }
-            auto text_res = tensor_interpreter_->Interpret( bytes_res.value(),
-                                                            sgns::InputFormat::FLOAT32 );
-            if ( !text_res.has_value() )
-            {
-                return outcome::failure( text_res.error() );
-            }
-
-            auto t1 = std::chrono::steady_clock::now();
-            InferenceResponse resp;
-            resp.output_     = text_res.value();
-            resp.latency_ms_ = std::chrono::duration<double, std::milli>( t1 - t0 ).count();
-            resp.node_id_    = task.node_id_;
-            resp.success_    = true;
-            return outcome::success( std::move( resp ) );
-        }
-
-        if ( !tokenizer_ )
-        {
-            return outcome::failure( Error::InferenceFailed );
-        }
-
-        auto t0 = std::chrono::steady_clock::now();
-
-        auto enc_res = tokenizer_->Encode( task.prompt_ );
-        if ( !enc_res.has_value() )
-        {
-            return outcome::failure( enc_res.error() );
-        }
-        std::vector<int> input_ids = enc_res.value();
-        std::vector<int> generated;
-        generated.reserve( task.max_tokens_ );
-
-        std::string output_text;
-        float       total_log_prob = 0.0f;
-        int         token_count    = 0;
-
-        for ( uint32_t step = 0; step < task.max_tokens_; ++step )
-        {
-            std::vector<int> context_ids = input_ids;
-            context_ids.insert( context_ids.end(), generated.begin(), generated.end() );
-
-            auto logits_res = RunForward( context_ids );
-            if ( !logits_res.has_value() )
-            {
-                return outcome::failure( logits_res.error() );
-            }
-
-            auto &logits = logits_res.value();
-            ApplyRepetitionPenalty( logits, generated, cfg_.repetition_penalty_ );
-            int next_token = SampleToken( logits, task.temperature_, cfg_.top_p_, cfg_.top_k_ );
-
-            float max_l  = *std::max_element( logits.begin(), logits.end() );
-            float sum_exp = 0.0f;
-            for ( auto v : logits ) sum_exp += std::exp( v - max_l );
-            total_log_prob += logits[next_token] - max_l - std::log( sum_exp );
-            ++token_count;
-
-            if ( tokenizer_->IsEOS( next_token ) ) break;
-            generated.push_back( next_token );
-
-            auto dec_res = tokenizer_->Decode( { next_token } );
-            if ( dec_res.has_value() ) output_text += dec_res.value();
-        }
-
-        auto   t1         = std::chrono::steady_clock::now();
-        double latency_ms = std::chrono::duration<double, std::milli>( t1 - t0 ).count();
-        float  perplexity = token_count > 0
-            ? std::exp( -total_log_prob / static_cast<float>( token_count ) )
-            : 1.0f;
-
-        InferenceResponse resp;
-        resp.output_     = output_text;
-        resp.perplexity_ = perplexity;
-        resp.latency_ms_ = latency_ms;
-        resp.node_id_    = task.node_id_;
-        resp.success_    = true;
-
-        EngineLogger()->debug( "Inference done: {} tokens, {:.1f} ms, perplexity={:.2f}",
-                               generated.size(), latency_ms, perplexity );
-        return outcome::success( std::move( resp ) );
-    }
-
-    // -----------------------------------------------------------------------
-    // StreamInfer
-    // -----------------------------------------------------------------------
-    outcome::result<void> MNNInferenceEngine::StreamInfer(
-        const Task                                    &task,
-        std::function<void( const std::string &token )> callback )
-    {
-        if ( !loaded_.load() )
-        {
-            return outcome::failure( Error::InferenceFailed );
-        }
-        if ( !tokenizer_ )
-        {
-            return outcome::failure( Error::InferenceFailed );
-        }
-
-        auto enc_res = tokenizer_->Encode( task.prompt_ );
-        if ( !enc_res.has_value() )
-        {
-            return outcome::failure( enc_res.error() );
-        }
-        std::vector<int> input_ids = enc_res.value();
-        std::vector<int> generated;
-
-        for ( uint32_t step = 0; step < task.max_tokens_; ++step )
-        {
-            std::vector<int> context_ids = input_ids;
-            context_ids.insert( context_ids.end(), generated.begin(), generated.end() );
-
-            auto logits_res = RunForward( context_ids );
-            if ( !logits_res.has_value() )
-            {
-                return outcome::failure( logits_res.error() );
-            }
-
-            auto &logits = logits_res.value();
-            ApplyRepetitionPenalty( logits, generated, cfg_.repetition_penalty_ );
-            int next_token = SampleToken( logits, task.temperature_, cfg_.top_p_, cfg_.top_k_ );
-
-            if ( tokenizer_->IsEOS( next_token ) ) break;
-            generated.push_back( next_token );
-
-            auto dec_res = tokenizer_->Decode( { next_token } );
-            if ( dec_res.has_value() && callback )
-            {
-                callback( dec_res.value() );
-            }
-        }
-        return outcome::success();
     }
 
 } // namespace sgns::neoswarm::core

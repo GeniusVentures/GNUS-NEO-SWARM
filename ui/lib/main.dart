@@ -7,8 +7,10 @@ import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flutter_slm_bridge/flutter_slm_bridge.dart';
 
 void main() {
-  // Initialise the SLM engine in stub mode.
-  // Pass modelPath: '/path/to/model.mnn' once a real model is available.
+  // Initialise the SLM engine.
+  // Real inference requires SGProcessingManager to be linked (Phase 1)
+  // or a standard .mnn model for the Interpreter fallback path.
+  // Until then, runs in stub mode.
   geniusSlmInit();
   runApp(const GeniusSwarmApp());
 }
