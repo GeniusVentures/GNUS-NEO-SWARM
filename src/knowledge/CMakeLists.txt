@@ -5,7 +5,7 @@ add_library(genius_knowledge STATIC
 )
 
 target_include_directories(genius_knowledge PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src>
+    $<BUILD_INTERFACE:${PROJECT_ROOT}/src>
     $<INSTALL_INTERFACE:include>
 )
 
