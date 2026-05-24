@@ -12,7 +12,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
-#include <mutex>
 #include <string>
 
 using namespace sgns::neoswarm;
@@ -170,11 +169,10 @@ namespace
     // Singleton GeniusAPIServer
     // -----------------------------------------------------------------------
     std::unique_ptr<api::GeniusAPIServer> g_server;
-    std::once_flag                         g_init_flag;
     std::string                            g_model_path;
     std::string                            g_knowledge_path;
 
-    void InitServerOnce() noexcept
+    void InitServer() noexcept
     {
         api::GeniusAPIServer::Config cfg;
         cfg.model_path_       = g_model_path;
@@ -203,14 +201,18 @@ int GeniusSlmInit( const char *model_path, const char *knowledge_path ) noexcept
 
     // Reset and re-initialise with new paths
     g_server.reset();
-    InitServerOnce();
+    InitServer();
 
     return ( g_server != nullptr ) ? 0 : -1;
 }
 
 char *GeniusSlmChatCompletionsCreate( const char *request_json ) noexcept
 {
-    std::call_once( g_init_flag, InitServerOnce );
+    // Lazy init on first call if GeniusSlmInit was never called
+    if ( g_server == nullptr )
+    {
+        InitServer();
+    }
 
     if ( g_server == nullptr )
     {
