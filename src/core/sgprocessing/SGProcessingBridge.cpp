@@ -285,13 +285,8 @@ namespace sgns::neoswarm::core
         auto pm_result = sgns::sgprocessing::ProcessingManager::Create( jsondata );
         if ( !pm_result )
         {
-            const auto &err = pm_result.error();
-            using Err       = sgns::sgprocessing::ProcessingManager::Error;
-            std::string msg = "ProcessingManager::Create failed";
-            if ( err == Err::INVALID_JSON )          msg += " (INVALID_JSON)";
-            else if ( err == Err::MISSING_INPUT )     msg += " (MISSING_INPUT)";
-            else if ( err == Err::PROCESS_INFO_MISSING ) msg += " (PROCESS_INFO_MISSING)";
-            BridgeLogger()->error( "{}", msg );
+            BridgeLogger()->error( "ProcessingManager::Create failed (error={})",
+                                   pm_result.error().message() );
             return outcome::failure( Error::InferenceFailed );
         }
 
@@ -322,12 +317,8 @@ namespace sgns::neoswarm::core
         auto process_result = pm->Process( ioc, chunkhashes, model_node );
         if ( !process_result )
         {
-            const auto &err = process_result.error();
-            using Err       = sgns::sgprocessing::ProcessingManager::Error;
-            std::string msg = "ProcessingManager::Process failed";
-            if ( err == Err::NO_PROCESSOR )   msg += " (NO_PROCESSOR — processor not registered)";
-            else if ( err == Err::INPUT_UNAVAIL ) msg += " (INPUT_UNAVAIL — input data not found)";
-            BridgeLogger()->error( "{}", msg );
+            BridgeLogger()->error( "ProcessingManager::Process failed (error={})",
+                                   process_result.error().message() );
             return outcome::failure( Error::InferenceFailed );
         }
 
