@@ -7,11 +7,11 @@ import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flutter_slm_bridge/flutter_slm_bridge.dart';
 
 void main() {
-  // Initialise the SLM engine.
-  // Real inference requires SGProcessingManager to be linked (Phase 1)
-  // or a standard .mnn model for the Interpreter fallback path.
-  // Until then, runs in stub mode.
-  geniusSlmInit();
+  // Initialise the SLM engine with the real Mistral-7B MNN model.
+  geniusSlmInit(
+    modelPath:
+        '/Volumes/Work/Gnus_ai/genius-llm-v1/models/mistral-7b-mnn/llm.mnn',
+  );
   runApp(const GeniusSwarmApp());
 }
 
@@ -45,6 +45,30 @@ class GeniusChatScreen extends StatefulWidget {
 class GeniusChatScreenState extends State<GeniusChatScreen> {
   final _chatController = InMemoryChatController();
   bool _isThinking = false;
+  bool _modelLoaded = false;
+  String _engineMode = 'stub';
+
+  @override
+  void initState() {
+    super.initState();
+    _checkEngineStatus();
+  }
+
+  void _checkEngineStatus() {
+    final status = getEngineStatus();
+    try {
+      final map = jsonDecode(status) as Map<String, dynamic>;
+      setState(() {
+        _modelLoaded = map['model_loaded'] as bool? ?? false;
+        _engineMode = map['mode'] as String? ?? 'stub';
+      });
+    } catch (_) {
+      setState(() {
+        _modelLoaded = false;
+        _engineMode = 'stub';
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -123,14 +147,46 @@ class GeniusChatScreenState extends State<GeniusChatScreen> {
             ),
         ],
       ),
-      body: Chat(
-        chatController: _chatController,
-        currentUserId: 'user',
-        onMessageSend: _onMessageSend,
-        resolveUser: (UserID id) async {
-          if (id == 'user') return const User(id: 'user', name: 'You');
-          return const User(id: 'assistant', name: 'GNUS Swarm');
-        },
+      body: Column(
+        children: [
+          // Stub mode banner
+          if (!_modelLoaded)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              color: Colors.orange.shade900.withOpacity(0.9),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded,
+                      color: Colors.orangeAccent, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Running in stub mode — no model loaded. '
+                      'Responses are simulated. '
+                      'Pass a .mnn model path to geniusSlmInit() for real inference.',
+                      style: TextStyle(
+                        color: Colors.orange.shade100,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          // Chat area
+          Expanded(
+            child: Chat(
+              chatController: _chatController,
+              currentUserId: 'user',
+              onMessageSend: _onMessageSend,
+              resolveUser: (UserID id) async {
+                if (id == 'user') return const User(id: 'user', name: 'You');
+                return const User(id: 'assistant', name: 'GNUS Swarm');
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -14,12 +14,13 @@ class GeniusSlmBindings {
 
   /// The symbols are looked up in [dynamicLibrary].
   GeniusSlmBindings(ffi.DynamicLibrary dynamicLibrary)
-      : _dylib = dynamicLibrary;
+    : _dylib = dynamicLibrary;
 
-  late final _GeniusSlmInitPtr = _dylib.lookupFunction<
-      ffi.Int32 Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>),
-      int Function(
-          ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>)>('GeniusSlmInit');
+  late final _GeniusSlmInitPtr = _dylib
+      .lookupFunction<
+        ffi.Int32 Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>),
+        int Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>)
+      >('GeniusSlmInit');
 
   /// Initialises the Genius SLM engine.
   ///
@@ -31,10 +32,11 @@ class GeniusSlmBindings {
     return _GeniusSlmInitPtr(modelPath, knowledgePath);
   }
 
-  late final _GeniusSlmChatCompletionsCreatePtr = _dylib.lookupFunction<
-      ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Char>),
-      ffi.Pointer<ffi.Char> Function(
-          ffi.Pointer<ffi.Char>)>('GeniusSlmChatCompletionsCreate');
+  late final _GeniusSlmChatCompletionsCreatePtr = _dylib
+      .lookupFunction<
+        ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Char>),
+        ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Char>)
+      >('GeniusSlmChatCompletionsCreate');
 
   /// Creates an OpenAI v1-style chat completion response.
   ///
@@ -46,14 +48,27 @@ class GeniusSlmBindings {
     return _GeniusSlmChatCompletionsCreatePtr(requestJson);
   }
 
-  late final _GeniusSlmStringFreePtr = _dylib.lookupFunction<
-      ffi.Void Function(ffi.Pointer<ffi.Char>),
-      void Function(ffi.Pointer<ffi.Char>)>('GeniusSlmStringFree');
+  late final _GeniusSlmStringFreePtr = _dylib
+      .lookupFunction<
+        ffi.Void Function(ffi.Pointer<ffi.Char>),
+        void Function(ffi.Pointer<ffi.Char>)
+      >('GeniusSlmStringFree');
 
   /// Releases a string buffer returned by [GeniusSlmChatCompletionsCreate].
-  void GeniusSlmStringFree(
-    ffi.Pointer<ffi.Char> value,
-  ) {
+  void GeniusSlmStringFree(ffi.Pointer<ffi.Char> value) {
     return _GeniusSlmStringFreePtr(value);
+  }
+
+  late final _GeniusSlmGetStatusPtr = _dylib
+      .lookupFunction<
+        ffi.Pointer<ffi.Char> Function(),
+        ffi.Pointer<ffi.Char> Function()
+      >('GeniusSlmGetStatus');
+
+  /// Returns the current engine status as a JSON string.
+  ///
+  /// The caller must release the returned string with [GeniusSlmStringFree].
+  ffi.Pointer<ffi.Char> GeniusSlmGetStatus() {
+    return _GeniusSlmGetStatusPtr();
   }
 }
