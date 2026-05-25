@@ -42,6 +42,7 @@ namespace sgns
 #    include <MNN/Interpreter.hpp>
 #    include <MNN/MNNDefine.h>
 #    include <MNN/Tensor.hpp>
+#    include <MNN/llm/llm.hpp>
 #endif
 
 namespace sgns::neoswarm::core
@@ -66,6 +67,11 @@ namespace sgns::neoswarm::core
     MNNInferenceEngine::~MNNInferenceEngine()
     {
 #ifdef GENIUS_HAS_MNN
+        if ( mnn_llm_ )
+        {
+            MNN::Transformer::Llm::destroy( mnn_llm_ );
+            mnn_llm_ = nullptr;
+        }
         if ( interpreter_ && session_ )
         {
             interpreter_->releaseSession( session_ );
@@ -136,6 +142,53 @@ namespace sgns::neoswarm::core
 #ifdef GENIUS_HAS_MNN
         if ( cfg_.engine_mode_ == "interpreter" )
         {
+            // Check if this is an MNN LLM model directory (has llm_config.json or llm.mnn.json)
+            std::string config_path;
+            {
+                // If model_path points to a .mnn file, check for llm_config.json in same dir
+                std::string dir = model_path;
+                auto slash_pos = dir.rfind( '/' );
+                if ( slash_pos != std::string::npos ) dir = dir.substr( 0, slash_pos );
+                else dir = ".";
+
+                std::string llm_config = dir + "/llm_config.json";
+                std::ifstream check( llm_config );
+                if ( check.good() )
+                {
+                    config_path = dir;
+                }
+            }
+
+            if ( !config_path.empty() )
+            {
+                // Use MNN's native LLM API for autoregressive generation
+                // createLLM expects a directory path ending with '/'
+                std::string llm_dir = config_path;
+                if ( !llm_dir.empty() && llm_dir.back() != '/' )
+                {
+                    llm_dir += '/';
+                }
+                EngineLogger()->info( "Detected MNN LLM model directory: {}", llm_dir );
+                mnn_llm_ = MNN::Transformer::Llm::createLLM( llm_dir );
+                if ( !mnn_llm_ )
+                {
+                    EngineLogger()->error( "Llm::createLLM failed for {}", llm_dir );
+                    return outcome::failure( Error::ModelLoadFailed );
+                }
+                if ( !mnn_llm_->load() )
+                {
+                    EngineLogger()->error( "Llm::load() failed" );
+                    MNN::Transformer::Llm::destroy( mnn_llm_ );
+                    mnn_llm_ = nullptr;
+                    return outcome::failure( Error::ModelLoadFailed );
+                }
+                model_path_ = model_path;
+                loaded_.store( true );
+                EngineLogger()->info( "MNN LLM model loaded successfully (native API)" );
+                return outcome::success();
+            }
+
+            // Standard single-file .mnn model (non-LLM)
             interpreter_.reset( MNN::Interpreter::createFromFile( model_path.c_str() ) );
             if ( !interpreter_ )
             {
@@ -224,6 +277,34 @@ namespace sgns::neoswarm::core
 #ifdef GENIUS_HAS_MNN
         if ( cfg_.engine_mode_ == "interpreter" )
         {
+            // --- MNN native LLM path (autoregressive) ---
+            if ( mnn_llm_ )
+            {
+                auto t0 = std::chrono::steady_clock::now();
+
+                std::ostringstream oss;
+                mnn_llm_->response( task.prompt_, &oss, nullptr,
+                                    static_cast<int>( task.max_tokens_ ) );
+
+                auto   t1         = std::chrono::steady_clock::now();
+                double latency_ms = std::chrono::duration<double, std::milli>( t1 - t0 ).count();
+
+                const auto *ctx = mnn_llm_->getContext();
+                int gen_tokens = ctx ? static_cast<int>( ctx->output_tokens.size() ) : 0;
+
+                InferenceResponse resp;
+                resp.output_     = oss.str();
+                resp.perplexity_ = 1.0f;
+                resp.latency_ms_ = latency_ms;
+                resp.node_id_    = task.node_id_;
+                resp.success_    = true;
+
+                EngineLogger()->info( "MNN LLM inference: {} tokens, {:.1f} ms",
+                                      gen_tokens, latency_ms );
+                return outcome::success( std::move( resp ) );
+            }
+
+            // --- Standard Interpreter path (non-LLM models) ---
             if ( !tokenizer_ )
             {
                 return outcome::failure( Error::InferenceFailed );
@@ -318,6 +399,46 @@ namespace sgns::neoswarm::core
 #ifdef GENIUS_HAS_MNN
         if ( cfg_.engine_mode_ == "interpreter" )
         {
+            // --- MNN native LLM streaming ---
+            if ( mnn_llm_ )
+            {
+                // MNN's response() writes tokens to the ostream as they're generated
+                // We use a custom streambuf to intercept each write and call the callback
+                class CallbackStreambuf : public std::streambuf
+                {
+                public:
+                    explicit CallbackStreambuf(
+                        std::function<void( const std::string & )> cb )
+                        : cb_( std::move( cb ) ) {}
+                protected:
+                    std::streamsize xsputn( const char *s, std::streamsize n ) override
+                    {
+                        if ( cb_ && n > 0 )
+                        {
+                            cb_( std::string( s, static_cast<size_t>( n ) ) );
+                        }
+                        return n;
+                    }
+                    int overflow( int c ) override
+                    {
+                        if ( c != EOF && cb_ )
+                        {
+                            char ch = static_cast<char>( c );
+                            cb_( std::string( 1, ch ) );
+                        }
+                        return c;
+                    }
+                private:
+                    std::function<void( const std::string & )> cb_;
+                };
+
+                CallbackStreambuf buf( callback );
+                std::ostream     os( &buf );
+                mnn_llm_->response( task.prompt_, &os, nullptr,
+                                    static_cast<int>( task.max_tokens_ ) );
+                return outcome::success();
+            }
+
             if ( !tokenizer_ )
             {
                 return outcome::failure( Error::InferenceFailed );
