@@ -71,6 +71,9 @@ namespace sgns::neoswarm::core
                 return InterpretInt32( bytes );
             case sgns::InputFormat::INT8:
                 return InterpretInt8( bytes );
+            case sgns::InputFormat::FP4_ULTRA:
+                // FP4_ULTRA output from SGProcessingManager is already dequantized to FLOAT32
+                return InterpretFloat32( bytes );
             default:
                 return InterpretFloat32( bytes );
         }

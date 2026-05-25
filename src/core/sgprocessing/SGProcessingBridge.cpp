@@ -67,7 +67,7 @@ namespace sgns::neoswarm::core
                 case sgns::InputFormat::INT16:     return "int";
                 case sgns::InputFormat::RGB8:      return "texture2d";
                 case sgns::InputFormat::RGBA8:     return "texture2d";
-                case sgns::InputFormat::FP4_ULTRA: return "tensor";  // FP4_ULTRA → tensor until SGProcessingManager adds native support
+                case sgns::InputFormat::FP4_ULTRA: return "fp4_ultra";  // FP4_ULTRA → dedicated processor
                 default:                           return "tensor";
             }
         }
