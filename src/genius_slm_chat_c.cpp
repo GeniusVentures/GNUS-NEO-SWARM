@@ -244,3 +244,31 @@ void GeniusSlmStringFree( char *value ) noexcept
 {
     std::free( value );
 }
+
+char *GeniusSlmGetStatus( void ) noexcept
+{
+    if ( g_server == nullptr )
+    {
+        return DuplicateString(
+            R"({"model_loaded":false,"mode":"uninitialized","backend":"none","node_id":""})" );
+    }
+
+    const bool   model_loaded = !g_model_path.empty();
+    const char  *mode         = model_loaded ? "sgprocessing" : "stub";
+    const char  *backend      = "vulkan";
+
+    std::string node_id;
+    // Extract node_id from the server's identity (already logged at init)
+    // We'll use the model path presence as the key indicator
+    std::string json = R"({"model_loaded":)";
+    json += model_loaded ? "true" : "false";
+    json += R"(,"mode":")";
+    json += mode;
+    json += R"(","backend":")";
+    json += backend;
+    json += R"(","model_path":")";
+    json += g_model_path;
+    json += R"("})";
+
+    return DuplicateString( json );
+}

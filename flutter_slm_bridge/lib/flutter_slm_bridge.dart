@@ -93,6 +93,29 @@ Future<String> chatCompletionsCreateAsync(String requestJson) async {
   return await Isolate.run(() => chatCompletionsCreate(requestJson));
 }
 
+/// Returns the current engine status as a JSON string.
+///
+/// Contains:
+///   - "model_loaded": bool — whether a real model is loaded
+///   - "mode": string — "sgprocessing", "interpreter", or "stub"
+///   - "backend": string — "vulkan", "cpu", or "none"
+///   - "model_path": string — path to the loaded model (empty if stub)
+String getEngineStatus() {
+  final result = _bindings.GeniusSlmGetStatus();
+  if (result == nullptr) {
+    return '{"model_loaded":false,"mode":"error","backend":"none","model_path":""}';
+  }
+  final status = result.cast<Utf8>().toDartString();
+  _bindings.GeniusSlmStringFree(result);
+  return status;
+}
+
+/// Returns true if a real model is loaded (not in stub mode).
+bool isModelLoaded() {
+  final status = getEngineStatus();
+  return status.contains('"model_loaded":true');
+}
+
 /// Convenience helper: extracts the assistant's text content from a
 /// raw OpenAI v1 response JSON string returned by [chatCompletionsCreate].
 ///

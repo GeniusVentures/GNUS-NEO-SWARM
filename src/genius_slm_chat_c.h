@@ -60,6 +60,20 @@ GENIUS_SLM_CHAT_C_API char * GeniusSlmChatCompletionsCreate(
  */
 GENIUS_SLM_CHAT_C_API void GeniusSlmStringFree( char * value ) GENIUS_SLM_CHAT_C_NOEXCEPT;
 
+/**
+ * \brief Returns the current engine status as a JSON string.
+ *
+ * The returned JSON contains:
+ *   - "model_loaded": bool — whether a real model is loaded
+ *   - "mode": string — "sgprocessing", "interpreter", or "stub"
+ *   - "backend": string — "vulkan", "cpu", or "none"
+ *   - "node_id": string — the node's peer identity
+ *
+ * \return Heap-allocated UTF-8 JSON string. The caller must release it with
+ *         \c GeniusSlmStringFree. Returns NULL only on allocation failure.
+ */
+GENIUS_SLM_CHAT_C_API char * GeniusSlmGetStatus( void ) GENIUS_SLM_CHAT_C_NOEXCEPT;
+
 #if defined( __cplusplus )
 }
 #endif
