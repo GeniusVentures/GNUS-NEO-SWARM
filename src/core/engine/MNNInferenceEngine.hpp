@@ -28,6 +28,10 @@ namespace MNN
 {
 class Interpreter;
 class Session;
+namespace Transformer
+{
+class Llm;
+} // namespace Transformer
 } // namespace MNN
 
 namespace boost::asio
@@ -119,6 +123,9 @@ namespace sgns::neoswarm::core
         // --- MNN Interpreter path ---
         std::shared_ptr<MNN::Interpreter> interpreter_;
         MNN::Session                     *session_   = nullptr;
+
+        // --- MNN LLM path (native autoregressive) ---
+        MNN::Transformer::Llm           *mnn_llm_   = nullptr;
 
         // --- SGProcessing path ---
         std::unique_ptr<SGProcessingBridge>      bridge_;
