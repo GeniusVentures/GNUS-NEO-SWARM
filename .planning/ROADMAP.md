@@ -41,7 +41,12 @@ Plans:
 ### Phase 3: Third-Party Integration
 **Goal**: Link all conditionally-compiled libraries so stub mode becomes real execution.
 **Depends on**: Phase 1, 2
-**Prerequisite**: User manages third-party builds (`thirdparty/`)
+**Prerequisite**: User manages third-party builds. Key submodules that need updating:
+- `thirdparty/MNN` — MNN inference engine with Vulkan Ultra-FP4, TurboQuant V4, GPU acceleration
+- `thirdparty/SentencePiece` — Tokenizer
+- `thirdparty/secp256k1` — Elliptic curve crypto
+- `thirdparty/RocksDB` — Persistent KV store
+- `thirdparty/Protobuf` — Message serialization
 
 Plans:
 - [ ] 03-01: MNN Integration — `GENIUS_HAS_MNN`, real inference replacing hardcoded random logits
@@ -124,6 +129,46 @@ Plans:
 | **HCTS Critics** | — | **Gap — no src/critics/** |
 | **Epistemic Arbitration** | — | **Gap — no src/arbitration/** |
 | **Thinking Trace** | — | **Gap — no trace recording** |
+
+## Inter-Phase Dependency Chain
+
+```
+Phase 1 (Bug Fixes) ──────────────────────────────────────────────────────────►
+         │
+         ▼
+Phase 2 (Tests) ──────────────────┐
+         │                        │
+         ▼                        ▼
+Phase 3 (Third-Party Integration) ────────────────────────────────────────────►
+  ├── 03-01 MNN ──────────────► Issue #1 (ELM on Vulkan)
+  │      │                        │
+  │      └── thirdparty/MNN submodule (user-managed, must be updated first)
+  │                               │
+  │      ▼                        ▼
+  ├── 03-02 SentencePiece ──► Phase 4 (ELM Expansion) — needs real inference
+  │                               │
+  ├── 03-03 secp256k1 ───────► Phase 6 (Swarm) — needs real identity
+  │                               │
+  ├── 03-04 RocksDB ─────────► Phase 5 (Memory GAML) — needs persistence
+  │                               │
+  └── 03-05 gRPC/Protobuf ───► Phase 6 (Swarm) — needs gRPC client/server
+                                  │
+                                  ▼
+                           Phase 7 (Tool Intermediary) — needs MNN for dry-run sandbox
+                                  │
+                                  ▼
+                           Phase 8 (Advanced Cognitive) — needs all above
+```
+
+**Key hard dependencies:**
+- **Phase 4 → Phase 3.1**: ELMs require real MNN inference engine (Vulkan Ultra-FP4, GPU acceleration)
+- **Phase 5 → Phase 3.4**: Memory persistence requires RocksDB
+- **Phase 6 → Phase 3.3, 3.5**: Swarm networking requires secp256k1 identity + gRPC transport
+- **Phase 7 → Phase 3.1**: Tool dry-run sandbox requires MNN for inference isolation
+- **Issue #1 → #8**: ELM on Vulkan requires MNN integration first
+- **thirdparty/MNN**: Separate submodule managed by user; must be updated before Phase 3.1
+
+**Parallelizable:** Phases 1 and 2 can run concurrently with Phase 3 setup (they don't need third-party libs).
 
 ## Progress
 
