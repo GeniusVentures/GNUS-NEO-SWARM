@@ -22,6 +22,8 @@ Pipeline (per specialist):
 """
 
 import json
+import argparse
+import shutil
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -195,10 +197,28 @@ def train_specialist(niche_name: str):
         "batch_size": args.batch_size,
         "num_layers": args.num_layers,
         "lora_parameters": args.lora_parameters,
+        "status": "complete",           # Used by skip logic to verify training finished
         "dataset_hash": None,           # Placeholder — populated by data versioning in Phase 3
     }
     with open(f"{adapter_path}/training_metadata.json", "w") as f:
         json.dump(metadata, f, indent=2)
+
+    # Write TRAINING_STATUS.json for skip logic (FOUND-02)
+    status = {
+        "niche": niche_name,
+        "iters_completed": args.iters,
+        "status": "complete",
+        "completed_at": datetime.now().isoformat(),
+    }
+    with open(f"{adapter_path}/TRAINING_STATUS.json", "w") as f:
+        json.dump(status, f, indent=2)
+
+    # Verify milestone file was written by MLX
+    milestone_file = f"{args.iters:07d}_adapters.safetensors"
+    expected_milestone = Path(adapter_path) / milestone_file
+    if not expected_milestone.exists():
+        print(f"  ⚠ Warning: Expected milestone file {milestone_file} not found — "
+              f"training may have been interrupted before final save.")
 
     print(f"\n✓ Finished {niche_name.upper()} in {duration:.1f} minutes")
     print(f"  Adapters+config under: {adapter_path}")
@@ -211,6 +231,15 @@ def main():
     print(f"Specialists: {', '.join(SPECIALISTS).upper()}")
     print("=" * 80)
 
+    # Parse --force-retrain flag (FOUND-02)
+    parser = argparse.ArgumentParser(description="Train GNUS-POC specialist models")
+    parser.add_argument(
+        "--force-retrain",
+        action="store_true",
+        help="Delete existing adapters and retrain from scratch"
+    )
+    args = parser.parse_args()
+
     all_meta = {}
     total_start = datetime.now()
 
@@ -222,16 +251,49 @@ def main():
         print(f"# SPECIALIST {i}/{len(SPECIALISTS)}: {niche.upper()}")
         print(f"{'#' * 80}")
 
-        # --- NEW: skip if already trained ---
-        if final_adapter.exists():
-            print(f"✓ Skipping {niche.upper()} – adapters already exist at {final_adapter}")
-            # Optionally load metadata if you want to summarize later
-            meta_file = adapter_path / "training_metadata.json"
-            if meta_file.exists():
-                with meta_file.open() as f:
-                    all_meta[niche] = json.load(f)
-            continue
-        # -------------------------------------
+        # --- Phase 1: Force retrain (FOUND-02) ---
+        if args.force_retrain:
+            if adapter_path.exists():
+                print(f"🔁 Force retrain — deleting existing adapters for {niche.upper()}")
+                shutil.rmtree(adapter_path)
+            # Fall through to training below — no skip, no continue.
+
+        # --- Phase 2 + 3: Skip-on-existing check (FOUND-02) ---
+        elif final_adapter.exists():
+            configured_iters = OVERRIDES["iters"]
+            milestone_file = f"{configured_iters:07d}_adapters.safetensors"
+            expected_milestone = adapter_path / milestone_file
+
+            if not expected_milestone.exists():
+                # Milestone file missing — training was interrupted or incomplete
+                print(f"⚠ No milestone file {milestone_file} found — "
+                      f"training from scratch (or resuming) for {niche.upper()}")
+            else:
+                # Milestone exists — validate metadata
+                meta_file = adapter_path / "training_metadata.json"
+                if meta_file.exists():
+                    try:
+                        with meta_file.open() as f:
+                            meta = json.load(f)
+                        meta_iters = meta.get("iters")
+                        meta_status = meta.get("status")
+
+                        if meta_iters == configured_iters and meta_status == "complete":
+                            print(f"✓ Skipping {niche.upper()} — training complete "
+                                  f"at iteration {meta_iters}")
+                            all_meta[niche] = meta
+                            continue
+                        else:
+                            print(f"⚠ Existing adapters appear incomplete "
+                                  f"(metadata iters={meta_iters} vs configured {configured_iters}, "
+                                  f"status={meta_status}) — retraining {niche.upper()}")
+                    except (json.JSONDecodeError, KeyError) as e:
+                        print(f"⚠ Could not read training_metadata.json: {e} — "
+                              f"retraining {niche.upper()}")
+                else:
+                    print(f"⚠ No training_metadata.json found — "
+                          f"retraining {niche.upper()}")
+        # --- End skip check ---
 
         try:
             meta = train_specialist(niche)
