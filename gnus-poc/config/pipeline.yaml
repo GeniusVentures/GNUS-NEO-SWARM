@@ -1,0 +1,47 @@
+# GNUS-POC Pipeline Configuration — Global defaults
+# Override per specialist in config/specialists/<niche>.yaml
+# Override per experiment in config/experiments/<exp>.yaml
+# Secrets via ${ENV_VAR} resolved at load time from .env
+
+pipeline:
+  specialists: ["medical", "qa_technical", "code", "encyclopedic", "patents"]
+
+paths:
+  data_dir: "data/specialists"
+  models_dir: "models/specialists_mlx"
+  artifacts_dir: "artifacts"
+
+teacher:
+  model: "deepseek-v4-pro"
+  api_key_env: "DEEPSEEK_API_KEY"          # Resolved from .env at load time (Phase 3: os.path.expandvars resolves ${DEEPSEEK_API_KEY})
+  base_url: "https://api.deepseek.com"
+  max_tokens: 4096
+  temperature: 0.7
+  max_retries: 3
+  backoff_base_seconds: 2.0
+  budget_cap_usd: 50.0                     # Hard dollar limit — stops all API calls when exceeded
+
+training:
+  base_model: "mlx-community/Qwen3-30B-A3B-Instruct-2507-bf16"
+  batch_size: 4
+  iterations: 1000
+  learning_rate: 1e-5
+  lora_rank: 16
+  lora_dropout: 0.05
+  lora_scale: 20.0
+  num_layers: 16
+  val_batches: 25
+  steps_per_report: 50
+  steps_per_eval: 200
+  save_every: 200
+  fine_tune_type: "lora"
+  optimizer: "adamw"
+  seed: 42
+
+evaluation:
+  test_split: "test"
+  metrics: ["accuracy", "perplexity", "latency"]
+
+fp4_export:
+  target_bits: 4
+  block_size: 64
