@@ -15,6 +15,11 @@ from datetime import datetime
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from training.tokenizer_utils import load_tokenizer, format_chat
+
+# Load tokenizer once at module level to avoid reloading per sample
+_TOKENIZER = load_tokenizer("mlx-community/Qwen3-30B-A3B-Instruct-2507-bf16")
+
 # Configuration
 SELECTED_NICHES = ['medical', 'qa_technical', 'code', 'encyclopedic', 'patents']  # All 5 for robust PoC
 VAL_SPLIT = 0.1  # 10% validation
@@ -66,6 +71,10 @@ def extract_niche_samples(niche_name, niche_config, target_niches_config):
 
     print(f"  Target: {target_size} samples")
 
+    # Metadata field validation (Pitfall #4) — validate schema on first example
+    _meta_validated = False
+    unknown_source_count = 0
+
     for i, example in enumerate(dataset):
         if len(samples) >= target_size:
             break
@@ -76,6 +85,23 @@ def extract_niche_samples(niche_name, niche_config, target_niches_config):
         # Check source
         meta = example.get('meta', {})
         source = meta.get('pile_set_name', meta.get('source', 'unknown'))
+
+        # Pitfall #4: Validate metadata schema on first example
+        if not _meta_validated:
+            _meta_validated = True
+            if isinstance(meta, dict) and meta:
+                meta_keys = list(meta.keys())
+                expected_fields = ['pile_set_name', 'source', 'dataset']
+                found = any(k in meta_keys for k in expected_fields)
+                if not found:
+                    raise RuntimeError(
+                        f"Common Pile metadata schema changed — expected one of "
+                        f"{expected_fields} but found: {meta_keys}"
+                    )
+            # If meta is empty dict, that's acceptable — source will be 'unknown'
+
+        if source == 'unknown':
+            unknown_source_count += 1
 
         if source in sources:
             text = example.get('text', example.get('content', ''))
@@ -93,6 +119,16 @@ def extract_niche_samples(niche_name, niche_config, target_niches_config):
             })
 
     print(f"  ✓ Collected {len(samples)} samples")
+
+    # Pitfall #4: Warn if >10% of samples have unknown source
+    total_processed = i + 1 if samples else 0
+    if total_processed > 0:
+        unknown_pct = (unknown_source_count / total_processed) * 100
+        if unknown_pct > 10:
+            print(f"  ⚠ Warning: {unknown_source_count}/{total_processed} "
+                  f"({unknown_pct:.1f}%) samples have source='unknown'. "
+                  f"Metadata schema may have changed.")
+
     return samples
 
 
@@ -120,51 +156,84 @@ def create_splits(samples, niche_name):
 
 def format_for_training(samples, niche_name):
     """
-    Format samples for Qwen2.5 instruction tuning
-    Uses Qwen2.5's chat template format
+    Format samples for Qwen3 instruction tuning using tokenizer.apply_chat_template().
+
+    Per FOUND-01: Uses the actual tokenizer's native chat template (Qwen3 format)
+    instead of hand-rolled <|im_start|> strings that cause Qwen2.5/Qwen3 mismatch.
     """
     formatted = []
 
     for sample in samples:
-        text = sample['text']
+        text = sample.get('text', '')
+        meta = sample.get('meta', {})
 
-        # Create instruction-response pairs based on niche
+        # Build messages list with system/user/assistant roles
         if niche_name == 'medical':
-            instruction = "Provide medical or biomedical information based on the following research:"
-            # For medical, use first part as context, rest as response
             context_end = min(1000, len(text) // 2)
             response_end = min(context_end + 1500, len(text))
-            formatted_text = f"<|im_start|>system\nYou are a medical research specialist.<|im_end|>\n<|im_start|>user\n{instruction}\n{text[:context_end]}<|im_end|>\n<|im_start|>assistant\n{text[context_end:response_end]}<|im_end|>"
+            messages = [
+                {"role": "system", "content": "You are a medical research specialist."},
+                {"role": "user", "content": f"Provide medical or biomedical information based on the following research:\n{text[:context_end]}"},
+                {"role": "assistant", "content": text[context_end:response_end]},
+            ]
 
         elif niche_name == 'qa_technical':
-            # Extract Q&A structure if present
-            if 'Q:' in text and 'A:' in text:
+            # Pitfall #16 fix: Check metadata for StackExchange Q&A structure first
+            if isinstance(meta, dict) and 'question' in meta and 'answer' in meta:
+                question = meta['question']
+                answer = meta['answer']
+            elif isinstance(meta, dict) and 'Question' in meta and 'Answer' in meta:
+                question = meta['Question']
+                answer = meta['Answer']
+            elif 'Q:' in text and 'A:' in text:
                 parts = text.split('A:', 1)
                 question = parts[0].replace('Q:', '').strip()
                 answer = parts[1].strip() if len(parts) > 1 else text
-                formatted_text = f"<|im_start|>system\nYou are a technical Q&A specialist.<|im_end|>\n<|im_start|>user\n{question[:500]}<|im_end|>\n<|im_start|>assistant\n{answer[:1500]}<|im_end|>"
             else:
-                formatted_text = f"<|im_start|>system\nYou are a technical Q&A specialist.<|im_end|>\n<|im_start|>user\nExplain this technical concept:<|im_end|>\n<|im_start|>assistant\n{text[:2000]}<|im_end|>"
+                question = "Explain this technical concept:"
+                answer = text[:2000]
+            messages = [
+                {"role": "system", "content": "You are a technical Q&A specialist."},
+                {"role": "user", "content": question[:500]},
+                {"role": "assistant", "content": answer[:1500]},
+            ]
 
         elif niche_name == 'code':
-            formatted_text = f"<|im_start|>system\nYou are a programming and code documentation specialist.<|im_end|>\n<|im_start|>user\nExplain or document this code:<|im_end|>\n<|im_start|>assistant\n{text[:2000]}<|im_end|>"
+            messages = [
+                {"role": "system", "content": "You are a programming and code documentation specialist."},
+                {"role": "user", "content": "Explain or document this code:"},
+                {"role": "assistant", "content": text[:2000]},
+            ]
 
         elif niche_name == 'encyclopedic':
             # Extract title if present (Wikipedia format)
             lines = text.split('\n', 2)
-            title = lines[0] if len(lines) > 0 else "this topic"
+            title = lines[0].strip() if len(lines) > 0 and lines[0].strip() else "this topic"
             content = lines[1] if len(lines) > 1 else text
-            formatted_text = f"<|im_start|>system\nYou are an encyclopedic knowledge specialist.<|im_end|>\n<|im_start|>user\nProvide information about {title}:<|im_end|>\n<|im_start|>assistant\n{content[:2000]}<|im_end|>"
+            messages = [
+                {"role": "system", "content": "You are an encyclopedic knowledge specialist."},
+                {"role": "user", "content": f"Provide information about {title}:"},
+                {"role": "assistant", "content": content[:2000]},
+            ]
 
         elif niche_name == 'patents':
-            formatted_text = f"<|im_start|>system\nYou are a patent and technical innovation specialist.<|im_end|>\n<|im_start|>user\nExplain this invention or technical innovation:<|im_end|>\n<|im_start|>assistant\n{text[:2000]}<|im_end|>"
+            messages = [
+                {"role": "system", "content": "You are a patent and technical innovation specialist."},
+                {"role": "user", "content": "Explain this invention or technical innovation:"},
+                {"role": "assistant", "content": text[:2000]},
+            ]
 
         else:
-            formatted_text = text[:2000]
+            messages = [
+                {"role": "user", "content": text[:2000]},
+            ]
+
+        # Use tokenizer's native chat template — NOT hand-rolled <|im_start|> format
+        formatted_text = format_chat(messages, _TOKENIZER)
 
         formatted.append({
             'text': formatted_text,
-            'source': sample['source'],
+            'source': sample.get('source', 'unknown'),
             'niche': niche_name
         })
 
