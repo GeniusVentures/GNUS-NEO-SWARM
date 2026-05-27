@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gnus-poc"
+version = "0.1.0"
+description = "GNUS-POC ELM Training & Distillation Pipeline (Milestone v1.1)"
+requires-python = ">=3.10"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "GNUS.AI"}
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "slow: tests that require model download or GPU (deselect with '-m \"not slow\"')",
+    "integration: tests that require external services or GPU",
+]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"

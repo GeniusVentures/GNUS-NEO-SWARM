@@ -1,4 +1,26 @@
 .DS_Store
+.env
 gnus-poc/data/analysis
 gnus-poc/data/specialists
 gnus-poc/models/specialists_mlx
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+dist/
+build/
+*.egg
+
+# gnus-poc artifacts (new directories from Phase 1)
+gnus-poc/artifacts/
+gnus-poc/data/synthetic/
+gnus-poc/tests/__pycache__/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
