@@ -10,7 +10,7 @@ This roadmap covers the **v1.1 milestone**: building a Python pipeline in `gnus-
 
 ## Phases
 
-- [ ] **Phase 1: Foundation & Bug Fixes** — Fix silent data-corrupting bugs, restructure directories, establish YAML config hierarchy
+- [x] **Phase 1: Foundation & Bug Fixes** — Fix silent data-corrupting bugs, restructure directories, establish YAML config hierarchy
 - [ ] **Phase 2: Teacher API & Synthetic Data Generation** — DeepSeek v4 pro API client with cost controls, synthetic data generator
 - [ ] **Phase 3: Training Hardening** — Centralize configs, memory safety, status tracking, cross-niche deduplication
 - [ ] **Phase 4: Evaluation & Experiment Tracking** — Per-specialist eval, benchmarking, MLflow experiment tracking
@@ -32,9 +32,9 @@ This roadmap covers the **v1.1 milestone**: building a Python pipeline in `gnus-
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Bug fixes: chat template mismatch (FOUND-01) + skip-on-existing false completions (FOUND-02)
-- [ ] 01-02-PLAN.md — Directory restructure: move scripts, fix paths, delete stale files (FOUND-03)
-- [ ] 01-03-PLAN.md — Config & test infrastructure: YAML hierarchy, pytest skeleton, .gitignore (FOUND-04)
+- [x] 01-01-PLAN.md — Bug fixes: chat template mismatch (FOUND-01) + skip-on-existing false completions (FOUND-02)
+- [x] 01-02-PLAN.md — Directory restructure: move scripts, fix paths, delete stale files (FOUND-03)
+- [x] 01-03-PLAN.md — Config & test infrastructure: YAML hierarchy, pytest skeleton, .gitignore (FOUND-04)
 
 ### Phase 2: Teacher API & Synthetic Data Generation
 **Goal**: The pipeline can generate high-quality synthetic training data using the DeepSeek v4 pro API, with cost controls active from day one.
@@ -145,7 +145,7 @@ Phase 7 (FP4 Quantization & Deployment) ◄── Needs trained/distilled adapte
 
 | Phase | Plans Complete | Status |
 |-------|----------------|--------|
-| 1. Foundation & Bug Fixes | 0/3 | Planned |
+| 1. Foundation & Bug Fixes | 3/3 | ✅ Complete |
 | 2. Teacher API & Synthetic Data | 0/3 | Not started |
 | 3. Training Hardening | 0/5 | Not started |
 | 4. Evaluation & Experiment Tracking | 0/3 | Not started |
@@ -153,5 +153,4 @@ Phase 7 (FP4 Quantization & Deployment) ◄── Needs trained/distilled adapte
 | 6. Orchestration & Pipeline Unification | 0/3 | Not started |
 | 7. FP4 Quantization & Deployment | 0/3 | Not started |
 
----
-*Last updated: 2026-05-27 — Milestone v1.1 gnus-poc roadmap created*
+---\n*Last updated: 2026-05-27 — Phase 1 complete (3/3 plans), Phase 2 ready for planning*
