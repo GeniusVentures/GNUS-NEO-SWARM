@@ -5,9 +5,15 @@ Creates clean train/val splits from source-based niches
 
 import json
 import os
+import sys
+from pathlib import Path
 from datasets import load_dataset, Dataset, DatasetDict
 from collections import defaultdict
 import random
+from datetime import datetime
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 
 # Configuration
 SELECTED_NICHES = ['medical', 'qa_technical', 'code', 'encyclopedic', 'patents']  # All 5 for robust PoC
@@ -16,7 +22,7 @@ TEST_SPLIT = 0.05  # 5% test
 RANDOM_SEED = 42
 MAX_SAMPLES_PER_NICHE = 10000  # Cap for balanced training
 
-OUTPUT_DIR = 'data/specialists'
+OUTPUT_DIR = str(PROJECT_ROOT / 'data' / 'specialists')
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 random.seed(RANDOM_SEED)
@@ -24,7 +30,7 @@ random.seed(RANDOM_SEED)
 
 def load_niche_config():
     """Load the source-based niche analysis"""
-    with open('data/analysis/source_based_niches.json', 'r') as f:
+    with open(str(PROJECT_ROOT / 'data' / 'analysis' / 'source_based_niches.json'), 'r') as f:
         data = json.load(f)
     return data['viable_niches'], data['extraction_config']
 
@@ -169,7 +175,8 @@ def save_datasets(niche_name, splits):
     """
     Save as Hugging Face datasets for easy loading
     """
-    niche_dir = f"{OUTPUT_DIR}/{niche_name}"
+    date_version = datetime.now().strftime('%Y%m%d%H%M')
+    niche_dir = f"{OUTPUT_DIR}/{niche_name}_v{date_version}"
     os.makedirs(niche_dir, exist_ok=True)
 
     dataset_dict = {}

@@ -9,7 +9,9 @@ from collections import Counter, defaultdict
 import os
 
 # Create output directory
-os.makedirs('data/analysis', exist_ok=True)
+from pathlib import Path
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+os.makedirs(str(PROJECT_ROOT / 'data' / 'analysis'), exist_ok=True)
 
 # Target niches based on Common Pile sources
 TARGET_NICHES = {
@@ -195,7 +197,7 @@ if __name__ == "__main__":
         }
     }
 
-    output_path = 'data/analysis/source_based_niches.json'
+    output_path = str(PROJECT_ROOT / 'data' / 'analysis' / 'source_based_niches.json')
     with open(output_path, 'w') as f:
         json.dump(output_data, f, indent=2)
 

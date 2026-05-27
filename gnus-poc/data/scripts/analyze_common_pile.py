@@ -29,7 +29,9 @@ MAX_FEATURES = 5000  # TF-IDF vocabulary size
 RANDOM_SEED = 42
 
 # Output paths
-OUTPUT_DIR = "data/analysis"
+from pathlib import Path
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+OUTPUT_DIR = str(PROJECT_ROOT / "data" / "analysis")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 def clean_text(text: str) -> str:
