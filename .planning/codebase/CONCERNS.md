@@ -1,308 +1,279 @@
 # Codebase Concerns
 
-**Analysis Date:** 2026-05-26
-
----
+**Analysis Date:** 2026-05-27
 
 ## Tech Debt
 
-### Widespread Stub Mode — Core Engine, Tokenizer, Networking
+### MessageSigning::Verify — Stub That Always Returns `true`
+- Issue: `MessageSigning::Verify` unconditionally returns `true`, accepting any signature from any peer. This is a `TODO(SECURITY)` in the code. No actual signature verification occurs.
+- Files: `src/security/MessageSigning.cpp` (lines 49–60)
+- Impact: Any node can impersonate any other node. Inter-node message authentication is completely broken. The entire swarm consensus mechanism is vulnerable to Sybil attacks.
+- Fix approach: First enable `GENIUS_HAS_SECP256K1` compile definition (the library is already linked and headers available — see `cmake/CommonBuildParameters.cmake` lines 115–135), then implement real verification by reconstructing a `NodeIdentity` from the public key hex and calling `identity.Verify()`. See `AgentDocs/PRODUCTION_ROADMAP.md` Task 2.2 for the exact replacement code.
 
-- Issue: The system runs entirely in stub mode. Core inference (`MNNInferenceEngine`), tokenization (`SentencePieceTokenizer`), SGProcessing delegate (`SGProcessingBridge`), P2P networking (`P2PNode`), and reputation persistence (`ReputationStorage`) all fall back to stub/no-op implementations when their respective third-party libraries are not compiled in. The system produces placeholder/random output instead of real inference.
-- Files:
-  - `src/core/engine/MNNInferenceEngine.cpp` (line 137: `"MNN not compiled in — running in stub mode"`, line 156/195: hardcoded 32000-size random logits)
-  - `src/core/tokenizer/SentencePieceTokenizer.cpp` (line 62: whitespace tokenizer stub, line 93: hash-based fake token IDs)
-  - `src/core/sgprocessing/SGProcessingBridge.cpp` (line 341: SGProcessingManager stub, line 347: Phase 2 network stub)
-  - `src/network/P2PNode.cpp` (line 73: libp2p stub)
-  - `src/reputation/ReputationStorage.cpp` (line 107: in-memory fallback)
-  - `src/api/GeniusAPIServer.cpp` (line 87: `"Core model load failed — continuing in stub mode"`)
-- Impact: The system cannot produce real output. All 46 tests pass against stub behavior, which validates the orchestration but not the core functionality. Real inference requires linking MNN, SentencePiece, secp256k1, and RocksDB — none of which are compiled in by default.
-- Fix approach: Follow the task list in `AgentDocs/PRODUCTION_ROADMAP.md`: Tasks 1.1 (MNN), 1.2 (SentencePiece), 2.1 (secp256k1), 3.1 (RocksDB) must be completed in order. Each task adds the `#define` flag and cmake linkage for the respective third-party library.
+### NodeIdentity::Verify — Stub Under Non-secp256k1 Path
+- Issue: When `GENIUS_HAS_SECP256K1` is not defined, `NodeIdentity::Verify` logs a warning and returns `true` without checking anything.
+- Files: `src/security/NodeIdentity.cpp` (lines 277–283)
+- Impact: Local identity verification is also broken in stub mode. Same security implications as MessageSigning but scoped to single-node identity checks.
+- Fix approach: Same as above — enable secp256k1. The real implementation path already exists in the `#ifdef GENIUS_HAS_SECP256K1` block (lines 254–277).
 
-### Hardcoded Vocabulary Size = 32000
+### Private Key Stored as Plain Hex on Disk
+- Issue: `NodeIdentity::SaveToFile` writes the private key as plain hex to disk with no encryption. The key file is human-readable and can be exfiltrated.
+- Files: `src/security/NodeIdentity.cpp` (lines 187–200)
+- Impact: On shared/cloud machines, the node's identity can be stolen trivially. Could lead to reputation theft in swarm scenarios.
+- Fix approach: Encrypt the key using OpenSSL AES-256-GCM before writing. Derive encryption key from an environment variable (`GENIUS_NODE_KEY_PASS`) or OS keychain. See `AgentDocs/PRODUCTION_ROADMAP.md` Task 2.3.
 
-- Issue: `SentencePieceTokenizer::VocabSize()` returns `32000` as a hardcoded default (Mistral 7B). `MNNInferenceEngine::RunForward()` allocates logit vectors of exactly `32000` in the stub path.
-- Files:
-  - `src/core/tokenizer/SentencePieceTokenizer.cpp` line 140: `return 32000;  // Mistral 7B default`
-  - `src/core/engine/MNNInferenceEngine.cpp` lines 156, 195: `std::vector<float> logits(32000, 0.0f);`
-- Impact: Loading any model other than Mistral 7B (e.g., a smaller 8K vocab model or a larger 128K vocab model) will produce logit size mismatches, crashes, or incorrect sampling.
-- Fix approach: After Task 1.2 (SentencePiece linked), `VocabSize()` will return the real value from the loaded model. Replace the hardcoded `32000` in `MNNInferenceEngine.cpp` with `tokenizer_->VocabSize()`. Task 5.1 in `AgentDocs/PRODUCTION_ROADMAP.md`.
+### ReputationStorage::Deserialize — No Parse Error Protection
+- Issue: `ReputationStorage::Deserialize` calls `std::stod()` and `std::stoull()` on CSV fields without a `try/catch` block. A single corrupt or maliciously crafted row in the DB crashes the entire process.
+- Files: `src/reputation/ReputationStorage.cpp` (lines 48–67)
+- Impact: Any corruption in the RocksDB or in-memory reputation store causes an unrecoverable abort. In production, a disk error or bit flip in the DB leads to process termination.
+- Fix approach: Wrap `std::stod`/`std::stoull` calls in try/catch blocks. On parse failure, skip the corrupt record and log a warning. See `AgentDocs/PRODUCTION_ROADMAP.md` Task 3.2.
 
-### GeniusAPIServer::Serve() Is a Busy-Loop Placeholder
+### Hardcoded Vocab Size 32000
+- Issue: `SentencePieceTokenizer::VocabSize()` returns `32000` (Mistral 7B assumption) when SentencePiece is not compiled in or not loaded. `MNNInferenceEngine::RunForward` also allocates logit vectors of size `32000` in stub/fallback paths.
+- Files: `src/core/tokenizer/SentencePieceTokenizer.cpp` (line 140), `src/core/engine/MNNInferenceEngine.cpp` (lines 506, 545)
+- Impact: Any model with a different vocabulary size produces incorrect logit distributions or allocation mismatches. Hardcoded assumption breaks with non-Mistral models.
+- Fix approach: Return `0` for unknown vocab size; use `tokenizer_->VocabSize()` dynamically in `RunForward` instead of the literal `32000`. See `AgentDocs/PRODUCTION_ROADMAP.md` Task 5.1.
 
-- Issue: `GeniusAPIServer::Serve()` is not a real gRPC server. It is a `while(running_) { sleep_for(100ms); }` busy loop. This also violates the project's own coding standard forbidding `std::this_thread::sleep_for`.
-- Files:
-  - `src/api/GeniusAPIServer.cpp` lines 420–429
-- Impact: The `--serve` CLI flag documented in `RUN_AND_DEPLOY.md` as "Phase 5" does nothing useful. Any gRPC client would find no actual gRPC endpoint.
-- Fix approach: Implement a real gRPC server using the protobuf definitions in `proto/`. Requires Protobuf to be linked (already conditionally handled in `CMakeLists.txt` line 55). Task 4.2 in the roadmap.
+### P2P Network — libp2p Integration Is Almost Entirely Stubbed
+- Issue: `P2PNode` includes libp2p headers and has skeleton logic under `#ifdef GENIUS_HAS_LIBP2P`, but the actual libp2p initialization code (BasicHost, GossipSub, mDNS) is commented out. `BroadcastTask` and `BroadcastCRDT` call the local handler directly in stub mode — real gossip protocol is not implemented.
+- Files: `src/network/P2PNode.cpp` (lines 63–74, 138–147, 161–168)
+- Impact: Swarm mode cannot function with real multi-node deployments. All "swarm" operations are effectively local-only, falling through to `RunSingleNode` in `GeniusAPIServer::RunSwarm` (line 377–378 in `src/api/GeniusAPIServer.cpp`).
+- Fix approach: Implement the full libp2p initialization: BasicHost with Noise handshake and Yamux muxer, GossipSub topic subscription, mDNS peer discovery. The skeleton comments in the code describe the intended architecture.
 
-### SubmitNetwork() Returns NotImplemented
+### Knowledge Retrieval — Bag-of-Words TF-IDF Stub
+- Issue: `KnowledgeRetrieval::Embed` uses a simple bag-of-words with `std::hash` bucketing into 128-dimensional vectors. This is not a real semantic embedding — it hashes words to random dimensions without any learned similarity.
+- Files: `src/knowledge/KnowledgeRetrieval.cpp` (lines 113–142)
+- Impact: Knowledge retrieval returns factually unrelated facts for many queries. The grounding/fact-checking pipeline is unreliable because retrieval quality is poor.
+- Fix approach: Replace with a real embedding model (Sentence-BERT, MiniLM, or similar) or integrate with an external vector DB. The current code comment calls this a "TF-IDF stub" — it was always intended as a placeholder.
 
-- Issue: `SGProcessingBridge::SubmitNetwork()` returns `Error::NotImplemented`. The Phase 2 network dispatch path to SuperGenius gRPC is completely absent.
-- Files:
-  - `src/core/sgprocessing/SGProcessingBridge.cpp` lines 349–355
-- Impact: The "Swarm" execution mode cannot distribute tasks across the GNUS network. All swarm requests fall back to single-node local execution (see `GeniusAPIServer::RunSwarm()` line 375).
-- Fix approach: Implement gRPC client call to SuperGenius using the JSON schema produced by `BuildSchemaJson()`. Task 4.1 in the roadmap.
+### Manual JSON Parsing in ExtractPrompt
+- Issue: `ExtractPrompt` in the FFI layer uses manual string searching (`find`, `rfind`, `compare`) to parse OpenAI v1 JSON request bodies. This is fragile, doesn't handle whitespace variations, and silently falls back to returning the raw JSON as the prompt if parsing fails.
+- Files: `src/genius_slm_chat_c.cpp` (lines 46–131)
+- Impact: Slightly malformed but valid JSON (e.g., with extra whitespace or different field ordering) can silently produce incorrect prompts. The raw JSON fallback feeds garbage text to the inference engine.
+- Fix approach: Use `nlohmann/json` (already available as a thirdparty dependency — see `cmake/CommonBuildParameters.cmake` lines 102–110) for proper JSON parsing. This would add robustness and eliminate the manual escape-handling code.
 
-### Flutter App Is the Default Template Scaffold
+### Reputation Storage — "Replace with Protobuf in Production"
+- Issue: `ReputationStorage::Serialize` uses simple CSV formatting. A comment above it says "replace with protobuf in production". CSV is fragile (commas in identity keys break parsing), not versioned, and has no schema validation.
+- Files: `src/reputation/ReputationStorage.cpp` (line 33 comment, lines 34–67)
+- Impact: Identity keys containing commas cause deserialization failures. No forward/backward compatibility when fields are added. Data corruption is hard to detect.
+- Fix approach: Replace CSV serialization with Protocol Buffers. Protobuf is already in the dependency chain (via libp2p). Define a `.proto` schema for `NodeReputation` records.
 
-- Issue: The `flutter_app/` scaffold contains the stock Flutter "counter" demo app. It is not wired to the chat FFI bridge at all. `flutter_slm_bridge/` exposes the template `sum` API in its native implementation files, not the `GeniusSlm` C ABI.
-- Files:
-  - `flutter_app/lib/main.dart` — stock Flutter counter app
-  - `flutter_slm_bridge/` native `.m`/`.cpp` files — still expose template `sum()` function
-- Impact: The iOS/macOS Flutter frontend cannot send chat messages to the native engine. The entire mobile UI layer is non-functional.
-- Fix approach: Wire `flutter_slm_bridge/` to call `GeniusSlmChatCompletionsCreate` / `GeniusSlmStringFree` via FFI; replace `flutter_app/` with a chat UI that invokes the bridge. Dependencies `ffi` and `flutter_ai_toolkit` are already in `pubspec.yaml`. Task 7.1 in the roadmap.
+### GeniusAPIServer::Serve — gRPC Stub Loop
+- Issue: `Serve()` runs an infinite loop calling `std::this_thread::sleep_for(100ms)` — a pure stub. There is no actual gRPC server or HTTP listener. The `--serve` CLI flag effectively blocks the process doing nothing useful.
+- Files: `src/api/GeniusAPIServer.cpp` (lines 422–432)
+- Impact: The system cannot accept external API requests in server mode. `--serve` is non-functional.
+- Fix approach: Implement a proper gRPC or HTTP server that accepts inference tasks. The `GeniusAPIServer::Config` already has `grpc_port_` configured.
 
-### Hardcoded Absolute Path in Flutter Bridge
+### SubmitNetwork — Phase 2 Not Implemented
+- Issue: `SGProcessingBridge::SubmitNetwork` always returns `Error::NotImplemented`. The code path for dispatching jobs to the SuperGenius network via gRPC does not exist.
+- Files: `src/core/sgprocessing/SGProcessingBridge.cpp` (lines 340–346)
+- Impact: Phase 2 (network dispatch) is completely blocked. Jobs can only be processed locally via `SubmitDirect`. No `--sg-endpoint` CLI flag exists to configure the SuperGenius node address.
+- Fix approach: Implement gRPC client code using `gRPCForSuperGenius` (already in SuperGenius) to send the JSON schema from `BuildSchemaJson()` to a remote SuperGenius node. See `AgentDocs/PRODUCTION_ROADMAP.md` Task 4.1.
 
-- Issue: `flutter_slm_bridge/lib/flutter_slm_bridge.dart` hardcodes the dylib path on macOS to `/Volumes/Work/Gnus_ai/genius-llm-v1/GNUS-NEO-SWARM/build/OSX/Release/libGenius-MOS-SLM-FFI.dylib`.
-- Files:
-  - `flutter_slm_bridge/lib/flutter_slm_bridge.dart` lines 17–18
-- Impact: The bridge fails to load on any machine other than the original developer's workstation. This makes the Flutter app unable to start on any other macOS machine.
-- Fix approach: Use runtime-relative path resolution via `Platform.resolvedExecutable` or embed the dylib via the podspec's `vendored_frameworks` on Apple platforms.
-
-### No Configuration File Support
-
-- Issue: All configuration is CLI arguments or source code defaults. No YAML/JSON config file parsing exists.
-- Files:
-  - `src/genius_node.cpp` — only CLI argument parsing
-  - `src/api/GeniusAPIServer.hpp` — Config struct with hardcoded defaults
-- Impact: Operators cannot tune reputation coefficients (`alpha`), knowledge retrieval thresholds (`top_k`), network bootstrap peers, model paths, or other settings without recompilation or passing dozens of CLI flags.
-- Fix approach: Add a `--config <path>` CLI flag and parse a YAML file with yaml-cpp (already in thirdparty). Task 5.3 in the roadmap.
-
----
+### GeniusSlmInit Re-init Bug (Already Partially Fixed)
+- Issue: The `PROJECT_BOARD_ISSUES.md` Issue #7 describes a bug where `std::call_once` flag is never reset after re-initialization. The current code has been modified to use a null check (`if (g_server == nullptr)`) instead of `std::call_once`, but the global `g_init_flag` still exists as dead code from the old implementation.
+- Files: `src/genius_slm_chat_c.cpp` (lines 199–206 init, 211–215 lazy init)
+- Impact: The remaining `call_once` pattern was replaced with a direct null check, but the re-init still calls `InitServer()` directly after `g_server.reset()`. If `InitServer()` fails silently, the second null check wouldn't catch it immediately. The `g_server` pointer is not thread-safe — concurrent access from `GeniusSlmInit` and `GeniusSlmChatCompletionsCreate` could race.
+- Fix approach: Add a mutex around `g_server` access, or document that `GeniusSlmInit` and `GeniusSlmChatCompletionsCreate` must not be called concurrently. Consider making `g_server` a `std::atomic<std::unique_ptr>` or using a proper singleton pattern.
 
 ## Known Bugs
 
-### GeniusSlmInit Re-Initialization Race with std::call_once
+### Test Binaries Fail to Link with SGProcessingManager
+- Symptoms: Test executables fail with duplicate protobuf symbol errors when `GENIUS_HAS_SGPROCESSING` is active. The main dylib builds fine, suggesting the test CMakeLists don't use the same `-ld_classic` workaround.
+- Files: `test/CMakeLists.txt` (and subdirectory CMakeLists)
+- Trigger: Build with SGProcessingManager linked, run `ninja` in a test-enabled build.
+- Workaround: Use `-ld_classic` linker flag for test targets, matching the dylib configuration.
 
-- Issue: `GeniusSlmInit` resets `g_server` and calls `InitServerOnce()` directly. But `g_init_flag` (used by `std::call_once` in `GeniusSlmChatCompletionsCreate`) is never reset. The sequence: `GeniusSlmInit` → `GeniusSlmChatCompletionsCreate` → `GeniusSlmInit` (third call) → `GeniusSlmChatCompletionsCreate` — the final chat call will find `g_server == nullptr` because `call_once` is already "done" but `g_server` was reset.
-- Files:
-  - `src/genius_slm_chat_c.cpp` lines 176, 199–213
-- Trigger: Calling `GeniusSlmInit` multiple times followed by chat completions.
-- Workaround: Do not call `GeniusSlmInit` more than once per process lifetime.
-- Fix approach: Remove `std::call_once` and replace with a simple null-check inside `GeniusSlmChatCompletionsCreate`. Remove `g_init_flag`. See Task 5.2 in the roadmap (includes exact code diff).
-
-### ReputationStorage::Deserialize Crashes on Corrupt Data
-
-- Issue: `ReputationStorage::Deserialize` calls `std::stod()` and `std::stoull()` without surrounding try/catch. A single corrupt CSV row in RocksDB or in-memory store causes an unhandled exception and process termination.
-- Files:
-  - `src/reputation/ReputationStorage.cpp` lines 59–64
-- Trigger: Corrupt reputation database row (bad CSV, non-numeric fields).
-- Workaround: Delete the reputation database file (`./reputation.db`).
-- Fix approach: Wrap each `std::stod`/`std::stoull` call in a try/catch block and skip/ignore corrupt records. Task 3.2 in the roadmap (includes exact code).
-
-### NodeIdentity::LoadFromFile Does Not Re-derive Public Key in Stub Mode
-
-- Issue: When `GENIUS_HAS_SECP256K1` is not defined, `LoadFromFile` reads the hex private key but never recomputes the public key (the `#ifdef GENIUS_HAS_SECP256K1` guard prevents the `secp256k1_ec_pubkey_create` call). The public key remains whatever was in `pub_key_` before the load.
-- Files:
-  - `src/security/NodeIdentity.cpp` lines 158–182 (especially lines 173–178)
-- Trigger: Loading a key file in a build without secp256k1; the public key is stale.
-- Workaround: Only use `Generate()` (not `LoadFromFile`) without secp256k1, or ensure secp256k1 is compiled in.
-- Fix approach: This is automatically resolved when Task 2.1 (link secp256k1) is completed, since the `#ifdef` path will be active.
-
-### JSON Parsing in FFI Layer Is Fragile Manual String Search
-
-- Issue: `ExtractPrompt()` in `genius_slm_chat_c.cpp` parses the OpenAI v1 JSON request by searching for substrings like `"role"`, `"user"`, `"content"`. This is not a real JSON parser and breaks on non-standard whitespace, nested objects, or escape sequences.
-- Files:
-  - `src/genius_slm_chat_c.cpp` lines 47–132
-- Impact: Malformed or non-standard JSON requests silently return garbage prompts instead of erroring cleanly. This is acceptable for stub mode but becomes a correctness issue once real clients connect.
-- Fix approach: Replace with nlohmann/json (already used elsewhere, e.g., in `SGProcessingBridge.cpp`) once the engine moves past stub mode.
-
----
+### SentencePiece/SGProcessing Protobuf Conflict
+- Symptoms: Both SentencePiece and SGProcessingManager depend on protobuf, but potentially different versions. When both are linked, symbol conflicts occur.
+- Trigger: Building with both `GENIUS_HAS_SENTENCEPIECE` and `GENIUS_HAS_SGPROCESSING` active.
+- Workaround: Currently SentencePiece is conditionally skipped when SGProcessing is linked. The system can use either real tokenization (SentencePiece) or SGProcessing, but not both simultaneously.
 
 ## Security Considerations
 
-### MessageSigning::Verify Always Returns true
+### No Real Signature Verification
+- Risk: Any node in the network can forge messages. The `MessageSigning::Verify` always returns `true`, meaning there is effectively zero inter-node authentication. A malicious node could submit false inference results, corrupt reputation scores, or impersonate any peer.
+- Files: `src/security/MessageSigning.cpp` (lines 49–60), `src/security/NodeIdentity.cpp` (lines 277–283)
+- Current mitigation: The system currently runs in single-node or "swarm falls back to single node" mode, so the verification path is effectively never exercised in practice. The swarm path is not functional without libp2p anyway.
+- Recommendations: Enable `GENIUS_HAS_SECP256K1` immediately (the library is already compiled and linked — only the compile definition is missing from `cmake/CommonBuildParameters.cmake` lines 115–135). Then implement real `MessageSigning::Verify` as described in Task 2.2 of `PRODUCTION_ROADMAP.md`.
 
-- Issue: `MessageSigning::Verify` unconditionally returns `true` — any message from any peer is accepted with any signature. The code contains an explicit `TODO(SECURITY)` comment.
-- Files:
-  - `src/security/MessageSigning.cpp` lines 49–60 (lines 53: `TODO(SECURITY)`, 58–59: stub warn + `return true`)
-- Risk: In a multi-node deployment, any malicious node can forge messages from any other peer. Zero authentication. This is a complete bypass of the message authentication layer.
-- Current mitigation: Network mode is disabled by default (`GENIUS_ENABLE_NETWORK=OFF`). P2P networking is not compiled in.
-- Fix approach: After secp256k1 is linked (Task 2.1), reconstruct a `NodeIdentity` from `pub_key_hex` and call `identity.Verify(payload, signature)`. Task 2.2 in the roadmap. Write a security test confirming that tampered signatures return `false`.
+### Unencrypted Private Key at Rest
+- Risk: Private key file (`node.key`) is stored as plain hex. Anyone with filesystem access can read the key and impersonate the node.
+- Files: `src/security/NodeIdentity.cpp` (lines 187–200)
+- Current mitigation: None. The key is always written in plain hex.
+- Recommendations: Encrypt with AES-256-GCM. Derive key from `GENIUS_NODE_KEY_PASS` environment variable. Use OS keychain on Apple platforms (`ISecureStorage`).
 
-### NodeIdentity Uses Cryptographically Weak Stub Keys
+### No gRPC TLS/Authentication
+- Risk: When the gRPC server is eventually implemented, there is no mention of TLS or mutual TLS in the configuration or code. SuperGenius network communication would be unencrypted.
+- Files: `src/api/GeniusAPIServer.hpp` (Config struct), `src/api/GeniusAPIServer.cpp`
+- Current mitigation: The gRPC server is a stub (sleep loop) — no real network communication occurs.
+- Recommendations: Add TLS configuration to `GeniusAPIServer::Config` (certificate paths, CA bundle). Use mutual TLS for inter-node communication.
 
-- Issue: Without secp256k1 compiled in, `NodeIdentity::Generate()` produces random bytes (not a valid secp256k1 keypair), `PeerId()` uses XOR hashing (not SHA-256), and `Verify()` returns `true` for all signatures.
-- Files:
-  - `src/security/NodeIdentity.cpp` lines 113–129 (stub Generate), lines 146–152 (XOR PeerId), lines 278–283 (stub Verify)
-- Risk: Node identities are forgeable. Any peer can impersonate any other peer. Signatures are not cryptographically verified.
-- Current mitigation: Network mode is disabled. The stub is clearly logged.
-- Fix approach: Link libsecp256k1 (Task 2.1). The real code path already exists behind `#ifdef GENIUS_HAS_SECP256K1`.
-
-### Private Key Stored as Plain Hex on Disk
-
-- Issue: `NodeIdentity::SaveToFile` writes the 32-byte private key as a plain hex string to disk with no encryption or file permissions enforcement.
-- Files:
-  - `src/security/NodeIdentity.cpp` lines 187–200
-- Risk: On a shared or cloud machine, any process/user that can read the key file can steal the node's identity and impersonate it on the GNUS network.
-- Current mitigation: None.
-- Fix approach: Encrypt with AES-256-GCM using a passphrase from env var `GENIUS_NODE_KEY_PASS` or a system keychain. Task 2.3 in the roadmap.
-
-### No Input Validation on CLI Argument Parsing
-
-- Issue: `ParseArgs()` in `genius_node.cpp` calls `std::stoi()` and `std::stof()` (lines 97, 101, 102) without validating input ranges. Port numbers, token counts, and temperatures are not validated.
-- Files:
-  - `src/genius_node.cpp` lines 97, 101, 102
-- Risk: Negative token counts, zero temperature, or out-of-range port numbers produce undefined behavior or crashes downstream.
-- Fix approach: Add range validation after parsing: `port` in [1, 65535], `max_tokens` in [1, 65536], `temperature` in [0.01, 5.0].
-
----
+### No Input Sanitization in FFI Layer
+- Risk: `GeniusSlmChatCompletionsCreate` accepts arbitrary C strings from Flutter/Dart callers and passes them through a manual JSON parser. No length limits or content validation are applied before inference.
+- Files: `src/genius_slm_chat_c.cpp` (lines 209–241)
+- Current mitigation: The `DuplicateString` helper uses null pointer checks. The `ExtractPrompt` parser has null checks but no length limits.
+- Recommendations: Add a maximum request JSON size limit (e.g., 64KB). Validate that the input is well-formed JSON before parsing.
 
 ## Performance Bottlenecks
 
-### Serve() Busy-Waits at 10 Hz
+### Metal Shader Compilation on First Run
+- Problem: First LLM inference after a fresh install takes 30–120 seconds while Metal compiles GPU shaders. This is an MNN/Metal limitation, not a code bug, but operators need to know about it.
+- Files: `src/core/engine/MNNInferenceEngine.cpp` (LLM load path, lines 162–188)
+- Cause: Metal compiles shaders lazily on first use. The MNN LLM engine uses many custom GPU operations that need compilation.
+- Improvement path: Pre-warm the MNN cache during `GeniusSlmInit` by running a minimal forward pass. Alternatively, ship a pre-compiled Metal shader cache (`mnn_cachefile.bin`) with the app.
 
-- Issue: The `Serve()` loop burns CPU with `sleep_for(100ms)` in a tight loop on the main thread. No I/O multiplexing, no event loop, no gRPC listener — just spinning.
-- Files:
-  - `src/api/GeniusAPIServer.cpp` lines 425–427
-- Impact: In `--serve` mode, one CPU core is pegged at ~100% doing nothing. Real gRPC serving must replace this entirely.
-- Fix approach: Replace with a proper gRPC async server on an `io_context`. Will be addressed when the real gRPC server is implemented.
+### Large Model Memory Footprint
+- Problem: The Mistral-7B model weights file is 5.3GB (`llm.mnn.weight`). Loading the model requires allocating that much RAM plus KV cache and workspace tensors, easily exceeding 8GB.
+- Files: `src/core/engine/MNNInferenceEngine.cpp` (model loading)
+- Cause: MNN loads the entire weight file into memory. No memory mapping or streaming support exists in the current integration.
+- Improvement path: Use memory-mapped file I/O (`mmap`) for the weight file instead of full read. Investigate MNN's partial loading or CPU/GPU memory tiering.
 
-### No Streaming Token Output — UI Blocks During Inference
-
-- Issue: `GeniusSlmChatCompletionsCreate` is a synchronous blocking call that returns the full response at once. The Flutter UI freezes during inference.
-- Files:
-  - `src/genius_slm_chat_c.cpp` — blocking call
-  - `flutter_slm_bridge/lib/flutter_slm_bridge.dart` — main isolate sync call
-- Impact: Poor user experience — the chat UI is unresponsive for the entire inference duration (seconds to minutes with real models).
-- Fix approach: Add `GeniusSlmChatCompletionsStream` to the C FFI with a token callback, and expose it in Flutter as a `Stream<String>`. Task 7.2 in the roadmap. The `chatCompletionsCreateAsync` helper on a separate isolate mitigates but does not solve this — true streaming is preferable.
-
----
+### ResultAggregation Uses std::mutex with Wait
+- Problem: `ResultAggregation::Collect` holds `mutex_` with `wait_for` — under high swarm load with many concurrent tasks, all aggregation operations serialize on this single mutex.
+- Files: `src/network/ResultAggregation.cpp` (lines 49–66)
+- Cause: Single mutex protects both the results vector and the condition variable. Multiple concurrent `Collect` calls block each other.
+- Improvement path: Use a per-aggregation-instance design (each task creates its own `ResultAggregation`), which the code already does via `aggregation_->Reset()` in `GeniusAPIServer::RunSwarm` (line 312). The bottleneck only matters if the same instance is reused concurrently.
 
 ## Fragile Areas
 
-### SentencePieceTokenizer — Stub Encode/Decode Are Not Invertible
+### MNNInferenceEngine — 633-line Multi-mode File
+- Files: `src/core/engine/MNNInferenceEngine.cpp` (633 lines), `src/core/engine/MNNInferenceEngine.hpp` (152 lines)
+- Why fragile: The engine supports five distinct code paths (SGProcessing, MNN LLM native, MNN Interpreter, direct MNN fallback, and stub mode), all interleaved with `#ifdef` guards and runtime config checks. Changes to one path can easily break another. The `Infer()` method alone contains 160 lines spanning SGProcessing, LLM, Interpreter, and stub logic.
+- Safe modification: Any change to the engine should be tested across all paths. The LLM native path (`mnn_llm_`) and Interpreter path (`session_`) use completely different APIs — don't assume shared types.
+- Test coverage: The engine is covered indirectly through integration tests (`test/integration/test_pipeline.cpp`), but only in stub mode. No unit tests exist for the MNN LLM or SGProcessing paths.
 
-- Issue: In stub mode, `Encode` generates hash-based integer IDs, and `Decode` converts them back to space-separated int strings (`"1234 5678 9012"`). The input text is unrecoverable from the output.
-- Files:
-  - `src/core/tokenizer/SentencePieceTokenizer.cpp` lines 87–97 (Encode stub), lines 119–126 (Decode stub)
-- Why fragile: Any code path that relies on `Encode → Decode` round-trip correctness (e.g., prompt processing, context window management) will silently produce garbage.
-- Safe modification: Do not attempt to fix the stub — just link real SentencePiece (Task 1.2).
-- Test coverage: The round-trip is not directly tested. Tests only validate stub behavior (encoding produces expected IDs, decoding produces expected int strings).
+### GeniusAPIServer::Initialize — Monolithic Setup Function
+- Files: `src/api/GeniusAPIServer.cpp` (lines 45–153)
+- Why fragile: `Initialize()` creates 10 subsystem objects (identity, engine, tokenizer, 2 specialists, router, 5 reputation objects, network, knowledge). If any single step fails silently (e.g., key generation, storage open), the server continues in a partially broken state with only log warnings.
+- Safe modification: Each subsystem initialization should be in its own method with clear success/failure handling. Consider a builder pattern or dependency injection to make the initialization sequence more transparent.
+- Test coverage: Integration tests call `Initialize()` in stub mode (`test/integration/test_pipeline.cpp`), but specialized paths (with real models, network, knowledge files) are not tested.
 
-### RuleBasedRouter — Single Hardcoded Routing Strategy
+### ExtractPrompt — Manual JSON Parser
+- Files: `src/genius_slm_chat_c.cpp` (lines 46–131)
+- Why fragile: The parser uses `rfind`, `find`, and `compare` to manually extract JSON fields. It doesn't handle nested objects, escaped quotes within strings correctly, or Unicode escape sequences. JSON like `{"messages": [{"content": "He said \"hello\"", "role": "user"}]}` could break the quote-matching logic.
+- Safe modification: Replace with `nlohmann/json` parsing. The library is already in the dependency chain.
+- Test coverage: No direct tests — only exercised through integration pipeline tests.
 
-- Issue: The router is a simple rule-based classifier (`RuleBasedRouter`) that checks for math/grammar keywords. No ML-based routing, no confidence calibration, no multi-armed bandit exploration.
-- Files:
-  - `src/router/RuleBasedRouter.cpp`, `src/router/PromptAnalyzer.cpp`
-- Why fragile: Routing decisions are binary and keyword-dependent. A prompt like "calculate my tax" (no math keyword) routes to CoreOnly; "help me parse a grammar" (contains "grammar") routes to CorePlusGrammar even for non-grammar tasks.
-- Safe modification: Add rules or expand keyword lists, but the underlying approach limits accuracy. A future ML-based router should replace `IRouter`.
-- Test coverage: `test_router` passes with stub data. Real routing accuracy against diverse prompts is not measured.
-
-### Flutter FFI Bridge — Unsafe Memory Management
-
-- Issue: The Flutter bridge manually allocates/frees native C strings using `malloc.free()`. If `GeniusSlmStringFree` is not called for every `GeniusSlmChatCompletionsCreate` result, memory leaks occur. The `chatCompletionsCreate` method does call `GeniusSlmStringFree` but does not protect against exceptions between `_bindings.GeniusSlmChatCompletionsCreate` and `_bindings.GeniusSlmStringFree`.
-- Files:
-  - `flutter_slm_bridge/lib/flutter_slm_bridge.dart` lines 73–85
-- Why fragile: Any Dart exception thrown between the native call and the free call leaks the returned C string. No try/finally guards the allocation.
-- Safe modification: Wrap the call in a try/finally block:
-  ```dart
-  final ptr = requestJson.toNativeUtf8().cast<Char>();
-  try {
-    final result = _bindings.GeniusSlmChatCompletionsCreate(ptr);
-    // ... extract and return
-  } finally {
-    malloc.free(ptr);
-  }
-  ```
-  Do NOT call `GeniusSlmStringFree` inside the finally block — it needs its own try/finally.
-
----
+### Compile-time Conditional Features
+- Files: Throughout the codebase — `#ifdef GENIUS_HAS_MNN`, `#ifdef GENIUS_HAS_SECP256K1`, `#ifdef GENIUS_HAS_ROCKSDB`, `#ifdef GENIUS_HAS_SENTENCEPIECE`, `#ifdef GENIUS_HAS_SGPROCESSING`, `#ifdef GENIUS_HAS_LIBP2P`, `#ifdef GENIUS_HAS_MNN_LLM`, `#ifdef GENIUS_HAS_OPENSSL`
+- Why fragile: The code supports 8 different feature flags, each with a stub fallback. The combination matrix (2^8 = 256 possible build configurations) is never tested. Many stubs silently return success (e.g., `MessageSigning::Verify`, `NodeIdentity::Verify`, `ReputationStorage::Open`, `SGProcessingBridge::SubmitDirect`), masking the fact that real functionality is missing.
+- Safe modification: When adding a new `#ifdef` path, always ensure the stub fallback returns an explicit error or at minimum logs at `warn` level so operators know a feature is missing.
+- Test coverage: Only the stub modes are tested in CI. The real implementations (with libraries linked) require manual testing.
 
 ## Scaling Limits
 
-### Reputation Database — In-Memory Only Without RocksDB
+### Single Machine Architecture
+- Current capacity: The system is designed as a single binary (`neo-swarm`) with optional P2P swarm mode. In practice, only single-node mode works because P2P is stubbed.
+- Limit: One process = one inference engine. No horizontal scaling without completing the P2P/libp2p integration and Phase 2 network dispatch.
+- Scaling path: Complete libp2p integration (P2PNode actual implementation), then implement SubmitNetwork gRPC to SuperGenius for distributed job dispatch.
 
-- Issue: Without RocksDB linked (`GENIUS_HAS_ROCKSDB` not defined), `ReputationStorage` uses an `std::unordered_map` in memory. All reputation data is lost on process restart.
-- Files:
-  - `src/reputation/ReputationStorage.cpp` line 78: `std::unordered_map<std::string, std::string> store_;`
-- Current capacity: Zero persistence. In-memory only. Suitable for development/testing only.
-- Limit: Cannot survive restarts. Cannot handle more data than available RAM.
-- Scaling path: Link RocksDB (Task 3.1). The RocksDB code path already exists behind `#ifdef GENIUS_HAS_ROCKSDB`.
+### Model Size vs Memory
+- Current capacity: Mistral 7B with ~5.3GB weights requires 8GB+ RAM on device.
+- Limit: Larger models (Llama 13B, 70B) are infeasible without model sharding or CPU/GPU memory tiering.
+- Scaling path: FP4_ULTRA quantization (already has enum value and bridge mapping) could reduce memory footprint. Integrate MNN's model parallel features for multi-GPU setups.
 
-### Single-Node Inference Only Without SGProcessingManager
-
-- Issue: Without `GENIUS_HAS_SGPROCESSING` compiled in, `SubmitDirect()` in `SGProcessingBridge` returns empty bytes. The SGProcessingManager pipeline (schema JSON → ProcessingManager::Create → Process) is not available.
-- Files:
-  - `src/core/sgprocessing/SGProcessingBridge.cpp` lines 341–342
-- Current capacity: Single-node MNN inference only (once MNN is linked). No distributed processing pipeline.
-- Limit: Cannot leverage the SGProcessingManager for multi-GPU or distributed inference.
-- Scaling path: Enable `GENIUS_ENABLE_SGPROCESSING` in CMake and ensure the `SGProcessingManager` submodule is initialized (`git submodule update --init SGProcessingManager`).
-
----
+### Vocabulary Size Assumption
+- Current capacity: Hardcoded to 32000 tokens (Mistral 7B).
+- Limit: Any model with vocab size > 32000 (e.g., Llama 3 with 128K vocab) results in buffer overflows or truncated logits in the Interpreter path.
+- Scaling path: Make vocab size dynamic via `tokenizer_->VocabSize()` and remove all hardcoded references.
 
 ## Dependencies at Risk
 
-### build/ Submodule at Divergent Commit
+### MNN Version Coupling
+- Risk: `MNNInferenceEngine` uses `MNN::Transformer::Llm` (LLM-specific API) and `MNN::Interpreter` (generic API). These are tightly coupled to the MNN version in thirdparty. If MNN's LLM API changes (class renamed, method signatures modified), the engine breaks at compile time.
+- Impact: MNN upgrades require careful testing of both engine paths. The LLM engine sources from `thirdparty/MNN/transformers/llm/engine/src/*.cpp` are compiled directly into `genius_core`, not as a separate library.
+- Migration plan: Pin MNN to a known-good version. Abstract the LLM interface behind `IInferenceEngine` so the engine implementation can be swapped without affecting the rest of the system. (Note: `InferenceEngine.hpp` exists at `src/core/engine/InferenceEngine.hpp` but appears to be a typedef/alias, not a full abstraction.)
 
-- Issue: The `build/` directory is itself a git submodule at commit `f66e97d` (branch `TestNet-Phase-3.58-11-gf66e97d`), which is different from the main submodule commit `4206d9a`. This indicates a potentially unsynchronized build configuration.
-- Impact: The `build/OSX/CMakeLists.txt`, `build/CommonBuildParameters.cmake`, and other build configurations may not match the current source tree. Build failures or missing third-party find packages are possible.
-- Migration plan: Verify that `build/` submodule is at the correct commit for the current source tree. Run `git submodule update --recursive` to synchronize.
+### SentencePiece / Protobuf Conflict
+- Risk: SentencePiece and SGProcessingManager both link protobuf. When both `GENIUS_HAS_SENTENCEPIECE` and `GENIUS_HAS_SGPROCESSING` are active, the linker sees duplicate protobuf symbols.
+- Impact: Cannot use real tokenization and SGProcessing simultaneously. One must be disabled at build time.
+- Migration plan: Resolve protobuf version conflict — either upgrade SentencePiece to use the same protobuf as SGProcessingManager or use a different tokenizer (e.g., MNN's built-in `tokenizer.mtok` which is already used in the LLM path).
 
-### GTest — Custom Find Logic Brittle
-
-- Issue: `test/CMakeLists.txt` implements custom GTest find logic (lines 3–26) with hardcoded paths to `_THIRDPARTY_BUILD_DIR` and parent-directory-relative fallback (`../thirdparty/GTest/`). This bypasses CMake's standard `find_package(GTest)` and is fragile across build environments.
-- Files:
-  - `test/CMakeLists.txt` lines 3–26
-- Impact: Tests may silently skip if GTest headers/libraries are at unexpected paths, even if GTest is installed on the system.
-- Fix approach: After `FindThirdparty` is properly configured, use standard `find_package(GTest REQUIRED)` and remove the custom find logic.
-
----
+### Boost Version
+- Risk: The project pins Boost 1.85.0 (see `cmake/CommonBuildParameters.cmake` line 19). CMake 4.x has removed `FindBoost` and requires CONFIG mode, which the build already uses (line 84), but this is a known friction point.
+- Impact: Upgrading Boost requires updating the build CMake to match new CONFIG paths.
+- Migration plan: Document the Boost dependency version explicitly. Test with CMake 4.x in CI.
 
 ## Missing Critical Features
 
-### No gRPC Server or Client Implementation
+### No LLM Text Generation Processor in SGProcessingManager
+- Problem: SGProcessingManager is linked and functional, but there is no processor registered for autoregressive LLM text generation. The system can do single-pass tensor inference via MNN but not the iterative token generation LLMs require.
+- Blocks: Real text output through the SGProcessing pipeline. The MNN native LLM path (`mnn_llm_`) bypasses SGProcessing entirely and uses `MNN::Transformer::Llm` directly.
+- See: `AgentDocs/PROJECT_BOARD_ISSUES.md` Issue #1 (Critical priority)
 
-- Problem: The system has protobuf definitions in `proto/` and conditional protobuf compilation in `CMakeLists.txt` (lines 55–66), but no gRPC server or client code exists. The `--serve` flag runs a busy loop, and the `--network` flag does nothing.
-- Files: `proto/` (definitions exist), `src/api/GeniusAPIServer.cpp` (no gRPC), `src/network/` (libp2p stub, no gRPC client)
-- Blocks: Multi-node deployment, swarm mode dispatch, server-mode operation, SuperGenius network connection.
+### No FP4_ULTRA Processor
+- Problem: `InputFormat::FP4_ULTRA` exists in the enum and `SGProcessingBridge` already maps it, but no processor implementation exists in SGProcessingManager.
+- Blocks: Using FP4_ULTRA quantized models (which would reduce memory footprint by ~75% vs float32).
+- See: `AgentDocs/PROJECT_BOARD_ISSUES.md` Issue #2 (High priority)
 
-### No Real Node Identity
+### No Config File Support
+- Problem: All configuration is through CLI arguments or hardcoded defaults. Operators cannot tune reputation coefficients, knowledge retrieval thresholds, or network settings without modifying source code.
+- Blocks: Production deployment flexibility. Every parameter change requires a recompile.
+- See: `AgentDocs/PRODUCTION_ROADMAP.md` Task 5.3 (Low priority)
 
-- Problem: Without secp256k1, every node has a cryptographically weak, forgeable identity. PeerId is XOR of random bytes, not SHA-256 of a real public key.
-- Files: `src/security/NodeIdentity.cpp` lines 146–152
-- Blocks: Multi-node security, reputation accuracy, secure multi-node deployments.
-
-### Streaming Token Output Not Implemented
-
-- Problem: The C FFI has no streaming API. The Flutter UI blocks during inference.
-- Files: `src/genius_slm_chat_c.h` (no stream function), `src/genius_slm_chat_c.cpp` (no stream implementation)
-- Blocks: Good mobile UX, ChatGPT-like token-by-token display.
-
----
+### No Streaming Token Output in Flutter
+- Problem: The native `StreamInfer` method exists in `MNNInferenceEngine` but the FFI layer (`genius_slm_chat_c.h`/`.cpp`) only exposes `GeniusSlmChatCompletionsCreate` (batch) — no streaming C API for Flutter to consume.
+- Blocks: Real-time token streaming UX in the Flutter chat app.
+- See: `AgentDocs/PRODUCTION_ROADMAP.md` Task 7.2 (Low priority)
 
 ## Test Coverage Gaps
 
-### No Security Tests
+### Security Module — Untested
+- What's not tested: `NodeIdentity` key generation, save/load roundtrip, signing, verification. `MessageSigning` sign/verify/strip operations.
+- Files: `src/security/NodeIdentity.cpp`, `src/security/MessageSigning.cpp`
+- Risk: The entire security subsystem has zero test coverage. The stubs always return `true`, making bugs invisible. When real secp256k1 implementation is enabled, there are no tests to validate correctness.
+- Priority: High — after `GENIUS_HAS_SECP256K1` is enabled (see `AgentDocs/PRODUCTION_ROADMAP.md` Task 6.1)
 
-- What's not tested: Key generation, key save/load roundtrip, sign/verify correctness, verify rejection of tampered signatures, `MessageSigning::Verify` correctness.
-- Files: `test/security/` — directory does not exist
-- Risk: Security-critical code (NodeIdentity, MessageSigning) has zero test coverage. The `Verify`-always-true bug was only caught by code review, not by tests.
-- Priority: High (after Task 2.1 and 2.2 are complete). See Task 6.1.
+### FFI Layer — Untested
+- What's not tested: `GeniusSlmInit`, `GeniusSlmChatCompletionsCreate`, `GeniusSlmStringFree`, `GeniusSlmGetStatus`. Null handling, re-init behavior, concurrent access.
+- Files: `src/genius_slm_chat_c.cpp`, `src/genius_slm_chat_c.h`
+- Risk: The Flutter app depends on this FFI layer. Any regression silently breaks the chat UI. The re-initialization bug (PROJECT_BOARD_ISSUES.md Issue #7) was only caught by manual testing.
+- Priority: Medium (see `AgentDocs/PRODUCTION_ROADMAP.md` Task 6.2)
 
-### No FFI Layer Tests
+### Knowledge Module — Untested
+- What's not tested: `FactValidation::Validate`, `FactValidation::Contradicts`, `KnowledgeRetrieval::Retrieve`, `KnowledgeRetrieval::Load`, `ContextInjection::Inject`.
+- Files: `src/knowledge/FactValidation.cpp`, `src/knowledge/KnowledgeRetrieval.cpp`, `src/knowledge/ContextInjection.cpp`
+- Risk: Fact validation and knowledge retrieval are critical for output grounding. No tests mean we don't know if validation actually catches contradictions or if retrieval returns relevant facts.
+- Priority: Medium (see `AgentDocs/PRODUCTION_ROADMAP.md` Task 6.3)
 
-- What's not tested: `GeniusSlmInit` return values, `GeniusSlmChatCompletionsCreate` valid/invalid JSON handling, `GeniusSlmStringFree(nullptr)` resilience, multiple-init behavior.
-- Files: `test/ffi/` — directory does not exist
-- Risk: The C FFI boundary is the integration point between Flutter and C++. A crash in this layer (e.g., null pointer dereference) kills the entire Flutter app.
-- Priority: Medium. See Task 6.2.
+### Network Module — Untested
+- What's not tested: `P2PNode::BroadcastTask`, `P2PNode::BroadcastCRDT`, `ResultAggregation::Collect`, `ResultAggregation::Submit` with timeout, multi-node task exchange.
+- Files: `src/network/P2PNode.cpp`, `src/network/ResultAggregation.cpp`
+- Risk: When libp2p integration is completed, there are no tests for the P2P behavior. The stub implementations mask all real networking bugs.
+- Priority: Low (after Phase 2 network) — see `AgentDocs/PRODUCTION_ROADMAP.md` Task 6.4
 
-### No Knowledge/Fact Validation Tests
+### Tokenizer — No Unit Tests
+- What's not tested: `SentencePieceTokenizer::Encode`, `Decode`, `VocabSize` under both real SentencePiece and stub modes. EOS/BOS token handling.
+- Files: `src/core/tokenizer/SentencePieceTokenizer.cpp`
+- Risk: The stub mode generates random IDs from `std::hash` — this is not deterministic. Tests would catch regressions when real SentencePiece is enabled.
+- Priority: Low
 
-- What's not tested: `FactValidation::Validate()` accuracy — whether a claim is correctly validated against a fact. Empty facts list handling. Relevance score ordering.
-- Files: `test/knowledge/` — directory does not exist
-- Risk: Fact-grounded responses may silently pass incorrect information.
-- Priority: Medium. See Task 6.3.
+### Specialists — No Tests
+- What's not tested: `MathSpecialist`, `GrammarSpecialist`, `SymbolicFallback` evaluation. The SymbolicFallback parser handles division by zero and unknown functions, but these error paths are untested.
+- Files: `src/specialists/MathSpecialist.cpp`, `src/specialists/GrammarSpecialist.cpp`, `src/specialists/SymbolicFallback.cpp`
+- Risk: Mathematical expression evaluation errors could produce incorrect results without detection.
+- Priority: Low
 
-### No Network/P2P Tests
-
-- What's not tested: Two P2PNode instances exchanging tasks, ResultAggregation collecting responses, timeout behavior, BroadcastTask/OnTask handler interaction.
-- Files: `test/network/` — directory does not exist
-- Risk: Swarm mode correctness is completely untested. Multi-node bugs will only surface in production.
-- Priority: Low (network is not yet functional). See Task 6.4.
+### Existing Test Coverage Map
+| Module | Test File | Coverage |
+|--------|-----------|----------|
+| FP4Codec | `test/core/test_fp4_codec.cpp` | ✅ Good (6 tests: roundtrip, dimensions, zero, invalid, macroblock) |
+| ReputationScoring | `test/reputation/test_reputation.cpp` | ✅ Good (5 tests: accuracy, latency, consistency, clamping, task count) |
+| WeightedConsensus | `test/reputation/test_reputation.cpp` | ✅ Good (4 tests: selection, single, empty, weighted strategy) |
+| ReputationCRDT | `test/reputation/test_reputation.cpp` | ✅ Good (4 tests: merge, LWW latest, LWW ignores older, serialize) |
+| ReputationStorage | `test/reputation/test_reputation.cpp` | ✅ Good (3 tests: put/get, not found, get all) |
+| PromptAnalyzer | `test/router/test_router.cpp` | ✅ Good (5 tests: numeric density, math keywords, grammar, code) |
+| RuleBasedRouter | `test/router/test_router.cpp` | ✅ Good (5 tests: math route, keyword route, grammar, core, confidence) |
+| GeniusAPIServer Pipeline | `test/integration/test_pipeline.cpp` | ✅ Partial (7 tests: all modes, stub only) |
+| SGProcessingBridge + TensorInterpreter | `test/integration/test_sgprocessing_pipeline.cpp` | ✅ Partial (13 tests, SGProcessing conditional) |
+| Security | — | ❌ None |
+| FFI | — | ❌ None |
+| Knowledge | — | ❌ None |
+| Network | — | ❌ None |
+| Specialists | — | ❌ None |
+| Tokenizer | — | ❌ None |
 
 ---
 
-*Concerns audit: 2026-05-26*
+*Concerns audit: 2026-05-27*

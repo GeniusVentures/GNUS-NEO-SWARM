@@ -1,45 +1,35 @@
 # Testing Patterns
 
-**Analysis Date:** 2026-05-26
+**Analysis Date:** 2026-05-27
 
 ## Test Framework
 
-### C++ — Google Test (GTest)
+**Runner:**
+- Google Test (GTest)
+- Discovered via `find_package(GTest QUIET)` with manual fallback in `test/CMakeLists.txt`
+- `gtest_main` linked for automatic `main()` entry point
 
-**Runner:** Google Test (bundled as thirdparty dependency)
-- Discovery: `find_package(GTest QUIET)` with fallback to `thirdparty/GTest/googletest`
-- Config: `test/CMakeLists.txt`
-- Link targets: `GTest::GTest` + `GTest::Main` (auto-provides `main()`)
+**Config:** `test/CMakeLists.txt`
 
-**Assertion Library:** Built-in GTest assertions:
-- `ASSERT_TRUE` / `ASSERT_FALSE` — fatal on failure
-- `EXPECT_EQ` / `EXPECT_NE` / `EXPECT_GT` / `EXPECT_LT` / `EXPECT_GE` / `EXPECT_LE` / `EXPECT_NEAR` — non-fatal
-- `EXPECT_DOUBLE_EQ` — for floating-point exact match
-- `GTEST_SKIP()` — conditional skip (e.g., missing test data)
-
-**Run Commands:**
+**Run Commands (from build directory):**
 ```bash
-# Build with tests enabled (default ON)
-cd build/<Platform>/<BuildType>
+ctest                              # Run all registered tests
+ctest -R test_router               # Run specific test by name
+ctest --output-on-failure          # Show output on failure
+```
+
+**Build from scratch:**
+```bash
+cd build/OSX/Debug
 cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Debug
 ninja
-
-# Run all tests
-ctest --test-dir build/<Platform>/<BuildType>
-
-# Run specific test binary
-./test_fp4_codec
-./test_router
-./test_reputation
-./test_pipeline
+ctest
 ```
 
-**Enable/Disable Tests:**
-```cmake
-option(GENIUS_BUILD_TESTS "Build unit and integration tests" ON)
-```
+## Test Registration
 
-**CMake Test Registration Macro** (from `test/CMakeLists.txt:42-53`):
+Tests are registered via a custom CMake macro defined in `test/CMakeLists.txt`:
+
 ```cmake
 macro(genius_test name sources libs)
     add_executable(${name} ${sources})
@@ -55,79 +45,68 @@ macro(genius_test name sources libs)
 endmacro()
 ```
 
-### Dart/Flutter — flutter_test
-
-**Runner:** Built-in `flutter_test` SDK package
-**Assertion Library:** `package:flutter_test/flutter_test.dart`
-- `expect(actual, matcher)` — primary assertion
-- Matchers: `findsOneWidget`, `findsNothing`, `isNotNull`, etc.
-
-**Run Commands:**
-```bash
-cd flutter_app && flutter test
+Usage:
+```cmake
+genius_test(test_fp4_codec             core/test_fp4_codec.cpp                          "genius_core")
+genius_test(test_router                router/test_router.cpp                           "genius_router;genius_common")
+genius_test(test_reputation            reputation/test_reputation.cpp                   "genius_reputation;genius_common")
+genius_test(test_pipeline              integration/test_pipeline.cpp                    "genius_api")
+genius_test(test_sgprocessing_pipeline integration/test_sgprocessing_pipeline.cpp       "genius_api")
 ```
 
----
+Each test is a standalone executable linked against the relevant platform libraries.
 
 ## Test File Organization
 
-### C++
+**Location:**
+- Tests live under `test/<module>/` for unit tests and `test/integration/` for integration tests
+- Tests are **not** co-located with source files — they are in a separate `test/` tree
 
-**Location:** `test/` directory mirroring source structure:
+**Naming:**
+- Unit tests: `test_<module>.cpp` (e.g., `test_router.cpp`, `test_fp4_codec.cpp`, `test_reputation.cpp`)
+- Integration tests: `test_<component>.cpp` (e.g., `test_pipeline.cpp`, `test_sgprocessing_pipeline.cpp`)
+
+**Directory structure:**
 ```
 test/
-├── CMakeLists.txt              # Test build config + genius_test() macro
+├── CMakeLists.txt              # Test registration and GTest discovery
+├── benchmark/
+│   ├── CMakeLists.txt          # Benchmarks (not part of CTest)
+│   └── bench_mnn_llm.cpp       # MNN LLM benchmark
 ├── core/
-│   └── test_fp4_codec.cpp      # Unit: FP4 codec
+│   └── test_fp4_codec.cpp      # FP4 codec unit tests
 ├── router/
-│   └── test_router.cpp         # Unit: PromptAnalyzer + RuleBasedRouter
+│   └── test_router.cpp         # Router unit tests
 ├── reputation/
-│   └── test_reputation.cpp     # Unit: Scoring, Consensus, CRDT, Storage
+│   └── test_reputation.cpp     # Reputation unit tests
 └── integration/
-    ├── test_pipeline.cpp        # Integration: Full pipeline in stub mode
-    └── test_sgprocessing_pipeline.cpp  # Integration: SGProcessing flow
+    ├── test_pipeline.cpp        # Full pipeline integration tests
+    └── test_sgprocessing_pipeline.cpp  # SGProcessing integration tests
 ```
-
-**Naming:** `test_[component].cpp` within `test/[module]/` directory.
-- Unit tests: `test/core/test_fp4_codec.cpp`, `test/router/test_router.cpp`
-- Integration tests: `test/integration/test_pipeline.cpp`
-
-**CMake Library Links** (from `test/CMakeLists.txt:55-59`):
-```cmake
-genius_test(test_fp4_codec             core/test_fp4_codec.cpp              "genius_core")
-genius_test(test_router                router/test_router.cpp               "genius_router;genius_common")
-genius_test(test_reputation            reputation/test_reputation.cpp       "genius_reputation;genius_common")
-genius_test(test_pipeline              integration/test_pipeline.cpp        "genius_api")
-genius_test(test_sgprocessing_pipeline integration/test_sgprocessing_pipeline.cpp  "genius_api")
-```
-
-**Test count:** 5 test executables, ~45 individual test cases.
-
-### Dart/Flutter
-
-**Location:**
-- `flutter_app/test/widget_test.dart` — Widget test for counter app
-- `ui/test/` — Expected structure but files not observed
-
-**Naming:** `[name]_test.dart` in `test/` directory (standard Dart convention).
-
----
 
 ## Test Structure
 
-### C++ — GTest Styles
+### Unit Tests (Standalone)
 
-**Simple test cases** (`test/core/test_fp4_codec.cpp`):
+Unit tests use `TEST()` macro directly — no fixtures when testing stateless classes:
+
 ```cpp
+TEST( PromptAnalyzer, NumericDensityHigh )
+{
+    PromptAnalyzer analyzer;
+    auto f = analyzer.Analyze( "What is 847 × 963 + 12.5 / 3?" );
+    EXPECT_GT( f.numeric_density_, 0.2f );
+}
+
 TEST( FP4Codec, RoundtripSmallMatrix )
 {
     FP4Codec codec;
     const size_t       rows    = 4;
     const size_t       cols    = 4;
-    std::vector<float> weights = { 0.1f, -0.2f, 0.5f, -0.8f, /* ... */ };
+    std::vector<float> weights = { 0.1f, -0.2f, 0.5f, -0.8f, /*...*/ };
 
     auto enc_res = codec.Encode( weights.data(), rows, cols );
-    ASSERT_TRUE( enc_res.has_value() );
+    ASSERT_TRUE( enc_res.has_value() );  // abort if encoding fails
 
     std::vector<float> decoded( rows * cols );
     auto dec_res = codec.Decode( enc_res.value(), decoded.data() );
@@ -144,7 +123,10 @@ TEST( FP4Codec, RoundtripSmallMatrix )
 }
 ```
 
-**Test Fixtures** (`test/integration/test_pipeline.cpp`):
+### Integration Tests (Fixture-based)
+
+Integration tests that need setup/configuration use `::testing::Test` fixtures:
+
 ```cpp
 class PipelineTest : public ::testing::Test
 {
@@ -168,10 +150,9 @@ protected:
 TEST_F( PipelineTest, SingleNodeMode )
 {
     Task task;
-    task.prompt_      = "Tell me about the history of Rome.";
-    task.mode_        = ExecutionMode::SingleNode;
-    task.max_tokens_  = 32;
-    task.temperature_ = 0.7f;
+    task.prompt_     = "Tell me about the history of Rome.";
+    task.mode_       = ExecutionMode::SingleNode;
+    task.max_tokens_ = 32;
 
     auto res = server_->Process( task );
     ASSERT_TRUE( res.has_value() );
@@ -180,174 +161,140 @@ TEST_F( PipelineTest, SingleNodeMode )
 }
 ```
 
-**Key patterns:**
-- `SetUp()` for test initialization (no `TearDown()` currently observed)
-- `ASSERT_TRUE` for critical setup checks; `EXPECT_*` for assertions
-- Message suffix with `<<` for diagnostic output: `<< "MSE too high: " << mse`
-- `GTEST_SKIP()` for conditional test skip: `GTEST_SKIP() << "Test data not found at: " << data_dir;`
-- Direct construction of test subjects (no mocking framework)
+## Assertion Patterns
 
-**File header (Doxygen block):**
+**For `outcome::result<T>` checking:**
 ```cpp
-/**
- * @file       test_pipeline.cpp
- * @brief      Integration tests — full pipeline in stub mode
- * @date       2026-05-08
- * @author     Subaskar S (ssivakumar@gnus.ai)
- */
+ASSERT_TRUE( result.has_value() );    // fatal if error — use when subsequent code depends on value
+EXPECT_TRUE( result.has_value() );    // non-fatal — use when test can continue
+EXPECT_FALSE( result.has_value() );   // expect failure (e.g., invalid input)
 ```
 
-**Namespace usage in tests:**
+**For value comparison:**
 ```cpp
-using namespace sgns::neoswarm;
-using namespace sgns::neoswarm::router;
-```
-Namespace `using` directives at file scope within test files only.
-
-### Dart/Flutter
-
-```dart
-void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    await tester.pumpWidget(const MyApp());
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
-  });
-}
+EXPECT_GT( f.numeric_density_, 0.2f );     // greater than
+EXPECT_LT( mse, 0.02f );                   // less than
+EXPECT_EQ( res.value().target_, RouteTarget::CorePlusMath );   // equality
+EXPECT_NE( res.value().route_used_, RouteTarget::CoreOnly );    // inequality
 ```
 
----
+**For floating-point:**
+```cpp
+EXPECT_NEAR( v, 0.0f, 1e-5f );              // near with absolute error
+EXPECT_DOUBLE_EQ( got->global_score_, 0.8 ); // exact double equality (use sparingly)
+```
+
+**For range checks:**
+```cpp
+EXPECT_GE( res.value().confidence_, 0.0f );  // greater or equal
+EXPECT_LE( res.value().confidence_, 1.0f );  // less or equal
+```
+
+**With messages:**
+```cpp
+EXPECT_LT( mse, 0.05f ) << "MSE too high: " << mse;
+```
 
 ## Mocking
 
-### C++
+- **No mocking framework detected** (no Google Mock, no trompeloeil, no FakeIt)
+- Tests use **real instances** of components with stub configuration:
+  - `model_path_ = ""` or `enable_network_ = false` for stub/inactive modes
+  - In-memory databases: `reputation_db_path_ = ":memory:"`
+  - Temp file paths: `/tmp/test_genius_node.key`
+  - `SetStubMode()` method on `MNNInferenceEngine` to bypass model loading
 
-**No mocking framework detected.** The codebase currently uses:
-- **Stub mode:** `MNNInferenceEngine::SetStubMode()` for testing without real models (`test/integration/test_pipeline.cpp:20`)
-- **In-memory stores:** `cfg.reputation_db_path_ = ":memory:"` for ReputationStorage testing
-- **Direct construction:** Test subjects created directly without dependency injection fakes
-
-**Stub mode pattern:**
+**Stub pattern used in production code:**
 ```cpp
-cfg.model_path_ = "";  // empty path triggers stub mode
-engine->SetStubMode();  // explicit stub enable
+#ifdef GENIUS_HAS_SGPROCESSING
+    // real implementation
+#else
+    BridgeLogger()->warn( "SGProcessingManager not compiled in — stub mode" );
+    return outcome::success( std::vector<uint8_t>{} );
+#endif
 ```
 
-**When a mock would be needed:** For testing network interaction (`P2PNode`), SGProcessingManager integration, and streaming inference — these currently have limited or conditional test coverage (guarded by `#ifdef GENIUS_HAS_SGPROCESSING`).
-
-**CLAUDE.md guidance:** "Prefer Google Test + the project's 'wait condition testing templates' (condition_variable / polling patterns) in tests. NEVER use std::this_thread::sleep_for in tests." — wait-condition templates not yet observed in the actual test files; current tests are synchronous.
-
-### Dart/Flutter
-
-**No mocking framework detected.** `flutter_app/test/widget_test.dart` uses `WidgetTester` directly. The `flutter_slm_bridge` has no test files.
-
----
+**What to mock:** External services (network, databases), heavy models, hardware-dependent code
+**What NOT to mock:** Pure logic (routers, analyzers, scoring algorithms) — test with real instances
 
 ## Fixtures and Factories
 
-### C++
+**Test data creation:**
+- Inline data: Simple vectors and structs constructed directly in test bodies
+- Random data: `std::mt19937` with fixed seed (42) for reproducibility:
+  ```cpp
+  std::mt19937                    rng( 42 );
+  std::normal_distribution<float> dist( 0.0f, 0.5f );
+  for ( auto &w : weights ) w = dist( rng );
+  ```
 
-**Test data patterns:**
-- **Inline literals:** `test_fp4_codec.cpp` — hardcoded float vectors
-- **Random with fixed seed:** `std::mt19937 rng( 42 );` for reproducible random data
-- **In-memory DB:** `":memory:"` for SQLite-backed ReputationStorage tests
-- **Helper functions in anonymous namespace:** `UniqueDbPath()`, `TestDataPath()`, `FileExists()`, `ReadFloatFile()` in `test/integration/test_sgprocessing_pipeline.cpp:52-79`
-- **External test data:** `SUPERGENIUS_TEST_DATA_DIR` macro points to `SuperGenius/test/src/processing_datatypes/`
-
-**Fixture-less setup (in-test):**
+**Unique test resources:**
 ```cpp
-// From test/reputation/test_reputation.cpp:202-217
-TEST( ReputationStorage, PutAndGet )
+static std::string UniqueDbPath( const std::string &tag )
 {
-    ReputationStorage storage( UniqueDbPath( "putget" ) );
-    ASSERT_TRUE( storage.Open().has_value() );
-
-    NodeReputation r;
-    r.identity_key_ = "test-node";
-    r.global_score_ = 0.65;
-    r.task_count_   = 10;
-    ASSERT_TRUE( storage.Put( r ).has_value() );
-
-    auto got = storage.Get( "test-node" );
-    ASSERT_TRUE( got.has_value() );
-    EXPECT_DOUBLE_EQ( got.value().global_score_, 0.65 );
+    return "/tmp/genius_test_" + tag + "_"
+           + std::to_string(
+               std::chrono::steady_clock::now().time_since_epoch().count() );
 }
 ```
 
----
-
-## Coverage
-
-**Requirements:** Target ≥80% coverage on new code (per CLAUDE.md:31).
-
-**Coverage tooling:** Not configured in CMakeLists.txt. No coverage reporting targets currently defined.
-
-**View coverage:** Not yet instrumented. Would require adding `--coverage` flags or similar compiler instrumentation.
-
----
+**Pre-existing test data:**
+- SGProcessing integration tests load binary test data from `SuperGenius/test/src/processing_datatypes/` directory, referenced via `SUPERGENIUS_TEST_DATA_DIR` compile definition
 
 ## Test Types
 
 ### Unit Tests
-
-**Scope:** Individual modules tested in isolation:
-- `test_fp4_codec.cpp` — FP4 quantization encode/decode, macroblock count, error handling
-- `test_router.cpp` — `PromptAnalyzer` feature extraction + `RuleBasedRouter` routing decisions
-- `test_reputation.cpp` — Scoring formulas, weighted consensus, CRDT merge semantics, DB storage
-
-**Approach:** Direct instantiation, call method, assert result. No stubs needed for IO-less components.
+- **Scope:** Single class or component
+- **Location:** `test/<module>/test_<module>.cpp`
+- **Examples:** `test_fp4_codec.cpp` — tests `FP4Codec` in isolation; `test_router.cpp` — tests `PromptAnalyzer` and `RuleBasedRouter`
+- **Pattern:** Instantiate class directly, call methods, verify results
+- **Covers:** Happy path, error cases, edge cases (zero weights, null input, empty input)
 
 ### Integration Tests
+- **Scope:** Multiple components working together through the `GeniusAPIServer` pipeline
+- **Location:** `test/integration/test_pipeline.cpp`, `test/integration/test_sgprocessing_pipeline.cpp`
+- **Fixture:** `PipelineTest` sets up a configured `GeniusAPIServer` in stub mode
+- **Covers:** Mode routing (single/specialist/swarm), task ID generation, latency tracking, routing auto-detection
 
-**Scope:** Cross-module pipeline verification:
-- `test_pipeline.cpp` — `GeniusAPIServer` in stub mode testing all three execution modes (SingleNode, Specialist, Swarm)
-- `test_sgprocessing_pipeline.cpp` — NeoSwarm → SGProcessingManager → TensorInterpreter end-to-end flow
+### Benchmarks
+- **Location:** `test/benchmark/bench_mnn_llm.cpp`
+- **Not part of CTest** — run manually: `./build/OSX/Debug/test/benchmark/bench_mnn_llm`
+- **Measures:** Prefill latency, decode throughput (tokens/sec), peak memory usage
 
-**Approach:** Test fixture creates `GeniusAPIServer` with stub config, tests real pipeline orchestration paths. SGProcessing tests conditionally compiled (`#ifdef GENIUS_HAS_SGPROCESSING`) and auto-skipped if test data unavailable.
+## Coverage
 
-### E2E Tests
+- **No coverage tooling detected** — no `gcov`, `lcov`, or `--coverage` flag in test build configuration
+- No explicit coverage target or threshold enforced
 
-**Not used.** No end-to-end tests detected. The `genius_node.cpp` CLI entry point has no corresponding test.
+## Testing Practices
 
----
+**Test naming convention:**
+```
+TEST( ClassName, DescriptiveTestName )
+TEST_F( FixtureClassName, DescriptiveTestName )
+```
+Names describe behavior: `NumericDensityHigh`, `RoundtripSmallMatrix`, `ScoreClampedToRange`, `LWWKeepsLatest`, `SwarmFallsBackToSingleWithoutNetwork`
 
-## Common Patterns
+**Test independence:**
+- Each test creates its own instances (no shared state)
+- Tests in `test_reputation.cpp` create unique DB paths per test using `UniqueDbPath()` to avoid cross-test contamination
 
-### C++ — Async/Outcome Testing
-
-No async testing patterns observed. All current tests are synchronous.
-
-### Outcome Error Testing:
+**Error path testing:**
 ```cpp
-// Testing error cases
 TEST( FP4Codec, InvalidInput )
 {
     FP4Codec codec;
     auto res = codec.Encode( nullptr, 4, 4 );
     EXPECT_FALSE( res.has_value() );
 }
-
-// Testing NOT_FOUND
-TEST( ReputationStorage, GetNotFound )
-{
-    ReputationStorage storage( UniqueDbPath( "notfound" ) );
-    ASSERT_TRUE( storage.Open().has_value() );
-    EXPECT_FALSE( storage.Get( "nonexistent" ).has_value() );
-}
 ```
 
-### Bound/range Testing:
+**Property-based checks:**
 ```cpp
 TEST( RuleBasedRouter, ConfidenceInRange )
 {
     RuleBasedRouter router;
-    Task task;
+    Task            task;
     task.prompt_ = "What is 2 + 2?";
     task.mode_   = ExecutionMode::SingleNode;
 
@@ -358,78 +305,40 @@ TEST( RuleBasedRouter, ConfidenceInRange )
 }
 ```
 
-### Serialization Roundtrip Testing:
+**CRDT/LWW (Last-Write-Wins) testing pattern:**
 ```cpp
-TEST( ReputationCRDT, SerializeDeserializeRoundtrip )
+TEST( ReputationCRDT, LWWKeepsLatest )
 {
-    ReputationCRDT crdt1;
-    NodeReputation r;
-    r.identity_key_    = "node-X";
-    r.global_score_    = 0.75;
-    r.task_count_      = 42;
-    r.last_updated_ms_ = 99999;
-    crdt1.Merge( r );
+    ReputationCRDT crdt;
+    // Merge older entry, then newer entry
+    // Verify newer wins
+}
 
-    ReputationCRDT crdt2;
-    crdt2.DeserializeAndMerge( crdt1.Serialize() );
-
-    auto got = crdt2.Get( "node-X" );
-    ASSERT_TRUE( got.has_value() );
-    EXPECT_DOUBLE_EQ( got->global_score_, 0.75 );
-    EXPECT_EQ( got->task_count_, 42u );
+TEST( ReputationCRDT, LWWIgnoresOlder )
+{
+    ReputationCRDT crdt;
+    // Merge newer entry, then older entry
+    // Verify newer still wins
 }
 ```
 
-### Large-scale / Stress Testing (FP4 codec):
-```cpp
-TEST( FP4Codec, RoundtripLargeMatrix )
-{
-    // 128×128 matrix with normal-distributed weights, deterministic RNG
-    std::mt19937               rng( 42 );
-    std::normal_distribution<float> dist( 0.0f, 0.5f );
-    // ...
-    EXPECT_LT( mse, 0.02f );
-}
-```
+## Adding New Tests
 
-### Conditional / Skip Testing:
-```cpp
-if ( !FileExists( data_dir + "float_model.mnn" ) )
-{
-    GTEST_SKIP() << "Test data not found at: " << data_dir;
-}
-```
+1. **Create file:** `test/<module>/test_<module>.cpp` for unit tests or `test/integration/test_<feature>.cpp` for integration tests
+2. **Include GTest:** `#include <gtest/gtest.h>` plus the header(s) under test
+3. **Use namespaces:** `using namespace sgns::neoswarm;` and sub-namespaces as needed
+4. **Write tests:** `TEST()` for stateless, `TEST_F()` with fixture for shared setup
+5. **Register in CMake:** Add a `genius_test()` call in `test/CMakeLists.txt`:
+   ```cmake
+   genius_test(test_new_feature test/new_module/test_new_feature.cpp "genius_new_module;genius_common")
+   ```
+6. **Run:** Build with `ninja` and run with `ctest -R test_new_feature`
+
+**Mandatory (from CLAUDE.md):**
+- Use `ASSERT_TRUE( result.has_value() )` before accessing `.value()` on `outcome::result`
+- Never use `std::this_thread::sleep_for` in tests — if wait conditions are needed, use the project's condition_variable/polling patterns
+- Target ≥80% coverage on new code
 
 ---
 
-## Test Counts (Observed)
-
-| Test Executable | Test Cases | Type |
-|----------------|-----------|------|
-| `test_fp4_codec` | 6 | Unit |
-| `test_router` | 11 | Unit |
-| `test_reputation` | 16 | Unit |
-| `test_pipeline` | 7 | Integration |
-| `test_sgprocessing_pipeline` | 10 (7 unconditional + 3 conditional) | Integration |
-| **Total C++** | **~50** | |
-| `widget_test.dart` | 1 | Widget (Dart) |
-| **Total Dart** | **1** | |
-
----
-
-## Testing Gaps
-
-1. **No C++ test for core engine** (`MNNInferenceEngine`) — only FP4 codec tested; inference loop unverified
-2. **No C++ test for specialists** (`MathSpecialist`, `GrammarSpecialist`) — tested only indirectly via integration pipeline
-3. **No C++ test for API server initialization** — `Initialize()` only called via fixture setup, no error-path tests
-4. **No C++ test for network layer** (`P2PNode`, `ResultAggregation`) — untested; network disabled in integration tests
-5. **No C++ test for knowledge layer** (`KnowledgeRetrieval`, `ContextInjection`, `FactValidation`) — untested
-6. **No C++ test for security** (`NodeIdentity`, `MessageSigning`) — untested
-7. **No Dart test for flutter_slm_bridge** — FFI bridge has zero tests
-8. **No Dart test for ui/ chat application** — only template `widget_test.dart` in flutter_app
-9. **No benchmarks** — `GENIUS_BUILD_BENCHMARKS` option exists (`CMakeLists.txt:20`) but no `bench/` directory found
-10. **No coverage instrumentation** — coverage target stated but no tooling configured
-
----
-
-*Testing analysis: 2026-05-26*
+*Testing analysis: 2026-05-27*

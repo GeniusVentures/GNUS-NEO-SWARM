@@ -1,188 +1,186 @@
 # External Integrations
 
-**Analysis Date:** 2026-05-26
+**Analysis Date:** 2026-05-27
 
-## AI/ML Inference
+## APIs & External Services
 
-**MNN (Alibaba):**
-- What: Lightweight deep neural network inference engine
-- Used for: Running Nano Language Models (NLMs) — core inference backend
-- SDK/Client: Pre-built static library at `../thirdparty/build/<Platform>/<BuildType>/MNN/lib/libMNN.a` (or `.dylib`)
-- Header path: `../thirdparty/build/<Platform>/<BuildType>/MNN/include`
-- Implementation: `src/core/engine/MNNInferenceEngine.cpp` and `.hpp`
-- Status: Code paths in place, guarded by `#ifdef GENIUS_HAS_MNN` — currently runs in stub mode until MNN is linked (Task 1.1 in `AgentDocs/PRODUCTION_ROADMAP.md`)
-- GPU backend: Vulkan (Linux/Windows) / MoltenVK (macOS) via `GENIUS_HAS_VULKAN`
+**SuperGenius gRPC (GNUS Network):**
+- Service: SuperGenius — decentralized compute network for distributed AI task processing
+  - SDK/Client: gRPC (native C++ via `gRPCForSuperGenius`, referenced in `AgentDocs/PRODUCTION_ROADMAP.md`)
+  - Interface: `SGProcessingBridge::SubmitNetwork()` in `src/core/sgprocessing/SGProcessingBridge.hpp:86`
+  - Status: **Not yet implemented** — currently returns `Error::NotImplemented` (stub)
+  - Auth: None documented yet
+  - Connection: Via `--sg-endpoint <host:port>` CLI flag (planned, Task 4.2)
+  - Endpoint: Configurable, default `localhost:50051`
 
-**SentencePiece:**
-- What: Unsupervised text tokenizer and detokenizer
-- Used for: Encoding prompts to token IDs and decoding model output back to text
-- Implementation: `src/core/tokenizer/SentencePieceTokenizer.hpp` — Pimpl pattern wrapping sentencepiece library
-- Status: Code paths ready behind `#ifdef GENIUS_HAS_SENTENCEPIECE` — falls back to whitespace tokenizer when not compiled in (Task 1.2)
+**gRPC API Server (Self-hosted):**
+- Service: GeniusAPI — serves client-facing gRPC on port 50051 (default)
+  - Protocol: `proto/genius_api.proto` (proto3, `package genius.api`)
+  - RPCs:
+    - `Infer(InferRequest) returns (InferResponse)` — synchronous inference
+    - `StreamInfer(InferRequest) returns (stream InferToken)` — streaming token-by-token
+    - `GetNodeStatus(Empty) returns (NodeStatus)` — node health and status
+  - Compile guard: `GENIUS_HAS_GRPC` (`src/api/CMakeLists.txt:22-25`)
+  - Status: **Stub mode** — gRPC linkage not yet complete; server runs busy-loop placeholder (`RUN_AND_DEPLOY.md`)
 
-**Vulkan / MoltenVK:**
-- What: GPU compute API and macOS Vulkan portability layer
-- Used for: Hardware-accelerated neural network inference via MNN's Vulkan backend
-- SDK: Vulkan SDK (system-installed), MoltenVK static library at `../thirdparty/build/<Platform>/<BuildType>/MoltenVK/`
-- Config: `GENIUS_ENABLE_GPU=ON` (default), `Vulkan_FOUND` flag check in `src/core/CMakeLists.txt`
+**IPFS (InterPlanetary File System):**
+- Service: IPFS — decentralized content-addressed storage
+  - SDK: ipfs-lite-cpp, ipfs-bitswap-cpp, ipfs-pubsub (linked in `src/core/CMakeLists.txt:120-137`)
+  - Used for: model URI and data URI addressing in SGProcessing schema JSON (`SGProcessingBridge::BuildSchemaJson()`, `src/core/sgprocessing/SGProcessingBridge.hpp:53-57`)
+  - Status: Linked via transitive SGProcessingManager dependencies when available; fallback to local paths when not
 
-## P2P Networking
-
-**libp2p (C++ implementation):**
-- What: Modular peer-to-peer networking stack
-- Used for: Decentralized swarm communication between nodes (`src/network/P2PNode.hpp`)
-- SDK: Pre-built library at `../thirdparty/build/<Platform>/<BuildType>/libp2p/`
-- Transitive deps: protobuf, yaml-cpp, ed25519, sr25519-donna, xxhash, cares, ipfs-lite-cpp, ipfs-pubsub, ipfs-bitswap-cpp, sqlite3, SQLiteModernCpp, soralog, Boost.DI, tsl_hat_trie
-- Status: Optional; enabled via `GENIUS_ENABLE_NETWORK=ON` — P2P networking stub when not linked
-- Ships Boost.Outcome headers — `outcome::result<T>` is aliased from libp2p's outcome
+**Hugging Face Hub:**
+- Service: Model distribution
+  - Used via: `huggingface_hub` Python CLI (documented in `RUN_AND_DEPLOY.md:199-220`)
+  - Purpose: Download Mistral-7B GGUF model and SentencePiece tokenizer
+  - Not a runtime dependency — used only during model setup
 
 ## Data Storage
 
-**RocksDB:**
-- What: Persistent key-value store (LSM-tree based)
-- Used for: Reputation database — stores node reputation scores across restarts
-- Implementation: `src/reputation/ReputationStorage.cpp` — falls back to in-memory `std::map` when RocksDB is not compiled in
-- DB path: `--db <path>` CLI argument (default: `./reputation.db`)
-- Status: Code paths ready behind `#ifdef GENIUS_HAS_ROCKSDB` (Task 3.1)
+**Databases:**
+- RocksDB — persistent key-value store for node reputation scores
+  - Connection: Filesystem path (default: `./reputation.db`)
+  - Client: Direct C++ API via `RocksDB::rocksdb` target
+  - File: `src/reputation/ReputationStorage.hpp`, `src/reputation/CMakeLists.txt:15-21`
+  - Compile guard: `GENIUS_HAS_ROCKSDB`
+  - Fallback: In-memory `std::unordered_map` when RocksDB not linked
+  - Operations: `Put`, `Get`, `Remove`, `GetAll` for `NodeReputation` records
+  - Serialization: Custom text format (pipe-delimited fields), deserialized by `Deserialize()`
+  - Compression: Snappy
 
-**Filesystem:**
-- Model files: `.mnn` format (MNN model) loaded via CLI `--model <path>`
-- Tokenizer files: `.tokenizer.model` (SentencePiece) expected next to the model file
-- Facts CSV: `--knowledge <path>` — Grokipedia knowledge base in CSV format (source, content)
-- Node key files: `.key` — secp256k1 private key stored as hex (plaintext); encryption planned (Task 2.3)
-- Reputation DB: `reputation.db` — RocksDB database directory
-- Stored in `*.key` and `*.db` — both are gitignored (see `.gitignore` lines 7-10)
+- SQLite3 — embedded SQL database (used by libp2p/soralog deps, not directly by app)
+
+**File Storage:**
+- Local filesystem only — no cloud storage integration
+- Key files:
+  - `node.key` — secp256k1 private key (hex-encoded, stored on disk)
+  - `reputation.db/` — RocksDB database directory
+  - `models/*.mnn` — MNN format model files
+  - `models/*.tokenizer.model` — SentencePiece tokenizer models
+  - `models/facts.csv` — Grokipedia knowledge base (CSV format: `category,fact`)
+  - `mnn_cachefile.bin` — MNN runtime cache
+
+**Caching:**
+- MNN internal cache: `mnn_cachefile.bin` — model runtime cache file
+- No external caching service (Redis, Memcached) detected
+- ReputationStorage uses in-memory map as hot cache when RocksDB is unavailable
 
 ## Authentication & Identity
 
-**Custom Node Identity:**
-- Implementation: `src/security/NodeIdentity.hpp` and `.cpp`
-- Key algorithm: secp256k1 (Bitcoin ECDSA curve)
-- Status: Stub mode generates random bytes XOR-hashed into a PeerId when secp256k1 is not linked. Real keypair generation behind `#ifdef GENIUS_HAS_SECP256K1` (Task 2.1)
-- Key file: `./node.key` (default) — created on first run with `--key` flag
-- Persistence: `NodeIdentity::SaveToFile()` / `LoadFromFile()` — raw hex format currently
+**Auth Provider:**
+- Custom — self-sovereign node identity via cryptographic keypairs
+  - Implementation: `src/security/NodeIdentity.hpp`
+  - Algorithm: secp256k1 (ECDSA on secp256k1 curve)
+  - Key sizes: 32-byte private, 33-byte public (compressed), 32-byte PeerId (SHA-256 of public key)
+  - Key storage: Hex-encoded file on disk (`node.key`) — currently plain text, planned AES-256-GCM encryption (Task 2.3)
+  - Key generation: Auto-generated on first run (`NodeIdentity::Generate()`), persisted via `SaveToFile()`
+  - Identity: PeerId = hex(SHA-256(compressed_public_key))
+  - Compile guard: `GENIUS_HAS_SECP256K1` — fallback uses XOR hash of random bytes (non-cryptographic, `src/security/NodeIdentity.cpp`)
 
 **Message Signing:**
-- Implementation: `src/security/MessageSigning.hpp` and `.cpp`
-- Algorithm: ed25519 signatures on task/result messages (see proto `genius_internal.proto` — `bytes signature`)
-- Status: `MessageSigning::Verify()` currently returns `true` always (stub) — designated `TODO(SECURITY)` (Task 2.2)
+- Implementation: `src/security/MessageSigning.hpp`, `src/security/MessageSigning.cpp`
+- Algorithm: ed25519 (EdDSA) for inter-node message signing
+- Proto fields: `TaskMessage.signature`, `ResultMessage.signature` (`proto/genius_internal.proto`)
+- Status: **Stub** — `MessageSigning::Verify` currently always returns `true` (Task 2.2: `TODO(SECURITY)` in `src/security/MessageSigning.cpp`)
 
-## External Network Services (gRPC)
-
-**SuperGenius — GNUS Blockchain Compute Network:**
-- What: Decentralized compute layer for the GNUS ecosystem
-- Protocol: gRPC (Protobuf-defined services)
-- Endpoint: `--sg-endpoint <host:port>` (planned, Task 4.2)
-- Implementation: `src/core/sgprocessing/SGProcessingBridge.cpp` — `SubmitNetwork()` method dispatches via `gRPCForSuperGenius`
-- Status: Not yet implemented — `SubmitNetwork()` returns `Error::NotImplemented` (Task 4.1)
-- Two-phase architecture:
-  - Phase 1 (Local): Neo Swarm → SGProcessingManager (local library) → Output
-  - Phase 2 (Network): Neo Swarm → SuperGenius gRPC → GNUS Network → Output
-
-**gRPC Server (node-local):**
-- What: Client-facing inference API
-- Protocol: gRPC / Protobuf, service `genius.api.GeniusAPI` defined in `proto/genius_api.proto`
-- Endpoints:
-  - `Infer(InferRequest) → InferResponse` — synchronous inference
-  - `StreamInfer(InferRequest) → stream InferToken` — streaming token-by-token
-  - `GetNodeStatus(Empty) → NodeStatus` — health and status
-- Port: `--port <n>` (default: `50051`)
-- Server: `--serve` flag starts gRPC server (blocking)
-- Implementation: `src/api/GeniusAPIServer.hpp` — `Serve()` method
-- Status: Optional; gRPC code guarded by `GENIUS_HAS_GRPC` — Serve mode currently busy-loop placeholder until wired (Task in roadmap phase 5)
-
-## FFI / Flutter Bridge
-
-**Genius-MOS-SLM-FFI Shared Library:**
-- What: C-ABI shared library compiled from `src/genius_slm_chat_c.cpp`
-- Used for: Flutter/Dart integration — exposes OpenAI v1 chat/completions API surface via Dart FFI
-- Library name: `Genius-MOS-SLM-FFI` → `libGenius-MOS-SLM-FFI.dylib` (macOS), `.so` (Linux), `.dll` (Windows)
-- Platform-specific loading: `flutter_slm_bridge/lib/flutter_slm_bridge.dart` — dynamic library resolution per platform
-- Public API (C header at `src/genius_slm_chat_c.h`):
-  - `GeniusSlmInit(const char* modelPath, const char* knowledgePath) → int`
-  - `GeniusSlmChatCompletionsCreate(const char* requestJson) → char*` (caller must free with `GeniusSlmStringFree`)
-  - `GeniusSlmStringFree(char* value) → void`
-- Dart bindings: Auto-generated by `ffigen` from the C header (`flutter_slm_bridge/lib/genius_slm_bindings_generated.dart`)
-- macOS linking: Uses `-force_load` linker flag to ensure all `genius_api` symbols are exported from the dylib (`CMakeLists.txt` line 119-123)
-
-**OpenAI v1 Chat/Completions Protocol:**
-- What: JSON API mimicking OpenAI's `/v1/chat/completions`
-- Used for: `GeniusSlmChatCompletionsCreate` accepts standard OpenAI-format request JSON
-- Request format: `{"messages": [{"role": "user", "content": "text"}], "model": "...", ...}`
-- Response format: OpenAI v1 chat completion response JSON with `choices[].message.content`
-- Implementation: Parsed and routed through the full GeniusAPIServer pipeline (router → inference → specialist → response)
-
-## Inter-Node Messaging (Protobuf)
-
-**Internal Protocol:**
-- `proto/genius_internal.proto` — `TaskMessage` and `ResultMessage` for inter-node gossip
-- Both include ed25519 signature fields for message authentication
-- `ResultMessage` includes `perplexity` and `latency_ms` for reputation scoring
-
-**Reputation Protocol:**
-- `proto/genius_reputation.proto` — `NodeReputationProto` and `ReputationSyncMessage` for CRDT-based reputation sync
-- Fields: `global_score`, per-category scores (`math`, `grammar`, `latency`, `consistency`), `task_count`, `last_updated_ms`
-
-**API Protocol:**
-- `proto/genius_api.proto` — External client-facing gRPC service
-- `InferRequest`: `task_id`, `prompt`, `mode` (SingleNode/Specialist/Swarm), `max_tokens`, `temperature`
-- `InferResponse`: `output`, `mode_used`, `route_used`, `total_latency_ms`, `success`, `error_message`, `grounding_facts`
-- `GroundingFact`: `source`, `content`, `relevance_score`
+**Transport Security:**
+- P2P: Noise protocol for transport encryption (via libp2p)
+- P2P: Yamux for stream multiplexing (via libp2p)
+- gRPC: OpenSSL TLS (when linked)
+- Compile guard: `GENIUS_HAS_OPENSSL` for SSL/TLS support
 
 ## Monitoring & Observability
 
-**Logging:**
-- Framework: spdlog (via `GENIUS_HAS_SPDLOG`)
-- Pattern: Module-specific loggers via `sgns::base::Logger` in `src/common/Logging.hpp`
-- CLI: `--verbose` flag sets spdlog level to `debug`
-- Runtime logs: stdout by default; macOS LaunchAgent redirects to `/tmp/neo-swarm.log` / `/tmp/neo-swarm-error.log`
-
 **Error Tracking:**
-- No external error tracking service detected
-- Error propagation: `outcome::result<T>` pattern throughout — no exceptions in hot paths
-- Error codes: Defined in `src/common/Error.hpp` as `enum class Error : uint8_t` (17 error codes covering Core, Router, Network, Reputation, Knowledge, Security, General)
+- None — no external error tracking service (Sentry, Bugsnag, etc.)
+- Errors propagate via `outcome::result<T>` pattern (`src/common/Error.hpp` — 17 error codes)
+- Error codes: ModelLoadFailed, InferenceFailed, TokenizerFailed, FP4DecodeFailed, RoutingFailed, NetworkError, PeerNotFound, BroadcastTimeout, StorageError, ReputationNotFound, KnowledgeUnavailable, FactValidationFailed, IdentityError, SignatureInvalid, InvalidArgument, NotImplemented, InternalError
+
+**Logs:**
+- Framework: spdlog (structured C++ logging library)
+- File: `src/common/Logging.hpp` — wraps spdlog with namespace convention
+- Output: stdout (colorized), pattern: `[YYYY-MM-DD HH:MM:SS.ms] [level] [NeoSwarm/Component] message`
+- Levels: debug (via `--verbose` CLI flag), info, warn, error, critical
+- Component loggers: Router, P2PNode, Storage, Signing, etc.
+- No log aggregation or external log shipping
+
+**Health Check:**
+- gRPC RPC: `GetNodeStatus(Empty) returns (NodeStatus)` — returns `node_id`, `is_running`, `connected_peers`, `reputation_score`, `model_loaded`, `backend`
+- C FFI: `GeniusSlmGetStatus()` returns JSON with `model_loaded`, `mode`, `backend`, `node_id`
 
 ## CI/CD & Deployment
 
 **Hosting:**
-- Platform: Self-hosted / on-premises
-- macOS LaunchAgent plist (`RUN_AND_DEPLOY.md`) for running as a system service
-- CLI binary: `neo-swarm` installed to `bin/`
-- No containerization detected (no Dockerfile)
+- Self-hosted — native binary deployment, no cloud platform
+- Server mode: `neo-swarm --serve` starts long-running gRPC server
+- macOS: LaunchAgent for auto-start on boot (`RUN_AND_DEPLOY.md:283-331`)
+- Binary: `build/<Platform>/<BuildType>/neo-swarm`
 
 **CI Pipeline:**
-- No CI configuration files detected in the project root
+- None detected — no CI configuration files (`.github/workflows/`, `.gitlab-ci.yml`, `Jenkinsfile`, etc.)
+- Builds performed locally with manual `cmake` + `ninja` commands
+- Pre-built thirdparty dependencies fetched from GitHub releases at `GeniusVentures/thirdparty`
+
+**Build & Test:**
+- Build: `cmake -S build/<Platform> -B build/<Platform>/<BuildType> -DCMAKE_BUILD_TYPE=<Type> -G Ninja`
+- Tests: `ctest --test-dir build/<Platform>/<BuildType> -C <Type> --output-on-failure --parallel`
+- Test output: xUnit XML format to `build/<Platform>/<BuildType>/xunit/`
+
+**Flutter Deployment:**
+- Platforms: Android, iOS, Linux, macOS, Windows (via `flutter_slm_bridge` FFI plugin)
+- Bridge: Dart FFI loads `libGenius-MOS-SLM-FFI.dylib` (macOS), `.so` (Linux), `.dll` (Windows), `.framework` (iOS)
+- Build: Flutter standard toolchain (`flutter build`), native lib built via CMake + linked via FFI
 
 ## Environment Configuration
 
-**Secrets Management:**
-- Node private key: stored in `--key` file (currently plain hex; encryption planned via OpenSSL AES-256-GCM in Task 2.3)
-- Key passphrase: planned env var `GENIUS_NODE_KEY_PASS`
-- No `.env` files detected — all configuration via CLI arguments
+**Required runtime files (not env vars):**
+- `--model <path>` — MNN model file (required for real inference)
+- `--key <path>` — node key file (auto-created at `./node.key` if missing)
+- `--db <path>` — reputation database (auto-created at `./reputation.db` if missing)
 
-**Required External Paths:**
-| Resource | Path Pattern | Set Via |
-|----------|-------------|---------|
-| Thirdparty libraries | `../thirdparty/build/<Platform>/<BuildType>/` | Resolved by `cmake_genius/FindThirdparty.cmake` |
-| SuperGenius (Phase 2) | `../SuperGenius/` | CMake variables, `SUPERGENIUS_TEST_DATA_DIR` |
-| SGProcessingManager (Phase 1) | `SGProcessingManager/` (submodule) | `src/core/CMakeLists.txt` |
-| MNN model file | User-specified path | CLI `--model <path>` |
-| SentencePiece tokenizer | Same dir as model | Auto-detected by `GeniusAPIServer::Initialize()` |
-| Facts CSV | User-specified path | CLI `--knowledge <path>` |
+**Optional runtime files:**
+- `--knowledge <path>` — Grokipedia facts CSV
+- `--grammar-model <path>` — grammar specialist model
+- `--math-model <path>` — math specialist model
+- Model-related: `tokenizer.model` (auto-detected alongside the `.mnn` model file)
+
+**Secrets location:**
+- `node.key` — private key file on local disk (excluded from git via `.gitignore`)
+- `reputation.db/` — database directory (excluded from git via `.gitignore`)
+- No environment variable or secrets manager integration detected
+
+**Planned configuration:**
+- Task 5.3: YAML/JSON config file support via `--config <path>` (using yaml-cpp, already in thirdparty)
 
 ## Webhooks & Callbacks
 
 **Incoming:**
-- gRPC server on `--port` (default `50051`) — accepts `GeniusAPI.Infer` and `GeniusAPI.StreamInfer` calls
-- FFI calls from Flutter: `GeniusSlmChatCompletionsCreate(requestJson)`
+- None — no webhook endpoints exposed. Client interaction is via gRPC (`Infer`, `StreamInfer`) or direct CLI.
 
 **Outgoing:**
-- Phase 2: SuperGenius gRPC dispatch via `SGProcessingBridge::SubmitNetwork()` (not yet implemented)
-- P2P task broadcast and result aggregation via libp2p (not yet fully implemented without real model)
+- None — no outgoing webhook calls. The system processes tasks either locally or dispatches via gRPC to SuperGenius nodes (planned).
 
-**Streaming:**
-- gRPC server-streaming: `StreamInfer(InferRequest) → stream InferToken` for token-by-token output (planned)
-- FFI streaming: `GeniusSlmChatCompletionsStream` callback API (planned, Task 7.2)
+## P2P Network Integration
+
+**Protocol Stack:**
+- Transport: TCP (`/ip4/0.0.0.0/tcp/0` — random port by default)
+- Encryption: Noise protocol
+- Multiplexing: Yamux
+- PubSub: GossipSub (for task broadcasting and CRDT sync)
+- Peer Discovery: Kademlia DHT + mDNS (local network discovery)
+- Identity: libp2p PeerId derived from secp256k1 public key
+- File: `src/network/P2PNode.hpp` — `P2PNode` class wraps libp2p host
+- Compile guard: `GENIUS_HAS_LIBP2P` — falls back to local stub
+
+**Message Types (proto-defined):**
+- `genius_internal.proto`: `TaskMessage` (task_id, prompt, mode, signature) and `ResultMessage` (task_id, node_id, output, perplexity, latency, signature)
+- `genius_reputation.proto`: `NodeReputationProto` (identity_key, scores) and `ReputationSyncMessage` (CRDT sync)
+
+**CRDT Sync:**
+- Purpose: Distributed reputation state synchronization across swarm nodes
+- Implementation: `src/reputation/ReputationCRDT.hpp`
+- Transport: GossipSub via `P2PNode::BroadcastCRDT()`
 
 ---
 
-*Integration audit: 2026-05-26*
+*Integration audit: 2026-05-27*

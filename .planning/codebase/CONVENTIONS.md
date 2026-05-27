@@ -1,454 +1,300 @@
 # Coding Conventions
 
-**Analysis Date:** 2026-05-26
+**Analysis Date:** 2026-05-27
 
-## Language Ecosystems
+## Language & Standard
 
-The project spans two ecosystems with distinct conventions:
+- **Language:** C++17 (no C++20 features — e.g., no `std::coroutine`, no `consteval`)
+- **Compilers:** Clang (Apple Clang), GCC; warnings enabled at high level via `cmake/CompilationFlags.cmake`
 
-### C++ (Engine — `src/`, `test/`)
+## File Naming
 
-- **Standard:** C++17 (`-std=c++17`, `CMAKE_CXX_STANDARD 17`)
-- **Compiler flags:** `-Wall -Wextra -Wpedantic -Wno-unused-parameter`
-- **Build:** CMake 3.30+ with Ninja generator
-- **Error handling:** `outcome::result<T>` (Boost.Outcome / libp2p::outcome)
-- **Exception policy:** `noexcept` by default; no exceptions in hot paths
+**Headers:**
+- PascalCase with `.hpp` extension: `PromptAnalyzer.hpp`, `IRouter.hpp`, `Error.hpp`
+- Interface headers follow `I` prefix convention: `IRouter.hpp`, `ISpecialist.hpp`
+- Each `.hpp` has a corresponding `.cpp` in the same directory
 
-### Dart/Flutter (Frontend — `flutter_app/`, `flutter_slm_bridge/`, `ui/`)
+**Source:**
+- PascalCase with `.cpp` extension: `PromptAnalyzer.cpp`, `RuleBasedRouter.cpp`
+- Entry-point files use snake_case: `genius_node.cpp`, `genius_slm_chat_c.cpp`
 
-- **SDK:** Dart `^3.8.1`
-- **Linting:** `package:flutter_lints/flutter.yaml` (v5.0.0 in flutter_app/bridge, v3.0.0 in ui/)
-- **Testing:** `flutter_test` SDK package
+**Test files:**
+- `test_<module>.cpp` in `test/<module>/` directory: `test/router/test_router.cpp`
 
----
+**Include guards:**
+```cpp
+#ifndef NEOSWARM_<MODULE>_<FILE>_HPP_
+#define NEOSWARM_<MODULE>_<FILE>_HPP_
+// ...
+#endif // NEOSWARM_<MODULE>_<FILE>_HPP_
+```
+Example: `NEOSWARM_ROUTER_IROUTER_HPP_` for `src/router/IRouter.hpp`
 
 ## Naming Patterns
 
-### C++
-
-**Classes, Structs, Methods:**
-- PascalCase: `GeniusAPIServer`, `MathSpecialist`, `RuleBasedRouter`, `InferenceEngine`, `FP4Codec`
+**Classes & Structs:**
+- PascalCase: `PromptAnalyzer`, `RuleBasedRouter`, `NodeReputation`, `GeniusAPIServer`
 - Abstract interfaces prefixed with `I`: `IRouter`, `ISpecialist`
+- Inner implementation structs use `Impl`: `NodeIdentity::Impl` (Pimpl idiom)
 
-**Member Variables:**
-- camelCase with trailing underscore: `cfg_`, `model_path_`, `loaded_`, `running_`, `task_count_`, `last_confidence_`
-- Struct public members also use trailing underscore: `NodeReputation::global_score_`, `Task::prompt_`
-- Files: `src/common/Types.hpp`, `src/api/GeniusAPIServer.hpp`, `src/specialists/MathSpecialist.hpp`
+**Functions/Methods:**
+- PascalCase: `Analyze()`, `ComputeNumericDensity()`, `LoadModel()`, `SelectWinner()`
+- Free functions (file-local): PascalCase: `ToHex()`, `FromHex()`, `ClampScore()`
 
-**Local Variables:**
-- camelCase: `engine_cfg`, `tok_path`, `aug_task`, `median_latency`
-
-**Function/Method Names:**
-- PascalCase: `Initialize()`, `Process()`, `SelectWinner()`, `BuildPrompt()`, `ComputeWeights()`
-- Getters: `IsLoaded()`, `BackendName()`, `GetName()`, `GetConfidence()`
-- Private helpers: `SelectMode()`, `TrySymbolicFallback()`, `RunForward()`, `SampleToken()`
+**Variables/Members:**
+- camelCase with trailing underscore: `cfg_`, `loaded_`, `model_path_`, `prompt_`
+- Stack/loop variables: camelCase: `numChars`, `total`, `flat_width`
+- No Hungarian notation; no `m_` prefix
 
 **Constants:**
-- kCamelCase prefix: `kConfidenceThreshold`, `kMinTasksForHighTrust`, `kPublicKeySize`
-- Source: `src/specialists/SymbolicFallback.hpp:26`, `src/common/Types.hpp:115`
-
-**Enums:**
-- Enum types: PascalCase — `ExecutionMode`, `RouteTarget`, `Error`, `Strategy`
-- Enum values: PascalCase — `SingleNode`, `CorePlusMath`, `ModelLoadFailed`, `WeightedVoting`
-
-**Scoped Enums:** All enums use `enum class` (`src/common/Error.hpp:18`, `src/router/IRouter.hpp` — via Types.hpp). Underlying type specified: `: uint8_t` for `Error`, `ExecutionMode`, `RouteTarget`, `Strategy`.
+- `ALL_CAPS` or `kPascalCase` for compile-time constants:
+  ```cpp
+  static constexpr size_t kMacroblockRows = 64;
+  static constexpr size_t kPubKeySize     = 33;
+  static constexpr uint64_t kMinTasksForHighTrust = 10;
+  static constexpr int    kScaleSearchSteps = 32;
+  ```
 
 **Namespaces:**
-- Nested with full indentation: `sgns::neoswarm::[module]`
-- Module-level sub-namespaces: `sgns::neoswarm::api`, `sgns::neoswarm::router`, `sgns::neoswarm::reputation`, `sgns::neoswarm::specialists`, `sgns::neoswarm::core`, `sgns::neoswarm::security`, `sgns::neoswarm::network`, `sgns::neoswarm::knowledge`, `sgns::neoswarm::fp4`
-- Namespace alias: `namespace outcome = libp2p::outcome` (`src/common/Error.hpp:13`)
-- `using` directives only in implementation files (`.cpp`)
+- Deeply nested, matching directory structure:
+  ```cpp
+  namespace sgns::neoswarm::router { }
+  namespace sgns::neoswarm::core { }
+  namespace sgns::neoswarm::security { }
+  namespace sgns::neoswarm::fp4 { }
+  namespace sgns::neoswarm::reputation { }
+  ```
+- Closure comment duplicates namespace: `} // namespace sgns::neoswarm::router`
 
-**Macros:**
-- ALL_CAPS with project prefix: `NEOSWARM_COMMON_ERROR_HPP_`, `GENIUS_HAS_SGPROCESSING`
-- `BOOST_OUTCOME_TRY` for error propagation
+**Enums:**
+- Always `enum class` with explicit underlying type:
+  ```cpp
+  enum class ExecutionMode : uint8_t { SingleNode = 0, Specialist = 1, Swarm = 2 };
+  enum class Error : uint8_t { ModelLoadFailed = 1, InferenceFailed = 2, ... };
+  ```
+- Values are PascalCase
 
-**Files:**
-- Headers: PascalCase `.hpp` — `GeniusAPIServer.hpp`, `MathSpecialist.hpp`, `IRouter.hpp`
-- Implementation: PascalCase `.cpp` — `GeniusAPIServer.cpp`, `MathSpecialist.cpp`
-- Test files: `test_[name].cpp` — `test_fp4_codec.cpp`, `test_router.cpp`, `test_reputation.cpp`
-- C FFI header: `genius_slm_chat_c.h` (C-compatible, snake_case)
-
-### Dart/Flutter
-
-**Files:**
-- snake_case: `flutter_slm_bridge.dart`, `widget_test.dart`, `main.dart`
-- Generated bindings: `*_generated.dart` (`flutter_slm_bridge_bindings_generated.dart`, `genius_slm_bindings_generated.dart`)
-
-**Classes:**
-- PascalCase: `GeniusSwarmApp`, `GeniusChatScreen`, `FlutterSlmBridgeBindings`
-
-**Methods/Functions:**
-- camelCase: `geniusSlmInit()`, `chatCompletionsCreate()`, `extractContent()`
-- Private: `_sum`, `_incrementCounter`
-
-**Variables:**
-- camelCase: `_chatController`, `_isThinking`
-- Private with `_` prefix: `_counter`, `_libName`, `_dylib`, `_bindings`
-- Top-level constants: camelCase — `_libName`, `_dylib`
-
----
+**Type Aliases:**
+- `using` declarations preferred over `typedef`:
+  ```cpp
+  using PrivKey = std::array<uint8_t, kPrivKeySize>;
+  using PubKey  = std::array<uint8_t, kPubKeySize>;
+  using Logger  = std::shared_ptr<spdlog::logger>;
+  ```
 
 ## Code Style
 
-### C++
+**Formatting (derived from CLAUDE.md — "Based on Microsoft with modifications"):**
+- **Indentation:** 4 spaces (no tabs)
+- **Line length:** 120 characters maximum
+- **Braces:** Allman/Ullman style — each on its own line:
+  ```cpp
+  if ( condition )
+  {
+      // body
+  }
+  else
+  {
+      // body
+  }
+  ```
+- **Parentheses:** Space after opening and before closing:
+  ```cpp
+  if ( condition )          // NOT if(condition)
+  for ( auto &w : weights ) // NOT for(auto &w : weights)
+  ```
+- **Always use braces** even for single statements:
+  ```cpp
+  if ( total == 0 )
+  {
+      return 0.0f;
+  }
+  ```
+- **No `.clang-format` file** detected in the repository
 
-**Formatting:**
-- Style based on Microsoft with modifications (`.clang-format` referenced in `CLAUDE.md` but not present in repo)
-- Indentation: **4 spaces**
-- Line length: **120 characters** maximum
-- Brace style: **Allman/Ullman** — each brace on its own line
+**Member variable declarations:**
+- One member per line, right-aligned types (column alignment):
+  ```cpp
+  std::string   id_;
+  std::string   prompt_;
+  ExecutionMode mode_        = ExecutionMode::SingleNode;
+  uint32_t      max_tokens_  = 512;
+  float         temperature_ = 0.7f;
+  ```
+- Struct members are `public` by default, no getters/setters for POD-like structs
 
-```cpp
-// From src/router/RuleBasedRouter.cpp
-if ( features.numeric_density_ > cfg_.numeric_density_threshold_
-     || features.has_math_keywords_ )
-{
-    decision.target_     = RouteTarget::CorePlusMath;
-    decision.confidence_ = 0.85f + features.numeric_density_ * 0.15f;
-}
-```
+## Compilation & Warnings
 
-**Parentheses:** Space after opening `( ` and before closing ` )`:
-```cpp
-if ( condition )           // not if(condition)
-while ( running_.load() )  // not while(running_.load())
-func( arg1, arg2 );        // not func(arg1, arg2);
-```
+Defined in `cmake/CompilationFlags.cmake`:
+- **Enabled:** `-Wall`, `-Wextra`, `-Woverloaded-virtual`, `-Wformat=2`, `-Wmisleading-indentation`,
+  `-Wduplicated-cond`, `-Wduplicated-branches`, `-Wnull-dereference`, `-Wsign-compare`,
+  `-Wtype-limits`, `-Wnon-virtual-dtor`
+- **Disabled (too noisy):** `-Wno-unused-variable`, `-Wno-unused-parameter`, `-Wno-unused-function`,
+  `-Wno-double-promotion`, `-Wno-unused-command-line-argument`, `-Wno-format-nonliteral`,
+  `-Wno-gnu-zero-variadic-macro-arguments`
 
-**Always braces** on control structures even for single statements:
-```cpp
-// From src/router/RuleBasedRouter.cpp:31-38
-if ( requested == ExecutionMode::Swarm )
-{
-    return ExecutionMode::Swarm;
-}
-if ( requested == ExecutionMode::Specialist )
-{
-    return ExecutionMode::Specialist;
-}
-```
+## Doxygen Comments
 
-**Header Guards:**
-```cpp
-#ifndef NEOSWARM_[MODULE]_[NAME]_HPP_
-#define NEOSWARM_[MODULE]_[NAME]_HPP_
-// ...
-#endif // NEOSWARM_[MODULE]_[NAME]_HPP_
-```
-Examples: `NEOSWARM_ROUTER_RULEBASEDROUTER_HPP_`, `NEOSWARM_COMMON_TYPES_HPP_`, `NEOSWARM_API_GENIUSAPISERVER_HPP_`
-
-**Section Dividers:**
-```cpp
-// -----------------------------------------------------------------------
-// Section Name
-// -----------------------------------------------------------------------
-```
-
-**Initialization:**
-- All variables initialized at declaration: `bool loaded_ = false;`, `float last_confidence_ = 0.0f;`
-- Member initialization lists in constructor (declaration order): `MathSpecialist.cpp:23-26`
-- Prefer `{}` initialization
-
-**Type Aliases:**
-```cpp
-using Logger = std::shared_ptr<spdlog::logger>;          // src/common/Logging.hpp:17
-using neoswarm::NodeReputation;                           // src/reputation/NodeReputation.hpp:16
-```
-- Prefer `using` over `typedef`
-
-### Dart/Flutter
-
-**Formatting:**
-- Trailing commas for auto-formatting (`flutter_app/lib/main.dart:119`)
-- `const` constructors where possible (`const MyApp({super.key})`)
-- `@override` on all overridden methods
-- `required` for named parameters (`required this.title`)
-
----
-
-## Import Organization
-
-### C++
-
-**Order (observed):**
-1. Corresponding header (in `.cpp`): `#include "MathSpecialist.hpp"`
-2. Project internal headers: `#include "common/Logging.hpp"`
-3. Standard library headers: `#include <functional>`, `#include <string>`
-
-**Include Paths:**
-- Relative to `src/`: `#include "common/Error.hpp"`, `#include "core/engine/InferenceEngine.hpp"`
-- Single-quoted `"..."` for project headers
-
-### Dart
-
-**Order:**
-1. `dart:` imports (`dart:convert`, `dart:ffi`, `dart:io`, `dart:isolate`)
-2. Package imports (`package:flutter/material.dart`, `package:ffi/ffi.dart`)
-3. Project imports (`package:flutter_slm_bridge/flutter_slm_bridge.dart`)
-
----
-
-## Error Handling
-
-### C++ — `outcome::result<T>` Pattern
-
-**Core mechanism:** All fallible functions return `outcome::result<T>`.
-
-**Success:**
-```cpp
-return outcome::success();                    // src/specialists/MathSpecialist.cpp:40
-return outcome::success( std::move( resp ) ); // src/api/GeniusAPIServer.cpp:232
-return outcome::success( symbolic.value() );  // src/specialists/MathSpecialist.cpp:80
-```
-
-**Failure:**
-```cpp
-return outcome::failure( Error::ModelLoadFailed );      // src/specialists/MathSpecialist.cpp:35
-return outcome::failure( Error::InternalError );        // src/api/GeniusAPIServer.cpp:386
-return outcome::failure( route_res.error() );           // error chaining
-```
-
-**Propagation macro:**
-```cpp
-BOOST_OUTCOME_TRY( engine_->LoadModel( model_path ) );  // src/specialists/MathSpecialist.cpp:37
-BOOST_OUTCOME_TRY( identity_->Generate() );             // src/api/GeniusAPIServer.cpp:63
-```
-
-**Checking results:**
-```cpp
-if ( !res.has_value() ) { /* handle */ }           // check for error
-auto val = res.value();                             // unwrap (must have checked)
-```
-
-**Error codes:** Defined as scoped enum in `src/common/Error.hpp:18-44` — values like `ModelLoadFailed`, `InferenceFailed`, `RoutingFailed`, `NetworkError`, etc. Error messages registered in `src/common/Error.cpp` via `OUTCOME_CPP_DEFINE_CATEGORY_3`.
-
-**No exceptions in hot paths.** Functions default `noexcept` unless explicitly required to throw. Only `src/genius_node.cpp` uses `try/catch` with `std::exception` for argument parsing.
-
-### Dart — Standard Patterns
-
-- Try/catch: Used minimally — `flutter_slm_bridge.dart:133` catches general errors in `extractContent()`
-- Error returns: `geniusSlmInit()` returns `-1` on failure, `0` on success
-- FFI null checks: Returns error JSON string on null pointer from native code (`flutter_slm_bridge.dart:78-79`)
-
----
-
-## Logging
-
-**Framework:** `spdlog` via `src/common/Logging.hpp`
-
-**Patterns:**
-- Each translation unit creates a private logger via anonymous namespace:
-```cpp
-// From src/api/GeniusAPIServer.cpp:23-26
-namespace
-{
-    auto ServerLogger()
-    {
-        return neoswarm::CreateLogger( "GeniusAPIServer" );
-    }
-}
-```
-
-**Usage:**
-- `info()`: lifecycle events — `ServerLogger()->info( "Initializing GeniusAPIServer..." );`
-- `warn()`: non-fatal issues — `ServerLogger()->warn( "Core model load failed — continuing in stub mode" );`
-- `debug()`: detailed routing/reputation — `RouterLogger()->debug( "Route: target={} mode={} confidence={:.2f}", ... );`
-- `error()`: not observed in codebase (fatal handled via `outcome::failure`)
-
-**Log format:** `[YYYY-MM-DD HH:MM:SS.ms] [LEVEL] [NeoSwarm/Component] message` (`src/common/Logging.hpp:34`)
-
-**Type alias:** `using Logger = std::shared_ptr<spdlog::logger>` (`src/common/Logging.hpp:17`)
-
----
-
-## Comments
-
-### C++ — Doxygen
-
-**Every file:** Doxygen header with `@file`, `@brief`, and optionally `@date`, `@author`:
+**Every file** starts with a Doxygen header block:
 ```cpp
 /**
- * @file       MathSpecialist.hpp
- * @brief      GSM8K-tuned math specialist model (PTDS §5.2)
+ * @file       PromptAnalyzer.cpp
+ * @brief      Prompt feature extraction implementation
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 ```
 
-**Every class:** Doxygen block with `@brief` and behavior description:
+**Every public method** has a Doxygen comment:
 ```cpp
 /**
- * @brief 1-3B parameter GSM8K-tuned math model (PTDS §5.2).
- *
- * Activated by the router when numeric density > threshold.
- * Includes symbolic fallback when model confidence < kConfidenceThreshold.
+ * @brief Compute the ratio of tokens that are numeric.
+ * @param prompt  Input string.
+ * @return        Numeric density in [0, 1].
  */
-class MathSpecialist : public ISpecialist
+float ComputeNumericDensity( const std::string &prompt ) const;
 ```
 
-**Every public method:** Doxygen with `@param`, `@return`:
-```cpp
-/**
- * @brief Process input (typically Core LLM output) and return refined output.
- * @param input  Text to process.
- * @return       Refined text or InferenceFailed.
- */
-virtual outcome::result<std::string> Process( const std::string &input ) = 0;
-```
-
-**Section dividers:** `// ----- Name -----`
+**Section separators** use dashed comment lines:
 ```cpp
 // -----------------------------------------------------------------------
-// BuildPrompt
+// Analyze
 // -----------------------------------------------------------------------
 ```
 
-### Dart
+## Error Handling
 
-- Inline comments for explanations (`flutter_app/lib/main.dart` has extensive Flutter template comments)
-- Documentation comments: Not consistently Doxygen; `flutter_slm_bridge.dart` uses `///` for public API
+- **Primary mechanism:** `outcome::result<T>` from libp2p/Boost.Outcome (aliased as `sgns::neoswarm::outcome`)
+- **Error type:** `sgns::neoswarm::Error` enum class registered via `OUTCOME_CPP_DEFINE_CATEGORY_3`
+- **Propagation:** `BOOST_OUTCOME_TRY` macro:
+  ```cpp
+  BOOST_OUTCOME_TRY( engine_->LoadModel( model_path ) );
+  ```
+- **Manual checking:**
+  ```cpp
+  auto enc_res = codec.Encode( weights.data(), rows, cols );
+  ASSERT_TRUE( enc_res.has_value() );
+  ```
+- **Return values:** `outcome::success( value )` or `outcome::failure( Error::SomeCode )`
+- **No exceptions** thrown in hot paths (per CLAUDE.md directive); exceptions used only in argument parsing (`throw std::runtime_error`)
+- Functions are expected to be `noexcept` unless required to throw (per CLAUDE.md)
 
----
+## Logging
 
-## Function Design
+**Framework:** spdlog via `src/common/Logging.hpp`
 
-### C++
+**Pattern:**
+- Each component creates a named logger via a file-local factory function in an anonymous namespace:
+  ```cpp
+  namespace
+  {
+      auto RouterLogger()
+      {
+          return neoswarm::CreateLogger( "Router" );
+      }
+  }
+  ```
+- Log levels used: `info`, `debug`, `warn`, `error`
+- Logger name format: `NeoSwarm/<Tag>` (auto-prefixed by `CreateLogger`)
+- Pattern: `[YYYY-MM-DD HH:MM:SS.ms] [LEVEL] [NeoSwarm/Tag] message`
+- Log calls use spdlog format strings (`{}`-style):
+  ```cpp
+  RouterLogger()->debug( "Route: target={} mode={} confidence={:.2f}", ... );
+  ```
 
-**Size:** Functions are generally small (~10-40 lines). Largest are initialization (`Initialize`: 106 lines) and pipeline methods (`RunSwarm`: 79 lines).
+## Import Organization
+
+**Include order:**
+1. Own header (matching `.cpp` to `.hpp`)
+2. Project headers (with relative paths from `src/` root)
+3. Standard library headers
+4. Third-party headers
+
+Example from `PromptAnalyzer.cpp`:
+```cpp
+#include "PromptAnalyzer.hpp"        // own header
+// (other project headers are in .hpp)
+#include <algorithm>                 // stdlib
+#include <cctype>
+#include <cmath>
+```
+
+## Function/Method Design
 
 **Parameters:**
-- Objects passed by `const&`: `Process( const Task &task )`, `Update( const NodeReputation &old, ... )`
-- Built-ins passed by value: `int a, int b`, `double score`
-- `std::string` by `const&`: `SetTokenizer( const std::string &model_path )`
-- `std::optional` for nullable: `std::optional<std::string> ground_truth`
-- No in-out parameters (const + return results pattern)
+- Large types passed by `const&`: `const std::string &prompt`, `const NodeReputation &old`
+- Primitive types passed by value: `float temperature`, `size_t rows`
+- No output parameters — results returned by value or `outcome::result<T>`
 
-**Return Values:**
-- `outcome::result<T>` for fallible operations
-- `void` for guaranteed side-effects
-- Direct types for pure functions: `std::string`, `double`
+**Const-correctness:**
+- All read-only member functions marked `const`
+- All input parameters `const` where possible
+- `static constexpr` for compile-time constants
 
-**Modifiers:**
-- `const` on member functions not modifying state
-- `override` on all virtual overrides
-- `explicit` on single-argument constructors
-- `= default` for virtual destructors
-- `noexcept` specified in FFI C API (`genius_slm_chat_c.h`)
+**Struct design:**
+- Plain data with public members (like PODs)
+- Named initialization (designated initializers where supported):
+  ```cpp
+  NodeReputation rep;
+  rep.identity_key_ = "test-node";
+  rep.global_score_ = 0.99;
+  ```
 
-### Dart
+## Modular Design
 
-- `Future<T>` for async operations
-- Named parameters with `{}` for configuration
-- Short single-purpose functions
+**Module structure:** One CMake `STATIC` library per directory:
+```
+src/core/CMakeLists.txt       → genius_core
+src/router/CMakeLists.txt     → genius_router
+src/reputation/CMakeLists.txt → genius_reputation
+src/common/CMakeLists.txt     → genius_common
+src/api/CMakeLists.txt        → genius_api
+```
+
+**Dependency pattern:** `genius_common` is the leaf dependency; all others depend on it:
+```cmake
+target_link_libraries(genius_router PUBLIC genius_common)
+target_link_libraries(genius_core PUBLIC genius_common)
+```
+
+## Smart Pointer Usage
+
+- `std::unique_ptr` — default for ownership: `std::unique_ptr<Impl> impl_;`
+- `std::shared_ptr` — for shared resources (inference engines, loggers, node identity):
+  ```cpp
+  std::shared_ptr<core::InferenceEngine>  core_engine_;
+  std::shared_ptr<security::NodeIdentity> identity_;
+  ```
+- **No `shared_ptr`** observed in test code — tests use stack objects
+
+## Platform & Feature Flags
+
+- Compile-time feature toggles use `#ifdef`:
+  ```cpp
+  #ifdef GENIUS_HAS_SECP256K1
+  #ifdef GENIUS_HAS_SGPROCESSING
+  #ifdef GENIUS_HAS_OPENSSL
+  #ifdef GENIUS_HAS_VULKAN
+  ```
+- Stub implementations provided in `#else` blocks:
+  ```cpp
+  #else
+      BridgeLogger()->warn( "SGProcessingManager not compiled in — stub mode" );
+      return outcome::success( std::vector<uint8_t>{} );
+  #endif
+  ```
+
+## Patterns to Follow When Adding Code
+
+1. **New class:** Create `<ClassName>.hpp` and `<ClassName>.cpp` in the appropriate `src/<module>/` directory
+2. **New interface:** Prefix with `I`, declare pure virtual methods, virtual destructor
+3. **New struct:** Use public members with trailing underscores, default member initializers, no constructors unless needed
+4. **Error cases:** Return `outcome::result<T>`, use `BOOST_OUTCOME_TRY` for propagation, register new error codes in `common/Error.hpp`
+5. **Logging:** Add a file-local logger factory function in an anonymous namespace at the top of `.cpp` files
+6. **Doxygen:** Add `@file`, `@brief`, `@date`, `@author` to every file header; document every public method with `@param` and `@return`
+7. **CMake:** Add source files to the appropriate `STATIC` library, link against `genius_common`
+8. **Config structs:** Use nested `Config` struct with default member initializers, trailing underscores
 
 ---
 
-## Module Design
-
-### C++
-
-**Exports:** One class per header file (with related Config struct):
-- `src/router/RuleBasedRouter.hpp` exports `RuleBasedRouter` + nested `Config`
-- `src/specialists/MathSpecialist.hpp` exports `MathSpecialist` (interfaces in separate header: `ISpecialist.hpp`)
-
-**CMake library-per-module:** Each `src/[module]/CMakeLists.txt` defines a STATIC library:
-- `genius_common`, `genius_core`, `genius_api`, `genius_router`, `genius_reputation`, etc.
-
-**Config structs:** Every class with configurable behavior has a nested `Config` struct:
-```cpp
-class RuleBasedRouter : public IRouter
-{
-public:
-    struct Config
-    {
-        float numeric_density_threshold_ = 0.30f;
-        float complexity_swarm_threshold_ = 5.0f;
-        bool  enable_swarm_mode_         = true;
-    };
-    RuleBasedRouter();
-    explicit RuleBasedRouter( Config cfg );
-    // ...
-};
-```
-Sources: `src/router/RuleBasedRouter.hpp`, `src/api/GeniusAPIServer.hpp`, `src/reputation/WeightedConsensus.hpp`, `src/reputation/ReputationScoring.hpp`, `src/core/engine/MNNInferenceEngine.hpp`
-
-**Private logger factory pattern:** Each `.cpp` file has anonymous-namespace logger factory:
-```cpp
-namespace
-{
-    auto RouterLogger()
-    {
-        return neoswarm::CreateLogger( "Router" );
-    }
-}
-```
-Sources: `src/router/RuleBasedRouter.cpp:13-19`, `src/reputation/ReputationScoring.cpp:16-22`, `src/specialists/MathSpecialist.cpp:15-21`, `src/api/GeniusAPIServer.cpp:21-33`
-
-**Abstract interfaces:** Used for pluggable components:
-- `src/core/engine/InferenceEngine.hpp` — `class InferenceEngine` (pure virtual, `= default` destructor)
-- `src/router/IRouter.hpp` — `class IRouter` with single `Route()` pure virtual
-- `src/specialists/ISpecialist.hpp` — `class ISpecialist` with 4 pure virtual methods
-
----
-
-## Memory Management
-
-**Unique ownership:** `std::unique_ptr` for exclusive ownership (preferred per CLAUDE.md)
-```cpp
-std::unique_ptr<router::RuleBasedRouter>   router_;     // src/api/GeniusAPIServer.hpp:98
-std::unique_ptr<reputation::WeightedConsensus> consensus_; // :99
-```
-
-**Shared ownership:** `std::shared_ptr` for components used by multiple owners:
-```cpp
-std::shared_ptr<core::InferenceEngine> engine_;           // MathSpecialist.hpp:39
-std::shared_ptr<knowledge::KnowledgeRetrieval> knowledge_; // GeniusAPIServer.hpp:105
-```
-Note: CLAUDE.md guideline says "unique_ptr throughout, no shared_ptr" but in practice `shared_ptr` is used where multiple components reference the same engine instance.
-
-**No raw new/delete:** All allocation via `std::make_unique` / `std::make_shared`:
-```cpp
-router_  = std::make_unique<router::RuleBasedRouter>();          // GeniusAPIServer.cpp:112
-engine   = std::make_shared<core::MNNInferenceEngine>( engine_cfg ); // GeniusAPIServer.cpp:72
-identity_ = std::make_shared<security::NodeIdentity>();          // GeniusAPIServer.cpp:50
-```
-
-**Destructors:** Virtual in polymorphic bases; use `= default`:
-```cpp
-virtual ~ISpecialist() = default;       // src/specialists/ISpecialist.hpp:24
-~GeniusAPIServer();                      // non-default when cleanup needed
-```
-
----
-
-## Design Patterns Observed
-
-| Pattern | Where | Example |
-|---------|-------|---------|
-| Strategy (via interface) | Router, InferenceEngine | `IRouter` → `RuleBasedRouter` |
-| Strategy (enum dispatch) | Consensus | `Strategy::WeightedVoting` vs `BestWeightedScore` |
-| Config struct | All major classes | `RuleBasedRouter::Config`, `WeightedConsensus::Config` |
-| RAII | All resource management | `ReputationStorage` opens/closes DB |
-| Pimpl (forward declaration) | MNNInferenceEngine | Forward-declares `MNN::Interpreter`, `MNN::Session` |
-| Factory (logger) | Per-TU anonymous ns | `RouterLogger()`, `ServerLogger()` |
-| Template Method | Abstract interfaces | `ISpecialist::Process()` → Math/Grammar implementations |
-| CRDT (LWW) | Reputation sync | `ReputationCRDT` with Last-Writer-Wins merge |
-
----
-
-## Special Directories
-
-**`gnus-poc/`:** Proof-of-concept artifacts — not part of the main build. Contains exploration scripts/models.
-
-**`build/`:** Build output directory. Platform/configuration subdirectories: `build/OSX/Debug/`, `build/OSX/Release/`.
-
-**`proto/`:** Protobuf definitions (`.proto` files). Compiled at build time if Protobuf found.
-
-**`cmake_genius/`:** Custom CMake modules (e.g., `FindThirdparty.cmake`).
-
-**`AgentDocs/`:** AI agent guidance documents (SPRINT_PLAN.md, Architecture.md, etc.).
-
----
-
-*Convention analysis: 2026-05-26*
+*Convention analysis: 2026-05-27*

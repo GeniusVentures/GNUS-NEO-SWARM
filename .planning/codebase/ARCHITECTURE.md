@@ -1,293 +1,275 @@
-<!-- refreshed: 2026-05-26 -->
+<!-- refreshed: 2026-05-27 -->
 # Architecture
 
-**Analysis Date:** 2026-05-26
+**Analysis Date:** 2026-05-27
 
 ## System Overview
 
 ```text
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        ENTRY POINTS (CLI / FFI)                              │
-├──────────────────────────┬──────────────────────┬───────────────────────────┤
-│  genius_node.cpp (CLI)   │ genius_slm_chat_c.cpp │  Flutter App / gRPC      │
-│  `src/genius_node.cpp`   │ (C FFI to Dart)      │                           │
-│                          │ `src/genius_slm_     │                           │
-│                          │  chat_c.cpp`          │                           │
-└──────────┬───────────────┴──────────┬───────────┴─────────────┬────────────┘
-           │                          │                         │
-           ▼                          ▼                         ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                     ORCHESTRATION LAYER (API)                                │
-│  `src/api/GeniusAPIServer.cpp` — GeniusAPIServer                             │
-│  Owns pipeline: Route → Infer → (Specialist) → (Consensus) → Respond         │
-└───┬───────┬───────┬───────┬───────┬───────┬───────┬───────┬─────────────────┘
-    │       │       │       │       │       │       │       │
-    ▼       ▼       ▼       ▼       ▼       ▼       ▼       ▼
-┌───┴───┬───┴───┬───┴───┬───┴───┬───┴───┬───┴───┬───┴───┬───┴─────────────┐
-│Router │ Core  │ Special. │Reput. │Network│ Knowl.│Security│ Common         │
-│`src/  │`src/  │`src/     │`src/  │`src/  │`src/  │`src/   │`src/common/`   │
-│router/│core/  │special.` │reput.`│network│knowl.`│security│                 │
-│       │       │          │       │ /`     │edge/` │ /`     │                 │
-└───┬───┴───┬───┴───┬──────┴───┬───┴───────┴───┬───┴───┬───┴─────────────────┘
-    │       │       │          │               │       │
-    ▼       ▼       ▼          ▼               ▼       ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                   EXTERNAL / OPTIONAL DEPENDENCIES                            │
-│  MNN .mnn │ SentencePiece │ Vulkan/MoltenVK │ secp256k1 │ RocksDB │ libp2p  │
-│  ProtoBuf  │ SuperGenius   │ SGProcessingMgr │ NL/J       │ OpenSSL │ ASIO   │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                          Entry Points                                         │
+│  `src/genius_node.cpp` (CLI)          `src/genius_slam_chat_c.h/.cpp` (FFI)  │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                          API Layer                                            │
+│  `src/api/GeniusAPIServer.hpp/.cpp`  —  Orchestration Façade                  │
+├──────────┬────────────┬──────────────┬────────────┬────────────┬─────────────┤
+│  Router  │ Core Engine│ Specialists  │ Reputation │  Network   │  Knowledge  │
+│`router/` │  `core/`   │`specialists/`│`reputation/`│`network/`  │`knowledge/` │
+│          │            │              │            │            │             │
+│ Rule     │ MNN Infer- │ • Grammar    │ Scoring    │ P2P Node   │ Retrieval   │
+│ Based    │ ence Engine│ • Math       │ Consensus  │ libp2p     │ Context Inj │
+│ Router   │ Tokenizer  │ • Symbolic F │ Storage    │ Aggreg.    │ Fact Valid  │
+│          │ FP4 Codec  │   allback    │ CRDT LWW   │            │             │
+│          │ SG Bridge  │              │            │            │             │
+├──────────┴────────────┴──────────────┴────────────┴────────────┴─────────────┤
+│                          Security Layer                                       │
+│  `src/security/NodeIdentity.hpp`  `src/security/MessageSigning.hpp`           │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                          Common / Types                                       │
+│  `src/common/Types.hpp`  `src/common/Error.hpp`  `src/common/Logging.hpp`     │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Component Responsibilities
 
 | Component | Responsibility | File |
 |-----------|----------------|------|
-| `genius_node.cpp` | CLI entry point, arg parsing, REPL loop, server mode | `src/genius_node.cpp` |
-| `genius_slm_chat_c.cpp` | C FFI bridge for Flutter/Dart, OpenAI v1 chat-compatible JSON API | `src/genius_slm_chat_c.cpp` |
-| `GeniusAPIServer` | Orchestrates entire inference pipeline, owns all subsystems, manages lifecycle | `src/api/GeniusAPIServer.hpp` |
-| `InferenceEngine` | Abstract LLM inference backend (MNN real + stub) | `src/core/engine/InferenceEngine.hpp` |
-| `RuleBasedRouter` | Prompt analysis and routing decision: CoreOnly, CorePlusMath, CorePlusGrammar | `src/router/RuleBasedRouter.hpp` |
-| `PromptAnalyzer` | Feature extraction from raw prompt (numeric density, code syntax, complexity) | `src/router/PromptAnalyzer.hpp` |
-| `MathSpecialist` | GSM8K-tuned 1–3B math model with symbolic fallback | `src/specialists/MathSpecialist.hpp` |
-| `GrammarSpecialist` | Grammar correction specialist model | `src/specialists/GrammarSpecialist.hpp` |
-| `WeightedConsensus` | Aggregates outputs from swarm nodes using reputation-weighted voting | `src/reputation/WeightedConsensus.hpp` |
-| `ReputationScoring` | Updates per-node reputation scores from inference results | `src/reputation/ReputationScoring.hpp` |
-| `ReputationStorage` | Persistence layer for reputation (RocksDB or in-memory fallback) | `src/reputation/ReputationStorage.hpp` |
-| `ReputationCRDT` | Conflict-free replicated reputation data type for P2P sync | `src/reputation/ReputationCRDT.hpp` |
-| `P2PNode` | libp2p-based peer-to-peer networking (optional) | `src/network/P2PNode.hpp` |
-| `ResultAggregation` | Aggregates results from multiple swarm nodes within timeout | `src/network/ResultAggregation.hpp` |
-| `NodeIdentity` | secp256k1 node keypair generation, peer ID derivation, sign/verify | `src/security/NodeIdentity.hpp` |
-| `MessageSigning` | Message authentication for inter-node communication | `src/security/MessageSigning.hpp` |
-| `KnowledgeRetrieval` | Retrieves relevant facts from Grokipedia CSV for prompt grounding | `src/knowledge/KnowledgeRetrieval.hpp` |
-| `ContextInjection` | Injects retrieved facts into the prompt context | `src/knowledge/ContextInjection.hpp` |
-| `FactValidation` | Validates inference output against known facts | `src/knowledge/FactValidation.hpp` |
-| `FP4Codec` | FP4 (4-bit floating point) encode/decode for efficient model weights | `src/core/fp4/FP4Codec.hpp` |
-| `SGProcessingBridge` | Bridge to SuperGenius SGProcessingManager for Phase 1 (local) and Phase 2 (network) | `src/core/sgprocessing/SGProcessingBridge.hpp` |
-| `SentencePieceTokenizer` | Tokenizer wrapping SentencePiece library (optional, stub fallback) | `src/core/tokenizer/SentencePieceTokenizer.cpp` |
-| `Types.hpp` | All shared data types: Task, InferenceResponse, RouteDecision, etc. | `src/common/Types.hpp` |
-| `Error.hpp` | Error code enum (17 codes) + outcome::result alias | `src/common/Error.hpp` |
+| `GeniusAPIServer` | Orchestrates full inference pipeline; owns all subsystems | `src/api/GeniusAPIServer.hpp` |
+| `RuleBasedRouter` | Analyses prompts & selects execution mode (single/specialist/swarm) | `src/router/RuleBasedRouter.hpp` |
+| `PromptAnalyzer` | Extracts routing features from prompt text (numeric density, complexity, keywords) | `src/router/PromptAnalyzer.hpp` |
+| `MNNInferenceEngine` | Runs LLM inference via MNN (Vulkan/CPU), or SGProcessing bridge | `src/core/engine/MNNInferenceEngine.hpp` |
+| `SGProcessingBridge` | Bridges to SuperGenius SGProcessingManager for GNUS network dispatch | `src/core/sgprocessing/SGProcessingBridge.hpp` |
+| `TensorInterpreter` | Converts raw tensor output bytes to human-readable text | `src/core/sgprocessing/TensorInterpreter.hpp` |
+| `SentencePieceTokenizer` | Token encoding/decoding; falls back to whitespace tokenizer | `src/core/tokenizer/Tokenizer.hpp` |
+| `FP4Codec` | FP4 v3 4-bit floating-point quantization for model weight compression | `src/core/fp4/FP4Codec.hpp` |
+| `GrammarSpecialist` | 200M–500M grammar correction model, post-processes core LLM output | `src/specialists/GrammarSpecialist.hpp` |
+| `MathSpecialist` | 1–3B GSM8K-tuned math model with symbolic fallback | `src/specialists/MathSpecialist.hpp` |
+| `SymbolicFallback` | Expression parser/evaluator triggered on low math model confidence | `src/specialists/SymbolicFallback.hpp` |
+| `WeightedConsensus` | Selects winning output from swarm nodes (weighted voting or best score) | `src/reputation/WeightedConsensus.hpp` |
+| `ReputationScoring` | PTDS §7.2 reputation update formulas (accuracy, latency, consistency) | `src/reputation/ReputationScoring.hpp` |
+| `ReputationStorage` | RocksDB-backed persistence for reputation records | `src/reputation/ReputationStorage.hpp` |
+| `ReputationCRDT` | Last-Write-Wins CRDT for cross-node reputation sync | `src/reputation/ReputationCRDT.hpp` |
+| `P2PNode` | libp2p host for task broadcasting and CRDT sync (Noise/Yamux/GossipSub) | `src/network/P2PNode.hpp` |
+| `ResultAggregation` | Timeout-bounded collection of swarm node responses | `src/network/ResultAggregation.hpp` |
+| `KnowledgeRetrieval` | TF-IDF embedding + cosine similarity for Grokipedia facts | `src/knowledge/KnowledgeRetrieval.hpp` |
+| `ContextInjection` | Prepends retrieved facts to prompts before inference | `src/knowledge/ContextInjection.hpp` |
+| `FactValidation` | Post-generation fact checking against grounding facts | `src/knowledge/FactValidation.hpp` |
+| `NodeIdentity` | secp256k1 keypair generation and PeerId derivation | `src/security/NodeIdentity.hpp` |
+| `MessageSigning` | secp256k1 sign/verify for inter-node messages | `src/security/MessageSigning.hpp` |
 
 ## Pattern Overview
 
-**Overall:** Layered monolith with strategy/interface abstractions at subsystem boundaries, composed into a single orchestrator.
+**Overall:** Orchestration Pipeline with Façade pattern at the top and Strategy (polymorphic interface) pattern for pluggable subsystems.
 
 **Key Characteristics:**
-- **Interface-based polymorphism:** Core abstractions (`IRouter`, `ISpecialist`, `InferenceEngine`) are abstract base classes with virtual methods, enabling swapping implementations without changing orchestration code.
-- **Ownership via `std::unique_ptr`/`std::shared_ptr`:** The `GeniusAPIServer` owns all subsystems as members. Singleton engines (`InferenceEngine`, tokenizer) use `shared_ptr` to allow sharing with specialists. All other subsystems use `unique_ptr` for exclusive ownership.
-- **Error propagation via `outcome::result<T>`:** All functions that can fail return `outcome::result<T>` using the `BOOST_OUTCOME_TRY` macro for early returns — no exceptions in hot paths.
-- **`noexcept` by default:** All functions declared `noexcept` unless explicitly required to throw per project standards.
-- **CMake static library composition:** Each `src/<module>/` compiles into a named static library (`genius_common`, `genius_core`, `genius_router`, etc.) with explicit dependency links.
-- **Optional features via `#ifdef` guards:** MNN, SentencePiece, Vulkan, secp256k1, RocksDB, libp2p, Protobuf, and SGProcessingManager are all conditionally compiled behind `GENIUS_HAS_*` macros.
-- **Stub-mode operation:** When optional libraries are absent, every component provides stub/placeholder behavior. The entire system runs end-to-end in stub mode for development and testing without real model inference.
+- `GeniusAPIServer` is the Façade that owns and coordinates all subsystems
+- Abstract interfaces (`InferenceEngine`, `IRouter`, `ISpecialist`, `Tokenizer`) enable runtime strategy substitution
+- PIMPL idiom (`struct Impl`) used extensively for ABI stability and to hide heavy third-party includes
+- Three-tier execution modes selected by the router (Single → Specialist → Swarm) with fallback chains
+- All external dependencies degrade gracefully (stub mode when libp2p/MNN/SentencePiece/RocksDB not found)
+- Cross-platform: MNN with Vulkan backend (MoltenVK on Apple), CMake + Ninja for building
 
 ## Layers
 
-**Common Layer:**
-- Purpose: Shared types, error codes, logging facade. No external module dependencies except spdlog and outcome.
-- Location: `src/common/`
-- Contains: `Types.hpp`, `Error.hpp`, `Logging.hpp`, `Error.cpp`
-- Depends on: spdlog, libp2p::outcome, fmt
-- Used by: Every other module
+**Entry Point Layer:**
+- Purpose: CLI argument parsing and bootstrap, or C FFI for Flutter integration
+- Location: `src/genius_node.cpp`, `src/genius_slm_chat_c.h` / `src/genius_slm_chat_c.cpp`
+- Contains: `main()`, `Args` struct, argument parser, interactive REPL, gRPC serve mode
+- Depends on: `src/api/GeniusAPIServer.hpp`
+- Used by: External clients (terminal, Flutter app)
 
-**Core Layer:**
-- Purpose: Inference engine abstraction, MNN backend, tokenizer, FP4 codec, SGProcessing bridge. The "heavy lifting" layer.
-- Location: `src/core/`
-- Contains: `engine/`, `fp4/`, `tokenizer/`, `sgprocessing/`
-- Depends on: `genius_common`, optional MNN, SentencePiece, Vulkan, SGProcessingManager
-- Used by: `genius_api`, `genius_specialists`
+**API Layer:**
+- Purpose: Orchestration of the full inference pipeline — initialise all subsystems, route requests, execute inference, update reputation
+- Location: `src/api/GeniusAPIServer.hpp` / `src/api/GeniusAPIServer.cpp`
+- Contains: `GeniusAPIServer` class with `Initialize()`, `Process()`, `Serve()`, `Stop()`, private `RunSingleNode()`, `RunSpecialist()`, `RunSwarm()` methods
+- Depends on: All other layers (router, core, specialists, reputation, network, knowledge, security)
+- Used by: Entry points
 
 **Router Layer:**
-- Purpose: Prompt feature analysis and routing decisions. Determines which specialist (if any) should process the prompt.
+- Purpose: Analyse incoming prompt and decide which execution mode and specialist to use
 - Location: `src/router/`
-- Contains: `IRouter.hpp`, `RuleBasedRouter`, `PromptAnalyzer`
-- Depends on: `genius_common`
-- Used by: `genius_api`
+- Contains: `PromptAnalyzer` (feature extraction), `RuleBasedRouter` (decision tree), `IRouter` (abstract interface)
+- Depends on: `src/common/Types.hpp`
+- Used by: API layer
+
+**Core Inference Layer:**
+- Purpose: LLM model loading, tokenization, inference, and FP4 quantization
+- Location: `src/core/`
+- Contains: `InferenceEngine` (abstract), `MNNInferenceEngine` (concrete), `Tokenizer` (abstract), `SentencePieceTokenizer`, `FP4Codec`, `SGProcessingBridge`, `TensorInterpreter`
+- Depends on: `src/common/`, MNN library, SentencePiece, Vulkan, SGProcessingManager (optional)
+- Used by: API layer, specialists
 
 **Specialists Layer:**
-- Purpose: Domain-specific post-processing models (Math, Grammar). Takes core LLM output and refines it.
+- Purpose: Domain-specific post-processing models (grammar correction, math reasoning)
 - Location: `src/specialists/`
-- Contains: `ISpecialist.hpp`, `MathSpecialist`, `GrammarSpecialist`, `SymbolicFallback`
-- Depends on: `genius_common`, `genius_core` (shares InferenceEngine)
-- Used by: `genius_api`
+- Contains: `ISpecialist` (abstract), `GrammarSpecialist`, `MathSpecialist`, `SymbolicFallback`
+- Depends on: Core inference layer (uses shared `InferenceEngine`)
+- Used by: API layer (Specialist mode)
 
 **Reputation Layer:**
-- Purpose: Node reputation scoring, weighted consensus aggregation, CRDT sync, persistent storage.
+- Purpose: Compute, store, synchronise, and query node reputation scores for swarm consensus
 - Location: `src/reputation/`
-- Contains: `ReputationScoring`, `WeightedConsensus`, `ReputationStorage`, `ReputationCRDT`, `NodeReputation`
-- Depends on: `genius_common`, optional RocksDB + snappy + zlib
-- Used by: `genius_api`
+- Contains: `ReputationScoring`, `WeightedConsensus`, `ReputationStorage`, `ReputationCRDT`, `NodeReputation` (type alias)
+- Depends on: `src/common/`, RocksDB (optional)
+- Used by: API layer, network layer
 
 **Network Layer:**
-- Purpose: P2P node communication via libp2p, result aggregation from multiple swarm nodes.
+- Purpose: P2P swarm communication via libp2p — task broadcast, result collection, CRDT sync
 - Location: `src/network/`
 - Contains: `P2PNode`, `ResultAggregation`
-- Depends on: `genius_common`, `genius_security`, optional libp2p + nlohmann/json + fmt + soralog
-- Used by: `genius_api`
+- Depends on: `src/security/`, libp2p (optional, stub when absent)
+- Used by: API layer (Swarm mode)
 
 **Knowledge Layer:**
-- Purpose: Fact retrieval from Grokipedia CSV, context injection into prompts, fact validation of responses.
+- Purpose: Retrieve Grokipedia facts, inject them into prompts, validate generated output
 - Location: `src/knowledge/`
 - Contains: `KnowledgeRetrieval`, `ContextInjection`, `FactValidation`
-- Depends on: `genius_common`
-- Used by: `genius_api`
+- Depends on: `src/common/`
+- Used by: API layer
 
 **Security Layer:**
-- Purpose: Node identity (secp256k1 keypair), message signing/verification for inter-node trust.
+- Purpose: Node identity (secp256k1 keys), message signing and verification
 - Location: `src/security/`
 - Contains: `NodeIdentity`, `MessageSigning`
-- Depends on: `genius_common`, optional secp256k1 + OpenSSL
-- Used by: `genius_api`, `genius_network`
+- Depends on: `src/common/`, secp256k1, OpenSSL (SHA-256)
+- Used by: API layer, network layer
 
-**API / Orchestration Layer:**
-- Purpose: Wires all subsystems together. Provides `Initialize()`, `Process()`, `Serve()` lifecycle methods. The single entry point for all request flow.
-- Location: `src/api/`
-- Contains: `GeniusAPIServer`
-- Depends on: All other modules (links to all)
-- Used by: `genius_node.cpp`, `genius_slm_chat_c.cpp`, gRPC clients
-
-**Entry Points / Frontends:**
-- Purpose: CLI binary (`neo-swarm`) and C FFI shared library (`Genius-MOS-SLM-FFI.dylib`) for Flutter integration.
-- Location: `src/genius_node.cpp`, `src/genius_slm_chat_c.cpp`, `src/genius_slm_chat_c.h`
-- Depends on: `genius_api`
-- Used by: End users (CLI), Flutter app via `flutter_slm_bridge` (FFI)
+**Common Layer:**
+- Purpose: Shared types, error codes, and logging utilities
+- Location: `src/common/`
+- Contains: `Types.hpp` (all data structs), `Error.hpp` (error enum + `outcome::result` alias), `Error.cpp`, `Logging.hpp` (`CreateLogger` factory)
+- Depends on: libp2p (for `outcome::result`), spdlog, fmt
+- Used by: All other layers
 
 ## Data Flow
 
-### Primary Request Path (SingleNode Mode)
+### Primary Request Path
 
-1. **Entry:** `genius_node.cpp:162 main()` parses CLI args, builds `GeniusAPIServer::Config`, creates server, calls `Initialize()`
-2. **Orchestration:** `GeniusAPIServer::Process()` at `src/api/GeniusAPIServer.cpp` receives `Task`
-3. **Route:** `RuleBasedRouter::Route()` at `src/router/RuleBasedRouter.cpp` analyzes prompt via `PromptAnalyzer`, returns `RouteDecision`
-4. **Context Injection:** `ContextInjection` at `src/knowledge/ContextInjection.cpp` augments prompt with Grokipedia facts
-5. **Inference:** `InferenceEngine::Infer()` at `src/core/engine/MNNInferenceEngine.cpp` runs model (stub if no MNN), returns `InferenceResponse`
-6. **Response:** `GeniusResponse` returned with output text, latency, grounding facts
+1. **Entry** — CLI (`src/genius_node.cpp:162` `main`) parses args, constructs `GeniusAPIServer::Config`, calls `server.Initialize()` then `server.Process(task)`
+2. **Route** — `GeniusAPIServer::Process()` calls `router_->Route(t)` (`src/api/GeniusAPIServer.cpp:395`), which invokes `PromptAnalyzer::Analyze()` to extract features, then `RuleBasedRouter::SelectMode()` to decide `ExecutionMode`
+3. **Augment** — `AugmentPrompt()` calls `KnowledgeRetrieval::Retrieve()` + `ContextInjection::Inject()` to prepend Grokipedia facts to the prompt
+4. **Dispatch** — Switch on `ExecutionMode`:
+   - **SingleNode**: `core_engine_->Infer(aug_task)` → `RunSingleNode()` returns `GeniusResponse`
+   - **Specialist**: `core_engine_->Infer(aug_task)` → then `MathSpecialist::Process(output)` or `GrammarSpecialist::Process(output)` → `RunSpecialist()` returns `GeniusResponse`
+   - **Swarm**: `p2p_node_->BroadcastTask(aug_task)` → `ResultAggregation::Collect()` → `WeightedConsensus::SelectWinner()` → `RunSwarm()` returns `GeniusResponse`
+5. **Validate** — In Specialist mode, `FactValidation::Validate(output, facts)` checks for contradictions
+6. **Reputation** — `UpdateReputation()` runs `ReputationScoring::Update()` → `ReputationStorage::Put()` → `ReputationCRDT::Merge()` → `P2PNode::BroadcastCRDT()`
+7. **Response** — `GeniusResponse` returned to caller with output, mode used, latency, grounding facts
 
-### Specialist Mode Path (Mode 2)
+### Startup/Initialization Flow
 
-1. Steps 1–5 as above (Core engine runs first)
-2. **Specialist Processing:** `MathSpecialist::Process()` or `GrammarSpecialist::Process()` at `src/specialists/` refines core output
-3. **Symbolic Fallback:** `SymbolicFallback` at `src/specialists/SymbolicFallback.cpp` kicks in when model confidence < threshold
-4. **Response:** Combined core+specialist output returned
-
-### Swarm Mode Path (Mode 3 — future/prototype)
-
-1. **Broadcast:** Task sent to peer nodes via `P2PNode` at `src/network/P2PNode.cpp`
-2. **Aggregation:** `ResultAggregation` collects responses from swarm within timeout
-3. **Consensus:** `WeightedConsensus::ComputeConsensus()` at `src/reputation/WeightedConsensus.cpp` applies reputation-weighted voting
-4. **Validation:** `FactValidation` at `src/knowledge/FactValidation.cpp` ground-truth check
-5. **Reputation Update:** `ReputationScoring` updates node scores based on contribution quality
-
-### FFI / Flutter Path
-
-1. **Dart side:** `flutter_slm_bridge/lib/flutter_slm_bridge.dart` loads `Genius-MOS-SLM-FFI.dylib` via `dart:ffi`
-2. **C FFI:** `GeniusSlmInit()` initializes singleton `GeniusAPIServer` at `src/genius_slm_chat_c.cpp`
-3. **Chat call:** `GeniusSlmChatCompletionsCreate()` parses OpenAI v1 JSON request, extracts user prompt, calls `server.Process()`, formats response as OpenAI v1 JSON
-4. **Dart response:** Response string parsed, content extracted via `extractContent()`, displayed in Flutter chat UI (`flutter_app/lib/main.dart`)
+1. `GeniusAPIServer::Initialize()` (`src/api/GeniusAPIServer.cpp:45`)
+2. `NodeIdentity` — load or generate secp256k1 keypair, derive PeerId
+3. `MNNInferenceEngine` — create engine with config, attach tokenizer, load model (or enter stub mode)
+4. `GrammarSpecialist` / `MathSpecialist` — create with shared engine, load specialist models if paths provided
+5. `RuleBasedRouter` — create with default rule config
+6. `ReputationScoring` / `WeightedConsensus` / `ReputationCRDT` — create cores
+7. `ReputationStorage` — open RocksDB at configured path
+8. `P2PNode` / `ResultAggregation` — start libp2p host if `enable_network_` set
+9. `KnowledgeRetrieval` / `ContextInjection` / `FactValidation` — load facts CSV if `enable_knowledge_` set
 
 **State Management:**
-- `GeniusAPIServer` owns all subsystem state as member variables
-- FFI singleton: `g_server` (`std::unique_ptr<GeniusAPIServer>`) + `std::call_once` — global mutable state in `genius_slm_chat_c.cpp` (see CONCERNS.md for re-init bug)
-- No global state in other modules
+- `GeniusAPIServer` owns all subsystems via `shared_ptr` (identity, engines, specialists, knowledge) or `unique_ptr` (router, consensus, scoring, storage, CRDT, p2p, aggregation, context_inj, fact_val)
+- `ReputationCRDT` holds mutable `unordered_map<string, NodeReputation>` guarded by `std::mutex`
+- `ResultAggregation` holds `vector<NodeOutput>` guarded by `std::mutex` + `std::condition_variable`
+- All component state is instance-local; no global mutable singletons
+- `spdlog` loggers are registered globally via `spdlog::get()` but created through `CreateLogger()` per component
 
 ## Key Abstractions
 
-**`IRouter` — Abstract routing interface:**
-- Purpose: Decouples routing strategy from orchestration. Currently only `RuleBasedRouter` implements it, but ML-based routers can be added.
-- Location: `src/router/IRouter.hpp`
-- Pattern: Strategy pattern — clean interface with single `Route(Task) → RouteDecision` method
+**`InferenceEngine` (Abstract Interface):**
+- Purpose: Decouples inference backend from routing and orchestration logic
+- Examples: `src/core/engine/InferenceEngine.hpp` (interface), `src/core/engine/MNNInferenceEngine.hpp` (implementation)
+- Pattern: Strategy — runtime selection of "sgprocessing" (SGProcessingManager) or "interpreter" (MNN direct) paths, with "vulkan" or "cpu" backends
 
-**`ISpecialist` — Abstract specialist interface:**
-- Purpose: Decouples specialist models from routing. Math and Grammar specialists share the same interface; new domains (Code, Translation) added by implementing `ISpecialist`.
-- Location: `src/specialists/ISpecialist.hpp`
-- Pattern: Strategy + Template Method — `Load()`, `Process()`, `GetConfidence()` lifecycle
+**`IRouter` (Abstract Interface):**
+- Purpose: Decouples routing strategy from the API server; enables future ML-based routers
+- Examples: `src/router/IRouter.hpp` (interface), `src/router/RuleBasedRouter.hpp` (implementation)
+- Pattern: Strategy — rule-based decision tree using `PromptFeatures` extracted by `PromptAnalyzer`
 
-**`InferenceEngine` — Abstract inference backend:**
-- Purpose: Decouples model backend from orchestration. `MNNInferenceEngine` is the real implementation; stub mode is built-in when MNN unavailable.
-- Location: `src/core/engine/InferenceEngine.hpp`
-- Pattern: Bridge pattern — separates engine abstraction from MNN-specific implementation
+**`ISpecialist` (Abstract Interface):**
+- Purpose: Decouples specialist models from core pipeline; enables adding new domains without changing orchestration
+- Examples: `src/specialists/ISpecialist.hpp` (interface), `src/specialists/MathSpecialist.hpp`, `src/specialists/GrammarSpecialist.hpp`
+- Pattern: Strategy — each specialist wraps a shared `InferenceEngine` and defines its own prompt formatting
 
-**`NodeIdentity` — Cryptographic identity:**
-- Purpose: secp256k1 keypair management, PeerId derivation, signing. Stub mode uses random XOR hash when secp256k1 unavailable.
-- Location: `src/security/NodeIdentity.hpp`
-- Pattern: Entity + RAII — key material loaded from/saved to file
-
-**`GeniusAPIServer::Config` — Designated initializer struct:**
-- Purpose: Single configuration struct with all subsystem settings passed by `const&`. Uses named members for self-documenting initialization.
-- Location: `src/api/GeniusAPIServer.hpp`
+**`Tokenizer` (Abstract Interface):**
+- Purpose: Decouples tokenization strategy; enables swapping SentencePiece for other tokenizers
+- Examples: `src/core/tokenizer/Tokenizer.hpp` (interface), `src/core/tokenizer/SentencePieceTokenizer.cpp` (implementation)
+- Pattern: Strategy — `SentencePieceTokenizer` delegates to sentencepiece library or falls back to whitespace tokenizer
 
 ## Entry Points
 
-**CLI Binary (`neo-swarm`):**
+**CLI Entry (`neo-swarm` binary):**
 - Location: `src/genius_node.cpp`
-- Triggers: Command line invocation with `--model <path> [options]`
-- Responsibilities: Argument parsing, server init, REPL or single-prompt or `--serve`
+- Triggers: Command-line invocation (`./neo-swarm --model <path>`)
+- Responsibilities: Parse args, initialize `GeniusAPIServer`, run in interactive REPL, single-shot prompt, or gRPC serve mode
 
-**FFI Shared Library (`Genius-MOS-SLM-FFI`):**
-- Location: `src/genius_slm_chat_c.cpp`
-- Triggers: Dynamically loaded by Dart/Flutter via `dart:ffi`
-- Responsibilities: Singleton server management, JSON parsing, OpenAI v1 format translation
-- Build target: `Genius-MOS-SLM-FFI` shared library (`.dylib`/`.so`/`.dll`)
+**C FFI Entry (`Genius-MOS-SLM-FFI` shared library):**
+- Location: `src/genius_slm_chat_c.h` / `src/genius_slm_chat_c.cpp`
+- Triggers: Called from Flutter/Dart via `dart:ffi`
+- Responsibilities: Exposes `GeniusSlmInit()`, `GeniusSlmChatCompletionsCreate()`, `GeniusSlmGetStatus()`, `GeniusSlmStringFree()` for OpenAI-compatible chat completions
 
-**gRPC Service (optional/prototype):**
-- Location: Defined in `proto/genius_api.proto`
-- Triggers: gRPC client connecting to port 50051
-- Operations: `Infer`, `StreamInfer`, `GetNodeStatus`
+**gRPC Entry:**
+- Location: Proto definitions in `proto/genius_api.proto`
+- Triggers: `GeniusAPI.Infer()`, `GeniusAPI.StreamInfer()`, `GeniusAPI.GetNodeStatus()`
+- Responsibilities: Client-facing gRPC interface for synchronous/streaming inference and node health; `Serve()` in `GeniusAPIServer` is currently stub (polling loop)
 
 ## Architectural Constraints
 
-- **C++17 only:** No C++20 features allowed. Boost.coroutines explicitly forbidden.
-- **Threading:** The system runs single-threaded in stub mode. P2P networking (libp2p) and GPU inference (Vulkan) introduce their own threading when enabled. Flutter FFI calls run on Dart isolates.
-- **Global state:** One global mutable singleton (`g_server` + `g_init_flag` in `src/genius_slm_chat_c.cpp`) for the FFI path. CLI path creates server on the stack — no global state.
-- **Circular imports:** None detected. Dependency graph is a strict DAG: `common → {core, router, security, knowledge, reputation, specialists} → network → api`.
-- **No exceptions in hot paths:** All inference, routing, and scoring functions use `outcome::result<T>` return types. Exceptions only in argument parsing (CLI) and fatal shutdown.
-- **Stub-first design:** Every optional dependency has a `#ifdef`-guarded real path and a fallback stub. The system compiles and runs with zero optional libraries.
+- **Threading:** Single-threaded orchestration in `GeniusAPIServer::Process()` — one request at a time. `ResultAggregation` uses `std::condition_variable` for timeout-bounded collection. `ReputationCRDT` guards state with `std::mutex`. No thread pooling in core pipeline.
+- **Global state:** `spdlog` loggers are globally registered via `spdlog::get()` but created per-component through `CreateLogger()`. No other global mutable state.
+- **Circular imports:** Not detected — layers flow top-down: API → (router, core, specialists, reputation, network, knowledge) → common. Specialists depend on core (shared_ptr to `InferenceEngine`). Security is used by API and network.
+- **Exception handling:** Functions are not explicitly noexcept in most code; the CLAUDE.md style guide specifies noexcept for all functions by default. Error handling uses `outcome::result<T>` with `BOOST_OUTCOME_TRY` for propagation.
+- **C++ standard:** C++17 required; no C++20 features permitted.
+- **Stub/fallback mode:** Every optional third-party dependency (MNN, libp2p, SentencePiece, RocksDB, Vulkan, SGProcessingManager) has a stub fallback when not available at link time.
 
 ## Anti-Patterns
 
-### `std::call_once` re-init bug
+### Restrained Orchestrator owns all dependencies
 
-**What happens:** `GeniusSlmChatCompletionsCreate()` at `src/genius_slm_chat_c.cpp:213` uses `std::call_once(g_init_flag, InitServerOnce)`. If `GeniusSlmInit()` is called multiple times (it resets `g_server` and manually calls `InitServerOnce`), the next `GeniusSlmChatCompletionsCreate()` — which also lazy-inits — will see `call_once` already consumed and won't re-init, leaving `g_server == nullptr`.
+**What happens:** `GeniusAPIServer` has member pointers for every single subsystem — `core_engine_`, `grammar_spec_`, `math_spec_`, `router_`, `consensus_`, `scoring_`, `rep_storage_`, `rep_crdt_`, `p2p_node_`, `aggregation_`, `knowledge_`, `context_inj_`, `fact_val_` — all as explicit members.
+**Why it's wrong:** Adding a new subsystem requires modifying the `GeniusAPIServer` class definition, constructor, `Initialize()`, `Process()`, and three mode methods. Every change touches the central orchestrator.
+**Do this instead:** Maintain the Façade pattern but consider a `ComponentRegistry` or dependency injection container (Boost.DI is already configured as a transitive dependency) to reduce the orchestrator's member surface.
 
-**Why it's wrong:** `call_once` becomes stale after re-init; the flag should be reset when `g_server` is reset.
+### Raw pointer to MNN::Session
 
-**Do this instead:** Replace `std::call_once` with a simple `if (g_server == nullptr)` null check in `GeniusSlmChatCompletionsCreate`. Remove `g_init_flag`. See `AgentDocs/PRODUCTION_ROADMAP.md` Task 5.2.
+**What happens:** `MNNInferenceEngine` stores `MNN::Session *session_ = nullptr` as a raw pointer alongside `shared_ptr<MNN::Interpreter>`.
+**Why it's wrong:** Lifetime is linked to the interpreter but not enforced by the type system. If the interpreter is destroyed before the session pointer is cleared, it becomes dangling.
+**Do this instead:** Store `session_` as `unique_ptr<MNN::Session, SessionDeleter>` or ensure `session_` is always cleared in the destructor before `interpreter_`.
 
-### Hardcoded vocab size 32000
+### Busy-wait gRPC serve loop
 
-**What happens:** `SentencePieceTokenizer::VocabSize()` returns `32000` and `MNNInferenceEngine` allocates logit vectors of size `32000` in stub mode — hardcoded for Mistral 7B.
-
-**Why it's wrong:** Any other model with a different vocab size will have logit size mismatches.
-
-**Do this instead:** Read vocab size from the loaded model once SentencePiece is linked. Return `0` until then to signal "unknown". See `AgentDocs/PRODUCTION_ROADMAP.md` Task 5.1.
-
-### Stub-only `MessageSigning::Verify`
-
-**What happens:** `MessageSigning::Verify` at `src/security/MessageSigning.cpp` always returns `true` — any message from any peer is accepted, with a `TODO(SECURITY)` comment.
-
-**Why it's wrong:** No cryptographic verification of inter-node messages. Any peer can impersonate any other.
-
-**Do this instead:** Implement real secp256k1 signature verification after linking secp256k1 (Task 2.1 in `PRODUCTION_ROADMAP.md`).
+**What happens:** `GeniusAPIServer::Serve()` (`src/api/GeniusAPIServer.cpp:422`) implements a busy-wait polling loop with `sleep_for(100ms)` checking an atomic flag.
+**Why it's wrong:** This is a stub implementation — the real gRPC server is not integrated. The busy-wait wastes CPU and introduces unnecessary latency.
+**Do this instead:** Integrate the actual gRPC server using `grpc::ServerBuilder::BuildAndStart()` with proper blocking `server->Wait()` semantics.
 
 ## Error Handling
 
-**Strategy:** `outcome::result<T>` for all fallible operations. The `BOOST_OUTCOME_TRY` macro provides early-return-on-error propagation.
+**Strategy:** `outcome::result<T>` (Boost.Outcome via libp2p) for all return types. `BOOST_OUTCOME_TRY` macro for propagation.
 
 **Patterns:**
-- All module functions return `outcome::result<void>` or `outcome::result<SomeType>`
-- 17 error codes defined in `src/common/Error.hpp` covering all subsystems
-- No exceptions in core inference or routing code paths
-- CLI argument parsing uses `std::runtime_error` for user-facing errors (acceptable at entry point)
+- All subsystem `Initialize()`, `Load()`, `Start()`, `Open()` methods return `outcome::result<void>`
+- All inference/routing/processing methods return `outcome::result<T>` with typed errors
+- The top-level `GeniusAPIServer::Process()` returns `outcome::result<GeniusResponse>` — callers check `res.has_value()`
+- Stub fallbacks are used instead of throwing: when a dependency is unavailable, the component enters a degraded mode (e.g., `MNNInferenceEngine::SetStubMode()`)
+
+**Error enum** (`src/common/Error.hpp`):
+- Core: `ModelLoadFailed` (1), `InferenceFailed` (2), `TokenizerFailed` (3), `FP4DecodeFailed` (4)
+- Router: `RoutingFailed` (5)
+- Network: `NetworkError` (6), `PeerNotFound` (7), `BroadcastTimeout` (8)
+- Reputation: `StorageError` (9), `ReputationNotFound` (10)
+- Knowledge: `KnowledgeUnavailable` (11), `FactValidationFailed` (12)
+- Security: `IdentityError` (13), `SignatureInvalid` (14)
+- General: `InvalidArgument` (15), `NotImplemented` (16), `InternalError` (17)
 
 ## Cross-Cutting Concerns
 
-**Logging:** spdlog via `sgns::neoswarm::CreateLogger(tag)` factory in `src/common/Logging.hpp`. Named loggers per component: `"NeoSwarm/Router"`, `"NeoSwarm/P2PNode"`, etc. Level controlled by `--verbose` flag.
+**Logging:** `spdlog` via `CreateLogger("ComponentName")` factory in `src/common/Logging.hpp`. Pattern: `[YYYY-MM-DD HH:MM:SS.ms] [LEVEL] [NeoSwarm/ComponentName] message`. Can be set to `spdlog::level::debug` via `--verbose` CLI flag.
 
-**Validation:** Prompt analysis in `PromptAnalyzer`, fact validation in `FactValidation`, and `ReputationScoring` all provide validation at their respective layers. No centralized validation framework.
+**Validation:** `FactValidation` (post-generation fact checking), `PromptAnalyzer` (input feature extraction), `ReputationScoring::Update()` (score clamping to [0,1]).
 
-**Authentication:** Stub identity in stub mode; real secp256k1 keypairs when `GENIUS_HAS_SECP256K1`. Message signing stubbed. Not yet suitable for multi-node deployment.
-
-**Configuration:** CLI args and struct-based config (`GeniusAPIServer::Config`, `RuleBasedRouter::Config`, `SGProcessingBridge::Config`). No config file support (YAML/JSON config planned — `PRODUCTION_ROADMAP.md` Task 5.3). No environment variable reading detected in current code.
+**Authentication:** `NodeIdentity` (secp256k1 keypairs, PeerId = SHA-256 of compressed public key), `MessageSigning` (secp256k1 signatures on inter-node messages, JSON signature attachment/stripping).
 
 ---
 
-*Architecture analysis: 2026-05-26*
+*Architecture analysis: 2026-05-27*
