@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-05-27T20:15:00Z",
+  "phase": "milestone",
+  "phase_name": "Milestone v1.1 — ELM Training & Distillation Pipeline (gnus-poc)",
+  "phase_dir": ".planning/",
+  "plan": null,
+  "task": "all",
+  "total_tasks": 7,
+  "status": "paused_after_completion",
+  "completed_tasks": [
+    {"id": 1, "name": "Phase 1 — Foundation & Bug Fixes", "status": "done", "commit": "631e2e5"},
+    {"id": 2, "name": "Phase 2 — Teacher API & Synthetic Data", "status": "done", "commit": "ca8a296"},
+    {"id": 3, "name": "Phase 3 — Training Hardening", "status": "done", "commit": "ca8a296"},
+    {"id": 4, "name": "Phase 4 — Evaluation & Tracking", "status": "done", "commit": "ca8a296"},
+    {"id": 5, "name": "Phase 5 — Knowledge Distillation", "status": "done", "commit": "ca8a296"},
+    {"id": 6, "name": "Phase 6 — Orchestration & Pipeline Unification", "status": "done", "commit": "ca8a296"},
+    {"id": 7, "name": "Phase 7 — FP4 Quantization & Deployment", "status": "done", "commit": "ca8a296"}
+  ],
+  "remaining_tasks": [],
+  "blockers": [],
+  "human_actions_pending": [
+    {"action": "Review and merge PR #36", "context": "https://github.com/GeniusVentures/GNUS-NEO-SWARM/pull/36", "blocking": false},
+    {"action": "Set DEEPSEEK_API_KEY in gnus-poc/.env", "context": "Required for Phase 2+ API features. Key already formatted correctly. Get from https://platform.deepseek.com/api_keys", "blocking": false}
+  ],
+  "decisions": [
+    {"decision": "DeepSeek v4 pro as teacher model", "rationale": "MIT license, explicit distillation permission. API-driven (no local GPU cluster needed)", "phase": "milestone"},
+    {"decision": "FP4 Ultra v0.2 spec for binary export", "rationale": "64x64 macroblocks, fixed 2048-byte payload, FP4_AFFINE + T158_AFFINE modes", "phase": "7"},
+    {"decision": "$5.00 budget cap default", "rationale": "Low enough to prevent cost accidents, high enough for initial synthetic data generation", "phase": "2"},
+    {"decision": "qLoRA enabled by default", "rationale": "Cuts memory ~75% for 30B-A3B models on 64GB Macs", "phase": "3"},
+    {"decision": "Per-niche tokenizer caching", "rationale": "Qwen3-Coder has different chat template than Qwen3-Instruct — must use correct tokenizer per specialist", "phase": "1"}
+  ],
+  "uncommitted_files": ["MILESTONE-REVIEWS.md"],
+  "next_action": "Fix 3 HIGH integration gaps from milestone review: (1) wire TrainingConfig into train_specialists_mlx.py, (2) integrate distillation loss into MLX-LM training loop, (3) make PipelineRunner actually execute stages",
+  "context_notes": "Milestone v1.1 is complete as a POC — 7 well-structured, well-tested modules. The 3 HIGH concerns are integration gaps, not bugs: modules work individually but aren't connected end-to-end. TrainingConfig/dedup/memory-estimator exist but train_specialists_mlx.py still uses old OVERRIDES dict. Distiller computes loss but MLX-LM doesn't support custom loss functions. PipelineRunner prints commands instead of executing them. These are the natural next priorities."
+}
