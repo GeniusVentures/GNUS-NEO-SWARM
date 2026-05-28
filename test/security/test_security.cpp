@@ -167,3 +167,28 @@ TEST( MessageSigning, VerifyTruncatedSignature )
     std::vector<uint8_t> truncated = {0x30, 0x06, 0x02, 0x01, 0x01, 0x02, 0x01, 0x01};
     EXPECT_FALSE( MessageSigning::Verify( "payload", truncated, pubKeyHex ) );
 }
+
+// =======================================================================
+// Task 3: Nonce + Timestamp Replay Protection
+// =======================================================================
+
+TEST( MessageSigning, VerifyAndStripValid )
+{
+    // A freshly signed message verifies successfully and
+    // VerifyAndStrip extracts the original payload.
+    NodeIdentity ident;
+    ASSERT_TRUE( ident.Generate().has_value() );
+
+    const std::string pubKeyHex = PubKeyToHex( ident.PublicKey() );
+    MessageSigning   signer( ident );
+
+    const std::string original = R"({"msg":"hello"})";
+    std::string       payload  = signer.AttachSignature( original );
+
+    // Payload should differ from original (signature field appended)
+    EXPECT_NE( payload, original );
+
+    // VerifyAndStrip should return true and restore original payload
+    EXPECT_TRUE( MessageSigning::VerifyAndStrip( payload, pubKeyHex ) );
+    EXPECT_EQ( payload, original );
+}
