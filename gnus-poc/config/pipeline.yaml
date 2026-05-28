@@ -13,13 +13,13 @@ paths:
 
 teacher:
   model: "deepseek-v4-pro"
-  api_key_env: "DEEPSEEK_API_KEY"          # Resolved from .env at load time (Phase 3: os.path.expandvars resolves ${DEEPSEEK_API_KEY})
+  api_key_env: "DEEPSEEK_API_KEY"          # Resolved from .env via os.getenv()
   base_url: "https://api.deepseek.com"
   max_tokens: 4096
   temperature: 0.7
   max_retries: 3
   backoff_base_seconds: 2.0
-  budget_cap_usd: 50.0                     # Hard dollar limit — stops all API calls when exceeded
+  budget_cap_usd: 5.0                     # Hard dollar limit — stops all API calls when exceeded
 
 training:
   base_model: "mlx-community/Qwen3-30B-A3B-Instruct-2507-bf16"

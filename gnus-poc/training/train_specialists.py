@@ -1,15 +1,18 @@
 """
 Train GNUS.ai specialist models using mlx-lm's internal LoRA trainer.
 
-- No CLI, no subprocess, no quantized base.
-- Each specialist uses the most appropriate Qwen3-7B base:
-  - medical / qa_technical / encyclopedic / patents -> Qwen3-7B-Instruct
-  - code -> Qwen3-7B-Coder
-
-Assumes:
-  - data/specialists/<niche> was created via prepare_datasets.py
-  - Each <niche> dir is a HF dataset with 'train' and 'validation' splits
+DEPRECATED: Use train_specialists_mlx.py instead. This script lacks skip-logic
+fixes (FOUND-02) and does not write TRAINING_STATUS.json. It trains with Qwen3-7B
+base models rather than the MLX community Qwen3-30B-A3B variants used by the
+primary pipeline.
 """
+
+import sys
+
+print("ERROR: train_specialists.py is deprecated. Use train_specialists_mlx.py instead.")
+print("       This script does not include FOUND-02 skip-logic fixes and will silently")
+print("       retrain all specialists on every invocation.")
+sys.exit(1)
 
 import json
 from datetime import datetime

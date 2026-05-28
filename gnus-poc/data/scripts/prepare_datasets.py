@@ -17,8 +17,15 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from training.tokenizer_utils import load_tokenizer, format_chat
 
-# Load tokenizer once at module level to avoid reloading per sample
-_TOKENIZER = load_tokenizer("mlx-community/Qwen3-30B-A3B-Instruct-2507-bf16")
+NCHE_TOKENIZER_MODELS = {
+    "medical":      "mlx-community/Qwen3-30B-A3B-Instruct-2507-bf16",
+    "qa_technical": "mlx-community/Qwen3-30B-A3B-Instruct-2507-bf16",
+    "code":         "mlx-community/Qwen3-Coder-30B-A3B-Instruct-bf16",
+    "encyclopedic": "mlx-community/Qwen3-30B-A3B-Instruct-2507-bf16",
+    "patents":      "mlx-community/Qwen3-30B-A3B-Instruct-2507-bf16",
+}
+
+_tokenizer_cache = {}
 
 # Configuration
 SELECTED_NICHES = ['medical', 'qa_technical', 'code', 'encyclopedic', 'patents']  # All 5 for robust PoC
@@ -115,7 +122,8 @@ def extract_niche_samples(niche_name, niche_config, target_niches_config):
             samples.append({
                 'text': text,
                 'source': source,
-                'niche': niche_name
+                'niche': niche_name,
+                'meta': meta
             })
 
     print(f"  ✓ Collected {len(samples)} samples")
@@ -228,8 +236,12 @@ def format_for_training(samples, niche_name):
                 {"role": "user", "content": text[:2000]},
             ]
 
-        # Use tokenizer's native chat template — NOT hand-rolled <|im_start|> format
-        formatted_text = format_chat(messages, _TOKENIZER)
+        # Use the correct per-niche tokenizer — NOT a single shared tokenizer
+        model_path = NCHE_TOKENIZER_MODELS.get(niche_name, NCHE_TOKENIZER_MODELS["encyclopedic"])
+        if model_path not in _tokenizer_cache:
+            _tokenizer_cache[model_path] = load_tokenizer(model_path)
+        tokenizer = _tokenizer_cache[model_path]
+        formatted_text = format_chat(messages, tokenizer)
 
         formatted.append({
             'text': formatted_text,

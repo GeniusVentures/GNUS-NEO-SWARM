@@ -2,6 +2,19 @@
 
 A C++17 local inference engine and swarm networking node for the GNUS.AI Super Genius blockchain ecosystem. Runs MNN language models, routes prompts through specialists (math, grammar), aggregates results with reputation-weighted consensus, and optionally connects to the SuperGenius network for distributed inference.
 
+## Current Milestone: v1.1 — ELM Training & Distillation Pipeline (gnus-poc)
+
+**Goal:** Build a Python pipeline in `gnus-poc/` to train, distill, evaluate, and orchestrate Expert Language Models using DeepSeek v4 pro API as the teacher model.
+
+**Target features:**
+- Teacher-driven synthetic data generation via DeepSeek v4 pro API
+- Specialist LoRA training pipeline (MLX-LM, extending 5→N specialists)
+- Knowledge distillation pipeline (teacher→student logit transfer, subspace extraction)
+- Evaluation & benchmarking per specialist (accuracy, latency, parameter efficiency)
+- Orchestration layer (auto-generate specialists from niche discovery, experiment tracking)
+- FP4 pyramid-based quantization for deployed specialists
+- Experimentation framework (A/B test LoRA ranks, layers, teacher prompts, niche clusters)
+
 ## Requirements
 
 ### Validated
@@ -38,6 +51,22 @@ A C++17 local inference engine and swarm networking node for the GNUS.AI Super G
 - [ ] Add knowledge/fact validation tests — `test/knowledge/`
 - [ ] Remove std::this_thread::sleep_for from GeniusAPIServer::Serve() (`src/api/GeniusAPIServer.cpp`)
 
+### Traceability
+
+| ID | Requirement | Phase | Plan | Status |
+|----|-------------|-------|------|--------|
+| BUG-01 | Fix GeniusSlmInit re-init race (remove std::call_once, use null-check) | Phase 1 | 01-01 | Pending |
+| BUG-02 | Replace fragile string-search JSON parsing with nlohmann/json | Phase 1 | 01-01 | Pending |
+| BUG-03 | Fix Flutter FFI bridge memory leak (add try/finally) | Phase 1 | 01-01 | Pending |
+| BUG-04 | Fix ReputationStorage::Deserialize crash on corrupt CSV | Phase 1 | 01-02 | Pending |
+| BUG-05 | Add CLI input validation (port, max_tokens, temperature) | Phase 1 | 01-02 | Pending |
+| BUG-06 | Fix NodeIdentity::LoadFromFile stale public key in stub mode | Phase 1 | 01-02 | Pending |
+| BUG-07 | Fix hardcoded absolute dylib path in Flutter bridge | Phase 1 | 01-03 | Pending |
+| BUG-08 | Remove std::this_thread::sleep_for from GeniusAPIServer::Serve() | Phase 1 | 01-03 | Pending |
+| TEST-01 | Add security tests (key gen, sign/verify, tampered signatures) | Phase 2 | 02-01 | Pending |
+| TEST-02 | Add FFI layer tests (init, null safety, multiple-init, JSON) | Phase 2 | 02-02 | Pending |
+| TEST-03 | Add knowledge/fact validation tests | Phase 2 | 02-03 | Pending |
+
 ### Out of Scope (this phase)
 
 - Linking MNN, SentencePiece, secp256k1, RocksDB — user-managed thirdparty build
@@ -56,5 +85,22 @@ A C++17 local inference engine and swarm networking node for the GNUS.AI Super G
 | Add missing test directories (security, FFI, knowledge) | CONCERNS.md identified 4 untested areas as high risk | Included in Phase 1 |
 | Keep scope to items achievable without third-party changes | Avoids blocking on MNN/SentencePiece/secp256k1/RocksDB linkage | 7 code fixes + 3 test suites |
 
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd-transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd-complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
+
 ---
-*Last updated: 2026-05-26 after initialization*
+*Last updated: 2026-05-27 — Milestone v1.1 started*
