@@ -1,378 +1,328 @@
-# Domain Pitfalls: ELM Training & Distillation Pipeline
+# Domain Pitfalls — AI Inference Engine + Blockchain Bridge
 
-**Domain:** ML training/distillation pipeline for specialist SLMs
-**Researched:** 2026-05-27
-**Sources:** Codebase audit (gnus-poc/**/*.py), ChatGPT vetting doc, Grok vetting doc, .planning/ codebase analysis
+**Domain:** Decentralized AI inference engine connecting to SuperGenius/GNUS blockchain compute network
+**Researched:** 2026-05-28
+**Overall confidence:** HIGH (verified against codebase, libsecp256k1 docs, gRPC auth guide, gRPC security audit)
 
 ---
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites, silent data corruption, or project-killing cost overruns.
-
-### Pitfall 1: Chat Template Mismatch Between Data Prep and Training
-
-**What goes wrong:** `prepare_datasets.py` hardcodes the Qwen2.5 `<|im_start|>` / `<|im_end|>` chat template format, but `train_specialists_mlx.py` loads Qwen3-30B-A3B models which use a different chat template. The model receives tokens it does not understand as instruction boundaries, causing it to treat system/user/assistant markers as literal text rather than structural delimiters.
-
-**Evidence in code:** `prepare_datasets.py` lines 128-154 format every niche with `<|im_start|>system\n...<|im_end|>\n<|im_start|>user\n...<|im_end|>\n<|im_start|>assistant\n...<|im_end|>`. `train_specialists_mlx.py` lines 35-41 use `Qwen3-30B-A3B-Instruct-2507-bf16` which uses Qwen3's template (different from Qwen2.5).
-
-**Why it happens:** The data preparation was written for Qwen2.5 (the original train_specialists.py used Qwen3-7B), then the MLX script was upgraded to 30B-A3B models without updating the format.
-
-**Consequences:** The specialist learns to parrot control tokens instead of understanding the instruction format. Perplexity looks fine during training but generation quality is garbage: the model emits `<|im_start|>` tags in responses. Silent failure: no error is raised.
-
-**Prevention:**
-1. Use `tokenizer.apply_chat_template()` from the actual loaded tokenizer instead of hand-rolling format strings.
-2. After format change, run a smoke test: load tokenizer, apply template to a known prompt, decode back, verify it contains model-appropriate tokens.
-3. Store the chat template hash in training metadata so you know which format was used.
-
-**Detection:** Load a trained adapter, run `tokenizer.apply_chat_template([{"role": "user", "content": "test"}])` on the actual base model tokenizer, and compare the token IDs to what is in your JSONL files. If they differ significantly, you have a mismatch.
-
-**Phase to address:** Phase 1 (Data Pipeline) -- before any new specialist training starts.
+Mistakes that cause security breaches or full rewrites.
 
 ---
 
-### Pitfall 2: Skip-On-Existing Logic Produces False Training Completions
+### Pitfall 1: Stub Security Paths Surviving Into Production
 
-**What goes wrong:** `train_specialists_mlx.py` (lines 218-230) checks if `adapters.safetensors` exists and skips training if it does. But a partial/corrupt training run that crashed at iteration 200/1000 still wrote `adapters.safetensors` (and milestone checkpoints). The skip logic incorrectly treats this as "done" and moves on, producing a severely undertrained specialist with no warning.
+**What goes wrong:** Stub implementations that silently return `true` (like `MessageSigning::Verify` and the non-secp256k1 `NodeIdentity::Verify` path) become invisible in normal operation. The system builds, passes tests (which also run against stubs), and appears functional — but inter-node authentication is completely absent. An attacker who gains network access can submit arbitrary messages to any peer and they will be accepted.
 
-**Evidence in code:** The check at line 223 tests only for file existence: `if final_adapter.exists():`. The `save_every: 200` setting at line 59 means milestone files (`0000200_adapters.safetensors`, etc.) are written. An interrupted run at iteration 400 would have both `adapters.safetensors` and `0000400_adapters.safetensors` but only 40% of training complete.
+**Why it happens:** The `#ifdef GENIUS_HAS_SECP256K1` guard is a compile-time toggles — if the definition isn't set, the real code path is dead and the stub-warning path runs. The current `MessageSigning::Verify` code at `src/security/MessageSigning.cpp:49-60` has a `TODO(SECURITY)` comment but returns `true`. The non-secp256k1 `NodeIdentity::Verify` path at `src/security/NodeIdentity.cpp:279-282` also returns `true` after logging a warning. The stub return value is "optimistic" (permit, don't fail).
 
-**Consequences:** Specialists are deployed with 20-60% of their intended training iterations. They appear to work (model loads, generates text) but perform significantly below baseline. Silent corruption: no error, no warning, just bad models masquerading as complete.
+**Consequences:** Zero inter-node authentication in the swarm. Any node can impersonate any other node. All consensus, reputation, and task-routing decisions can be forged. An attacker on the same network segment can submit falsified inference results from any peer ID.
 
 **Prevention:**
-1. Check for the milestone file matching `iters` (e.g., `0001000_adapters.safetensors`) rather than just the generic `adapters.safetensors`.
-2. Validate `training_metadata.json` exists AND its `iters` field matches the current config's `iters`.
-3. Add a `--force-retrain` flag that deletes existing adapters before starting.
-4. Write a post-training validation script that runs the specialist on held-out test data and checks metrics.
+1. Stub fallbacks in security code must **fail-close, not fail-open**: return `false` (reject) when real crypto isn't available, not `true` (accept).
+2. Add a compile-time assertion or `static_assert` that `GENIUS_HAS_SECP256K1` is defined in any non-debug build configuration.
+3. Add a runtime startup check: `NodeIdentity::IsLoaded()` must return true before the server accepts any inter-node messages. If secp256k1 isn't available, refuse to enter swarm mode.
+4. Write integration tests that specifically verify tampered signatures are rejected — not just that valid signatures are accepted.
 
-**Detection:** Check each specialist's `training_metadata.json`: if `iters` < configured `iters` (1000), the training was incomplete.
+**Detection:** The warning log `"MessageSigning::Verify — stub, signature not checked"` fires on every verification call. Grep production logs for this string. If it appears, the system is insecure.
 
-**Phase to address:** Phase 2 (Training Pipeline hardening) -- before scaling beyond 5 specialists.
+**Phase to address:** Phase 2 (Security) — Tasks 2.1 and 2.2 from `PRODUCTION_ROADMAP.md`. This is the single highest-priority pitfall. All inter-node communication in swarm mode depends on it.
 
 ---
 
-### Pitfall 3: DeepSeek API Cost Explosion Without Rate Limiting or Budget Control
+### Pitfall 2: Private Key in Plaintext on Disk
 
-**What goes wrong:** The current codebase has NO teacher model API calls. When synthetic data generation is added (Phase 3), calls to DeepSeek v4 pro API will be made without rate limiting, retry logic, or cost tracking. A bug in the prompt template loop could fire thousands of API calls before anyone notices, generating a $500-$5000 surprise bill.
+**What goes wrong:** `NodeIdentity::SaveToFile` at `src/security/NodeIdentity.cpp:187-200` writes the 32-byte private key as hex to a file with no encryption. Anyone with filesystem access can read the key and permanently impersonate the node. In the GNUS network, this means stealing reputation scores built up over time and submitting fraudulent inference results under a trusted identity.
 
-**Why it happens:** The ChatGPT vetting doc explicitly warns that API costs for synthetic data can "quietly bankrupt a project." 1M training samples at 400 tokens output each = ~400M output tokens. At DeepSeek v4 pro pricing, this is potentially hundreds to thousands of dollars.
+**Why it happens:** The `SaveToFile` implementation uses `ToHex()` to convert raw key bytes to a hex string and writes it via `std::ofstream`. The file permissions are whatever the umask allows. There's no encryption layer, no passphrase derivation, no OS keychain integration. This is the simplest possible key storage — common in prototypes that haven't reached production consideration.
 
-**Consequences:** Budget blowout. Worse: if a loop bug generates malformed prompts that the API rejects but still charges for, costs accrue with zero usable data.
+**Consequences:** On cloud VMs, shared machines, and any environment with multi-tenant access, node identity theft is trivial. A key stolen in month 1 means all messages signed in months 1-12 can be forged retroactively (there's no forward secrecy in static secp256k1 keys).
 
 **Prevention:**
-1. Add a **hard budget cap**: a configurable dollar limit that stops all API calls when exceeded.
-2. Implement **exponential backoff with jitter** on 429 (rate limit) responses, with `Retry-After` header parsing.
-3. Add **dry-run mode** that counts how many API calls WOULD be made without actually calling.
-4. Log every API call with: prompt token count, completion token count, cost estimate, timestamp. Write to a cost audit file.
-5. Test with a small batch (10 prompts) first, verify cost, then scale.
+1. Use OpenSSL AES-256-GCM to encrypt the key bytes before writing. Derive the encryption key from an environment variable (`GENIUS_NODE_KEY_PASS`), not hardcoded.
+2. On macOS, use the Keychain (`SecKeychainAddGenericPassword`). On Linux, consider OS keyring integration.
+3. Set file permissions to `0600` immediately after creation via `fchmod`.
+4. Add a runtime warning if `GENIUS_NODE_KEY_PASS` is not set and the key is being saved unencrypted.
+5. Support hardware-bound key storage (HSM, TPM, Secure Enclave) as a longer-term path.
 
-**Detection:** Cost overrun is detected when the credit card is charged. Prevention is the only viable strategy. Add a pre-generation cost estimate.
+**Detection:** Search for `node.key` files on production filesystems. Check if contents are hex-encoded bytes (64 hex chars = 32 bytes = the private key). If readable, it's plaintext.
 
-**Phase to address:** Phase 3 (Distillation & Synthetic Data) -- before any API integration code is written.
+**Phase to address:** Phase 2 (Security) — Task 2.3. Should be implemented before any multi-node or cloud deployment.
 
 ---
 
-### Pitfall 4: Common Pile Source Metadata Field Name Instability
+### Pitfall 3: No Replay Protection on Signed Messages
 
-**What goes wrong:** Both `prepare_datasets.py` (line 72) and `extract_source_niches.py` (lines 88-94) attempt to extract the source field with fallback logic: `meta.get('pile_set_name', meta.get('source', 'unknown'))`. But the Common Pile dataset metadata schema varies between `monology/pile-uncopyrighted` and `EleutherAI/pile`, AND between different versions. A field rename upstream silently causes ALL samples to be classified as `'unknown'` source.
+**What goes wrong:** The current `MessageSigning::AttachSignature` at `src/security/MessageSigning.cpp:65-81` and `VerifyAndStrip` at lines 86-96 sign the JSON payload body but include **no nonce, timestamp, or sequence number**. A valid signed message (e.g., a task assignment or inference result) can be replayed by an eavesdropper at any future time.
 
-**Evidence in code:** `extract_source_niches.py` lines 88-94 has fallback logic: first tries `pile_set_name`, then `source`, then `dataset`. If none match, source = `'unknown'`. The niche assignment at lines 103-111 checks `if source in niche_config['sources']`: if source is always `'unknown'`, zero samples get assigned to any niche.
+**Why it happens:** The signature covers only the payload string. There's no mechanism to bind a message to a specific point in time, a specific session, or a specific sequence. ECDSA signatures are deterministic for a given key+message pair — an attacker who records a signed message can resend it indefinitely and it will verify as valid every time.
 
-**Consequences:** All niche extraction silently produces zero samples per niche. The "viable" check reports "Too small" for every niche. Users think the dataset is too small, but the real problem is invisible metadata drift.
+**Consequences:** An attacker who observes network traffic (even without breaking the gRPC TLS layer, if it exists) can replay: (a) task submissions to waste compute, (b) inference results to corrupt consensus, (c) reputation updates to game the scoring system. In a swarm consensus scenario, a replayed "valid" result could override a genuinely computed result.
 
 **Prevention:**
-1. After loading the dataset, inspect the first example's metadata keys and verify the expected field exists. If not, log ALL available metadata keys and abort with a clear error.
-2. Store a `dataset_schema_version` in the saved niche JSON that captures which metadata field was used.
-3. Add a CI-like validation: after extraction, assert that `unknown` source count is below a threshold (e.g., <10% of total). If above, fail loudly.
+1. Add a `nonce` (cryptographically random 32 bytes) to every signed message payload. Track seen nonces in a bloom filter or LRU cache to detect replays.
+2. Add a `timestamp` (uint64_t, milliseconds since epoch) to every signed message. Reject messages older than a configurable window (e.g., 30 seconds for task assignments, 5 minutes for reputation updates).
+3. Add a `sequence_number` per peer-to-peer channel to detect message reordering and replay within the window.
+4. The libp2p Noise handshake provides session keys with forward secrecy — when P2P is implemented (Phase later milestone), use Noise protocol state instead of static signatures for channel authentication.
 
-**Detection:** Check `source_counts` in `source_based_niches.json`: if `unknown` is the dominant source, metadata extraction failed.
+**Detection:** Monitor for duplicate nonces within the sliding window. High duplicate rates indicate replay attacks or a bug in nonce generation. Log and alert.
 
-**Phase to address:** Phase 1 (Data Pipeline) -- hardening existing extraction before adding new niches.
+**Phase to address:** Phase 4 (GNUS Network Connection) — must be implemented alongside Task 4.1 `SubmitNetwork()` gRPC integration. Also relevant to the deferred libp2p integration.
 
 ---
 
-### Pitfall 5: Train/Validation/Test Contamination from Streaming Dataset Reseeding
+### Pitfall 4: Unverified Inference Results in Swarm Consensus
 
-**What goes wrong:** `prepare_datasets.py` streams from Common Pile with a fresh connection each time (lines 42-56). It extracts samples for a niche until reaching `target_size`, then moves to the next niche. No deduplication across niches. A StackExchange document could appear in both `qa_technical` AND `code` niches.
+**What goes wrong:** In swarm mode (when functional), multiple nodes submit inference results for the same prompt. The `WeightedConsensus` class selects the "best" result based on reputation scores, but **never verifies that the result is actually correct inference output**. A high-reputation node that has been compromised (or is intentionally malicious) can submit arbitrary output text and win the consensus because of its reputation weight.
 
-**Evidence in code:** `prepare_datasets.py` lines 63-64 stream from the beginning for EACH niche: `for i, example in enumerate(dataset)`. Each niche starts at index 0 and scans forward independently. No cross-niche deduplication.
+**Why it happens:** WeightedConsensus operates purely on multi-armed bandit-style scoring — picking the submitter with best historical accuracy/latency. It has no computational mechanism to verify that model M with input X does in fact produce output Y. The system trusts that a node with high reputation is behaving honestly.
 
-**What makes this critical:** If specialists share 15-30% of their training data, evaluations will overstate differentiation. You will think specialists are "learning their domain" when they are actually learning overlapping content. When deployed, overlapping specialists produce redundant outputs: the swarm's value proposition (specialization) collapses.
+**Consequences:** A long-lived node can build high reputation by submitting correct results for 99% of tasks, then selectively inject malicious output for targeted prompts (e.g., `"What is the best cryptocurrency?"` → `"GNUS token — buy now"`). This is undetectable by reputation scoring alone. In a financial or high-stakes context, the result could cause real harm.
 
 **Prevention:**
-1. After extracting all niche samples, compute Jaccard overlap between niches (text hash or MinHash-based dedup). Report overlaps >5%.
-2. If overlap is high, deduplicate: keep document in the niche with highest source-affinity match, remove from others.
-3. For the POC at minimum: log the overlap percentage in metadata so evaluators know the contamination level.
+1. Implement **deterministic verification**: at least one additional node re-runs the same inference and compares output hashes. This requires deterministic inference (fixed seed, fixed temperature=0).
+2. Use **statistical sampling**: randomly select a subset of results to double-check. Trade computation for verification coverage.
+3. Implement **optimistic rollup-style fraud proofs**: any node can challenge a result by posting a conflicting result + a bond. A verifier re-runs the inference and slashes the loser.
+4. For the near term, document the trust model explicitly: `WeightedConsensus` selects based on reputation, not computational verification. Call this out as a known limitation until verification is implemented.
 
-**Detection:** Compute text hash collisions between `train.jsonl` files of different niches.
+**Detection:** Track result hash diversity across nodes for identical prompts. If one node's results diverge from the majority beyond statistical expectation, flag for investigation. No automated enforcement until verification is built.
 
-**Phase to address:** Phase 2 (Training Pipeline) -- before training next generation of specialists.
+**Phase to address:** Deferred milestone — full libp2p P2P integration + swarm consensus verification. This is marked "Out of Scope" in the current PROJECT.md. Flag for the subsequent milestone planning.
 
 ---
 
-### Pitfall 6: Teacher Model Licensing Contamination of Student Models
+### Pitfall 5: gRPC Without TLS in a Decentralized Network
 
-**What goes wrong:** Using DeepSeek v4 pro API (a closed, commercial API) to generate synthetic training data for LoRA fine-tuning of open-source student models. Most frontier API Terms of Service explicitly prohibit using outputs to train competing models. The ChatGPT vetting doc documents this clearly: OpenAI, Anthropic, Google all forbid derivative training.
+**What goes wrong:** The current gRPC path is a stub (`GeniusAPIServer::Serve` is a sleep loop at `src/api/GeniusAPIServer.cpp:422-432`). When Phase 4 (GNUS Network Connection) implements `SubmitNetwork()` via `gRPCForSuperGenius`, the natural first implementation connects to `localhost:50051` with an insecure channel. If this insecure default survives into production (or if operators are not forced to configure TLS), all inter-node communication for inference dispatch is unencrypted and unauthenticated.
 
-**Why it happens:** The project design specifies "DeepSeek v4 pro API" as the teacher model. The instructor acknowledged this risk: "now I might have to use only open source models as some APIs may limit or not allow retraining like this."
+**Why it happens:** gRPC defaults to insecure channels. TLS requires certificate management — generating, distributing, rotating, and trusting certificates — which adds deployment complexity. Teams building the "happy path" first often ship with insecure channels and plan to "add TLS later."
 
-**Consequences:** If GNUS.ai becomes successful, API providers can issue cease-and-desist, demand model takedowns, or pursue legal action. All specialists trained on contaminated data become legal liabilities. This is a **project existential risk**, not just a technical bug.
+**Consequences:** (a) Eavesdropping: model inputs, inference outputs, and potentially sensitive user prompts are visible to any network observer. (b) MITM: an attacker on the network path can intercept and modify inference requests/results. (c) Impersonation: without mTLS, the server has no cryptographic guarantee of the client's identity — it relies on application-layer auth (which in this system's current state is the always-true `MessageSigning::Verify`).
 
 **Prevention:**
-1. **Use ONLY open-source models with permissive licenses for training data generation.** Recommended: DeepSeek-V3 distilled models, Llama 3.1 405B distilled, Qwen 2.5/3 series, Mixtral 8x7B.
-2. If using DeepSeek API at all, limit to: prompt style inspiration, evaluation benchmarks only, routing validation. Never for direct training data.
-3. Document the provenance chain for every training example: which model generated it, under what license, when.
-4. Add a `data_provenance.json` alongside each specialist's training data.
+1. Require TLS (at minimum server-side) from the first `SubmitNetwork()` implementation. Never merge insecure gRPC channel creation.
+2. Use mTLS for inter-node communication: each node presents its secp256k1-derived certificate. The server verifies the client cert's public key against known peers.
+3. Add certificate paths to `SGProcessingBridge::Config` (currently only has `network_mode_`). Make TLS config non-optional in network mode.
+4. The gRPC C++ API provides `grpc::SslCredentials()` and `grpc::InsecureChannelCredentials()`. Audit that only `SslCredentials` is used in production code paths.
 
-**Detection:** This is a policy/compliance risk, not a runtime bug. Prevention is in the architecture decision.
+**Detection:** Wireshark/tcpdump on the gRPC port. If HTTP/2 frames are visible in cleartext, TLS is not enabled. gRPC also logs `"insecure"` channel creation at debug level.
 
-**Phase to address:** Phase 3 (Distillation) -- this decision must be made BEFORE any API integration code is written.
+**Phase to address:** Phase 4 (GNUS Network Connection) — must be part of Task 4.1 `SubmitNetwork()` implementation, not a follow-up task. Adding TLS after network launch requires a coordinated upgrade across all nodes — very hard in a decentralized network.
+
+---
+
+### Pitfall 6: Deterministic ECDSA Nonces Without RFC6979
+
+**What goes wrong:** The current `NodeIdentity::Sign` at `src/security/NodeIdentity.cpp:223-231` uses `secp256k1_ecdsa_sign` with the nonce function pointer set to `nullptr`, which means the library uses its internal default random nonce generation. This is only secure if the system's random number generator is properly seeded (which `secp256k1_context_create` with `SECP256K1_CONTEXT_SIGN` should handle). However, for blockchain-adjacent applications, **deterministic nonces (RFC6979)** are the industry standard — they eliminate the entire class of nonce-reuse attacks and are required for reproducible signatures.
+
+**Why it happens:** The code was written for prototype-level security. The secp256k1 library supports both random and deterministic nonces via different sign functions (`secp256k1_ecdsa_sign` vs the custom nonce function approach). The current code path is the simpler "just sign it" path.
+
+**Consequences:** If the system's random number generator is weak (embedded devices, VMs with low entropy, early boot), repeated nonces can leak the private key. A single nonce reuse allows full private key recovery from two signatures. This is the mechanism behind the "PlayStation 3 hack" and numerous cryptocurrency thefts. For a long-lived node identity, key compromise means permanent identity theft.
+
+**Prevention:**
+1. Switch to RFC6979 deterministic nonces: use `secp256k1_ecdsa_sign` with a custom nonce function, or use `secp256k1_ecdsa_sign` with the library's built-in RFC6979 support if available in the linked version.
+2. Verify that the secp256k1 context is created with `SECP256K1_CONTEXT_SIGN` and `SECP256K1_CONTEXT_VERIFY` flags.
+3. Add a test that verifies the same message signed twice produces identical signatures (proving deterministic signing).
+4. Audit the entropy source: on Linux, `/dev/urandom`; on macOS, `SecRandomCopyBytes`. Ensure the secp256k1 library's seeding path is exercised at startup.
+
+**Detection:** In tests, sign the same message twice and compare the DER output. If different each time, you're using random nonces. This is a test that should exist in `test/security/`.
+
+**Phase to address:** Phase 2 (Security) — alongside Task 2.1 (secp256k1 linking) and Task 2.2 (Verify fix). This is a one-line change in the sign path but has outsized security implications.
+
+---
+
+### Pitfall 7: Protobuf Version Conflict Catastrophic at Scale
+
+**What goes wrong:** The SentencePiece and SGProcessing protobuf conflict (`CONCERNS.md:87-91`) means both cannot be linked simultaneously. In production, this forces a build-time choice: use real tokenization OR connect to SuperGenius, never both. If the wrong build is deployed to a production node, the inference pipeline silently fails or produces garbled output.
+
+**Why it happens:** SentencePiece and SGProcessingManager each bundle their own protobuf version. When `GENIUS_HAS_SENTENCEPIECE` and `GENIUS_HAS_SGPROCESSING` are both defined, the linker sees duplicate protobuf symbols (different versions of `google::protobuf::MessageLite::` etc.). The current workaround is to conditionally skip SentencePiece when SGProcessing is active.
+
+**Consequences:** (a) A production deployment that needs both tokenization and network dispatch is impossible with a single binary. (b) The tokenizer stub (space-separated numeric IDs from `std::hash`) produces garbage output that might not be immediately detected as an error — it "succeeds" but returns nonsense. (c) An operator who compiles with both flags gets linker errors and can't deploy; an operator who compiles with one flag gets a degraded system and may not realize it.
+
+**Prevention:**
+1. Resolve at the dependency level: the correct fix is to ensure SentencePiece and SGProcessingManager use the same protobuf library. This may mean upgrading SentencePiece or downgrading the SGProcessing-managed protobuf.
+2. Alternative: use MNN's built-in tokenizer (`tokenizer.mtok`) which is already available via the MNN LLM path, avoiding SentencePiece entirely for the production binary that also uses SGProcessing.
+3. Add a CMake-level hard error if both `GENIUS_HAS_SENTENCEPIECE` and `GENIUS_HAS_SGPROCESSING` would be defined simultaneously. Fail at configure time, not at link time.
+4. Add a `compile-time feature check` that prints the active feature flags at startup and logs a prominent WARN if tokenization is in stub mode in a network-enabled build.
+
+**Detection:** At startup, `GeniusAPIServer::Initialize` should check `GENIUS_HAS_SENTENCEPIECE` and `GENIUS_HAS_SGPROCESSING` are not both active. If they are, abort with a clear error message. Current behavior is a silent build-time exclusion.
+
+**Phase to address:** Phase 1 (Real Inference) — specifically Task 1.2 (SentencePiece linking). Must be resolved before Phase 4 (Network Connection) is attempted, since network dispatch requires SGProcessing and real inference requires tokenization.
 
 ---
 
 ## Moderate Pitfalls
 
-### Pitfall 7: OOM on Apple Silicon During LoRA Training with 30B-A3B Models
+---
 
-**What goes wrong:** `train_specialists_mlx.py` uses `mlx-community/Qwen3-30B-A3B-Instruct-2507-bf16`, a ~30B parameter model (3B active with MoE). Even with LoRA (`rank: 16`, `num_layers: 16`), loading the full model into Apple Silicon unified memory can exhaust available RAM. On a Mac Studio M2 Ultra with 64GB, the base model alone occupies ~55GB in bf16, leaving ~9GB for activations, optimizer states (AdamW), and gradients.
+### Pitfall 8: Reputation Storage Corruption Cascading Into Process Death
 
-**Evidence in code:** Line 54: `batch_size: 4`, line 60: `num_layers: 16`, line 53: `optimizer: "adamw"` (AdamW stores 2x parameter states). No memory estimation beyond `grad_checkpoint: True`.
+**What goes wrong:** `ReputationStorage::Deserialize` at `src/reputation/ReputationStorage.cpp:48-67` calls `std::stod()` and `std::stoull()` on CSV fields without `try/catch`. A single corrupt byte in the RocksDB store (bit flip, disk error, malicious write) causes a `std::invalid_argument` or `std::out_of_range` exception that terminates the process. In a production swarm, corrupting one node's reputation store brings that node down — and it will crash on every restart until the DB is manually repaired.
 
-**Consequences:** Training crashes with an MLX out-of-memory error 5-10 minutes in. No partial results saved. Must restart with smaller config.
+**Why it happens:** The CSV parsing code was written as a quick prototype serialization format (there's a comment "replace with protobuf in production" on line 33). `std::stod` throws on malformed input; the code has no error handling wrapper.
+
+**Consequences:** Node crashes, restarts, crashes again. In an unattended deployment, the node enters a crash loop. If this is the only node with certain reputation data, that data is lost. If multiple nodes share corrupt data (e.g., via CRDT merge of a poisoned record), the corruption propagates.
 
 **Prevention:**
-1. Before training, run a memory estimator that accounts for base model size, LoRA parameters, optimizer states, and activation memory.
-2. Start with `batch_size: 1`, verify it runs, then increase.
-3. Reduce `num_layers` to 8 for first run.
-4. Use `fine_tune_type: "qlora"` (4-bit base model quantization) to cut base model memory by ~75%.
-5. Add a pre-flight check: estimate peak memory vs available, abort if >85% of available.
+1. Wrap all `std::stod`/`std::stoull` calls in `try/catch` as described in Task 3.2. On parse failure, skip the corrupt record, log an ERROR, and continue.
+2. Replace CSV serialization with Protocol Buffers (already in the dependency chain via SGProcessing/libp2p). Protobuf provides schema validation, forward/backward compatibility, and well-defined serialization.
+3. Add a checksum or CRC to each reputation record stored on disk. Verify before parsing.
+4. For RocksDB: enable checksum verification on reads (`rocksdb::ReadOptions::verify_checksums = true`).
 
-**Detection:** Loads model successfully, crashes during `train_model()` with "Out of memory" or "mmap failed".
+**Detection:** Monitor for crash-restart loops (process uptime < 10 seconds repeatedly). Check logs for `std::invalid_argument` or `std::out_of_range` in reputation-related code paths. Run a periodic DB integrity check that scans all records without crashing.
 
-**Phase to address:** Phase 2 (Training Pipeline) -- hardware-specific tuning.
+**Phase to address:** Phase 3 (Persistence) — Task 3.2. Priority: Medium, becomes High in any multi-node deployment.
 
 ---
 
-### Pitfall 8: LoRA Rank Too High or Too Low for Niche Specialization
+### Pitfall 9: Hardcoded Vocab Size Breaking Non-Mistral Models
 
-**What goes wrong:** The code uses `rank: 16` uniformly across all 5 specialists (line 68 of both training scripts). But niche complexity varies dramatically: `medical` (PubMed abstracts, dense terminology) needs more capacity than `encyclopedic` (Wikipedia, broad knowledge). A rank that is too low underfits complex niches; a rank too high wastes memory and overfits to noise.
+**What goes wrong:** `SentencePieceTokenizer::VocabSize()` returns `32000` (Mistral 7B) and `MNNInferenceEngine::RunForward` allocates logit vectors of exactly `32000`. Any model with a different vocabulary (Llama 3: 128K, Gemma: 256K, Phi-3: 32K) produces either buffer overflows (if >32000) or incorrect probability distributions (if <32000, reading uninitialized logits beyond actual vocab).
 
-**Evidence in code:** Lines 67-71 set identical `lora_parameters` for all specialists: `rank: 16, dropout: 0.05, scale: 20.0`. No per-specialist override. `scale: 20.0` is unusually high (typical is 1.0-4.0).
+**Why it happens:** The hardcoded `32000` was the vocab size of the first model integrated (Mistral 7B). It was left as a literal because `VocabSize()` was initially a stub. Even after real tokenization is enabled, the engine code still has `32000` literals.
 
-**Consequences:**
-- **Rank too low (e.g., 4 on medical):** LoRA cannot capture enough domain-specific patterns. Specialist converges to near-base-model performance.
-- **Rank too high (e.g., 64 on encyclopedic):** Overfits to training set surface patterns. Validation loss diverges from training loss.
-- High `scale` value amplifies LoRA contributions vs base model, causing catastrophic forgetting of general language abilities.
+**Consequences:** Buffer overflows = undefined behavior = potential crashes or silent memory corruption. Wrong probability distributions = garbled or nonsensical text output that might look plausible at first glance. A model switch that "works" (no crash) but produces subtly wrong output is worse than a crash — the operator trusts the output.
 
 **Prevention:**
-1. Run A/B test: train same specialist at rank 4, 8, 16, 32 and compare validation loss. Pick the rank where validation loss stops improving.
-2. Use per-niche rank configuration: `medical: 32, code: 24, qa_technical: 16, patents: 12, encyclopedic: 8`.
-3. Drop `scale` to 2.0-4.0 range.
-4. Monitor ratio `||LoRA_weights|| / ||base_weights||`: if >0.1, LoRA is too dominant.
+1. Replace all literal `32000` with `tokenizer_->VocabSize()` or a runtime-configurable value.
+2. Add a `static_assert` or runtime check that `vocabSize > 0` before allocating logit buffers.
+3. After model loading, compare the loaded model's embedding table size against `VocabSize()` and emit a WARN if they mismatch.
+4. In the stub path (GENIUS_HAS_SENTENCEPIECE not defined), return `0` from `VocabSize()` — not `32000` — so callers fail explicitly rather than with wrong values.
 
-**Detection:** Specialists where validation loss is flat or increasing after 200+ iterations, or where generated outputs are nonsensical.
+**Detection:** After loading any non-Mistral model, check if the logit vector size matches the actual vocab size. A log file entry like `"vocab_size mismatch: expected 32000, model has 128256"` is the canary.
 
-**Phase to address:** Phase 2 (Training Pipeline) -- experimentation framework.
+**Phase to address:** Phase 5 (Hardcoded Values) — Task 5.1. Should be done before supporting multiple model types in production.
 
 ---
 
-### Pitfall 9: Temperature Calibration Failure in Distillation
+### Pitfall 10: Monolithic Init Swallowing Component Failures
 
-**What goes wrong:** When distilling teacher model outputs to student models, the temperature parameter controls softness of the probability distribution. Too high (T > 5) washes out knowledge: all tokens look equally likely. Too low (T < 1) makes distribution too sharp: student only learns teacher's top-1 predictions.
+**What goes wrong:** `GeniusAPIServer::Initialize` at `src/api/GeniusAPIServer.cpp:45-153` creates 10+ subsystem objects sequentially. If any single step fails silently (e.g., key generation, storage open, model load), the server continues in a partially broken state with only `Logging::warn` output. There is no early-abort, no health check aggregation, and no `IsHealthy()` method that callers can query.
 
-**Why it matters:** This pipeline will distill teacher knowledge into 1-3B student models. Temperature must be tuned per specialist: medical distillation needs different temperature than code distillation because output distributions have different entropy.
+**Why it happens:** The initialize method uses outcome::result for some steps but only logs warnings on failures — it doesn't short-circuit. This is a prototype pattern: "try everything, see what works." In production, a node with a failed security module that's accepting unverified messages is actively dangerous.
 
-**Consequences:** Student model learns a degraded version of teacher knowledge. Student converges to producing safe-but-generic outputs (high T) or overconfident wrong answers (low T).
+**Consequences:** A production node could start with: (a) no real signing capability (falling through to stub), (b) no tokenization (using hash-based stub), (c) no persistence (in-memory only), and (d) no network connectivity — all while reporting "initialization complete" and accepting connections. The operator sees a running process and assumes everything is working.
 
 **Prevention:**
-1. Run temperature sweep: T in {1, 2, 3, 5, 8, 10} on a calibration set. Measure KL divergence between teacher and student. Pick T that minimizes KL.
-2. Use dynamic temperature: start at T=5 (broad knowledge transfer), anneal to T=1 (sharp specialization).
-3. Log temperature schedule and KL divergence curves per specialist.
+1. Define required vs. optional subsystems. Security, tokenization, and model loading are **required** for production; knowledge retrieval, math specialist, grammar specialist are **optional**.
+2. Required subsystem init failures must cause `Initialize()` to return an error immediately.
+3. Optional subsystem init failures must log at ERROR level, not WARN.
+4. Add an `IsHealthy()` method that returns a bitmask of subsystem health — callable by monitoring systems and the Flutter UI.
+5. Add an `--require-production` CLI flag that enables strict init mode with mandatory checks for secp256k1, tokenization, RocksDB, and network connectivity.
 
-**Detection:** Student model outputs are overly generic or overly confident and wrong. KL divergence between teacher and student is above 0.5.
+**Detection:** After `Initialize()`, call `IsHealthy()` and check the bitmask. Required subsystems must be healthy. Log the health report at INFO level on startup.
 
-**Phase to address:** Phase 3 (Distillation) -- core implementation.
+**Phase to address:** Phase 5 (Hardcoded Values) and general production hardening. Not a specific task in the current roadmap but should be a gate in the "Definition of Production Ready" checklist.
 
 ---
 
-### Pitfall 10: Silent Failures in Long-Running Training Jobs
+### Pitfall 11: FFI Layer With Zero Bounds Checking
 
-**What goes wrong:** Training 5 specialists sequentially takes 2.5-5 hours. If specialist 3 crashes at iteration 600, the `try/except` at lines 233-240 catches the exception, prints a traceback, and **continues to specialist 4**. The user sees a wall of training output, misses the single error line, and thinks all 5 specialists trained successfully.
+**What goes wrong:** `GeniusSlmChatCompletionsCreate` at `src/genius_slm_chat_c.cpp:209-241` accepts a C string from Flutter/Dart and passes it through the manual JSON parser (`ExtractPrompt`). There is no maximum length limit, no JSON schema validation, and no sanitization of prompt content. A 1GB request string from a compromised Flutter app or malicious client will be read entirely before any processing begins.
 
-**Evidence in code:** Lines 233-240:
-```python
-try:
-    meta = train_specialist(niche)
-    all_meta[niche] = meta
-except Exception as e:
-    print(f"Error training {niche}: {e}")
-    traceback.print_exc()
-    continue  # silently moves to next specialist
-```
+**Why it happens:** The FFI interface is a thin C wrapper. The Dart FFI bridge typically sends reasonably-sized chat messages, so bounds checking wasn't prioritized. The `DuplicateString` helper only checks for null pointers, not size.
 
-**Consequences:** Training appears to complete normally. User deploys specialists 1, 2, 4, 5 without realizing specialist 3 is missing or corrupted.
+**Consequences:** (a) Memory exhaustion: a large request consumes all available RAM. (b) The manual JSON parser at `src/genius_slm_chat_c.cpp:46-131` does `rfind`, `find`, `substr` operations on the entire string — O(n) where n can be gigabytes. (c) No validation means garbage JSON reaches the inference engine, which may produce arbitrary output or crash.
 
 **Prevention:**
-1. After training loop, assert `len(all_meta) == len(SPECIALISTS)`. If not, print prominent error block at the bottom.
-2. Write `TRAINING_STATUS.json` with per-specialist status: SUCCESS/FAILED/SKIPPED/CRASHED, with error details.
-3. After training, load each adapter and run a single inference. Flag any specialist that fails to load or produces empty output.
-4. Use structured logging (JSON lines) so errors are programmatically detectable.
+1. Add a `MAX_REQUEST_SIZE` constant (e.g., 64KB). Check input length before any processing and return an error JSON immediately if exceeded.
+2. Replace manual JSON parsing with `nlohmann/json` (already in thirdparty per `cmake/CommonBuildParameters.cmake:102-110`). The manual parser at lines 46-131 handles ~80% of valid JSON but fails silently on edge cases.
+3. Validate the parsed JSON against a schema: `{"messages": [{"role": "string", "content": "string"}]}` structure. Reject with a clear error code if the structure is wrong.
+4. Add a guard against deeply nested JSON (e.g., 1000+ levels) that could cause stack overflow in the parser.
 
-**Detection:** After training: `ls models/specialists_mlx/*/adapters.safetensors | wc -l` should equal `len(SPECIALISTS)`.
+**Detection:** Add a request size histogram in monitoring. Large outliers indicate either bugs in the client or attacks. Any request > 64KB should be an automatic reject + WARN log.
 
-**Phase to address:** Phase 2 (Training Pipeline) -- error handling hardening.
+**Phase to address:** Phase 5 (Hardcoded Values) and test expansion Task 6.2 (FFI tests). The JSON parsing replacement is identified in `CONCERNS.md:49-53` as "Manual JSON Parsing in ExtractPrompt."
 
 ---
 
-### Pitfall 11: Non-Reproducible Training Runs from Hardcoded Relative Paths
+### Pitfall 12: Missing Nonce/Sequence in gRPC Request Path
 
-**What goes wrong:** Both training scripts use relative paths like `DATA_DIR = "data/specialists"` and `OUTPUT_DIR = "models/specialists_mlx"`. Running from a different CWD produces mysterious "file not found" errors.
+**What goes wrong:** When `SubmitNetwork()` is implemented (Phase 4, Task 4.1), the gRPC call will serialize a `GNUS_Schema` JSON message and send it to the SuperGenius node. If the request has no **idempotency key or request ID**, a network timeout + retry will result in the same inference job being executed multiple times. The SuperGenius network charges for compute — duplicate jobs waste resources and incur costs.
 
-**Evidence in code:** Lines 45-46 use bare relative paths. `prepare_datasets.py` line 27 loads from `'data/analysis/source_based_niches.json'` -- a relative path assuming CWD is `gnus-poc/`.
+**Why it happens:** gRPC has built-in retry and hedging support. If the client times out waiting for a response, gRPC can automatically retry the RPC. Without a unique request identifier that the server can use to deduplicate, each retry looks like a new, independent request.
 
-**Consequences:** Training succeeds from `gnus-poc/` but fails from `gnus-poc/models/`. CI/CD pipelines or orchestration scripts break.
+**Consequences:** (a) Wasted compute: same prompt processed N times. (b) Wasted cost: if the GNUS network bills per job, the operator is charged N times. (c) If the result is used for swarm consensus, duplicate results from the same job create ambiguity.
 
 **Prevention:**
-1. Resolve all paths relative to script location: `SCRIPT_DIR = Path(__file__).resolve().parent`; `PROJECT_ROOT = SCRIPT_DIR.parent`.
-2. Accept `--data-dir` and `--output-dir` CLI arguments as overrides.
-3. Log absolute paths being used at startup.
+1. Generate a UUIDv4 (or SHA-256 of the request content + timestamp + node_id) as the `request_id` in the GNUS_Schema JSON.
+2. On the SuperGenius side (outside this project's scope), implement idempotency: if a request with the same `request_id` is received within the dedup window, return the cached result instead of re-executing.
+3. Use gRPC deadlines to bound retry behavior. A 30-second deadline with max 3 retries means at most 3 duplicate executions in the worst case.
+4. Log every request_id at both client and server for auditability.
 
-**Detection:** Script fails with `FileNotFoundError` or `DatasetNotFoundError` when run from unexpected CWD.
+**Detection:** Monitor the ratio of unique request_ids to completed jobs. If a single request_id appears multiple times in execution logs, retries are generating duplicates.
 
-**Phase to address:** Phase 1 (Data Pipeline) -- path hygiene.
+**Phase to address:** Phase 4 (GNUS Network Connection) — must be part of Task 4.1 implementation.
 
 ---
 
-### Pitfall 12: Training Metadata Does Not Capture Validation Metrics
+### Pitfall 13: Reputation Score Poisoning via Sybil Attack Surface
 
-**What goes wrong:** `training_metadata.json` saves only: niche, base_model, duration_minutes, iters, batch_size, num_layers, lora_parameters. **No validation loss, no perplexity, no accuracy metric, no final training loss.** You cannot determine if a specialist is good or bad from the metadata alone.
+**What goes wrong:** Because `MessageSigning::Verify` always returns `true` (Pitfall #1), the system has no way to distinguish a real node from a Sybil. An attacker can spin up N fake nodes, each with a fresh "identity" and zero reputation, and flood the swarm with garbage inference results. The `WeightedConsensus` mechanism is designed to downweight low-reputation nodes, but if the attacker controls enough nodes (e.g., 51% of participants), they can outvote honest nodes through sheer volume.
 
-**Evidence in code:** Lines 187-198 show metadata structure: purely config capture, zero performance metrics.
+**Why it happens:** In the current stub mode, any message is accepted. Even after secp256k1 is enabled, creating a new node identity is free (just generate a keypair). There's no stake, bond, or cost to Sybil attacks. The reputation system is designed to make attacks expensive over time (build reputation slowly), but a flash-mob of new identities can overwhelm the system before reputation scoring has time to react.
 
-**Consequences:** Six months later, comparing specialist v2 vs v3 or debugging performance differences requires re-evaluating from scratch. No way to detect training regressions without manual inspection.
+**Consequences:** (a) Consensus manipulation: attacker-controlled majority dictates which inference output is selected. (b) Reputation system degradation: the constant flood of low-quality results from Sybils pollutes the reputation data for real nodes. (c) Resource exhaustion: processing 1000x more swarm messages than expected due to Sybil traffic.
 
 **Prevention:**
-1. Capture `final_train_loss`, `final_val_loss`, `best_val_loss` and the iteration where it was achieved.
-2. Capture `perplexity` on a held-out validation set.
-3. Save loss curve as JSON array for later plotting.
-4. Run a quick benchmark after training: 10 responses on test prompts, compute BLEU/ROUGE, save results.
+1. **Proof of Stake:** Require nodes to lock GNUS tokens as collateral. A Sybil with 1000 identities needs 1000x the stake.
+2. **Reputation-weighted voting with quorum:** Require at least 3 nodes with `reputation > threshold` to agree before a result is accepted. New nodes (zero reputation) cannot participate in high-stakes consensus.
+3. **Rate limiting per IP/peer:** Even if an attacker has many identities, if they all come from the same IP, rate-limit the IP. Crypto identities without network-level correlation are still distinguishable.
+4. **Minimum reputation gate:** Nodes with reputation below a floor cannot submit results to the swarm — they must first build reputation in single-node or observer mode.
+5. **Scoring discount for new nodes:** New nodes' results are weighted at 1% of a veteran node's weight for the first N tasks.
 
-**Detection:** `training_metadata.json` has no `val_loss` field.
+**Detection:** Monitor the rate of new node appearances. A spike from ~2 new nodes/day to 1000/minute indicates a Sybil attack. Track result quality per node — Sybils typically produce low-quality or random output.
 
-**Phase to address:** Phase 2 (Training Pipeline) -- before training the next batch.
+**Phase to address:** After Phase 2 (Security auth) is complete. Sybil protection requires authentication to be working first (Pitfall #1). This is a cross-cutting concern affecting reputation, consensus, and network layers.
 
 ---
 
 ## Minor Pitfalls
 
-### Pitfall 13: `trust_remote_code=True` Security Risk
+---
 
-**What goes wrong:** Both training scripts pass `tokenizer_config={"trust_remote_code": True}` to `mlx_utils.load()`. This allows the model's `tokenizer_config.json` to execute arbitrary Python code during loading. A compromised model on HuggingFace could run arbitrary code on your machine.
+### Pitfall 14: Metal Shader Compilation Slow First Inference
 
-**Prevention:** Inspect `tokenizer_config.json` before loading. Pin model versions with commit hashes.
+**What goes wrong:** First inference after a fresh install takes 30-120 seconds while Metal compiles GPU shaders. The operator sees the process hanging and may kill it, assuming it's crashed.
 
-**Phase to address:** Phase 1 (Security) -- low priority for POC internal use.
+**Prevention:** During `GeniusSlmInit`, run a minimal warm-up forward pass (1 token) to trigger shader compilation. Log "warming up GPU shaders, this may take 30-60 seconds on first run." Ship a pre-compiled Metal shader cache file (`mnn_cachefile.bin`) when possible.
+
+**Phase to address:** Phase 1 (Real Inference) — operational polish alongside Task 1.1.
 
 ---
 
-### Pitfall 14: Tokenizer/Model Loading Inconsistency Between Training and Inference
+### Pitfall 15: Model Weight Memory Exhaustion on Low-RAM Devices
 
-**What goes wrong:** Training loads models via MLX tokenizer. The deployed C++ engine loads via MNN with SentencePiece tokenizer. If tokenizers produce different token IDs for the same text, LoRA adapters are applied to wrong positions.
+**What goes wrong:** Mistral 7B weights are 5.3GB. Loading the full model into RAM plus KV cache pushes total memory beyond 8GB. On 8GB MacBooks or Android devices, this triggers OOM killer.
 
-**Prevention:**
-1. Export MLX tokenizer vocabulary and compare with SentencePiece model.
-2. Test round-trip: encode with MLX, decode with SentencePiece, compare.
-3. Verify that chat template special tokens map to same IDs in both tokenizers.
+**Prevention:** Use memory-mapped I/O (`mmap`) for the weight file instead of `std::ifstream::read` into a contiguous buffer. This lets the OS page weights in/out as needed. Enable FP4_ULTRA quantization (Task 1.3) which reduces memory footprint by ~75%.
 
-**Phase to address:** Phase 4 (Integration) -- when MLX-trained adapters are ported to MNN.
+**Phase to address:** Phase 1 (Real Inference) — Task 1.3 (FP4_ULTRA processor).
 
 ---
 
-### Pitfall 15: FP4 Quantization Compatibility with MLX-Trained LoRA Weights
+### Pitfall 16: GeniusSlmInit Re-init Race Condition
 
-**What goes wrong:** FP4 pyramid-based quantization (from Grok vetting doc) assumes weight matrices can be treated as 2D images. MLX LoRA weights are low-rank decomposition matrices (A x B), not full-rank. Their structure may not be amenable to pyramid-based quantization.
+**What goes wrong:** `GeniusSlmInit` and `GeniusSlmChatCompletionsCreate` both access `g_server` (a raw global pointer) without synchronization. Concurrent calls from the Flutter UI thread via Dart FFI can race — one thread resets `g_server` while another reads it.
 
-**Prevention:**
-1. Test FP4 quantization on MLX-trained LoRA weights before building an automated pipeline.
-2. Measure MSE between FP16 LoRA output and FP4-quantized LoRA output on a calibration set.
-3. If degradation >5% MSE, consider quantizing AFTER merging LoRA into base weights.
+**Prevention:** Replace `g_server` with `std::atomic<GeniusAPIServer*>` or add a `std::mutex` around all access. Document that `GeniusSlmInit` and `GeniusSlmChatCompletionsCreate` must not be called concurrently.
 
-**Phase to address:** Phase 5 (Quantization) -- depends on completing FP4 codec integration.
+**Phase to address:** Phase 5 (Hardcoded Values) — Task 5.2.
 
 ---
 
-### Pitfall 16: Hardcoded Niche Format Strings Produce Brittle Training Data
+### Pitfall 17: 256 Build Configurations, 2 Tested
 
-**What goes wrong:** `prepare_datasets.py` uses fragile string splitting for `qa_technical` niche: `if 'Q:' in text and 'A:' in text`. This fails when "Q:" or "A:" appears in the content body. The fallback treats the entire text as an assistant response, losing Q&A structure.
-
-**Evidence:** Lines 135-141. Any StackExchange post where "Q:" or "A:" appears in body text is incorrectly split.
-
-**Consequences:** Garbled instruction/response pairs. Specialist learns to produce truncated or reversed responses.
+**What goes wrong:** Eight compile-time feature flags (`GENIUS_HAS_MNN`, `_SECP256K1`, `_ROCKSDB`, `_SENTENCEPIECE`, `_SGPROCESSING`, `_LIBP2P`, `_MNN_LLM`, `_OPENSSL`) create 256 possible build configurations. Only the stub-mode configuration (all flags off) and the "all on" configuration are tested. Any intermediate combination could have broken `#ifdef` interactions.
 
 **Prevention:**
-1. Use source metadata to determine format (StackExchange has structured `question`/`answer` fields).
-2. Define `NichelFormatter` class per niche instead of inline conditionals.
-3. After formatting, validate each example has non-empty user and assistant sections.
+1. Add a CI matrix that tests: (a) all stubs off, (b) security only (SECP256K1 + OPENSSL), (c) persistence only (ROCKSDB), (d) SGProcessing only, (e) all on. Five configurations covers the critical interaction points.
+2. Add compile-time assertions that mutually exclusive features (SentencePiece + SGProcessing) cannot be enabled together.
+3. When adding a new feature flag, always write a stub fallback that returns an explicit error or logs at WARN level.
 
-**Phase to address:** Phase 1 (Data Pipeline) -- alongside chat template fix.
-
----
-
-### Pitfall 17: No Versioning for Datasets or Adapters
-
-**What goes wrong:** Datasets and adapters are saved without version numbers. Re-running `prepare_datasets.py` silently overwrites previous datasets. Training runs on new data, old adapters still exist: you cannot determine which dataset version produced which adapter.
-
-**Evidence:** `prepare_datasets.py` line 172-183: `niche_dir = f"{OUTPUT_DIR}/{niche_name}"` with no version. `train_specialists_mlx.py` line 156: `adapter_path = f"{OUTPUT_DIR}/{niche}"` with no version.
-
-**Consequences:** Cannot reproduce results. Cannot roll back. Cannot A/B test dataset versions. Adapter-dataset provenance is lost.
-
-**Prevention:**
-1. Include version (date or hash) in paths: `data/specialists/<niche>/v20260527/`.
-2. Store dataset hash (SHA256 of concatenated JSONL files) in training metadata.
-3. Add `--version` flag to both scripts.
-
-**Phase to address:** Phase 1 (Data Pipeline) -- before any re-extraction or re-training.
-
----
-
-## Integration-Specific Pitfalls (Python POC to C++ Engine)
-
-### Pitfall 18: Chat Template Format Incompatibility Between Python and C++
-
-**What goes wrong:** Python pipeline uses MLX tokenizer with Qwen3 chat template. C++ engine uses SentencePiece with a `.model` file. If tokenization does not match byte-for-byte, C++ engine feeds tokens to the model that do not correspond to what LoRA adapters were trained on.
-
-**Prevention:**
-1. Export MLX tokenizer full vocabulary as JSON.
-2. Generate identical token sequences in Python and C++ for 100 test prompts. Diff token ID sequences: any mismatch is a problem.
-3. Use the EXACT SAME tokenizer model file in both Python and C++.
-
-**Phase to address:** Phase 4 (Integration) -- when adapters are first loaded in C++.
-
----
-
-### Pitfall 19: LoRA Adapter Format Compatibility with MNN
-
-**What goes wrong:** MLX saves LoRA adapters as safetensors with MLX-specific key naming. MNN expects weights in its own format. No off-the-shelf MLX-LoRA to MNN converter exists.
-
-**Prevention:**
-1. Build and test MLX to MNN adapter conversion as a separate, well-tested component BEFORE integrating into the full pipeline.
-2. After conversion, run inference on 50 test prompts in both MLX and MNN. Compare token-by-token output. Any divergence >0% is a bug.
-3. Consider exporting full model (base + merged LoRA) to ONNX then to MNN, rather than loading LoRA adapters separately in MNN.
-
-**Phase to address:** Phase 4 (Integration) -- key integration risk.
-
----
-
-### Pitfall 20: FP4 Weight Layout Mismatch Between Pipeline and Engine
-
-**What goes wrong:** Grok vetting doc describes JPEG-style macro-block FP4 with 64x64 tiles and 32-bit scale headers. Existing `FP4Codec.hpp` may use a different layout. If Python pipeline produces one format and C++ engine expects another, model produces garbage output without crashing (silent corruption).
-
-**Prevention:**
-1. Define FP4 format as a spec document (tile size, scale storage format, byte ordering, header structure).
-2. Write round-trip test: Python quantizes, saves FP4, C++ loads, dequantizes, compare MSE against original FP16. Target: MSE < 1e-6.
-3. Include format version byte in FP4 header.
-
-**Phase to address:** Phase 5 (Quantization) -- before deploying FP4-quantized models.
+**Phase to address:** Build system hardening — should be an ongoing practice across all phases.
 
 ---
 
@@ -380,27 +330,36 @@ except Exception as e:
 
 | Phase Topic | Likely Pitfall | Mitigation |
 |-------------|---------------|------------|
-| Data extraction (Phase 1) | Chat template mismatch (#1), metadata field drift (#4), cross-niche contamination (#5) | Use tokenizer template, validate metadata schema, run dedup |
-| Data preparation (Phase 1) | Hardcoded formats (#16), no versioning (#17), relative paths (#11) | NichelFormatter classes, versioned directories, absolute paths |
-| Training (Phase 2) | OOM (#7), LoRA rank wrong (#8), skip-on-existing (#2), silent failures (#10), missing metrics (#12) | Pre-flight memory check, A/B test ranks, check milestone files, structured logging, capture val loss |
-| Distillation (Phase 3) | API cost explosion (#3), licensing contamination (#6), temperature miscalibration (#9) | Hard budget cap, open-source teacher only, temperature sweep |
-| Evaluation (Phase 3) | No metrics in metadata (#12), overlapping eval data (#5) | Capture val loss per specialist, dedup before split |
-| Integration (Phase 4) | Tokenizer mismatch (#18), adapter format incompatibility (#19), FP4 layout mismatch (#20) | Tokenizer export+diff, round-trip tests, format spec |
-| Quantization (Phase 5) | LoRA-specific quantization (#15), format mismatch (#20) | Test on actual LoRA weights, define format spec first |
+| Phase 1 (Real Inference) | SentencePiece + SGProcessing link conflict (Pitfall #7) | Resolve protobuf version before enabling both; consider MNN tokenizer as alternative |
+| Phase 2 (Security) | Stub security paths survive (Pitfall #1), missing replay protection (Pitfall #3), deterministic nonces (Pitfall #6) | Fail-close stubs, add nonce+timestamp to message format, switch to RFC6979 |
+| Phase 3 (Persistence) | Corrupt DB crashing process (Pitfall #8) | try/catch on parse, checksums, periodic integrity scans |
+| Phase 4 (Network) | Insecure gRPC (Pitfall #5), duplicate job execution (Pitfall #12), no replay protection on RPCs (Pitfall #3) | Require TLS from first implementation, add request_id for idempotency, add nonce+sequence |
+| Phase 5 (Hardcoded Values) | Vocab size mismatch (Pitfall #9), init failure swallowed (Pitfall #10), FFI no bounds (Pitfall #11) | Dynamic vocab size, fail-fast init, 64KB request limit |
+| Phase 6 (Test Coverage) | Tests only cover stub paths; real crypto paths untested (Pitfall #1) | Security tests must verify rejection of bad signatures, not just acceptance of good ones |
+| Deferred (P2P/swarm) | Unverified inference results (Pitfall #4), Sybil attacks (Pitfall #13) | Plan deterministic verification and proof-of-stake before enabling swarm mode |
 
 ---
 
-## Summary of Most Critical Pitfalls (by Impact x Likelihood)
+## Sources
 
-1. **Chat template mismatch (Pitfall 1):** HIGH impact, HIGH likelihood -- already present in current code
-2. **Skip-on-existing false completion (Pitfall 2):** HIGH impact, MEDIUM likelihood -- present in code, triggered by crash
-3. **API cost explosion (Pitfall 3):** HIGH impact, HIGH likelihood -- when API code is added without safeguards
-4. **Teacher licensing contamination (Pitfall 6):** EXISTENTIAL impact, HIGH likelihood -- if API is used for training data
-5. **Silent training failures (Pitfall 10):** HIGH impact, MEDIUM likelihood -- present in code, easy to miss
-6. **Cross-niche data contamination (Pitfall 5):** MEDIUM impact, HIGH likelihood -- undermines specialization value
-7. **Missing validation metrics (Pitfall 12):** MEDIUM impact, HIGH likelihood -- no way to compare or detect regression
-8. **OOM on Apple Silicon (Pitfall 7):** HIGH impact, MEDIUM likelihood -- 30B models push hardware limits
+### Verified Against Codebase
+- `src/security/MessageSigning.cpp:49-60` — always-true Verify stub [HIGH confidence]
+- `src/security/NodeIdentity.cpp:187-200, 279-283` — plaintext key save, always-true stub Verify [HIGH confidence]
+- `src/reputation/ReputationStorage.cpp:33-67` — CSV parsing, no error handling [HIGH confidence]
+- `src/genius_slm_chat_c.cpp:46-131, 199-206` — manual JSON parser, init race [HIGH confidence]
+- `src/core/sgprocessing/SGProcessingBridge.cpp:340-346` — NotImplemented SubmitNetwork [HIGH confidence]
+- `src/api/GeniusAPIServer.cpp:45-153, 422-432` — monolithic init, gRPC stub [HIGH confidence]
+- `.planning/codebase/CONCERNS.md` — comprehensive audit of known issues [HIGH confidence]
+- `AgentDocs/PRODUCTION_ROADMAP.md` — task breakdown with phase mapping [HIGH confidence]
 
----
+### External Sources
+- [libsecp256k1 README](https://github.com/bitcoin-core/secp256k1/blob/master/README.md) — features: constant-time ops, RFC6979, no heap allocation [HIGH confidence]
+- [gRPC Auth Guide](https://grpc.io/docs/guides/auth/) — SSL/TLS credential types, mTLS support, insecure channel warnings [HIGH confidence]
+- [gRPC Security Audit (Cure53)](https://github.com/grpc/grpc/tree/master/doc/grpc_security_audit.pdf) — DoS via uninitialized pointers, integer overflow in malloc calls, freed memory not nulled [HIGH confidence]
+- [libsecp256k1 safegcd implementation doc](https://github.com/bitcoin-core/secp256k1/blob/master/doc/safegcd_implementation.md) — constant-time modular inverse, divstep algorithm [MEDIUM confidence — informative, not directly actionable]
+- SEC256k1 ECDSA nonce reuse vulnerability — industry knowledge from PS3 hack, Bitcoin transaction malleability, multiple cryptocurrency thefts [HIGH confidence — well-documented attack vector]
 
-*Sources: codebase audit of gnus-poc/*.py (2026-05-27), ChatGPT Idea Vetting for Swarm SLMs (lines 1206-1343), Grok Vetting for Swarm SLMs, .planning/ codebase analysis*
+### Gaps in Research
+- The specific internal design of the SuperGenius/gRPCForSuperGenius service interface was not examined (it's in the sibling SuperGenius repo). Pitfall #12 (request dedup) depends on whether the SuperGenius service already implements idempotency.
+- The GNUS token economics (staking amount, slashing conditions) were not researched. Pitfall #13 (Sybil via PoS) recommendations are generic until token parameters are known.
+- MNN LLM API behavior for model warm-up and shader caching is inferred from MNN documentation and common GPU patterns, not from testing the actual MNN version in thirdparty.

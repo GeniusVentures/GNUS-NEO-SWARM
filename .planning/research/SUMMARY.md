@@ -1,227 +1,214 @@
 # Project Research Summary
 
-**Project:** GNUS-POC ELM Training & Distillation Pipeline (Milestone v1.1)
-**Domain:** ML training/distillation pipeline for specialist SLMs on Apple Silicon
-**Researched:** 2026-05-27
+**Project:** GNUS NEO SWARM (production readiness + SuperGenius dispatch)
+**Domain:** Decentralized AI inference engine with blockchain compute network dispatch
+**Researched:** 2026-05-28
 **Confidence:** HIGH
 
 ## Executive Summary
 
-This is a Python pipeline that trains Expert Language Models (ELMs) for a decentralized specialist swarm. Five LoRA-adapted Qwen3-30B-MoE specialists already exist (medical, code, qa_technical, encyclopedic, patents), trained via MLX-LM on Apple Silicon. The v1.1 milestone adds: teacher-driven synthetic data generation, knowledge distillation (teacher-to-student logit transfer and subspace extraction), per-specialist evaluation/benchmarking, experiment tracking, FP4 quantization for deployment, and an orchestration layer to tie it all together.
+GNUS NEO SWARM is a decentralized AI inference engine that runs LLMs (primarily Mistral-7B) locally via MNN and dispatches compute workloads to the SuperGenius blockchain network. The project is a prototype that has the right technology bones — MNN, secp256k1, RocksDB, OpenSSL, spdlog, protobuf — but nearly every subsystem operates in stub/fallback mode. The production gap is not a technology-selection problem; it is an **activation and hardening** problem. Every critical dependency is already linked; what's missing is real implementations behind the `#ifdef` guards.
 
-The recommended approach is: **fix existing bugs first, then build new capabilities in dependency order**. Two existing bugs are silently corrupting training output today (chat template mismatch between data prep and training, and skip-on-existing logic producing false completions). These must be fixed before any new specialist training. After that, the critical path is: synthetic data generation (teacher API) → evaluation framework → knowledge distillation → orchestration → FP4 quantization → deployment packaging. Experiment tracking should be built alongside evaluation. FP4 quantization and deployment packaging can run partially in parallel with distillation.
+The recommended approach is a security-first, phased build-out: cryptographic identity and message signing must come before any network connectivity, because connecting to a blockchain compute network without real authentication is worse than not connecting at all. A new `SuperGeniusClient` component must encapsulate all communication with the SuperGenius network, using its PubSub room-based dispatch model (not simple unary gRPC). Persistence hardening (RocksDB for reputation, JSON for config) and production fixes (hardcoded values, re-init bugs) then complete the production baseline.
 
-The single biggest risk is **teacher model licensing**: using a closed commercial API (DeepSeek v4 pro) to generate training data for open-source student models may violate API Terms of Service. This is flagged as an existential, project-level risk — not a technical bug — and requires a user decision before any API integration code is written. The fallback is to use only open-source models with permissive licenses (e.g., DeepSeek-V3, Llama 3.1, Qwen 3). Other key risks include API cost explosion (fixed with hard budget caps), Apple Silicon OOM during 30B model training (fixed with pre-flight memory checks and qLoRA), and cross-niche data contamination (fixed with deduplication).
+**Key risks:** (1) stub security paths surviving into production create a false sense of security — `MessageSigning::Verify()` always returns `true`; (2) private keys stored as plaintext hex on disk; (3) the SentencePiece/protobuf version conflict means real tokenization and network dispatch cannot coexist in a single binary without dependency resolution; (4) insecure gRPC defaults exposing inference traffic. All are preventable with the specific mitigations prescribed in the research.
 
 ## Key Findings
 
 ### Recommended Stack
 
-**Already installed (no changes needed):** MLX 0.30.0 ecosystem (mlx, mlx-lm, mlx-metal), PyTorch 2.7.1, transformers 4.54.1, datasets 4.0.0, openai 1.101.0, scikit-learn 1.7.1, numpy 1.26.4, and all utilities (rich, tenacity, python-dotenv, PyYAML, nltk, tqdm, pytest, responses).
+The existing stack (MNN, secp256k1, RocksDB v10.6.x, OpenSSL 3.3.x, spdlog, nlohmann/json, Boost 1.85.0, C++17) is correct and should not be changed. The production additions are targeted and reuse existing dependencies. **Do not** upgrade Boost, require C++20, introduce coroutines for gRPC dispatch, or productionize libp2p — all remain as-is or deferred.
 
-**Core technologies:**
-- **MLX 0.30.0** (mlx, mlx-lm, mlx-metal): Apple Silicon tensor compute — already the training engine. 2-3x faster than PyTorch+MPS for LLM workloads. Extend existing `train_specialists_mlx.py`, don't replace.
-- **openai 1.101.0** (existing, not `deepseek-sdk`): DeepSeek v4 pro API client — DeepSeek API is OpenAI-compatible. Use the official `openai` Python SDK with `base_url="https://api.deepseek.com"`. The third-party `deepseek-sdk` (v0.1.1) is a thin wrapper from a single maintainer — avoid.
-- **mlflow 3.12.0** (NEW install): Experiment tracking — replaces need for W&B (cloud-dependent). Native DeepSeek integration, LLM tracing, local UI (`mlflow ui`), zero external dependencies. Log params/metrics/artifacts from training loops.
-- **lm-eval 0.4.12** (NEW install): Standard benchmark evaluation — EleutherAI's harness for MMLU, HellaSwag, ARC, GSM8K. Use for base model calibration (HF backend only — MLX not directly supported). Custom eval scripts needed for specialist-specific accuracy/latency/perplexity.
-- **MLX native quantization** (built-in): FP4 weight quantization — `mlx.core.quantize()` supports mxfp4/nvfp4/affine modes. Use instead of the PyTorch FP4 code in `docs/code-in-markdown.md` (legacy research). The C++ `FP4Codec.hpp` in `src/core/fp4/` defines the binary format contract for C++ engine consumption.
+**Core technologies to add or harden:**
 
-**New pip installs (5 packages):** `mlflow==3.12.0`, `lm_eval[hf]`, `pytest-mock`, `pytest-cov`, `pytest-timeout`.
+- **gRPC v1.78.1 (Callback API):** For SuperGenius network dispatch via PubSub. Use `grpc::experimental::CallbackGenericService`, not the raw CompletionQueue API (300+ line state machines). One channel per CPU, persistent across jobs.
+- **Protocol Buffers v29.x:** For dispatch message serialization and replacing the fragile CSV reputation format. Already a project dependency; new `sg_dispatch.proto` defines the SuperGenius compute interface.
+- **secp256k1 (real, not stub):** Enable `GENIUS_HAS_SECP256K1`, implement real `MessageSigning::Verify` with `secp256k1_ecdsa_verify`, switch to RFC6979 deterministic nonces to prevent nonce-reuse private key leaks.
+- **AES-256-GCM via OpenSSL EVP:** For key-at-rest encryption. Derive keys from passphrase via PBKDF2-HMAC-SHA256 (600K iterations). Self-describing binary file format.
+- **RocksDB v10.6.2 (C++17 ceiling):** Replace CSV with protobuf binary serialization. Enable `WriteBatch` for atomic multi-key writes, `sync=true` for critical reputation updates. v10.7+ requires C++20 — avoid.
+- **JSON config (nlohmann/json):** Already available. CLI-overrides-config precedence. Never store passphrase in config.
 
-**Rejected alternatives:** W&B (cloud-dependent, heavier), deepseek-sdk (third-party, single-maintainer), Prefect/Airflow (overkill for single-machine sequential pipeline), DVC (unnecessary complexity for v1.1 data volumes <10GB), async API patterns (sync is sufficient for batch sizes in hundreds to low thousands).
+**What NOT to change:** Boost 1.85.0, MNN, SentencePiece, spdlog, OpenSSL 3.3.x, C++17 standard, libp2p (keep stub), existing build infrastructure.
 
 ### Expected Features
 
-**Must have (table stakes) — these already exist:**
-- Niche discovery via TF-IDF clustering (`analyze_common_pile.py`) — exists, use as-is
-- Dataset preparation with train/val/test splits (`prepare_datasets.py`) — exists, **needs chat template fix (Pitfall #1)**
-- LoRA fine-tuning pipeline (`train_specialists_mlx.py`) — exists, **needs skip-logic fix (Pitfall #2)**, needs TrainingConfig extraction
+**Must have (table stakes — P0):**
+- Real LLM inference via MNN + SentencePiece (both linked, code paths exist)
+- Cryptographic node identity with secp256k1 (single-line cmake fix)
+- Message signing and verification (currently always `true` — highest-risk gap)
+- gRPC network dispatch to SuperGenius (`SubmitNetwork` returns `NotImplemented`)
+- Crash-safe persistent reputation (RocksDB, fix `stod`/`stoull` crash on corrupt data)
+- Proper error handling in all production code paths (stop swallowing errors)
+- Remove hardcoded vocab size 32000 (read from tokenizer)
+- Fix FFI re-init bug (`std::call_once` flag never reset)
+- Health/readiness endpoint for operators
 
-**Must have (table stakes) — must build in v1.1:**
-- Teacher-driven synthetic data generation via DeepSeek v4 pro API — **missing entirely**
-- Per-specialist evaluation & benchmarking — **missing entirely**
-- Knowledge distillation (logit transfer + subspace extraction) — **missing entirely**
-- Experiment tracking (cross-run comparison, hyperparameter search) — **missing entirely**
-- Orchestration layer (single-command DAG) — **missing entirely**
-- Deployment packaging (MLX→FP4 binary for C++ engine) — **missing entirely**
+**Should have (differentiators — P1):**
+- Swarm routing with reputation-weighted consensus (already implemented, needs persistence)
+- CRDT-based reputation sync (needs RocksDB snapshots)
+- SGProcessing bridge for compute offload (real `SubmitNetwork` implementation)
+- FP4 v3 quantization processor (SGProcessingManager path currently missing)
+- Encrypted node key file at rest (AES-256-GCM)
+- Config file support (JSON, operators can tune without recompiling)
+- Security tests proving signatures reject tampering
 
-**Should have (differentiators, build if time allows):**
-- FP4 pyramid-based quantization integrated into pipeline — strategic docs describe proprietary breakthrough in `FP4Codec.hpp`; bridge C++ codec with Python
-- Subspace extraction distillation (not just logit-based) — per strategic docs, extract specialized subspaces from teacher; research-grade, no existing implementation
-- Multi-model base support per specialist — existing `SPECIALIST_BASE_MODELS` dict; extend for per-niche best model
-- Swarm-ready adapter packaging (checksums, versioning, LoRA signatures for P2P distribution)
-- Cost-tracking & resource estimation — project forward from existing training metadata
-
-**Defer (v2+):**
-- Full pretraining from scratch ($135k+ estimated, out of scope for PoC)
-- Real-time serving/inference endpoints (belongs in C++ `genius_node`, not Python pipeline)
-- Multi-teacher distillation ($480k+ estimated, licensing risks with OpenAI/Anthropic)
-- Dynamic adapter loading/hot-swapping (C++ runtime concern)
-- Human feedback LoRA loops (requires swarm runtime integration)
-- AutoML/hyperparameter optimization frameworks (Optuna, Ray Tune — premature for PoC)
-- Streaming/distributed training across multiple Macs (swarm networking problem, Phase 6+)
+**Defer to subsequent milestones (anti-features for this milestone):**
+- Full libp2p P2P network (GossipSub, mDNS, DHT) — route through SuperGenius gRPC first
+- Streaming token output (SSE/WebSocket) — batch responses sufficient
+- Semantic embeddings for knowledge retrieval — TF-IDF stub works
+- Multi-model hot-swapping — single-model focus
+- Mobile (iOS/Android) deployment — macOS first
+- Web dashboard / admin UI — CLI sufficient
+- Model training / fine-tuning — inference-only engine
 
 ### Architecture Approach
 
-The architecture follows a **flat-module pipeline with YAML configuration and staged execution**. Each pipeline stage is a self-contained Python module with a clear input/output contract. The pipeline is sequential (single Mac Studio M2 Ultra), not distributed. Synthetic data **augments** (does not replace) source-extracted data — the pipeline runs without teacher API using source data alone if credentials are unavailable. The FP4 exporter at pipeline end produces binary artifacts consumed by the C++ engine — this is the critical Python-to-C++ integration boundary.
+A new `SuperGeniusClient` component (six new files in `src/network/sg_client/`) encapsulates all communication with the SuperGenius blockchain compute network. It manages a persistent gRPC channel, publishes signed `Task` messages to the grid channel via PubSub, and subscribes to per-job result channels for `TaskResult` aggregation. The component integrates into the existing `SGProcessingBridge`, which acts as a dispatch router: local mode → `SGProcessingManager`, network mode → `SuperGeniusClient`.
 
-**Major components:**
-1. **pipeline/** — Orchestrator: loads YAML config (global → specialist → experiment override), runs stages in dependency order, skips completed stages, logs to MLflow. No ML logic.
-2. **distill/** — Teacher API + distillation: `TeacherClient` (DeepSeek v4 pro with retry/backoff/cost tracking/budget cap), `SyntheticDataGenerator` (per-niche prompt templates → JSONL output), `Distiller` (logit transfer via temperature-scaled KL divergence + subspace extraction via SVD).
-3. **training/** — LoRA training (refactored from `models/`): `TrainingConfig` dataclass (single source of truth for all 18 LoRA hyperparams, replacing scattered `OVERRIDES` dicts), `SpecialistTrainer` wrapping `mlx_lm.lora.train_model()` with MLflow logging.
-4. **eval/** — Evaluation: `Evaluator` (perplexity, accuracy, latency per specialist on held-out test sets), `Benchmarker` (head-to-head comparison across training variants). Uses `lm-eval` for standard benchmarks, custom scripts for MLX models.
-5. **quantize/** — FP4 export: `FP4Exporter` converts LoRA safetensors to FP4-packed binary matching the C++ `FP4Codec` spec. Writes `manifest.json` cataloging all specialists for the C++ engine.
-6. **data/scripts/** — Existing scripts moved here: niche discovery, source extraction, dataset preparation (with synthetic data augmentation flag).
-7. **config/** — YAML hierarchy: `pipeline.yaml` (global), `specialists/<niche>.yaml` (per-specialist overrides), `experiments/<exp>.yaml` (A/B test overrides). Env-var interpolation for secrets.
-8. **artifacts/** — Structured outputs for C++ consumption: FP4 binaries, manifold JSON, eval results, experiment logs. Separate from `models/` (raw training outputs for debugging/retraining).
+The SuperGenius network uses a room-based GossipPubSub model, not simple unary gRPC. Neo Swarm must join the processing grid channel, publish `Task` messages with secp256k1 signatures, and collect results from `results/<taskId>` channels. This enables SuperGenius's distributed processing infrastructure: queue management, ProcessingNode coordination, subtask splitting, and result aggregation.
 
-**Key architectural decisions:**
-- Flat modules, not a pip package — gnus-poc is a POC pipeline, exit strategy is artifacts (FP4 binaries, manifest JSON), not a Python API
-- YAML configs (not JSON) — comments document hyperparameter choices, anchors share configs across specialists
-- Augment (not replace) source data with synthetic — both together > either alone
-- FP4 export at pipeline end — C++ engine loads pre-quantized adapters, quantization done once in Python
-- `models/` ≠ `artifacts/` — different consumers, different lifecycle
-- `config/` at top level — single load at pipeline start rather than per-module config files
+**Major components (production state):**
 
-**Directory restructure:** ~34 new files, 6 modified/moved, 1 deleted (`train_specialists-old.py` duplicate). See ARCHITECTURE.md Section 2 for full tree and Section 10 for file count summary.
+1. **SuperGeniusClient** (NEW) — Channel lifecycle, keepalive, reconnect, PubSub publish/subscribe
+2. **SGProcessingBridge** (REFACTORED) — Dispatch router: local MNN path vs. network SuperGenius path
+3. **NodeIdentity** (HARDENED) — Real secp256k1 key generation, RFC6979 signing, AES-256-GCM encrypted save/load
+4. **MessageSigning** (HARDENED) — Real signature verification, nonce+timestamp replay protection
+5. **ReputationStorage** (HARDENED) — RocksDB + protobuf binary serialization, crash-safe deserialization
+6. **GeniusAPIServer** (UNCHANGED) — Orchestration façade, single-threaded blocking `Process()` (acceptable for CLI mode)
+
+**Design decisions:**
+- PubSub not unary gRPC (matches SuperGenius architecture)
+- Single persistent gRPC channel per node (not new connection per job)
+- MetadataCredentialsPlugin for identity headers on every call
+- Timeout-bounded result collection via condition_variable (not async callbacks)
+- Fail-close security stubs: reject when crypto unavailable, don't silently accept
+- Every signed message includes nonce + timestamp for replay protection
 
 ### Critical Pitfalls
 
-Ranked by impact × likelihood, from codebase audit and strategic document analysis. Full details in PITFALLS.md including detection methods and code-level evidence.
+1. **Stub security surviving into production** — `MessageSigning::Verify` always returns `true`. Fix: fail-close (return `false` when secp256k1 unavailable), add `static_assert` that `GENIUS_HAS_SECP256K1` is defined in release builds, runtime check before entering swarm mode. **Address in Phase 1.**
 
-1. **Chat template mismatch between data prep and training (Pitfall #1)** — HIGH impact, HIGH likelihood. **Already present in current code.** `prepare_datasets.py` hardcodes Qwen2.5 `<|im_start|>` format but `train_specialists_mlx.py` loads Qwen3-30B-A3B models with a different chat template. Produces silently garbage output. **Prevention:** Use `tokenizer.apply_chat_template()` from the actual loaded tokenizer instead of hand-rolled format strings. This must be fixed in Phase 1 before any new training.
+2. **Private key in plaintext on disk** — `SaveToFile` writes 32-byte hex without encryption. Fix: AES-256-GCM encryption with PBKDF2-derived key, file permissions `0600`, passphrase via environment variable `GENIUS_NODE_KEY_PASS`. **Address in Phase 1.**
 
-2. **Teacher model licensing contamination of student models (Pitfall #6)** — **EXISTENTIAL** impact, HIGH likelihood. Using closed commercial API (DeepSeek v4 pro) to generate training data for open-source student models likely violates API Terms of Service. All specialists trained on contaminated data become legal liabilities. **Prevention:** Use ONLY open-source models with permissive licenses for training data generation. This is a user decision that must be made before any API code is written.
+3. **No replay protection on signed messages** — Signatures cover payload only, no nonce/timestamp. Fix: add 32-byte random nonce + uint64 timestamp to every signed message, track seen nonces in bloom/LRU filter, reject messages outside 30s window. **Address in Phase 2 (network).**
 
-3. **API cost explosion without rate limiting or budget control (Pitfall #3)** — HIGH impact, HIGH likelihood (when API code is added). A loop bug generating malformed prompts could fire thousands of API calls before detection, producing a $500-$5000+ surprise bill. **Prevention:** Hard dollar budget cap that stops all API calls when exceeded, exponential backoff with jitter, dry-run mode, cost audit logging. Test with 10 prompts first.
+4. **gRPC without TLS in decentralized network** — First implementation likely insecure localhost. Fix: require TLS from first `SubmitNetwork()` implementation, use mTLS with secp256k1-derived certificates. **Address in Phase 2.**
 
-4. **Skip-on-existing logic produces false training completions (Pitfall #2)** — HIGH impact, MEDIUM likelihood. `train_specialists_mlx.py` checks only for `adapters.safetensors` existence, but a partial/crashed training run at iteration 200/1000 still writes that file. Undertrained specialists (20-60% complete) are deployed with no warning. **Prevention:** Check for the milestone file matching configured `iters` (e.g., `0001000_adapters.safetensors`), validate `training_metadata.json` iters field, add `--force-retrain` flag.
+5. **Protobuf version conflict (SentencePiece vs. SGProcessing)** — Both libraries bundle conflicting protobuf versions. Fix: resolve at the dependency level (upgrade/downgrade to shared version), OR use MNN's built-in tokenizer as alternative, OR add CMake hard error when both flags defined simultaneously. **Address in Phase 1 or early Phase 2.**
 
-5. **Silent failures in long-running training jobs (Pitfall #10)** — HIGH impact, MEDIUM likelihood. `try/except` catches training crashes and continues to next specialist with only a traceback print. User sees training output wall and misses the single error line. **Prevention:** Structured logging (JSON lines), `TRAINING_STATUS.json` per specialist, post-training adapter load test, assert all specialists trained successfully at end.
+6. **Reputation storage corruption crashing the process** — Unwrapped `std::stod`/`std::stoull` throw on corrupt CSV. Fix: switch to protobuf binary serialization (eliminates the problem class), or wrap in try/catch with corrupt-record skipping. **Address in Phase 3.**
 
-6. **Cross-niche data contamination from streaming dataset reseeding (Pitfall #5)** — MEDIUM impact, HIGH likelihood. Each niche re-streams Common Pile from the beginning independently. No deduplication across niches. StackExchange documents appear in both `qa_technical` AND `code`. Specialists share 15-30% training data, evaluations overstate differentiation. **Prevention:** Jaccard overlap computation between niches, MinHash deduplication, log overlap percentage in metadata.
-
-7. **Missing validation metrics in training metadata (Pitfall #12)** — MEDIUM impact, HIGH likelihood. `training_metadata.json` captures only config (iters, batch_size, lora_params) with zero performance metrics. Cannot determine if specialist is good or bad without manual re-evaluation. **Prevention:** Capture `final_train_loss`, `best_val_loss`, perplexity, and loss curves. Run quick benchmark after training (10 test prompts, BLEU/ROUGE).
-
-8. **OOM on Apple Silicon during 30B-A3B LoRA training (Pitfall #7)** — HIGH impact, MEDIUM likelihood. Qwen3-30B-A3B (~55GB in bf16) plus optimizer states (AdamW = 2x params) pushes a 64GB Mac Studio to its limit. **Prevention:** Pre-flight memory estimator, start with batch_size=1, reduce num_layers to 8, use qLoRA (4-bit base quantization) to cut memory ~75%.
+7. **Deterministic ECDSA nonces (RFC6979) not used** — Random nonces risk private key leak on weak entropy. Fix: switch to `secp256k1_ecdsa_sign` with deterministic nonce function, add test verifying same message produces identical signatures. **Address in Phase 1.**
 
 ## Implications for Roadmap
 
-Based on combined research across all four dimensions, a synthesized 7-phase roadmap respecting hard dependency chains, existing code bugs, and the teacher licensing decision gate. This merges ARCHITECTURE.md's 7 build-order phases with FEATURES.md's 3 value-delivery phases.
+### Phase 1: Security Hardening
 
-### Phase 1: Foundation & Bug Fixes
-**Rationale:** Two silent data-corrupting bugs exist in current code (chat template mismatch, skip-on-existing false completions). Every subsequent phase trains specialists — if these bugs aren't fixed first, all output is silently corrupted. Foundation wiring (directory restructure, config YAML, gitignore) is zero-risk and unblocks all new modules.
-**Delivers:** Fixed chat template using `tokenizer.apply_chat_template()`, fixed skip logic with milestone file check, relative → absolute path resolution, metadata field validation for Common Pile schema drift, versioned dataset/adapter directories, YAML config hierarchy, directory restructure, `.gitignore` updates, `pyproject.toml` + `requirements.txt`.
-**Addresses:** FEATURES: existing pipeline hardening. ARCHITECTURE: Phase A (Foundation).
-**Avoids:** Pitfalls #1 (chat template), #2 (skip-on-existing), #4 (metadata field drift), #11 (relative paths), #16 (hardcoded niche formats), #17 (no versioning).
+**Rationale:** All inter-node communication depends on cryptographic identity. Without real signatures, connecting to SuperGenius is impossible. This phase must complete before any network code ships. The pattern is standard and well-documented — minimal research needed, the code is written (STACK.md §3, ARCHITECTURE.md §Phase 1).
 
-### Phase 2: Teacher API & Synthetic Data Generation
-**Rationale:** Synthetic data generation is a hard prerequisite for knowledge distillation (Phase 5). The API client must be built with cost control from day one — retrofitting budget caps after an incident is too late. This phase is gated on the **teacher licensing decision** (Pitfall #6) — the user must decide whether to use DeepSeek v4 pro API (commercial, potential ToS violation) or open-source alternatives (Llama 3.1, Qwen 3, DeepSeek-V3 distilled).
-**Delivers:** `TeacherClient` with retry/backoff/cost tracking/hard budget cap, `SyntheticDataGenerator` with per-niche prompt templates and output quality filtering, mock API test fixtures.
-**Uses:** `openai` (existing), `tenacity` (existing), `mlflow` (new — logging API calls as MLflow runs).
-**Implements:** ARCHITECTURE: Phase B (`distill/teacher.py`, `distill/synthetic.py`).
-**Avoids:** Pitfall #3 (API cost explosion — hard budget cap from day one), #6 (licensing — resolved before code written).
+**Delivers:** Real secp256k1 node identity, deterministic RFC6979 signatures, real `MessageSigning::Verify` (fail-close), AES-256-GCM encrypted key storage, security test suite proving rejection of bad signatures.
 
-### Phase 3: Training Hardening
-**Rationale:** Before training new specialists or scaling to N niches, the existing training pipeline needs hardening: config extraction (deduplicate `OVERRIDES` dicts), per-niche LoRA rank tuning, memory safety checks, and proper error tracking. This phase makes existing training production-grade before adding new capabilities.
-**Delivers:** `TrainingConfig` dataclass (single source of truth), `SpecialistTrainer` wrapper, per-niche rank A/B testing framework, pre-flight memory estimator, structured logging (JSON lines), `TRAINING_STATUS.json`, validation metrics in metadata (loss curves, perplexity), cross-niche deduplication.
-**Implements:** ARCHITECTURE: `training/config.py`, refactored `training/train_specialists_mlx.py`.
-**Avoids:** Pitfalls #2 (skip logic — refined in Phase 1, validated here), #5 (cross-niche contamination), #7 (OOM), #8 (LoRA rank wrong), #10 (silent failures), #12 (missing validation metrics).
+**Addresses:** P0 features: secp256k1 identity, message signing/verification, encrypted key storage. P0 fixes: enable `GENIUS_HAS_SECP256K1`.
 
-### Phase 4: Evaluation & Experiment Tracking
-**Rationale:** Evaluation is a hard dependency for distillation (can't measure distillation quality without eval) and training (can't compare specialists without metrics). Experiment tracking should be built alongside evaluation since eval results are what you track. These two are tightly coupled — build them together.
-**Delivers:** `Evaluator` (perplexity, accuracy, latency per specialist on held-out test sets using MLX), `Benchmarker` (head-to-head comparison), `lm-eval` integration for standard benchmarks (base model calibration via HF backend), `ExperimentTracker` with MLflow integration (run comparison, artifact management, hyperparameter logging).
-**Uses:** `mlflow` (new), `lm-eval` (new), `nltk` (existing — BLEU/ROUGE).
-**Implements:** ARCHITECTURE: Phase D (`eval/`) + Phase C partially (`pipeline/experiment.py`).
-**Avoids:** Pitfall #12 (validation metrics — addressed in Phase 3, consumed here).
+**Avoids:** Pitfalls #1 (stub security), #2 (plaintext keys), #6 (deterministic nonces), #7 partly (protobuf conflict — resolve dependency before network phase).
 
-### Phase 5: Knowledge Distillation
-**Rationale:** Core milestone deliverable. Depends on evaluation (Phase 4) and synthetic data generation (Phase 2) — both must be operational before distillation can be built or validated. Logit-based distillation (temperature-scaled KL divergence) is the primary path; subspace extraction (SVD on teacher logit matrices) is research-grade and should be an optional enhancement. Temperature calibration (Pitfall #9) is essential for quality.
-**Delivers:** `Distiller` with logit transfer (temperature-scaled KL divergence loss as additional training signal), subspace extraction via SVD for C++ router vectors (optional), temperature sweep framework, teacher logit extraction via `logprobs=True` on DeepSeek API.
-**Uses:** `openai` (existing — `logprobs` parameter), `scikit-learn` (existing — SVD), `numpy` (existing — KL computation).
-**Implements:** ARCHITECTURE: Phase E (`distill/distillation.py`).
-**Avoids:** Pitfall #9 (temperature miscalibration — temperature sweep framework), #6 (licensing — resolved in Phase 2).
+### Phase 2: Core SuperGenius Connectivity
 
-### Phase 6: Orchestration & Pipeline Unification
-**Rationale:** Wraps all existing stages into a single-command DAG. This is logically last among new capabilities (depends on everything working independently). Or staging here ensures the orchestrator configures stages that actually exist and work.
-**Delivers:** `PipelineRunner` (YAML config → stage execution → artifact collection), `PipelineConfig` dataclass, CLI entry point (`orchestrate.py`), resumability (checkpoint detection — skip completed stages, retry failed ones), MLflow run grouping.
-**Implements:** ARCHITECTURE: Phase C (`pipeline/pipeline.py`).
-**Avoids:** Pitfall #10 (silent failures — structured logging from Phase 3 consumed here, orchestrator aggregates status).
+**Rationale:** This is the system's raison d'être. The `SuperGeniusClient` is the critical new architectural component. It cannot ship without Phase 1 (needs real identity for signed dispatch). The PubSub integration pattern requires understanding SuperGenius's internal architecture — this phase likely needs deeper research during planning. Must resolve the protobuf version conflict before this phase completes (Pitfall #7).
 
-### Phase 7: FP4 Quantization & Deployment Packaging
-**Rationale:** The bridge from Python training pipeline to C++ engine. FP4 binary format must align exactly with C++ `FP4Codec` spec — round-trip tests are non-negotiable. This phase is partially parallelizable with Phases 5-6 (doesn't depend on distillation or orchestration, depends on having trained adapters) but is placed last because the C++ `FP4Codec.hpp` may need refinement based on binary format definition.
-**Delivers:** `FP4Exporter` (safetensors → FP4 binary + metadata JSON), `manifest.json` catalog for C++ engine, adapter merging (`mlx_lm.fuse()`), round-trip tests (Python quantize → C++ load → dequantize → compare MSE), tokenizer export for C++ alignment.
-**Implements:** ARCHITECTURE: Phase F (`quantize/fp4_export.py`) + Phase G (integration testing).
-**Avoids:** Pitfalls #15 (FP4 on LoRA weights), #18 (tokenizer mismatch with C++), #19 (LoRA adapter format for MNN), #20 (FP4 layout mismatch).
+**Delivers:** `SuperGeniusClient` (channel manager, job submitter, result collector, message authenticator), real `SubmitNetwork()` via PubSub, `--sg-endpoint` CLI flag, gRPC with TLS credentials, replay-protected signed messages, request-id for idempotency.
+
+**Uses:** gRPC v1.78.1 Callback API, protobuf v29.x, sg_dispatch.proto, OpenSSL for TLS credentials.
+
+**Implements:** `src/network/sg_client/` (6 new files), refactored `SGProcessingBridge::SubmitNetwork`.
+
+**Avoids:** Pitfalls #3 (replay protection), #4 (unverified results — accept limitation, document trust model), #5 (insecure gRPC), #12 (duplicate job execution).
+
+### Phase 3: Persistence & Reliability
+
+**Rationale:** Reputation data must survive restarts and corrupt data must not crash the process. This phase is independent of Phases 1-2 and can be developed in parallel, but should complete before multi-node deployment. The CSV→protobuf migration is a well-understood pattern documented in STACK.md.
+
+**Delivers:** RocksDB-backed reputation storage with protobuf binary serialization, crash-safe deserialization, atomic multi-key writes (WriteBatch), config file support (JSON via nlohmann/json), health/readiness endpoint, validated config on startup.
+
+**Addresses:** P0 features: crash-safe reputation, config file. P1 features: CRDT sync enablement.
+
+**Avoids:** Pitfall #8 (corrupt DB crashing process), Pitfall #10 (monolithic init swallowing failures — add IsHealthy() and required-vs-optional subsystem distinction).
+
+### Phase 4: Production Polish & Integration
+
+**Rationale:** Fixes the remaining known defects and hardcodes that affect correctness and robustness. These are individually small tasks but collectively gate the production release. Most are low-complexity, well-understood fixes. The FP4_ULTRA processor is the notable exception — it involves GPU compute and quantization logic that may need deeper research.
+
+**Delivers:** Removed hardcoded vocab size 32000, fixed `GeniusSlmInit` re-init race condition, FFI layer bounds checking (64KB request limit, nlohmann/json replacement), network integration tests against SuperGenius test node, FP4_ULTRA processor in SGProcessingManager, production logging with structured fields and rotation, compile-time feature flag hardening (CI matrix).
+
+**Addresses:** P0 fixes: re-init bug, hardcoded vocab size. P1 features: FP4_ULTRA processor. P2 features: FFI tests, network integration tests.
+
+**Avoids:** Pitfalls #9 (hardcoded vocab), #11 (FFI no bounds), #14 (Metal shader warm-up), #15 (OOM on low RAM), #16 (FFI race), #17 (untested build configs).
+
+### Phase 5: Flutter UI Integration
+
+**Rationale:** End-user experience. Depends on the real engine (Phase 1-4) being stable. macOS-only for this milestone. This is application-layer work that doesn't affect the C++ engine architecture.
+
+**Delivers:** Flutter macOS app wired to real `.dylib`, end-to-end chat with real inference, health status display from `IsHealthy()`.
 
 ### Phase Ordering Rationale
 
-- **Bug fixes first (Phase 1):** Chat template mismatch and skip-on-existing are silently corrupting output today. Every subsequent phase trains specialists — building on broken training produces garbage at every stage. Fixing existing bugs is the absolute prerequisite.
-- **Teacher API before distillation (Phase 2 → 5):** Synthetic data is the distillation input. Cost controls (budget cap, backoff) must be built with the API client — retrofitting after an incident is too late. The teacher licensing decision gates Phase 2 entirely.
-- **Evaluation before distillation (Phase 4 → 5):** Can't measure distillation quality without evaluation metrics. Building eval first provides the yardstick for all subsequent work.
-- **Training hardening before scaling (Phase 3):** Existing pipeline trains 5 specialists with a single config. Before scaling to N niches with A/B testing, extract configs, add validation metrics, fix cross-niche contamination — otherwise the "N specialist" output is questionable quality at scale.
-- **Orchestration last among new code (Phase 6):** The orchestrator wraps stages that must exist first. Building orchestration before stages exist means building against stubs — wasteful and fragile.
-- **FP4 + integration last (Phase 7):** Depends on having trained adapters to quantize. Parallelizable with earlier phases for development, but final integration validation requires complete pipeline output. The C++ integration contract (binary format, manifest schema) must be validated end-to-end.
+- **Security MUST come first** — every subsequent phase produces signed messages that would be trivially forgeable without it. The dependency chain is non-negotiable: no real signatures → no authenticated gRPC → no SuperGenius dispatch.
+- **SuperGenius connectivity follows security** — the new `SuperGeniusClient` depends on the hardened `NodeIdentity` and `MessageSigning` from Phase 1. It's the largest new code artifact and should be built while persistence work happens in parallel.
+- **Persistence is parallelizable** — Phases 2 and 3 do not share code paths. RocksDB reputation work can proceed independently of the gRPC client. If team size permits, these should run concurrently.
+- **Polish gates the release** — Phase 4 addresses the long tail of known issues. These are individually small but collectively critical for production quality. The FP4_ULTRA processor within this phase is the riskiest item due to GPU compute complexity.
+- **Flutter is the final integration** — depends on a stable, tested C++ engine. Should not be started before Phase 4 is complete.
 
 ### Research Flags
 
-**Phases likely needing deeper research during planning** (`/gsd-plan-phase --research`):
-
-- **Phase 2 (Teacher API):** Teacher licensing decision is unresolved. Research needed: legal analysis of DeepSeek v4 pro API ToS for derivative training, comparison of open-source teacher alternatives (DeepSeek-V3, Llama 3.1 405B, Qwen 3), evaluation of synthetic data quality from open-source vs commercial teachers. This is the single highest-risk open question.
-- **Phase 5 (Knowledge Distillation):** Subspace extraction is research-grade with no existing implementation in this codebase. The strategic docs describe a novel approach; feasibility assessment needed. Recommendation: build logit-based distillation first (well-understood pattern), defer subspace extraction to a follow-on phase after logit-based is validated.
-- **Phase 7 (FP4 Quantization):** Bridging the C++ `FP4Codec.hpp` with Python requires defining and testing a binary format specification. The Grok vetting doc describes JPEG-style macro-block FP4; the existing codec in `src/core/fp4/` may use a different layout. Round-trip test must validate MSE < 1e-6. Also: MLX-LoRA to MNN adapter format conversion has no off-the-shelf solution — may need to export full merged model to ONNX then MNN.
+**Phases needing deeper research during planning:**
+- **Phase 2 (SuperGenius Connectivity):** The PubSub room-based dispatch pattern is unique to SuperGenius. The `gRPCForSuperGenius` service interface, room join/acl semantics, and result channel lifecycle need detailed API research. A spike with the actual SuperGenius test node is recommended before implementing `SuperGeniusClient`.
+- **Phase 4 (FP4_ULTRA processor):** FP4 v3 is a proprietary quantization codec. The `FP4Transport` encoding/decoding + MNN forward pass for quantized models has sparse documentation. Research needed on MNN's quantized inference API and the existing `FP4Codec` in the codebase.
 
 **Phases with standard patterns (skip research-phase):**
-
-- **Phase 1 (Foundation):** Directory restructure, path hygiene, gitignore — all standard Python project patterns. Bug fixes have code-level evidence and clear fixes.
-- **Phase 3 (Training Hardening):** LoRA rank A/B testing and memory estimation are well-documented in MLX-LM examples. Structured logging and status tracking are standard patterns.
-- **Phase 4 (Evaluation):** Perplexity computation on held-out sets is standard. `lm-eval` has extensive documentation. MLflow experiment tracking is well-established.
-- **Phase 6 (Orchestration):** Sequential stage runner with YAML config and checkpoint detection is a standard script-level pattern. No workflow framework needed.
+- **Phase 1 (Security Hardening):** secp256k1, AES-256-GCM, and RFC6979 are all well-documented standard protocols with official library APIs. The STACK.md provides exact implementation patterns. Skip research — go directly to plan-phase.
+- **Phase 3 (Persistence & Reliability):** RocksDB + protobuf is a standard pattern with Context7-verified APIs. nlohmann/json config file parsing is trivial. Skip research.
+- **Phase 5 (Flutter UI):** Application-layer integration outside the C++ engine scope. Standard Flutter macOS patterns. Skip research.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All existing libraries verified at installed versions via `pip list`. New recommendations (mlflow 3.12.0, lm-eval 0.4.12) verified via PyPI release pages and official documentation. API integration pattern (openai → DeepSeek) is the documented DeepSeek recommendation. |
-| Features | HIGH | All 6 existing Python scripts audited line-by-line. 5 specialist checkpoints confirmed on disk. Feature gaps identified through codebase absence + strategic doc requirements. Feature dependency chain validated against both code and ML best practices. |
-| Architecture | HIGH | All existing scripts inspected for integration points. Proposed module boundaries mapped to existing code paths. C++ integration contract defined with binary format spec. File count and directory restructure enumerated. Build order respects all dependency constraints found in code. |
-| Pitfalls | HIGH | 20 pitfalls identified with code-level evidence (line numbers, file paths). Impact × likelihood matrix. Detection methods and prevention strategies for each. Verified against actual code behavior, not assumptions. Phase-specific mapping table. |
+| Stack | HIGH | All recommendations verified against Context7 official docs (gRPC, RocksDB, libsecp256k1, OpenSSL), GitHub release pages, project thirdparty headers, and existing source files. Version pins confirmed (RocksDB v10.6.2 C++17 ceiling, gRPC v1.78.1 stable). |
+| Features | HIGH | Current state verified by direct codebase inspection (stub implementations, passing tests, `#ifdef` guards). Industry patterns validated against Context7: Bittensor (420 snippets), vLLM (58K snippets), LiteLLM (16K snippets). Board issues validated against actual code. |
+| Architecture | HIGH | Primary sources: actual `SGProcessing.proto`, `SGProcessing-OpenAPI.yaml`, `SGProcessingBridge.cpp`, `MessageSigning.cpp`, `NodeIdentity.cpp`. gRPC auth and channel management patterns verified against gRPC official docs (keepalive, MetadataCredentialsPlugin, TLS credentials). |
+| Pitfalls | HIGH | Every critical pitfall cross-referenced against exact source file and line number. Stub behavior confirmed by reading actual implementations. Industry attack vectors (PS3 hack, Bitcoin nonce reuse) are well-documented. Phase warnings mapped to specific PRODUCTION_ROADMAP tasks. |
 
-**Overall confidence:** HIGH
-
-All four research dimensions are grounded in direct codebase audit, not assumptions or external-only sources. The primary uncertainty is the teacher licensing decision (legal/compliance, not technical) and the research-grade subspace extraction approach (novelty, not ignorance). These are flagged as open questions.
+**Overall confidence:** HIGH — all four research files achieved HIGH confidence independently. The codebase was examined directly, not inferred.
 
 ### Gaps to Address
 
-- **Teacher licensing decision (BLOCKING):** Must be resolved by the user before any API code is written. The current stack recommendation (DeepSeek v4 pro API via openai client) and the architecture design (TeacherClient → SyntheticDataGenerator → Distiller) assume API access. If the user decides open-source only, the teacher pipeline switches to local inference (requires downloading a 370B+ teacher model and running on Mac Studio — potentially infeasible on current hardware) or using open-source model APIs (e.g., Together AI, Fireworks). Resolution needed in Phase 2 planning.
-
-- **Subspace extraction feasibility:** Strategic docs describe this as a key differentiator but no implementation exists, open-source or otherwise. Logit-based distillation (temperature-scaled KL) is the fallback. Recommendation: build logit-based first, evaluate subspace approach as a research spike in parallel. If subspace extraction works, swap it in; if not, logit-based is still a complete distillation pipeline.
-
-- **C++ `FP4Codec.hpp` alignment:** The existing codec uses a specific binary layout (documented in `src/core/fp4/FP4Codec.hpp`). The Python `FP4Exporter` must produce byte-identical output. Plan a round-trip validation test in Phase 7 planning. If the C++ codec spec changes during Phase 4 C++ development, the Python exporter must track it.
-
-- **MNN adapter format conversion:** No off-the-shelf MLX-LoRA → MNN converter exists. Options: (1) export full merged model (base + LoRA) to ONNX → MNN, (2) build custom safetensors → MNN weight loader in C++, (3) use MLX native inference in C++ via MLX C API (if available). This decision can be deferred to Phase 7 planning but should be flagged.
-
-- **GPU memory for 30B training at batch_size=4:** The current config pushes a 64GB Mac Studio to its limit. qLoRA (4-bit base quantization) is the recommended mitigation for Phase 3, but it cuts base model precision. Validation needed: does qLoRA-trained specialist match bf16-trained specialist quality on held-out test sets? If not, batch_size=1 with full precision may be the only safe path (slower but correct).
+- **SuperGenius service interface details:** The specific internal design of the `gRPCForSuperGenius` service was not examined (it's in the sibling SuperGenius repo). A spike during Phase 2 planning should verify the PubSub room join flow, auth requirements, and result channel lifecycle against the actual SuperGenius implementation.
+- **GNUS token economics:** Staking amounts, slashing conditions, and reward distribution parameters were not researched. Pitfall #13 (Sybil attack prevention via PoS) recommendations are generic until these parameters are known. Defer to the milestone where on-chain identity/reputation integration is scoped.
+- **MNN LLM API for model warm-up:** Shader compilation and model memory behavior is inferred from MNN docs and GPU patterns, not from testing the actual MNN version in thirdparty. Add a warm-up inference test during Phase 1 to verify.
+- **FP4_ULTRA processor details:** The SGProcessingManager FP4 path (`SGProcessors.json`) needs mapping to the existing `FP4Codec`. This is flagged as a research item in Phase 4 (see Research Flags above).
 
 ## Sources
 
-### Primary (HIGH confidence)
-- **Codebase audit of `gnus-poc/`:** All 6 Python files read line-by-line. 5 specialist checkpoints confirmed in `models/specialists_mlx/`. Source niche analysis results in `data/analysis/source_based_niches.json`. Training metadata verified per specialist. Training config (OVERRIDES dicts, LoRA params) extracted.
-- **Strategic docs:** ChatGPT Idea Vetting (dAMoE architecture, cost projections), Grok Vetting (FP4 pyramid quantization, Common Pile rationale, teacher licensing analysis), Grok Idea Vetting (feasibility assessment). All contexualized against actual codebase state.
-- **MLX 0.30.0 quantization API:** Verified via `help(mlx.core.quantize)` in installed environment. Supports mxfp4, nvfp4, affine modes with configurable group_size and bits.
-- **DeepSeek API documentation:** Confirmed OpenAI-compatible endpoint, `openai` Python SDK as official recommendation, `logprobs` parameter support for distillation logit extraction.
-- **MLflow 3.12.0 release:** Verified via PyPI (released May 5, 2026). DeepSeek integration confirmed in official integrations list. LLM tracing and evaluation support confirmed.
-- **lm-eval 0.4.12:** Verified via PyPI (released May 11, 2026). Lighter base install with `[hf]` extra. MLX models not directly supported — confirmed via documentation gap.
+### Primary (HIGH confidence — verified against codebase + official docs)
+- Context7: gRPC (`/grpc/grpc`) — Callback API, CompletionQueue thread model, keepalive config
+- Context7: RocksDB (`/facebook/rocksdb`) — WriteBatch, WAL options, pipelined writes, v10.7.0 C++20 requirement
+- Context7: libsecp256k1 (`/bitcoin-core/secp256k1`) — Sign/verify API, normalization, context creation, RFC6979
+- Context7: OpenSSL (`/openssl/openssl`) — EVP AES-256-GCM patterns, PBKDF2 key derivation
+- Context7: Bittensor (`/latent-to/bittensor`) — Neuron wallet auth, axon/dendrite patterns, stake-weighted sybil resistance
+- Context7: vLLM (`/vllm-project/vllm`) — Health endpoints, API key auth, security deployment patterns
+- Context7: LiteLLM (`/berriai/litellm`) — Gateway request flow, retry/fallback patterns
+- gRPC official docs (grpc.io) — Auth guide, IMQ keepalive, MetadataCredentialsPlugin, interceptors
+- Project source files — All stub implementations, `#ifdef` guards, `NodeIdentity` PIMPL, `Error.hpp` codes, `SGProcessing.proto`, `SGProcessing-OpenAPI.yaml`, `genius_api.proto`
+- Project planning docs — `PRODUCTION_ROADMAP.md`, `PROJECT_BOARD_ISSUES.md`, `PROJECT.md`, `CONCERNS.md`
 
-### Secondary (MEDIUM confidence)
-- **deepseek-sdk 0.1.1:** Verified via PyPI (Oct 2025, single maintainer, 5.3KB). Recommendation to avoid is based on maintainer risk and redundancy with `openai` SDK — not on bugs or known issues.
-- **open-webui dependency (langfuse 2.44.0):** Already installed as open-webui dependency. Confirmed via `pip list`. Not suitable for benchmark evaluation (observability/tracing tool, not evaluation harness).
+### Secondary (MEDIUM confidence — synthesized from multiple sources)
+- Industry standards: TLS for inter-node communication (vLLM + community consensus)
+- Circuit breakers and graceful degradation patterns (LiteLLM + general gateway practice)
+- libsecp256k1 safegcd implementation (informative, not directly actionable)
 
 ### Tertiary (LOW confidence — needs validation)
-- **Subspace extraction distillation:** Referenced in strategic docs as "teaching phase workflow" but no existing implementation found in codebase or open-source. Feasibility assessment needed in Phase 5 research spike.
-- **C++ FP4Codec binary layout:** Documented in `src/core/fp4/FP4Codec.hpp` but not verified against the Grok vetting doc's JPEG-style macro-block description. Round-trip test required to confirm alignment.
+- MNN LLM API behavior for shader caching and model warm-up (inferred, not tested)
 
 ---
-*Research completed: 2026-05-27*
+*Research completed: 2026-05-28*
 *Ready for roadmap: yes*
-*Blocking issue: Teacher licensing decision (Pitfall #6) — user must resolve before Phase 2*

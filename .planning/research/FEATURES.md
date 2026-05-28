@@ -1,156 +1,169 @@
-# Feature Landscape: gnus-poc ELM Training & Distillation Pipeline
+# Feature Landscape
 
-**Domain:** Expert Language Model training/distillation pipeline for decentralized specialist swarm
-**Researched:** 2026-05-27
-**Confidence:** HIGH (existing codebase audited, strategic docs reviewed)
+**Domain:** Production decentralized AI inference engine connecting to blockchain compute network
+**Project:** GNUS NEO SWARM (SuperGenius ecosystem)
+**Researched:** 2026-05-28
+**Overall confidence:** HIGH
 
----
+## Executive Summary
 
-## Executive Feature Summary
+GNUS NEO SWARM transitions from a prototype that happens to produce real Mistral-7B text to a production-grade decentralized AI inference engine that securely connects to the SuperGenius blockchain compute network. The feature landscape divides cleanly into three tiers: table stakes without which the system is unsafe or inoperable in production, differentiators that give the GNUS ecosystem its competitive advantage over centralized AI APIs, and anti-features that would divert resources from what matters for this milestone.
 
-The gnus-poc codebase already has a functional **data → train** pipeline that produces LoRA adapters for 5 source-aligned specialists (medical, qa_technical, code, encyclopedic, patents) on Qwen3-30B-MoE bases using MLX-LM. The milestone v1.1 target spans 7 additional capability areas that are entirely absent: synthetic data generation, knowledge distillation, evaluation/benchmarking, experiment tracking, FP4 quantization integration, deployment/packaging, and orchestration. The roadmap must add these capabilities sequentially, respecting that distillation depends on working evaluation, and orchestration depends on repeatable training+eval loops.
-
----
+This analysis is grounded in three sources: the actual codebase state (46 passing tests, all stub-mode subsystems), the validated project board issues, and the production patterns observed in Bittensor (decentralized AI), vLLM (production inference serving), and LiteLLM (AI gateway operations). The recommendation emphasizes security-first ordering — cryptographic identity and message signing before network dispatch — because connecting to a blockchain network without real authentication would be worse than not connecting at all.
 
 ## Table Stakes
 
-Features users (or the system) expect. Missing = milestone incomplete.
+Features users (node operators) and the network itself expect. Missing any one = system is unsafe, crashes in production, or fails at its core purpose.
 
-| Feature | Why Expected | Complexity | Status | Notes |
-|---------|--------------|------------|--------|-------|
-| Niche discovery & data extraction | Must identify new specialist domains from Common Pile | Medium | **EXISTS** | `analyze_common_pile.py` (TF-IDF clustering), `extract_source_niches.py` (source-label extraction). Produces `source_based_niches.json` with 5 viable niches |
-| Dataset preparation with train/val/test splits | Required for any supervised fine-tuning | Low | **EXISTS** | `prepare_datasets.py` creates HF `DatasetDict` per niche, Qwen chat-template formatting, quality filters (100-50k char range) |
-| LoRA fine-tuning pipeline | Core training mechanism for specialists | Medium | **EXISTS** | `train_specialists_mlx.py` uses `mlx_lm.lora.train_model()`. 30B MoE bases, rank=16, 1000 iters, GPU-skipping checkpoint logic. Produces `adapters.safetensors` |
-| Synthetic data generation via teacher model | Distillation requires teacher-generated training examples | High | **MISSING** | No API client for DeepSeek v4 pro. No prompt templates, no quality filtering, no diversity strategies. Must be built from scratch |
-| Per-specialist evaluation & benchmarking | Must verify specialists actually improved vs. base model | High | **MISSING** | No held-out accuracy measurement, no latency benchmarks, no parameter efficiency metrics. No task-specific metrics per niche |
-| Knowledge distillation (teacher→student) | Core milestone deliverable: subspace extraction, logit transfer | High | **MISSING** | No distillation code exists. Strategic docs reference 370B+ teacher → subspace extraction → distillation → FP4 quant workflow, but zero implementation |
-| Experiment tracking | Must compare different LoRA ranks, base models, teacher prompts | Medium | **MISSING** | No run comparison, no hyperparameter search, no artifact management. Training metadata saved as per-specialist JSON but no cross-run aggregation |
-| Orchestration layer | Must tie niche discovery → data prep → train → eval → deploy into a single command | High | **MISSING** | Each step is a standalone script. No DAG, no retry logic, no resource allocation, no parallel training orchestration |
-| Deployment packaging | Trained adapters must be exportable to MNN/Vulkan runtime | High | **MISSING** | No adapter merging code. No MLX → MNN/ONNX format conversion. No model+adapter bundling. FP4 quantization exists in C++ (`FP4Codec.hpp`) but is not integrated into the Python pipeline |
-
----
+| Feature | Why Expected | Complexity | Subsystem | Notes |
+|---------|--------------|------------|-----------|-------|
+| **Real LLM inference with MNN + SentencePiece** | Without real inference, there is no product. Both libraries are linked, code paths exist behind `#ifdef` guards. | Low | Engine | MNN and SentencePiece are already linked but the LLM text generation processor in SGProcessingManager is missing. The direct MNN path works; the SGProcessing path needs Issue #1 resolved. |
+| **Cryptographic node identity (secp256k1)** | Every production decentralized system (Bittensor, libp2p, Ethereum) requires cryptographic identity. Nodes without real keys cannot be trusted by peers or the network. | Low | Security | Library is linked, headers included, `GENIUS_HAS_SECP256K1` definition missing. Single-line cmake fix. Already has PIMPL'd `NodeIdentity` class with Generate/Sign/Verify/PeerID. |
+| **Message signing and verification** | Currently `MessageSigning::Verify()` always returns `true`. Any node can impersonate any other. This is the highest-risk security gap in the codebase — worse than no auth because it creates a false sense of security. | Medium | Security | Depends on secp256k1 enablement. Requires real `Verify` implementation calling `NodeIdentity::FromPublicKeyHex()` then `Verify()`. Must include tests for tampered signatures, wrong keys, empty signatures. |
+| **gRPC network dispatch to SuperGenius** | The system's raison d'être is connecting to the SuperGenius blockchain compute network. `SubmitNetwork()` currently returns `Error::NotImplemented`. | High | SGProcessing | Requires implementing gRPC client to `gRPCForSuperGenius` (already in SuperGenius repo), adding endpoint config (`--sg-endpoint`), and handling connection lifecycle (connect, retry, timeout, disconnect). |
+| **Crash-safe persistent reputation** | Reputation scores must survive restarts or the swarm has no memory of which nodes are trustworthy. `ReputationStorage::Deserialize` crashes on corrupt rows (unwrapped `std::stod`/`std::stoull` calls). | Medium | Reputation | RocksDB is linked. Need: try/catch wrappers for deserialization, corrupt-row skipping, and a test that a deliberately corrupt DB doesn't crash the process. |
+| **Error handling in all production code paths** | Stub-mode systems (security, gRPC) swallow errors or return dummy values. Production code must propagate real errors to callers. | Medium | Cross-cutting | Covers: real gRPC error codes, timeout handling, connection refused, auth failure. Error codes already defined in `Error.hpp` (17 codes covering all domains). |
+| **Remove hardcoded vocab size (32000)** | `SentencePieceTokenizer::VocabSize()` returns 32000 regardless of the loaded model. Logit vectors are allocated with this hardcoded size. A non-Mistral model crashes or produces garbage. | Low | Engine | Replace literal `32000` with `tokenizer_->VocabSize()` once SentencePiece is linked. |
+| **Fix FFI re-init bug** | `GeniusSlmInit` resets `g_server` but `std::call_once` flag (`g_init_flag`) is never reset. Third init after a chat call leaves `g_server == nullptr`, causing crash on next chat. | Low | FFI | Remove `std::call_once`/`g_init_flag`, use simple null-check lazy init. Add test for multi-init sequence. |
+| **Health/readiness endpoint** | Operators need to know if the engine is alive and capable of inference before routing traffic. Pattern seen in every production system (vLLM `/health`, Bittensor axon status, LiteLLM gateway). | Low | API | Add `/health` endpoint (or CLI equivalent) reporting model load status, key validity, gRPC connection state. |
 
 ## Differentiators
 
-Features that set the gnus-poc approach apart. Not expected by generic pipelines, but create competitive advantage for the dAMoE architecture.
+Features that set GNUS NEO SWARM apart from centralized AI APIs (OpenAI, Anthropic) and other decentralized platforms (Bittensor). These are partially implemented already; productionizing them makes the competitive advantage real.
 
-| Feature | Value Proposition | Complexity | Status | Notes |
-|---------|-------------------|------------|--------|-------|
-| FP4 pyramid-based quantization integrated into pipeline | Takes the novel FP4 method (Gaussian/Laplacian pyramids, spline blending, macro-block scales) from prototype in `FP4Codec.hpp` and folds it into the training/deployment workflow | High | **MISSING** | Strategic docs describe a proprietary breakthrough; must bridge C++ codec with Python pipeline. Expected 0.2% storage overhead, 0.1-0.4 ppl degradation |
-| Subspace extraction distillation (not just logit-based) | Per strategic docs, extract specialized subspaces from 370B+ teacher rather than simple output mimicry. Potentially better specificity than vanilla knowledge distillation | Very High | **MISSING** | Referenced in docs as "teaching phase workflow." No existing open-source implementation for this approach. Requires research-phase feasibility assessment |
-| Multi-model base support per specialist | Current code already maps code specialist to Qwen3-Coder, others to Qwen3-Instruct. Extending this to per-niche best open-source model (e.g., DeepSeek-Math for math niches) leverages dAMoE's heterogeneous expert advantage | Medium | **PARTIAL** | `SPECIALIST_BASE_MODELS` dict exists. Extending requires model-specific tokenizer/format handling, which is not yet generalized |
-| Human feedback LoRA loops | Strategic docs describe thumbs-up/down → reputation adjustment → LoRA retraining feedback cycle. This is the "RLHF for decentralized specialists" differentiator | High | **MISSING** | No feedback collection, no rating storage, no retraining trigger. Requires swarm-side integration (not just pipeline) |
-| Niche auto-discovery → auto-train pipeline | Existing clustering scripts can discover 20+ niches. Automating the pipeline so new niches trigger dataset prep + training without manual intervention creates dAMoE's organic expert growth | High | **MISSING** | `analyze_common_pile.py` discovers but doesn't trigger. Needs quality gating (data sufficiency thresholds, domain coverage metrics) |
-| Swarm-ready adapter packaging | Training produces per-niche adapters; the differentiator is packaging them for P2P distribution (adapter checksums, versioning, LoRA signatures) | Medium | **MISSING** | No versioning scheme, no checksum, no LoRA identity for swarm advertisement messages |
-| Cost-tracking & resource estimation | Before scaling to 1024 specialists, the pipeline should estimate GPU hours per specialist, enabling the strategic docs' cost projections ($134k for 8×H100 over 2 weeks) | Low | **MISSING** | Training metadata logs duration but doesn't project forward. Simple time-per-iteration × target-specialists math would enable planning |
-
----
+| Feature | Value Proposition | Complexity | Subsystem | Notes |
+|---------|-------------------|------------|-----------|-------|
+| **Swarm routing with reputation-weighted consensus** | No single point of failure or censorship. The router (`SingleNode`/`Specialist`/`Swarm` modes) can distribute inference across multiple nodes, using reputation scores to weight their contributions. This is what makes it "decentralized" rather than "proxied." | Medium (existing) | Router | Already implemented but reputation scores are ephemeral (no RocksDB persistence). Productionizing means: persistence makes scores survive restarts, real message signing ensures score updates come from legitimate peers. |
+| **CRDT-based reputation sync** | Conflict-free replicated data type for reputation scores means nodes can share trust information peer-to-peer without a central authority. Reputation converges even with network partitions. | Medium (existing) | Reputation | `ReputationCRDT` is implemented. Production-grade needs: RocksDB-backed snapshot saving/loading, merge-on-connect with peers, anti-entropy protocol for stale nodes. |
+| **SGProcessing bridge for compute offload** | Separates the engine (lightweight router + tokenizer) from heavy inference (GPU-heavy MNN forward pass). Enables mobile/edge nodes to use the swarm while server nodes do the compute. | High | SGProcessing | `SGProcessingBridge` builds GNUS-schema JSON and dispatches to `SGProcessingManager`. Phase 1 (direct) works. Phase 2 (network) is the differentiator — submit work to the SuperGenius network, get results back, verify they match. |
+| **FP4 v3 quantization** | 4-bit weight quantization cuts model size and memory by 4x vs FP16. This is what makes Mistral-7B runnable on consumer hardware (phones, laptops). Proprietary codec, not available in any other inference engine. | Medium | Engine | FP4 decode/encode exists. FP4_ULTRA processor in SGProcessingManager is missing (Issue #2). Without it, quantized models can't use the network dispatch path. |
+| **Native Metal/Vulkan GPU acceleration** | MNN provides GPU acceleration via Metal (Apple) and Vulkan (cross-platform). Production systems need GPU for throughput; CPU inference is too slow for interactive use. | Low (existing) | Engine | Already working. MNN linked, MoltenVK linked. Production concern: GPU memory management, OOM recovery, graceful fallback to CPU. |
+| **Knowledge retrieval + fact validation** | Goes beyond raw LLM generation by retrieving relevant facts and validating claims against them. This is a differentiator vs. pure LLM APIs that hallucinate with no factual ground truth. | Medium | Knowledge | TF-IDF retrieval stub exists. Fact validation with tolerance windows exists. Production: replace TF-IDF with something more accurate (not this milestone — deferred), harden validation against edge cases. |
+| **Specialist post-processing (grammar, math)** | Specialist models handle grammar correction and math verification after the main LLM inference. This is a composable micro-service pattern unique to the swarm architecture. | Low (existing) | Post-processing | Already implemented. Works as a pipeline after inference. |
+| **YAML/JSON config file support** | Eliminates the need to recompile for every configuration change. Operators can tune reputation coefficients, knowledge thresholds, network settings, and model paths from a config file. | Medium | Config | Covered by Issue #8. yaml-cpp is in thirdparty. CLI already supports flags; config file adds a layer. |
 
 ## Anti-Features
 
-Features to explicitly NOT build in this milestone.
+Features to explicitly NOT build in this milestone. These would consume resources without moving the needle on production readiness or would introduce complexity that risks delaying the real priorities.
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| Full pretraining from scratch | Milestone is about distillation/LoRA from existing base models. Pretraining 1B+ models requires cluster-scale compute (docs estimate $135k+ for 8×H100 over 2 weeks) and is out of scope | Use Qwen3, DeepSeek, Llama open-source bases as starting points |
-| Real-time serving/inference endpoints | Pipeline is offline training. Serving belongs in the C++ `genius_node` via MNN, not in the Python gnus-poc pipeline | Keep pipeline output as adapter files; serving is C++ layer concern |
-| Multi-teacher distillation (aggregating multiple frontier models simultaneously) | Docs acknowledge licensing restrictions on OpenAI/Anthropic outputs for derivative training. Multi-teacher also multiplies API costs (estimated $480k+ for 400M token dataset via Claude) | Use single DeepSeek v4 pro API as teacher (you have API access). Concentrate on distillation quality not teacher diversity |
-| Dynamic adapter loading/hot-swapping during inference | Belongs in the C++ runtime, not the Python training pipeline | C++ layer handles adapter activation; pipeline just produces the files |
-| AutoML/hyperparameter optimization frameworks (Optuna, Ray Tune) | Adds significant dependency surface and complexity for a pipeline that currently runs on a Mac Studio. Premature optimization for a PoC | Manual A/B testing via experiment tracking config files is sufficient for 5→N specialists |
-| Streaming/distributed training across multiple Macs | Pipeline runs on single Mac Studio M2 Ultra. Distributed training infrastructure is a swarm networking problem (Phase 6), not a training pipeline problem | Keep single-machine training. Orchestration can sequence specialists, but parallelization is out of scope |
-| Proprietary model distillation (GPT-4, Claude, Gemini outputs) | Strategic docs explicitly conclude: "The GNUS.ai decentralized specialist system should be 100% open-model-based." API ToS prohibit derivative training. Grok license prohibits training other language models | Use DeepSeek v4 pro API (you have access). Verify license terms for derivative use. Fall back to open-source teacher distillations if needed |
-| On-the-fly FP4 quantization during LoRA training (QAT) | FP4 codec is a post-training quantization pipeline per strategic docs. QAT would require modifying the training loop in MLX-LM, which is brittle and complex | Apply FP4 quantization as a post-training step after LoRA adapters are saved. Keep training in FP16/BF16 |
-
----
+| **Full libp2p P2P network (GossipSub, mDNS, DHT)** | Vast complexity for this milestone. The system already connects to SuperGenius via gRPC for network dispatch. P2P interconnect between swarm nodes is a Phase 3+ concern after gRPC dispatch to SuperGenius is proven. | Route all inter-node communication through SuperGenius gRPC first. libp2p skeleton code exists but should remain skeleton until gRPC path is battle-tested. |
+| **OAuth / social login for swarm nodes** | Engine-level feature that belongs in the application layer (Flutter UI), not the C++ engine. The engine should authenticate nodes via secp256k1 keys, not web identities. | Node authentication via signed secp256k1 messages. UI login is a Flutter concern for a later milestone. |
+| **Real-time streaming token output (SSE/WebSocket)** | UX polish. The system already returns complete responses synchronously. Streaming adds complexity (callback management, partial JSON framing, Flutter stream integration) without improving reliability or security. | Defer to UX milestone. Production system works fine with batch responses for the compute network use case. |
+| **Semantic embeddings for knowledge retrieval** | TF-IDF stub works for the fact-matching use case. Replacing it with embeddings (sentence-transformers, FAISS) adds Python dependencies, model loading overhead, and an entirely new inference pipeline. | Keep TF-IDF for this milestone. Evaluate embeddings when knowledge retrieval accuracy becomes a measurable bottleneck. |
+| **Multi-model hot-swapping (load/unload at runtime)** | Complexity far exceeds value for a system that primarily runs Mistral-7B. vLLM supports LoRA adapter loading but warns it's unsafe for untrusted clients. | Single-model focus. If multi-model is needed later, implement as separate SGProcessing passes, not runtime swapping. |
+| **iOS/Android deployment** | macOS is the proven platform. Mobile deployment requires platform-specific build toolchains, code signing, and app store compliance that distracts from core production readiness. | macOS first. Mobile follows once the macOS production system is stable. |
+| **Web dashboard / admin UI** | Another application-layer concern. The CLI (`neo-swarm`) already provides all operator functionality. | Extend CLI with more commands if needed. Dashboard is a Flutter UI project for a later milestone. |
+| **Model training / fine-tuning** | GNUS NEO SWARM is an inference engine. Training is a completely different pipeline with different data requirements, compute patterns, and infrastructure. | Keep inference-only. Training belongs in a separate project or a much later milestone. |
 
 ## Feature Dependencies
 
 ```
-Source Niche Discovery ───► Dataset Preparation ───► LoRA Training ───► Evaluation ───► Quantization ───► Deployment
-        (EXISTS)              (EXISTS)                (EXISTS)          (MISSING)      (MISSING)        (MISSING)
-                                    │
-                                    ▼
-                          Synthetic Data Generation ◄── Teacher API Client
-                                (MISSING)                  (MISSING)
-                                    │
-                                    ▼
-                          Knowledge Distillation ───► LoRA Training
-                                (MISSING)               (reuses EXISTS)
-                                    │
-                                    ▼
-                          Experiment Tracking ◄── requires Evaluation + Distillation
-                                (MISSING)
-                                    │
-                                    ▼
-                          Orchestration Layer ◄── requires ALL above
-                                (MISSING)
+Real LLM Inference (MNN + SentencePiece)
+ └─> Secp256k1 Node Identity ──> Message Signing & Verification
+      │                               │
+      │                               └─> Authenticated gRPC to SuperGenius
+      │                                        │
+      └─> RocksDB Reputation Persistence ──> CRDT Reputation Sync
+               │
+               └─> Reputation-Weighted Swarm Routing
+
+SGProcessing FP4_ULTRA Processor ──> FP4 Network Dispatch
+Config File ──> All subsystems (unblocks operator testing)
+Fix re-init Bug ──> FFI Tests ──> Flutter Integration
+Remove Hardcoded 32000 ──> Multi-model Support
 ```
 
-**Key dependency constraints:**
-- Evaluation MUST be built before distillation (can't measure distillation quality without eval)
-- Synthetic data generation MUST be built before distillation (teacher → student requires teacher-generated data)
-- Experiment tracking SHOULD be built alongside evaluation (eval results are what you track)
-- Deployment CAN be built in parallel with evaluation+distillation (independent output path)
-- Orchestration is the LAST feature (wraps everything else)
+**Critical path (must be sequential):**
+1. MNN + SentencePiece → real inference working
+2. secp256k1 → node has real identity
+3. MessageSigning → peers can authenticate each other
+4. gRPC SubmitNetwork → authenticated dispatch to SuperGenius
 
----
+**Parallelizable:**
+- RocksDB persistence fixes (independent of security)
+- Config file support (independent of everything)
+- FFI re-init fix (independent of everything)
+- Hardcoded value removal (independent, but easier after SentencePiece linked)
 
-## What the 5 Existing Specialists Provide vs. What's Missing
+**Composable (can be added incrementally):**
+- FP4_ULTRA processor (adds a new data type, doesn't break existing ones)
+- CRDT sync (works with or without network dispatch)
+- Knowledge retrieval improvements (separate pipeline)
 
-| Capability | Existing (5 specialists) | Missing for N specialists |
-|------------|--------------------------|--------------------------|
-| **Data source** | 5 hardcoded niches in `TARGET_NICHES` dict (`extract_source_niches.py`) | Dynamic niche selection from clustering results (`analyze_common_pile.py` produces 20 clusters, but only 5 source-mapped) |
-| **Base models** | Qwen3-30B-MoE-Instruct, Qwen3-Coder-30B-MoE | No model registry. Adding new base models requires manual dict entries. No per-niche model recommendation logic |
-| **LoRA config** | Single config: rank=16, dropout=0.05, scale=20.0, iters=1000 | No A/B testing for rank, target modules, layers. One-size-fits-all may not be optimal for new niches |
-| **Training data format** | Qwen3 chat template (`<|im_start|>` tags) hardcoded in `format_for_training()` | Adding new base models with different chat templates requires code changes. No template registry |
-| **Quality filtering** | 100-50000 char range, source matching | No perplexity filtering, no deduplication, no language detection, no content safety screening |
-| **Checkpoint management** | Checkpoints saved per 200 iters, final adapter at end | No checkpoint comparison, no best-checkpoint selection by validation loss, no pruning of old checkpoints |
-| **Training metadata** | Per-specialist JSON with duration, config | No cross-specialist comparison, no benchmark scores, no model card generation |
-| **Adapter storage** | `adapters.safetensors` per niche directory | No adapter merging (combining multiple LoRAs), no adapter diffing (what changed between versions), no adapter hashing for swarm identity |
+## MVP Recommendation
 
----
+### Must-complete for this milestone (P0 — blocks production):
 
-## MVP Recommendation for Milestone v1.1
+1. **Enable secp256k1 node identity** (Issue #3) — trivial cmake fix, unlocks everything
+2. **Fix MessageSigning::Verify** (Issue #4) — closes the highest-risk security gap
+3. **Implement SubmitNetwork() via gRPC** (Issue #5) — the core network connectivity feature
+4. **Add LLM text generation processor** (Issue #1) — enables the SGProcessing path for LLMs
+5. **Fix ReputationStorage deserialize crash** (PROD-3.2) — prevents production crashes from corrupt data
+6. **Fix GeniusSlmInit re-init bug** (Issue #7) — prevents crash on repeated initialization
+7. **Add `--sg-endpoint` CLI flag** (PROD-4.2) — operator needs to configure where to connect
+8. **Fix test linker errors** (Issue #6) — can't test what you can't build
 
-**Prioritize in this order:**
+### Should-complete for this milestone (P1 — necessary for production quality):
 
-### Phase A: Foundational Gaps (build first, everything depends on them)
-1. **Synthetic data generation** — DeepSeek v4 pro API client with prompt templates per niche, quality filtering, output diversity checks
-2. **Per-specialist evaluation framework** — held-out perplexity, task-specific accuracy, latency benchmarks, parameter efficiency metrics
+9. **Add FP4_ULTRA processor** (Issue #2) — unlocks quantized model dispatch
+10. **Remove hardcoded vocab size 32000** (PROD-5.1) — required for any non-Mistral model
+11. **Encrypt node key file at rest** (PROD-2.3) — security hardening for key storage
+12. **Add config file support** (Issue #8) — operators can tune without recompiling
+13. **Add security tests** (Issue: security tests) — prove Verify is fixed, key generation works
 
-### Phase B: Core Milestone Deliverables
-3. **Knowledge distillation pipeline** — logit-based (temperature-scaled KL divergence) + subspace extraction approach, reusing existing LoRA training loop
-4. **Experiment tracking** — run comparison across LoRA ranks (4, 8, 16, 32), teacher prompt variants, niche clusters; artifact management
+### Could-complete for this milestone (P2 — nice to have):
 
-### Phase C: Pipeline Unification
-5. **Orchestration layer** — CLI-driven DAG: `niche-discover → data-prep → synth-gen → distill → train → eval → quantize → package`
-6. **FP4 quantization integration** — bridge `FP4Codec.hpp` logic into Python post-training step, validate on existing specialists
-7. **Deployment packaging** — adapter merging, MLX→ONNX export, checksum + versioning
+14. **Add FFI layer tests** — prove re-init fix works
+15. **Add knowledge module tests** — prove fact validation is correct
+16. **Add health/readiness endpoint** — operational observability
+17. **Wire Flutter on macOS device** — end-to-end chat UI with real engine
 
-**Defer:**
-- Human feedback LoRA loops (requires swarm runtime, not just pipeline)
-- Auto-niche discovery triggers (needs quality gates validated on current 5 before automating)
-- Multi-model base support generalization (current 2-base approach is sufficient for PoC)
+### Deferred to subsequent milestones:
 
----
-
-## Complexity Assessment
-
-| Feature | Complexity | Reason |
-|---------|------------|--------|
-| Synthetic data generation | **High** | API client integration, prompt engineering per niche, quality filtering pipeline. But well-understood pattern; many open-source examples |
-| Evaluation framework | **High** | Requires per-niche metrics design (coding ≠ medical ≠ Q&A). Perplexity is easy; task-specific BLEU/ROUGE/F1 requires domain judgment |
-| Knowledge distillation | **Very High** | Logit-based is straightforward (temperature scaling + KL loss). Subspace extraction is research-grade with no existing implementation in this codebase. May need phased approach: logit-based first, subspace later |
-| Experiment tracking | **Medium** | MLflow or Weights & Biases integration. Or lightweight CSV/JSON approach for PoC. Pattern is well-established |
-| FP4 quantization integration | **High** | Bridging C++ FP4Codec logic into Python. May need pybind11 or reimplementation. Per-docs, this is proprietary novel IP |
-| Deployment packaging | **Medium** | MLX→ONNX has known paths. Adapter merging is `mlx_lm.fuse()`. Versioning is convention. Well-understood, just needs wiring |
-| Orchestration layer | **Medium** | CLI entry point, sequential step execution, error handling. Not a real DAG scheduler — just a script orchestrator for PoC |
-
----
+- Full P2P libp2p integration
+- Streaming token output
+- Semantic embeddings
+- Mobile deployment
+- Web dashboard
+- Multi-model support beyond Mistral-7B
+- Model training/fine-tuning
 
 ## Sources
 
-- **Codebase audit (HIGH):** All 6 Python files in `gnus-poc/` read and analyzed. 5 specialist checkpoints confirmed in `gnus-poc/models/specialists_mlx/`. Source niche analysis results in `gnus-poc/data/analysis/source_based_niches.json`.
-- **Strategic docs (HIGH):** ChatGPT Idea Vetting (dAMoE architecture), Grok Vetting (FP4 pyramid quantization, Common Pile rationale), Grok Idea Vetting (feasibility assessment by Grok of ChatGPT's analysis), gnus_llm_tech_spec (placeholder — no substantive content).
-- **Roadmap context (HIGH):** `.planning/ROADMAP.md` Phase 4 ELM Expansion requires real inference (Phase 3 MNN) before C++ ELM integration. gnus-poc is the training pipeline that produces ELMs for the C++ runtime.
-- **PROJECT.md (HIGH):** Milestone v1.1 explicitly targets synthetic data, LoRA training, distillation, evaluation, orchestration, FP4 quantization, and experimentation.
+### Codebase analysis (HIGH confidence)
+- `PRODUCTION_ROADMAP.md` — 17 validated tasks, priority ordering, dependency chain
+- `PROJECT_BOARD_ISSUES.md` — 8 validated issues with acceptance criteria
+- `PROJECT.md` — architecture, current state, constraints, known issues
+- `SGProcessingBridge.cpp` — Phase 2 stub confirmed (`Error::NotImplemented`)
+- `MessageSigning.cpp` — always-true Verify confirmed (line 59)
+- `NodeIdentity.hpp` — full secp256k1 interface ready behind PIMPL
+- `Error.hpp` — 17 error codes covering all domains
+
+### Bittensor architecture (HIGH confidence — Context7 + official docs)
+- Neuron architecture: wallet-based authentication, coldkey/hotkey pattern
+- Axon: FastAPI-backed HTTP server with blacklist, priority, verify per synapse
+- Dendrite: client-side wallet signing for authenticated requests
+- Stake-weighted sybil resistance: validators stake TAO, miners prove compute
+- Source: Context7 `/latent-to/bittensor` (420 snippets), `/websites/bittensor` (7 snippets)
+
+### vLLM production patterns (HIGH confidence — official docs)
+- `/metrics` endpoint: Prometheus format with request counts, token histograms, success/abort rates
+- API key authentication: Bearer token for `/v1` endpoints, unprotected endpoints warned against
+- Security: reverse proxy deployment essential, inter-node communication insecure by default
+- Request limits: `VLLM_MAX_N_SEQUENCES` prevents memory exhaustion attacks
+- Health check: `/health` and `/ping` endpoints for orchestration
+- Source: Context7 `/vllm-project/vllm` (58203 snippets), `docs.vllm.ai` security docs
+
+### LiteLLM gateway patterns (HIGH confidence — Context7)
+- Request flow: authentication → rate limiting → routing → cost tracking → logging
+- Virtual keys: per-key spend tracking, budget limits, model RPM/TPM rate limiting
+- Retry/fallback: model group retry policies, backup model routing
+- Audit trail: `litellm-changed-by` header for accountability
+- Source: Context7 `/berriai/litellm` (16015 snippets)
+
+### Industry standards (MEDIUM confidence — synthesized from multiple sources)
+- **TLS for inter-node communication** — vLLM notes internal channels are unencrypted; production systems use network isolation or mTLS sidecars
+- **Circuit breakers** — all production gateways implement circuit breaking for upstream failures; prevents cascading failure
+- **Graceful degradation** — stub-mode architecture already implements this pattern; production extends it to timeouts, partial results, capacity limits

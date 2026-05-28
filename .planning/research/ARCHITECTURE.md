@@ -1,556 +1,394 @@
-# gnus-poc ELM Training & Distillation Pipeline — Architecture
+# Production Architecture: GNUS NEO SWARM → SuperGenius Dispatch
 
-**Project:** GNUS-NEO-SWARM v1.1 ELM Pipeline (gnus-poc)
-**Researched:** 2026-05-27
-**Confidence:** HIGH (existing code analyzed, all integration points mapped)
+**Domain:** Decentralized AI inference engine with blockchain compute network dispatch
+**Researched:** 2026-05-28
+**Confidence:** HIGH (primary sources: actual codebase + SuperGenius proto definitions + gRPC official docs)
 
----
+## Executive Summary
 
-## 1. Current State (Ground Truth)
+The production architecture bridges two existing systems: **GNUS NEO SWARM** (local AI inference engine) and **SuperGenius** (blockchain compute network with distributed processing). The SuperGenius processing subsystem uses a PubSub room-based model (not simple client-server gRPC), defined in `SGProcessing.proto` and `SGProcessing-OpenAPI.yaml`. Neo Swarm must adopt this model: open a persistent gRPC channel, join processing grid channels, publish signed `Task` messages, and subscribe to result channels for `TaskResult` messages.
 
-### What Exists
+The security layer (secp256k1 `NodeIdentity` + `MessageSigning`) must authenticate every inference submission so SuperGenius can reward the submitting node on-chain. The existing stub-based paths (`MessageSigning::Verify` always `true`, `SubmitNetwork` returns `NotImplemented`) must be converted to production implementations.
 
-**C++ codebase (`src/`):** 4 stub files only — `elm_base.h/cpp` (hello world) + `genius_elm_chat_c.h/cpp` (FFI stub). The elaborate architecture in `.planning/codebase/ARCHITECTURE.md` (router, specialists, FP4 codec, etc.) does NOT exist in code. These are aspirational design docs for Phase 4+.
+## Recommended Architecture
 
-**Python POC (`gnus-poc/`):** 5 working scripts, flat layout, no tests:
-
-| Script | What It Does | Output |
-|--------|-------------|--------|
-| `data/analyze_common_pile.py` | TF-IDF + k-means niche discovery | `data/analysis/niches.json`, `cluster_map.pkl` |
-| `data/extract_source_niches.py` | Source-label niche extraction | `data/analysis/source_based_niches.json` |
-| `data/prepare_datasets.py` | Train/val/test splits + Qwen2.5 formatting (5 niches) | `data/specialists/<niche>/` (HF), `<niche>_mlx/` (JSONL) |
-| `models/train_specialists.py` | LoRA on Qwen3-7B-Instruct via mlx-lm | `models/specialists/<niche>/adapters.safetensors` |
-| `models/train_specialists_mlx.py` | LoRA on Qwen3-30B-A3B (MoE) via mlx-lm | `models/specialists_mlx/<niche>/adapters.safetensors` |
-
-5 niches (medical, qa_technical, code, encyclopedic, patents) have full train/val/test splits and trained adapters. All artifacts gitignored.
-
-### What's Missing (v1.1)
-
-- Teacher-driven synthetic data (DeepSeek v4 pro API)
-- Knowledge distillation (logit transfer, subspace extraction)
-- Per-specialist evaluation (accuracy, latency, perplexity)
-- Orchestration layer (pipeline runner, experiment tracking)
-- FP4 quantization pipeline for deployed specialists
-- Experimentation framework (A/B test LoRA ranks, layers, prompts)
-- Configuration management (YAML configs)
-- Structured artifact storage
-- API abstraction (DeepSeek client with retry/backoff/cost tracking)
-- Any tests
-
----
-
-## 2. Proposed Directory Tree
+### Production System Overview
 
 ```
-gnus-poc/
-├── pipeline/              # NEW — Orchestration
-│   ├── __init__.py
-│   ├── pipeline.py        # PipelineRunner: coordinates all stages
-│   └── experiment.py      # ExperimentTracker: logs, metadata, A/B variants
-│
-├── distill/               # NEW — Teacher API + knowledge distillation
-│   ├── __init__.py
-│   ├── teacher.py         # DeepSeek v4 pro client (retry/backoff/cost tracking)
-│   ├── synthetic.py       # SyntheticDataGenerator: teacher → instruction/response pairs
-│   └── distillation.py    # Distiller: logit transfer, subspace extraction
-│
-├── training/              # REFACTOR from models/
-│   ├── __init__.py
-│   ├── config.py          # TrainingConfig dataclass (replaces scattered OVERRIDES dicts)
-│   ├── train_specialists.py       # Qwen3-7B (moved from models/, secondary)
-│   └── train_specialists_mlx.py   # Qwen3-30B-A3B (moved from models/, PRIMARY)
-│
-├── eval/                  # NEW — Evaluation & benchmarking
-│   ├── __init__.py
-│   ├── evaluate.py        # Evaluator: accuracy/perplexity/latency per specialist
-│   └── benchmark.py       # Benchmarker: head-to-head comparison across variants
-│
-├── quantize/              # NEW — FP4 quantization + C++ engine export
-│   ├── __init__.py
-│   └── fp4_export.py      # FP4Exporter: safetensors → FP4 binary + metadata JSON
-│
-├── data/                  # EXISTING — restructured
-│   ├── scripts/           # MOVED from data/
-│   │   ├── analyze_common_pile.py
-│   │   ├── extract_source_niches.py
-│   │   └── prepare_datasets.py
-│   ├── analysis/          # Gitignored: niches.json, cluster_map.pkl
-│   ├── specialists/       # Gitignored: HF datasets per niche
-│   ├── specialists_mlx/   # Gitignored: JSONL data per niche
-│   └── synthetic/         # Gitignored: teacher-generated data (NEW)
-│
-├── models/                # EXISTING — gitignored
-│   └── specialists_mlx/   # Trained LoRA safetensors per niche
-│
-├── config/                # NEW — YAML configuration
-│   ├── pipeline.yaml      # Global: model paths, API key env-var refs, defaults
-│   ├── specialists/       # Per-specialist: medical.yaml, code.yaml, etc.
-│   └── experiments/       # Per-run experiment overrides for A/B testing
-│
-├── artifacts/             # NEW — gitignored, structured outputs for C++ engine
-│   ├── adapters/          # FP4 binaries (*_fp4.bin + *_fp4_meta.json)
-│   │   ├── manifest.json  # Specialist catalog for C++ engine
-│   │   └── subspace_vectors.npy  # Niche embedding vectors for C++ router
-│   ├── eval_results/      # Per-specialist evaluation JSON reports
-│   └── experiment_logs/   # Pipeline run logs (per run_id/)
-│
-├── tests/                 # NEW — test suite
-│   ├── unit/              # test_teacher.py, test_synthetic.py, test_fp4_export.py, etc.
-│   ├── integration/       # test_synthetic_to_training.py, test_full_pipeline.py
-│   ├── fixtures/          # mock_teacher_responses.json, tiny_dataset.jsonl
-│   └── conftest.py        # Shared pytest fixtures
-│
-├── .venv/                 # Virtual environment (gitignored)
-├── requirements.txt       # Python dependencies
-├── pyproject.toml         # Package metadata + tool config (pytest, ruff)
-└── README.md              # POC-specific docs
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                              Entry Points                                          │
+│  CLI (neo-swarm)                          Flutter FFI (Genius-MOS-SLM-FFI)        │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│                          GeniusAPIServer (Façade — unchanged)                      │
+├──────────┬────────────┬──────────────┬────────────┬────────────┬─────────────────┤
+│  Router  │ Core Engine│ Specialists  │ Reputation │  Network   │  Knowledge      │
+│ (same)   │ MNNInfer-  │ (post-proc)  │ RocksDB    │ P2PNode    │ TF-IDF stub     │
+│          │ enceEngine │              │ persist.   │ libp2p     │                 │
+│          │ SGProcess- │              │ CRDT sync  │ (Future)   │                 │
+│          │ ingBridge  │              │            │            │                 │
+│          │   ↓        │              │            │            │                 │
+│          │ ┌──────────┴──────────────┴────────────┴────────────┴─────────────────┤
+│          │ │                    NEW: SuperGeniusClient                            │
+│          │ │  Channel Manager │ Job Submitter │ Result Collector │ Identity Auth  │
+│          │ └───────────────────┬─────────────────────────────────────────────────┤
+├──────────┴─────────────────────┼─────────────────────────────────────────────────┤
+│                    Security Layer (HARDENED — real secp256k1)                      │
+│  NodeIdentity (key gen/save/load/sign/verify)  MessageSigning (attach/verify)     │
+├────────────────────────────────┼─────────────────────────────────────────────────┤
+│                          Common / Types                                            │
+└────────────────────────────────┼─────────────────────────────────────────────────┘
+                                 │  gRPC channel + GossipPubSub
+                                 ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                          SuperGenius (external process)                            │
+│  ┌────────────────────┐    ┌─────────────────────┐    ┌───────────────────────┐   │
+│  │ gRPCForSuperGenius │    │ ProcessingServiceImpl│    │ ProcessingNode(s)     │   │
+│  │ (account ops, etc) │    │ Grid channel coord   │    │ SubTask queue+engine  │   │
+│  └────────────────────┘    └─────────────────────┘    └───────────────────────┘   │
+│  ┌────────────────────────────────────────────────────────────────────────────┐  │
+│  │                        GNUS Blockchain Network                              │  │
+│  │  On-chain identity → reputation → escrow → reward distribution             │  │
+│  └────────────────────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
----
+### Component Boundaries (Production)
 
-## 3. Data Flow
+| Component | Responsibility | Communicates With | New/Existing |
+|-----------|---------------|-------------------|--------------|
+| `GeniusAPIServer` | Orchestration Façade — owns all subsystems, unchanged API | Router, Core, Specialists, Reputation, Network, Knowledge, Security | Existing (no changes) |
+| `MNNInferenceEngine` | Local LLM inference via MNN + Metal/Vulkan | Tokenizer, FP4Codec, SGProcessingBridge | Existing (enhanced) |
+| `SGProcessingBridge` | Dispatch router — routes to local SGProcessingManager OR `SuperGeniusClient` | SGProcessingManager (local), SuperGeniusClient (network) | **Refactored** |
+| `SuperGeniusClient` | **NEW** — manages all SuperGenius network communication | SGProcessingBridge, Security layer, SuperGenius (external) | **NEW** |
+| `TensorInterpreter` | Converts raw tensor bytes → human-readable text | SGProcessingBridge output | Existing (unchanged) |
+| `NodeIdentity` | secp256k1 keypair generation, PeerId derivation, sign/verify | SuperGeniusClient, MessageSigning | Existing (**hardened**) |
+| `MessageSigning` | Payload signing, signature attachment to JSON, verification+strip | SuperGeniusClient, NodeIdentity | Existing (**hardened**) |
+| `ReputationStorage` | RocksDB-backed reputation persistence | ReputationScoring, Consensus | Existing (RocksDB enabled) |
+| `P2PNode` | libp2p swarm communication (deferred) | Swarm mode nodes | Existing (stub, deferred) |
+
+### Detailed Component: `SuperGeniusClient` (NEW)
+
+This is the critical new component. It encapsulates all communication with the SuperGenius blockchain compute network.
 
 ```
-                              ┌─────────────────────┐
-                              │  Common Pile (HF)    │
-                              └──────────┬──────────┘
-                                         │
-                    ┌────────────────────┼────────────────────┐
-                    ▼                    ▼                    ▼
-           ┌───────────────┐   ┌───────────────┐   ┌───────────────┐
-           │ Niche          │   │ Source-Based   │   │ Synthetic     │
-           │ Discovery      │   │ Extraction     │   │ Data Gen      │
-           │ (clustering)   │   │ (metadata)     │   │ (teacher API) │
-           └───────┬───────┘   └───────┬───────┘   └───────┬───────┘
-                   │                   │                   │
-                   ▼                   ▼                   ▼
-           data/analysis/      data/analysis/        data/synthetic/
-           niches.json         source_based_niches   <niche>/*.jsonl
-                   │                   │                   │
-                   └─────────┬─────────┘                   │
-                             ▼                             │
-                    ┌──────────────────┐                   │
-                    │  Dataset Prep    │◄──────────────────┘
-                    │  (augment with   │
-                    │   synthetic if   │
-                    │   available)     │
-                    └────────┬─────────┘
-                             │
-                             ▼
-                    data/specialists/<niche>_mlx/
-                    {train,valid,test}.jsonl
-                             │
-                             ▼
-                    ┌──────────────────┐
-                    │  LoRA Training   │
-                    │  (mlx-lm)        │
-                    └────────┬─────────┘
-                             │
-                             ▼
-                    models/specialists_mlx/<niche>/
-                    adapters.safetensors + adapter_config.json
-                             │
-              ┌──────────────┼──────────────┐
-              ▼              ▼              ▼
-     ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-     │ Distillation │ │ Evaluation   │ │ FP4 Export   │
-     │ (logit xfer, │ │ (accuracy,   │ │ (quantize +  │
-     │  subspace)   │ │  perplexity, │ │  package)    │
-     │              │ │  latency)    │ │              │
-     └──────┬───────┘ └──────┬───────┘ └──────┬───────┘
-            │                │                │
-            ▼                ▼                ▼
-     artifacts/        artifacts/        artifacts/adapters/
-     subspace_vecs     eval_results/     <niche>_fp4.bin
-     .npy              <niche>_eval.json <niche>_fp4_meta.json
-                                                │
-                                                ▼
-                                       ┌──────────────────┐
-                                       │  C++ Engine       │
-                                       │  (Phase 4: load   │
-                                       │   FP4 adapters,   │
-                                       │   inference via   │
-                                       │   MNN/Vulkan)     │
-                                       └──────────────────┘
+src/network/sg_client/
+├── SuperGeniusClient.hpp        # Public interface
+├── SuperGeniusClient.cpp        # Implementation
+├── SGChannelManager.hpp/.cpp    # gRPC channel lifecycle (create, keepalive, reconnect)
+├── SGJobSubmitter.hpp/.cpp      # Publish Task messages to grid channel
+├── SGResultCollector.hpp/.cpp   # Subscribe to result channel, timeout-bounded collection
+└── SGMessageAuthenticator.hpp/.cpp # Sign payloads with NodeIdentity, verify results
 ```
 
-**Key decisions:**
-- Synthetic data **augments** (not replaces) source-extracted data. Pipeline runs without teacher API using source-extracted data alone.
-- Distillation is optional — skips with warning if teacher API unavailable.
-- FP4 export is the hard integration point with C++. Binary format must match the planned `FP4Codec` spec.
+**SuperGeniusClient Interface:**
+```cpp
+class SuperGeniusClient {
+public:
+    struct Config {
+        std::string endpoint_ = "localhost:50051";  // SuperGenius node address
+        std::chrono::seconds channel_timeout_{30};
+        std::chrono::seconds result_timeout_{300};  // 5 min for inference
+    };
 
----
+    outcome::result<void> Initialize(const NodeIdentity &identity);
+    outcome::result<void> Connect();                    // Create channel, join grid room
+    outcome::result<std::string> SubmitJob(
+        const std::string &gnusSchemaJson,              // From BuildSchemaJson()
+        const std::string &resultsChannel                // Channel to receive results on
+    );
+    outcome::result<TaskResult> WaitForResult(
+        const std::string &taskId,
+        std::chrono::seconds timeout
+    );
+    void Disconnect();
 
-## 4. Module Boundaries & Interfaces
+private:
+    // Channel management
+    std::shared_ptr<grpc::Channel> channel_;
+    std::shared_ptr<SGChannelManager> channel_manager_;
 
-### 4.1 `pipeline/` — Orchestration (NEW)
-
-Top-level pipeline runner. Owns the lifecycle: config → stage execution → logging → artifact collection. No ML logic.
-
-```python
-@dataclass
-class PipelineConfig:
-    specialists: List[str]
-    teacher_api_key: Optional[str]        # None = skip teacher stages
-    teacher_model: str
-    training_base_model: str
-    lora_config: TrainingConfig
-    distillation_enabled: bool
-    eval_enabled: bool
-    fp4_export_enabled: bool
-    output_dir: Path
-
-class PipelineRunner:
-    def __init__(self, config: PipelineConfig) -> None: ...
-    def run(self) -> PipelineResult: ...
-    def run_stage(self, stage_name: str) -> StageResult: ...
-
-class ExperimentTracker:
-    def start_run(self, config: PipelineConfig) -> str: ...  # Returns run_id
-    def log_stage(self, run_id: str, stage: str, result: StageResult) -> None: ...
-    def complete_run(self, run_id: str) -> None: ...
+    // PubSub overlay
+    std::shared_ptr<SGJobSubmitter> job_submitter_;
+    std::shared_ptr<SGResultCollector> result_collector_;
+    std::shared_ptr<SGMessageAuthenticator> authenticator_;
+};
 ```
 
-### 4.2 `distill/` — Teacher API + Distillation (NEW)
+**Key Design Decisions:**
 
-Depends on external DeepSeek API. Must degrade gracefully when unavailable.
+1. **PubSub, not Unary gRPC:** SuperGenius uses room-based GossipPubSub for processing. Neo Swarm must join the grid room, publish `Task` messages, and subscribe to `TaskResult` messages. A unary gRPC call would bypass SuperGenius's distributed processing infrastructure (queue management, ProcessingNode coordination, result aggregation).
 
-```python
-class TeacherClient:
-    """DeepSeek v4 pro API client. OpenAI-compatible endpoint."""
-    def generate(self, prompt: str, system_prompt: Optional[str] = None) -> TeacherResponse: ...
-    def batch_generate(self, prompts: List[str],
-                       system_prompt: Optional[str] = None) -> List[TeacherResponse]: ...
-    def get_cost_summary(self) -> CostSummary: ...
+2. **Channel Reuse:** Open one persistent gRPC channel to SuperGenius with HTTP/2 multiplexing and keepalive PING. Reuse across multiple inference jobs.
 
-class SyntheticDataGenerator:
-    """Generates instruction/response pairs per niche from teacher."""
-    def generate_for_niche(self, niche_name: str, num_samples: int = 1000) -> Path: ...
-    def augment_dataset(self, niche_name: str, original_data_dir: Path) -> Path: ...
+3. **Result Channels Per-Job:** Each inference job specifies a unique `results_channel` in the `Task` message (e.g., `results/<taskId>`). The result collector subscribes to that specific channel.
 
-class Distiller:
-    """Logit transfer + subspace extraction for C++ router."""
-    def distill(self, teacher: TeacherClient, student_adapter_path: Path,
-                niche_name: str) -> DistillationResult: ...
-    def extract_subspace_vector(self, adapter_path: Path) -> np.ndarray: ...
+### Data Flow: Production Inference Network Path
+
+```
+Step  CLI/Flutter      GeniusAPIServer   SGProcessingBridge   SuperGeniusClient     SuperGenius          GNUS Network
+───   ───────────────  ────────────────  ──────────────────   ─────────────────     ───────────          ────────────
+ 1    Process(prompt)──→                                                                                         
+ 2                     Route(prompt)                                                                             
+ 3                     network mode?                                                                             
+ 4                     AugmentPrompt()                                                                           
+ 5                     ──────────────→ SubmitJob(model_uri, input_uri, format, shape, ioc)                       
+ 6                                      BuildSchemaJson() → GNUS_Schema JSON                                    
+ 7                                      network_mode_? YES                                                      
+ 8                                      ─────────────────→ SubmitNetwork(gnus_schema_json)                       
+ 9                                                          auth = Sign(gnus_schema_json)                        
+10                                                          Task{json_data=json, results_channel=results/<id>}   
+11                                                          Publish(grid_channel, Task)                          
+12                                                                               → ProcessingServiceImpl         
+13                                                                                 OnMessage(Task)               
+14                                                                                 Create ProcessingNode         
+15                                                                                 Split into SubTasks            
+16                                                                                 Distribute to nodes           
+17                                                                             ←  ProcessingEngine.Process()     
+18                                                                                 Aggregate SubTaskResults       
+19                                                                                 Publish(results/<id>, TaskResult)
+20                                                          OnResult(results/<id>) ←                              
+21                                                          Verify(result.signature)                            
+22                                      ←────────────────  TaskResult (raw bytes)                                
+23                                      TensorInterpreter → text                                                 
+24                   ←────────────────  GeniusResponse                                                          
+25                   UpdateReputation()                                                                           
+26  ← GeniusResponse                                                                                              
 ```
 
-### 4.3 `training/` — LoRA Training (REFACTOR from models/)
+### Security Integration: Identity + Signing in Dispatch Pipeline
 
-```python
-@dataclass
-class TrainingConfig:
-    """Single source of truth for all LoRA hyperparams."""
-    fine_tune_type: str = "lora"
-    optimizer: str = "adamw"
-    batch_size: int = 4
-    iterations: int = 1000
-    learning_rate: float = 1e-5
-    num_layers: int = 16
-    lora_rank: int = 16
-    lora_dropout: float = 0.05
-    lora_scale: float = 20.0
-    seed: int = 42
-    # ... (full set of 18 params from existing OVERRIDES dicts)
+The secp256k1 identity authenticates Neo Swarm nodes to the SuperGenius network, enabling on-chain reward distribution.
 
-class SpecialistTrainer:
-    def __init__(self, config: TrainingConfig) -> None: ...
-    def train(self, niche_name: str, base_model: str,
-              data_dir: Path, output_dir: Path) -> TrainingResult: ...
-    def train_all(self, configs: Dict[str, SpecialistConfig]) -> Dict[str, TrainingResult]: ...
+**Authentication Flow:**
+
+```
+Node Startup:
+  NodeIdentity::LoadFromFile("node.key") → secp256k1 keypair
+  PeerId = SHA-256(compressed_pub_key) → "a1b2...f3e4"
+  
+Job Submission:
+  GNUS_Schema JSON = BuildSchemaJson(model, input, format, shape)
+  signature = MessageSigning::Sign(GNUS_Schema JSON)
+  signed_payload = AttachSignature(GNUS_Schema JSON) → JSON with "sig" field
+  
+  SGProcessing::Task task;
+  task.json_data = signed_payload;    // Contains GNUS Schema + signature
+  task.results_channel = "results/" + task_id;
+  task.escrow_path = "/escrow/" + task_id;
+  
+  Publish to grid channel → SuperGenius receives signed task
+
+SuperGenius Side (existing ProcessingServiceImpl):
+  OnMessage(Task) → Extract pub_key_hex from signature metadata
+  Verify signature against on-chain identity → Authenticate node
+  Begin ProcessingNode distributed computation
+  
+  On processing complete:
+  TaskResult contains SubtaskResult array with node_address fields
+  Results published to results_channel
+  
+  On-chain reward distribution:
+  Map pub_key_hex → account on GNUS blockchain
+  Escrow settlement triggers reward transfer
 ```
 
-### 4.4 `eval/` — Evaluation (NEW)
+**Implementation: SGMessageAuthenticator**
 
-```python
-@dataclass
-class EvalResult:
-    niche: str
-    accuracy: float
-    perplexity: float
-    avg_latency_ms: float
-    parameter_count: int
-    adapter_size_bytes: int
-    comparison_to_baseline: Optional[float]
+```cpp
+class SGMessageAuthenticator {
+public:
+    explicit SGMessageAuthenticator(const NodeIdentity &identity);
 
-class Evaluator:
-    def evaluate(self, adapter_path: Path, test_data_dir: Path,
-                 niche_name: str) -> EvalResult: ...
+    // Sign a GNUS Schema JSON payload and attach the signature
+    outcome::result<std::string> SignPayload(const std::string &jsonPayload);
 
-class Benchmarker:
-    def benchmark(self, specialists: List[EvalResult]) -> BenchmarkReport: ...
+    // Verify a result payload from SuperGenius
+    outcome::result<void> VerifyResult(
+        const std::string &signedPayload,
+        const std::string &expectedPubKeyHex
+    );
+
+private:
+    const NodeIdentity &identity_;
+    MessageSigning signer_;  // Wraps identity_
+};
 ```
 
-### 4.5 `quantize/` — FP4 Export (NEW) **CRITICAL C++ INTEGRATION POINT**
+**Note on `MessageSigning::AttachSignature`:** The existing implementation already provides JSON signature attachment — it appends a `"sig"` field to the JSON payload containing the DER-encoded signature. The `VerifyAndStrip` method validates and removes the signature. This existing pattern is the correct production pattern — enable it by fixing the stub (Task 2.2).
 
-```python
-@dataclass
-class FP4ExportResult:
-    niche: str
-    binary_path: Path
-    metadata_path: Path
-    original_size_bytes: int
-    compressed_size_bytes: int
-    compression_ratio: float
+## Patterns to Follow
 
-class FP4Exporter:
-    """
-    Converts LoRA safetensors to FP4-packed binary for C++ FP4Codec.
+### Pattern 1: gRPC Channel + MetadataCredentials for Identity
 
-    Binary format (per weight matrix, little-endian):
-      Header: [num_rows: uint32, num_cols: uint32, scale_factor: float32]
-      Body:   fp4_packed_weights (2 weights per byte)
-    """
-    def export_adapter(self, adapter_path: Path, niche_name: str) -> FP4ExportResult: ...
-    def export_all(self, adapter_dir: Path) -> List[FP4ExportResult]: ...
-    def write_manifest(self, results: List[FP4ExportResult]) -> Path: ...
-```
+**What:** Use gRPC's `MetadataCredentialsPlugin` to attach the node's PeerId and signature to every gRPC call as metadata headers.
 
----
+**When:** Every call to SuperGenius (room join, broadcast, subscribe).
 
-## 5. Integration Points
+**Example:**
+```cpp
+class NodeIdentityCredentialsPlugin : public grpc::MetadataCredentialsPlugin {
+public:
+    NodeIdentityCredentialsPlugin(const NodeIdentity &identity)
+        : identity_(identity) {}
 
-### 5.1 With Existing Python (gnus-poc/)
-
-| Existing File | Action | New Path | Rationale |
-|--------------|--------|----------|-----------|
-| `data/analyze_common_pile.py` | **Move** + fix paths | `data/scripts/analyze_common_pile.py` | Preserves working code |
-| `data/extract_source_niches.py` | **Move** + fix paths | `data/scripts/extract_source_niches.py` | Same |
-| `data/prepare_datasets.py` | **Move** + fix paths | `data/scripts/prepare_datasets.py` | Later: add `--synthetic-data` flag |
-| `models/train_specialists.py` | **Move** | `training/train_specialists.py` | 7B variant, secondary |
-| `models/train_specialists_mlx.py` | **Move** + refactor | `training/train_specialists_mlx.py` | PRIMARY; extract TrainingConfig |
-| `models/train_specialists-old.py` | **Delete** | — | Exact duplicate |
-| `data/specialists/`, `data/specialists_mlx/`, `models/specialists_mlx/` | **Keep** (gitignored) | Same | Existing artifacts |
-
-### 5.2 With C++ Engine (Phase 4)
-
-| Integration Point | Python Producer | C++ Consumer | Contract |
-|-------------------|----------------|--------------|----------|
-| FP4 adapter binaries | `FP4Exporter.export_adapter()` | `FP4Codec` (planned, `src/core/fp4/`) | Binary format spec (Section 4.5) |
-| Specialist manifest | `FP4Exporter.write_manifest()` | `GeniusAPIServer` / specialist loader | JSON schema (Section 5.3) |
-| Subspace vectors | `Distiller.extract_subspace_vector()` | Router (planned, `src/router/`) | `.npy` float32, one per specialist |
-| Tokenizer config | Copied from mlx-lm cache | `SentencePieceTokenizer` | JSON tokenizer config |
-| Niche metadata | `source_based_niches.json` | Router config | JSON — niche descriptions, sources |
-
-### 5.3 C++ Manifest Format (Contract)
-
-```json
-{
-  "version": "1.0.0",
-  "generated_at": "2026-05-27T12:00:00Z",
-  "pipeline_run_id": "run_001",
-  "base_model": "mlx-community/Qwen3-30B-A3B-Instruct-2507-bf16",
-  "tokenizer_config": "qwen3_tokenizer.json",
-  "specialists": [
+    grpc::Status GetMetadata(
+        grpc::string_ref /*service_url*/,
+        grpc::string_ref /*method_name*/,
+        const grpc::AuthContext &/*channel_auth_context*/,
+        std::multimap<grpc::string, grpc::string> *metadata) override
     {
-      "name": "medical",
-      "adapter_binary": "medical_fp4.bin",
-      "adapter_metadata": "medical_fp4_meta.json",
-      "subspace_vector": "subspace_vectors.npy",
-      "subspace_index": 0,
-      "niche_description": "Medical research, clinical studies, biomedical science",
-      "base_layers": ["model.layers.0", "model.layers.1", "model.layers.15"],
-      "lora_rank": 16,
-      "lora_alpha": 20.0,
-      "eval_accuracy": 0.92,
-      "eval_perplexity": 3.4,
-      "compressed_size_bytes": 245760,
-      "original_size_bytes": 983040,
-      "compression_ratio": 4.0
+        metadata->insert({"x-node-peer-id", identity_.PeerId()});
+        metadata->insert({"x-node-pub-key", PubKeyToHex(identity_.PublicKey())});
+        return grpc::Status::OK;
     }
-  ]
-}
+
+private:
+    const NodeIdentity &identity_;
+};
 ```
 
----
+### Pattern 2: Timeout-Bounded Result Collection
 
-## 6. Configuration Management
+**What:** Subscribe to the result channel with a deadline. Collect `SubTaskResult` messages. When all subtasks complete or timeout fires, aggregate and return.
 
-**Principle:** YAML, hierarchical (global → specialist → experiment overrides), env vars for secrets.
+**When:** After publishing a `Task`, call `WaitForResult(taskId, timeout)`.
 
-### `config/pipeline.yaml` (Global)
+**Why not the existing `ResultAggregation`:** The existing `ResultAggregation` is designed for libp2p swarm mode (multiple peer responses). For SuperGenius, we collect a single aggregated `TaskResult` from the results channel. However, the timeout-bounded collection pattern is similar — use `std::condition_variable` + `wait_for`.
 
-```yaml
-pipeline:
-  specialists: ["medical", "qa_technical", "code", "encyclopedic", "patents"]
+### Pattern 3: Connection Resilience (Keepalive + Reconnect)
 
-teacher:
-  model: "deepseek-v4-pro"
-  api_key_env: "DEEPSEEK_API_KEY"          # Resolved from env at load time
-  max_tokens: 4096
-  temperature: 0.7
-  max_retries: 3
-  backoff_base_seconds: 2.0
+**What:** gRPC channels use HTTP/2 PING keepalive (detect dead connections in seconds, not minutes). On connection failure, reconnect with exponential backoff.
 
-training:
-  base_model: "mlx-community/Qwen3-30B-A3B-Instruct-2507-bf16"
-  batch_size: 4
-  iterations: 1000
-  learning_rate: 1e-5
-  lora_rank: 16
+**When:** `SuperGeniusClient::Connect()` sets up keepalive parameters. `SGChannelManager` handles reconnection.
 
-evaluation:
-  test_split: "test"
-  metrics: ["accuracy", "perplexity", "latency"]
-
-fp4_export:
-  target_bits: 4
-  block_size: 64
-
-artifacts:
-  base_dir: "artifacts"
+**gRPC Keepalive Configuration (C++):**
+```cpp
+grpc::ChannelArguments args;
+args.SetInt(GRPC_ARG_KEEPALIVE_TIME_MS, 10000);          // PING every 10s
+args.SetInt(GRPC_ARG_KEEPALIVE_TIMEOUT_MS, 3000);         // Wait 3s for PING ACK
+args.SetInt(GRPC_ARG_KEEPALIVE_PERMIT_WITHOUT_CALLS, 1);  // Allow PING on idle
+args.SetInt(GRPC_ARG_HTTP2_MAX_PINGS_WITHOUT_DATA, 0);    // Unlimited PINGs
 ```
 
-### `config/specialists/medical.yaml` (Per-Specialist)
+### Pattern 4: Single Process, Multiple Submission Queues
 
-```yaml
-specialist:
-  name: "medical"
-  base_model: "mlx-community/Qwen3-30B-A3B-Instruct-2507-bf16"
-  niche_sources: ["PubMed Abstracts", "PubMed Central", "NIH ExPorter"]
-  system_prompt: "You are a medical research specialist."
-  synthetic_prompts:
-    - "Explain the mechanism of action for a novel drug target in oncology."
-    - "Summarize recent advances in CRISPR-based gene therapy."
-  training:
-    lora_rank: 16
-    iterations: 1000
+**What:** `SGProcessingBridge::SubmitNetwork` is inherently asynchronous — the job is submitted to SuperGenius and results arrive later via PubSub. The bridge should not block the calling thread. Instead, it returns immediately with a `task_id` and the caller polls or waits.
+
+**Implementation approach:**
+- `SubmitNetwork` returns `outcome::result<std::string>` (the `task_id`)
+- Caller calls `WaitForResult(task_id, timeout)` to block for the result
+- Internally, `SuperGeniusClient` maintains a `map<task_id, promise<TaskResult>>`
+
+**Why not async callbacks:** C++17 coroutines are permitted per the project's coding standards but Boost.Asio coroutines require C++20. Use the simpler promise/future pattern with `std::condition_variable`.
+
+## Anti-Patterns to Avoid
+
+### Anti-Pattern 1: Unary gRPC Call for Long-Running Inference
+
+**What:** Using a simple `Infer(request) → InferResponse` unary RPC to submit inference jobs to SuperGenius.
+
+**Why bad:** Inference jobs take seconds to minutes (Mistral-7B token generation). A unary gRPC call would block the HTTP/2 stream for the entire duration, waste resources, and break if the connection drops mid-inference. It also bypasses SuperGenius's distributed processing infrastructure (queue management, node coordination).
+
+**Instead:** Use the PubSub pattern: publish a `Task` message, subscribe to the `results_channel`, collect `TaskResult`. This is exactly what SuperGenius's `ProcessingServiceImpl` expects.
+
+### Anti-Pattern 2: New Connection Per Job
+
+**What:** Creating a new gRPC channel for each inference job submission.
+
+**Why bad:** TCP+TLS handshake overhead per job adds 100-500ms latency. HTTP/2 connection coalescing is wasted. Connection limits on the SuperGenius side become a bottleneck.
+
+**Instead:** Create a single persistent channel at startup. Use it for all jobs. gRPC multiplexes concurrent RPCs over the same HTTP/2 connection.
+
+### Anti-Pattern 3: Unsigned Messages to SuperGenius
+
+**What:** Sending Task messages without secp256k1 signatures.
+
+**Why bad:** SuperGenius cannot authenticate the submitting node. No on-chain identity mapping. No escrow, no reward distribution. A malicious node could inject fake jobs.
+
+**Instead:** Every `Task` message must include a signature (via the existing `MessageSigning::AttachSignature` pattern). SuperGenius maps the public key to an on-chain identity before processing.
+
+### Anti-Pattern 4: Blocking the Inference Pipeline on Network
+
+**What:** `GeniusAPIServer::Process()` blocks waiting for `SubmitNetwork` to complete (which can take 30-300 seconds for inference).
+
+**Why bad:** The existing architecture is single-threaded — one request at a time. Blocking on network inference makes the entire server unresponsive.
+
+**Instead (short-term):** Document that `Process()` is blocking (acceptable for CLI single-shot mode). Add a configurable `timeout_` parameter.
+
+**Instead (long-term/future):** Add a worker thread pool. `Process()` returns immediately with a `task_id`. Caller polls `GetResult(task_id)`. This requires architectural changes to GeniusAPIServer.
+
+## Scalability Considerations
+
+| Concern | At 1 Node (Local) | At 10 Nodes (SuperGenius) | At 100+ Nodes |
+|---------|-------------------|---------------------------|---------------|
+| Connection management | Single gRPC channel to SuperGenius | Keepalive PINGs catch dead nodes; exponential backoff reconnect | SuperGenius load balances ProcessingNodes internally |
+| Job throughput | Sequential (single-threaded server) | Multiple concurrent jobs via PubSub | Bounded by SuperGenius grid capacity |
+| Result collection | Direct `Process()` call | Single result channel subscription per job | Multiple concurrent subscriptions to different `results/<id>` channels |
+| Security | Local identity, no network auth needed | Signed messages, key verification on SuperGenius side | On-chain identity mapping enables permissioned access |
+| Reputation | Local RocksDB storage | Reputation scores synced via CRDT over PubSub | On-chain reputation tracks submission quality |
+
+## Suggested Build Order (Dependency Graph)
+
+```
+Phase 1: SECURITY HARDENING ───────────────────── (prerequisite for all network ops)
+  │  Task 2.1: Enable secp256k1 → real NodeIdentity
+  │  Task 2.2: Fix MessageSigning::Verify → real signature verification
+  │  Task 6.1: Add security tests → key gen, sign/verify roundtrip, tamper detection
+  │
+  ▼
+Phase 2: SUPERGENIUS CLIENT ───────────────────── (core network component)
+  │  Create src/network/sg_client/SuperGeniusClient.hpp/.cpp
+  │  Create SGChannelManager (channel lifecycle, keepalive)
+  │  Create SGJobSubmitter (publish Task to grid channel)
+  │  Create SGResultCollector (subscribe to result channel)
+  │  Create SGMessageAuthenticator (sign payloads with identity)
+  │  Task 4.2: Add --sg-endpoint CLI flag
+  │
+  ▼
+Phase 3: BRIDGE INTEGRATION ───────────────────── (wire existing Bridge to new Client)
+  │  SGProcessingBridge::Config: add endpoint_, result_timeout_
+  │  SGProcessingBridge::SubmitNetwork(): call SuperGeniusClient::SubmitJob + WaitForResult
+  │  Replace Error::NotImplemented with real implementation
+  │  Wire GENIUS_HAS_SGPROCESSING guard for compile-time optionality
+  │
+  ▼
+Phase 4: PERSISTENCE ──────────────────────────── (survive restarts)
+  │  Task 3.1: Link RocksDB → real ReputationStorage
+  │  Task 3.2: Fix Deserialize crash → try/catch stod/stoull
+  │
+  ▼
+Phase 5: FIXES & INTEGRATION ──────────────────── (production polish)
+  │  Task 5.1: Remove hardcoded vocab size 32000
+  │  Task 5.2: Fix GeniusSlmInit re-init bug
+  │  Task 6.2: FFI layer tests
+  │  Task 6.4: Network integration tests (with SuperGenius test node)
+  │  Task 5.3: Config file support (YAML)
+  │
+  ▼
+Phase 6: FLUTTER UI ───────────────────────────── (end-user experience)
+  │  Task 7.1: Wire Flutter to real dylib on device
+  │  Task 7.2: Streaming token output (future)
 ```
 
-### `config/experiments/example_experiment.yaml` (Experiment Override)
+**Dependency rationale:**
+- Security hardening MUST come first — every network message needs a valid signature
+- SuperGeniusClient can be developed in parallel with Phase 4 (persistence) since they don't share code
+- Bridge integration depends on both Security (Phase 1) and SuperGeniusClient (Phase 2)
+- Fixes and integration tests should gate the production release
 
-```yaml
-experiment:
-  id: "exp_lora_rank_32"
-  description: "Test rank-32 LoRA vs baseline rank-16 on medical and code"
-  overrides:
-    medical:
-      training:
-        lora_rank: 32
-    code:
-      training:
-        lora_rank: 32
-```
+## Sources
 
-**Loading logic:** `PipelineRunner` loads `pipeline.yaml` → merges per-specialist configs → applies experiment overrides. API keys resolved from `${VAR_NAME}` at load time.
-
----
-
-## 7. Build Order (7 Phases)
-
-### Phase A: Foundation (wiring + refactor)
-No new ML logic. Safe — existing scripts still run.
-
-1. Create all new directories
-2. Move existing scripts to new locations; fix relative paths
-3. Delete `models/train_specialists-old.py`
-4. Create `config/pipeline.yaml` + per-specialist configs
-5. Create `requirements.txt`, `pyproject.toml`
-6. Set up `tests/conftest.py`
-7. Update `.gitignore`: `artifacts/`, `data/synthetic/`, `tests/__pycache__/`
-
-### Phase B: Teacher API (`distill/`)
-1. `teacher.py` — `TeacherClient` with retry/backoff/cost tracking
-2. `synthetic.py` — `SyntheticDataGenerator`
-3. `tests/unit/test_teacher.py` (mock responses)
-4. `tests/fixtures/mock_teacher_responses.json`
-
-### Phase C: Pipeline Orchestration
-1. `pipeline.py` — `PipelineRunner`
-2. `experiment.py` — `ExperimentTracker`
-3. `training/config.py` — `TrainingConfig` dataclass
-4. `tests/unit/test_pipeline.py`
-5. `tests/integration/test_synthetic_to_training.py`
-
-### Phase D: Evaluation
-1. `evaluate.py` — `Evaluator`
-2. `benchmark.py` — `Benchmarker`
-3. `tests/unit/test_evaluate.py`
-4. `tests/integration/test_training_to_eval.py`
-
-### Phase E: Knowledge Distillation
-1. `distillation.py` — `Distiller`
-2. `tests/unit/test_distillation.py`
-
-### Phase F: FP4 Export (C++ Integration)
-1. `fp4_export.py` — `FP4Exporter`
-2. `tests/unit/test_fp4_export.py` (roundtrip test)
-3. Align with C++ `FP4Codec` spec
-
-### Phase G: Integration Testing
-1. `tests/integration/test_full_pipeline.py`
-2. `tests/fixtures/tiny_dataset.jsonl` (10-sample test dataset)
-3. CI-compatible: mock teacher, skip GPU training
-
----
-
-## 8. Key Architectural Decisions
-
-### 8.1 Flat modules, not a pip package
-gnus-poc is a POC pipeline, not a library. `pyproject.toml` for deps/tooling only. The exit strategy is artifacts (FP4 binaries, manifest JSON), not a Python API.
-
-### 8.2 YAML configs, not JSON or Python
-Comments document hyperparameter choices. Anchors share configs across specialists. Human-editable by domain experts. Env-var interpolation keeps secrets out of committed files.
-
-### 8.3 Augment (not replace) source data with synthetic
-Source-extracted data provides grounded domain knowledge. Synthetic data adds instruction-following format and fills gaps. Both together > either alone.
-
-### 8.4 FP4 export at pipeline end
-C++ engine doesn't understand safetensors. FP4 is the bridge. Doing quantization in Python means: (a) done once in training pipeline, (b) C++ just loads pre-quantized adapters, (c) size verified before handoff.
-
-### 8.5 `models/` != `artifacts/`
-`models/` = raw training outputs (debugging/retraining). `artifacts/` = final packaged FP4 binaries for C++. Different consumers, different lifecycle.
-
-### 8.6 `config/` at top level
-Pipeline config spans all modules. Single load at pipeline start (global + specialist-specific + experiment override) is simpler than per-module config files.
-
----
-
-## 9. Anti-Patterns to Avoid
-
-### 9.1 Hardcoded paths in moved scripts
-**What:** `OUTPUT_DIR = "data/analysis"` relative to script location.
-**Fix:** Use `Path(__file__).parent.parent / "analysis"` or accept output dir as config/CLI argument.
-
-### 9.2 Duplicate training configs
-**What:** `train_specialists.py` and `train_specialists_mlx.py` each have their own `OVERRIDES` dict.
-**Fix:** Extract `TrainingConfig` into `training/config.py` — single source of truth.
-
-### 9.3 Teacher API hard-dependency
-**What:** Pipeline breaks without API key.
-**Fix:** Stages check `teacher_api_key is not None`; skip with warning if unavailable. Pipeline reports skipped stages.
-
-### 9.4 Ignoring C++ interface
-**What:** Designing FP4 binary format without C++ alignment.
-**Fix:** Binary format spec in Section 4.5. Roundtrip test in Phase F validates contract.
-
-### 9.5 Non-Apple-Silicon training
-**What:** mlx-lm requires Apple Silicon.
-**Fix:** Hard requirement documented. Tests mock training. CI skips GPU stages.
-
-### 9.6 Forgetting gitignore
-**What:** New directories without gitignore = accidental large binary commits.
-**Fix:** Update `.gitignore` in Phase A for `artifacts/`, `data/synthetic/`, `tests/__pycache__/`.
-
----
-
-## 10. New vs Modified Files Summary
-
-| Category | New Files | Modified/Moved | Deleted |
-|----------|-----------|----------------|---------|
-| `pipeline/` | 3 (`__init__.py`, `pipeline.py`, `experiment.py`) | — | — |
-| `distill/` | 4 (`__init__.py`, `teacher.py`, `synthetic.py`, `distillation.py`) | — | — |
-| `training/` | 2 (`__init__.py`, `config.py`) | 2 (from `models/`) | — |
-| `eval/` | 3 (`__init__.py`, `evaluate.py`, `benchmark.py`) | — | — |
-| `quantize/` | 2 (`__init__.py`, `fp4_export.py`) | — | — |
-| `data/` | 1 (`scripts/__init__.py`) | 3 (from `data/`) | — |
-| `config/` | 7 (pipeline.yaml + 5 specialists + 1 experiment) | — | — |
-| `artifacts/` | 0 (all generated, gitignored) | — | — |
-| `tests/` | ~12 (unit + integration + fixtures + conftest) | — | — |
-| Root | 2 (`requirements.txt`, `pyproject.toml`) | 1 (`.gitignore`) | 1 (`train_specialists-old.py`) |
-
-**Total: ~34 new, 6 modified, 1 deleted.**
-
----
-
-*Architecture research: 2026-05-27. All integration points validated against existing codebase.*
+| Source | Type | Confidence |
+|--------|------|------------|
+| `src/core/sgprocessing/SGProcessingBridge.cpp` — actual SubmitNetwork stub | Primary (code) | HIGH |
+| `SuperGenius/src/processing/proto/SGProcessing.proto` — Task/SubTask/TaskResult definitions | Primary (code) | HIGH |
+| `SuperGenius/src/processing/processing_service.hpp` — ProcessingServiceImpl architecture | Primary (code) | HIGH |
+| `SuperGenius/gRPCForSuperGenius/openapi_yaml/SGProcessing-OpenAPI.yaml` — PubSub room API | Primary (code) | HIGH |
+| `proto/genius_api.proto` — Neo Swarm client-facing gRPC definitions | Primary (code) | HIGH |
+| `proto/genius_internal.proto` — Inter-node task/result messages with signature field | Primary (code) | HIGH |
+| `src/security/MessageSigning.hpp/.cpp` — existing AttachSignature/VerifyAndStrip pattern | Primary (code) | HIGH |
+| `src/security/NodeIdentity.cpp` — existing secp256k1 Sign/Verify implementation | Primary (code) | HIGH |
+| `grpc.io/docs/guides/auth/` — MetadataCredentialsPlugin pattern for custom auth | Official doc | HIGH |
+| `grpc.io/blog/grpc-on-http2/` — gRPC channel/keepalive/connection management | Official doc | HIGH |
+| `grpc.io/docs/guides/interceptors/` — Interceptor patterns for auth logging | Official doc | HIGH |
+| `AgentDocs/PRODUCTION_ROADMAP.md` — Phase 2, Phase 4 tasks confirming architecture intent | Project doc | HIGH |
