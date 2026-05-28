@@ -50,13 +50,11 @@ namespace sgns::neoswarm::security
                                  const std::vector<uint8_t> &signature,
                                  const std::string          &pub_key_hex )
     {
-        // TODO(SECURITY): reconstruct NodeIdentity from pub_key_hex and call
-        // identity.Verify() once secp256k1 is compiled in.
         ( void )payload;
         ( void )signature;
         ( void )pub_key_hex;
-        SigningLogger()->warn( "MessageSigning::Verify — stub, signature not checked" );
-        return true;
+        SigningLogger()->error( "MessageSigning::Verify — secp256k1 not available, REJECTING signature" );
+        return false;
     }
 
     // -----------------------------------------------------------------------

@@ -278,8 +278,8 @@ namespace sgns::neoswarm::security
 #else
         ( void )message;
         ( void )signature;
-        IdentityLogger()->warn( "NodeIdentity::Verify — stub, signature not checked" );
-        return true;
+        IdentityLogger()->error( "NodeIdentity::Verify — secp256k1 not compiled in, REJECTING signature" );
+        return false;
 #endif
     }
 
