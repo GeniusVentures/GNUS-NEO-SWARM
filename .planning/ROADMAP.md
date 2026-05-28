@@ -33,8 +33,8 @@ Production readiness for the GNUS NEO SWARM decentralized AI inference engine. T
 - **Wave 3** *(blocked on Waves 1-2 completion)*: Plan 04 — Security tests (TEST-01)
 
 **Plans**:
-- [ ] 01-01-PLAN.md — Enable secp256k1 linkage, fail-close all security stubs
-- [ ] 01-02-PLAN.md — RFC6979 deterministic nonces, real MessageSigning::Verify, nonce+timestamp replay protection
+- [x] 01-01-PLAN.md — Enable secp256k1 linkage, fail-close all security stubs
+- [x] 01-02-PLAN.md — RFC6979 deterministic nonces, real MessageSigning::Verify, nonce+timestamp replay protection
 - [ ] 01-03-PLAN.md — AES-256-GCM key encryption at rest with PBKDF2 passphrase derivation
 - [ ] 01-04-PLAN.md — Automated security tests for NodeIdentity and MessageSigning
 
@@ -105,7 +105,7 @@ Production readiness for the GNUS NEO SWARM decentralized AI inference engine. T
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Security Hardening | 0/4 | Ready to execute | - |
+| 1. Security Hardening | 2/4 | Executing (2 plans done) | - |
 | 2. SuperGenius Connectivity | 0/TBD | Not started | - |
 | 3. Persistence & Reliability | 0/TBD | Not started | - |
 | 4. SGProcessing Integration | 0/TBD | Not started | - |

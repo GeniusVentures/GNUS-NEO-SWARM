@@ -9,12 +9,12 @@ Requirements for production readiness milestone. Each maps to roadmap phases.
 
 ### Security
 
-- [ ] **SEC-01**: Enable `GENIUS_HAS_SECP256K1` — real secp256k1 node identity with key generation and PeerId derivation
-- [ ] **SEC-02**: Implement real `MessageSigning::Verify` — reject tampered signatures (replace always-true stub)
-- [ ] **SEC-03**: Use RFC6979 deterministic nonces for ECDSA signing to prevent nonce-reuse key recovery
+- [x] **SEC-01**: Enable `GENIUS_HAS_SECP256K1` — real secp256k1 node identity with key generation and PeerId derivation
+- [x] **SEC-02**: Implement real `MessageSigning::Verify` — reject tampered signatures (replace always-true stub)
+- [x] **SEC-03**: Use RFC6979 deterministic nonces for ECDSA signing to prevent nonce-reuse key recovery
 - [ ] **SEC-04**: Encrypt node private key at rest using AES-256-GCM with PBKDF2-derived key
-- [ ] **SEC-05**: Add nonce + timestamp replay protection to signed inter-node messages
-- [ ] **SEC-06**: Fail-close all security stubs — reject when crypto unavailable instead of silently accepting
+- [x] **SEC-05**: Add nonce + timestamp replay protection to signed inter-node messages
+- [x] **SEC-06**: Fail-close all security stubs — reject when crypto unavailable instead of silently accepting
 
 ### SuperGenius Connectivity
 
@@ -95,12 +95,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SEC-01 | Phase 1 | Pending |
-| SEC-02 | Phase 1 | Pending |
-| SEC-03 | Phase 1 | Pending |
+| SEC-01 | Phase 1 | Done (01-01) |
+| SEC-02 | Phase 1 | Done (01-02) |
+| SEC-03 | Phase 1 | Done (01-02) |
 | SEC-04 | Phase 1 | Pending |
-| SEC-05 | Phase 1 | Pending |
-| SEC-06 | Phase 1 | Pending |
+| SEC-05 | Phase 1 | Done (01-02) |
+| SEC-06 | Phase 1 | Done (01-01) |
 | SG-01 | Phase 2 | Pending |
 | SG-02 | Phase 2 | Pending |
 | SG-03 | Phase 2 | Pending |
