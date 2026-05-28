@@ -222,7 +222,8 @@ namespace sgns::neoswarm::security
 #    endif
         secp256k1_ecdsa_signature sig;
         if ( !secp256k1_ecdsa_sign( impl_->ctx_, &sig, hash,
-                                    impl_->priv_key_.data(), nullptr, nullptr ) )
+                                    impl_->priv_key_.data(),
+                                    secp256k1_nonce_function_rfc6979, nullptr ) )
         {
             return outcome::failure( Error::IdentityError );
         }
