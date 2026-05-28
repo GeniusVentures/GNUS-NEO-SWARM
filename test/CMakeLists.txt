@@ -57,3 +57,8 @@ genius_test(test_router                router/test_router.cpp                   
 genius_test(test_reputation            reputation/test_reputation.cpp                   "genius_reputation;genius_common")
 genius_test(test_pipeline              integration/test_pipeline.cpp                    "genius_api")
 genius_test(test_sgprocessing_pipeline integration/test_sgprocessing_pipeline.cpp       "genius_api")
+genius_test(test_node_identity     security/test_node_identity.cpp        "genius_security;genius_common")
+genius_test(test_message_signing   security/test_message_signing.cpp      "genius_security;genius_common")
+
+# Benchmarks (not part of CTest — run manually)
+add_subdirectory(benchmark)
