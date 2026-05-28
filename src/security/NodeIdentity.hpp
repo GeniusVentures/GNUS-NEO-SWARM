@@ -55,6 +55,40 @@ namespace sgns::neoswarm::security
         outcome::result<void> SaveToFile( const std::string &path ) const;
 
         /**
+         * @brief Save the current keypair encrypted with AES-256-GCM.
+         *
+         * Derives a 256-bit encryption key from @p passphrase using
+         * PBKDF2-HMAC-SHA256 (600,000 iterations) with a random salt.
+         * The key is encrypted and written in a self-describing binary
+         * format: [4-byte salt length][salt][12-byte IV][ciphertext][16-byte GCM tag].
+         *
+         * @param path        Destination file path (typically "node.key").
+         * @param passphrase  User-supplied encryption passphrase.
+         * @return            outcome::success or IdentityError.
+         */
+        outcome::result<void> SaveEncrypted(
+            const std::string &path,
+            const std::string &passphrase ) const;
+
+        /**
+         * @brief Load an encrypted keypair and decrypt it.
+         *
+         * Reads the binary format written by SaveEncrypted, derives the
+         * decryption key from @p passphrase, decrypts, and verifies the
+         * GCM authentication tag. If the tag does not match (wrong
+         * passphrase or tampered file), returns IdentityError.
+         *
+         * On success, the public key is derived and PeerId is available.
+         *
+         * @param path        Path to the encrypted key file.
+         * @param passphrase  Decryption passphrase.
+         * @return            outcome::success or IdentityError.
+         */
+        outcome::result<void> LoadEncrypted(
+            const std::string &path,
+            const std::string &passphrase );
+
+        /**
          * @brief Derive the PeerId string from the public key.
          * @return  Hex-encoded SHA-256 of the compressed public key.
          */
