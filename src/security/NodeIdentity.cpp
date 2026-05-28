@@ -19,7 +19,10 @@
 
 #ifdef GENIUS_HAS_OPENSSL
 #    include <openssl/sha.h>
+#    include <openssl/evp.h>
+#    include <openssl/rand.h>
 #endif
+#include <cstring>
 
 namespace sgns::neoswarm::security
 {
@@ -197,6 +200,26 @@ namespace sgns::neoswarm::security
         }
         f << ToHex( impl_->priv_key_.data(), kPrivKeySize ) << '\n';
         return outcome::success();
+    }
+
+    // -----------------------------------------------------------------------
+    // SaveEncrypted
+    // -----------------------------------------------------------------------
+    outcome::result<void> NodeIdentity::SaveEncrypted(
+        const std::string & /*path*/,
+        const std::string & /*passphrase*/ ) const
+    {
+        return outcome::failure( Error::IdentityError );
+    }
+
+    // -----------------------------------------------------------------------
+    // LoadEncrypted
+    // -----------------------------------------------------------------------
+    outcome::result<void> NodeIdentity::LoadEncrypted(
+        const std::string & /*path*/,
+        const std::string & /*passphrase*/ )
+    {
+        return outcome::failure( Error::IdentityError );
     }
 
     // -----------------------------------------------------------------------

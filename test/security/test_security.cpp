@@ -9,6 +9,8 @@
 #include "security/NodeIdentity.hpp"
 #include "security/MessageSigning.hpp"
 
+#include <cstdio>
+#include <fstream>
 #include <iomanip>
 #include <sstream>
 #include <string>
@@ -221,4 +223,142 @@ TEST( MessageSigning, VerifyAndStripExpiredTimestamp )
 
     // VerifyAndStrip should reject the expired message
     EXPECT_FALSE( MessageSigning::VerifyAndStrip( payload, pubKeyHex ) );
+}
+
+// =======================================================================
+// Task: AES-256-GCM Encrypted Key Storage (TDD tests)
+// =======================================================================
+
+namespace
+{
+    const std::string kTestKeyPath  = "/tmp/gnus_test_node.key";
+    const std::string kTestPass     = "test123";
+    const std::string kWrongPass    = "wrong456";
+
+    void RemoveTestFile()
+    {
+        std::remove( kTestKeyPath.c_str() );
+    }
+} // namespace
+
+TEST( NodeIdentity, SaveEncryptedLoadEncryptedRoundtrip )
+{
+    // Test 1: Generate a keypair, SaveEncrypted with "test123",
+    // LoadEncrypted with same passphrase → PeerId identical.
+    RemoveTestFile();
+
+    NodeIdentity ident1;
+    ASSERT_TRUE( ident1.Generate().has_value() );
+    ASSERT_TRUE( ident1.IsLoaded() );
+
+    auto saveResult = ident1.SaveEncrypted( kTestKeyPath, kTestPass );
+    ASSERT_TRUE( saveResult.has_value() );
+
+    NodeIdentity ident2;
+    auto         loadResult = ident2.LoadEncrypted( kTestKeyPath, kTestPass );
+    ASSERT_TRUE( loadResult.has_value() );
+    ASSERT_TRUE( ident2.IsLoaded() );
+
+    EXPECT_EQ( ident1.PeerId(), ident2.PeerId() );
+
+    RemoveTestFile();
+}
+
+TEST( NodeIdentity, LoadEncryptedWrongPassphrase )
+{
+    // Test 2: LoadEncrypted with wrong passphrase → IdentityError.
+    RemoveTestFile();
+
+    NodeIdentity ident1;
+    ASSERT_TRUE( ident1.Generate().has_value() );
+    ASSERT_TRUE( ident1.SaveEncrypted( kTestKeyPath, kTestPass ).has_value() );
+
+    NodeIdentity ident2;
+    auto         result = ident2.LoadEncrypted( kTestKeyPath, kWrongPass );
+
+    // With stub: returns IdentityError. With real impl: GCM tag fails.
+    EXPECT_FALSE( result.has_value() );
+    EXPECT_EQ( result.error(), Error::IdentityError );
+
+    RemoveTestFile();
+}
+
+TEST( NodeIdentity, LoadEncryptedTamperedFile )
+{
+    // Test 3: SaveEncrypted, tamper one byte of file, LoadEncrypted → IdentityError.
+    RemoveTestFile();
+
+    NodeIdentity ident1;
+    ASSERT_TRUE( ident1.Generate().has_value() );
+    ASSERT_TRUE( ident1.SaveEncrypted( kTestKeyPath, kTestPass ).has_value() );
+
+    // Tamper with one byte in the file (past the header: salt_len + salt + IV)
+    {
+        std::fstream f( kTestKeyPath, std::ios::binary | std::ios::in | std::ios::out );
+        ASSERT_TRUE( f.is_open() );
+
+        // Seek past: 4B salt_len + 32B salt + 12B IV = 48 bytes, tamper the first ciphertext byte
+        f.seekp( 48, std::ios::beg );
+        char c = 0;
+        f.get( c );
+        f.seekp( 48, std::ios::beg );
+        f.put( static_cast<char>( c ^ 0xFF ) );  // flip bits
+        f.close();
+    }
+
+    NodeIdentity ident2;
+    auto         result = ident2.LoadEncrypted( kTestKeyPath, kTestPass );
+
+    EXPECT_FALSE( result.has_value() );
+    EXPECT_EQ( result.error(), Error::IdentityError );
+
+    RemoveTestFile();
+}
+
+TEST( NodeIdentity, SaveEncryptedWithoutKey )
+{
+    // Test 4: SaveEncrypted without a key loaded → IdentityError.
+    RemoveTestFile();
+
+    NodeIdentity ident;
+    ASSERT_FALSE( ident.IsLoaded() );
+
+    auto result = ident.SaveEncrypted( kTestKeyPath, kTestPass );
+
+    EXPECT_FALSE( result.has_value() );
+    EXPECT_EQ( result.error(), Error::IdentityError );
+
+    RemoveTestFile();
+}
+
+TEST( NodeIdentity, LoadEncryptedNonexistentFile )
+{
+    // Test 5: LoadEncrypted on a non-existent file → IdentityError.
+    RemoveTestFile();
+
+    NodeIdentity ident;
+    auto         result = ident.LoadEncrypted( kTestKeyPath, kTestPass );
+
+    EXPECT_FALSE( result.has_value() );
+    EXPECT_EQ( result.error(), Error::IdentityError );
+}
+
+TEST( NodeIdentity, SaveEncryptedOverwrite )
+{
+    // Test 6: SaveEncrypted then SaveEncrypted again → file overwritten (second call succeeds).
+    RemoveTestFile();
+
+    NodeIdentity ident1;
+    ASSERT_TRUE( ident1.Generate().has_value() );
+    ASSERT_TRUE( ident1.SaveEncrypted( kTestKeyPath, kTestPass ).has_value() );
+
+    // Second save with same key → should succeed (overwrite)
+    ASSERT_TRUE( ident1.SaveEncrypted( kTestKeyPath, kTestPass ).has_value() );
+
+    // Verify file is still loadable
+    NodeIdentity ident2;
+    ASSERT_TRUE( ident2.LoadEncrypted( kTestKeyPath, kTestPass ).has_value() );
+    EXPECT_EQ( ident1.PeerId(), ident2.PeerId() );
+
+    RemoveTestFile();
 }
