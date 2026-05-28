@@ -25,7 +25,23 @@ Production readiness for the GNUS NEO SWARM decentralized AI inference engine. T
   3. MessageSigning::Verify rejects tampered messages and fails closed (returns false) when crypto libraries are unavailable
   4. Every inter-node message includes a nonce + timestamp; replayed or expired messages (outside 30s window) are rejected
   5. Security stub code paths are unreachable in release builds — missing crypto is a hard error, not a silent acceptance
-**Plans**: TBD
+**Plans**: 4 plans
+
+**Wave Structure**:
+- **Wave 1** *(no dependencies)*: Plan 01 — Cryptographic foundation (SEC-01, SEC-06)
+- **Wave 2** *(blocked on Wave 1 completion)*: Plan 02 — Signature security + replay protection (SEC-02, SEC-03, SEC-05), Plan 03 — Key encryption at rest (SEC-04)
+- **Wave 3** *(blocked on Waves 1-2 completion)*: Plan 04 — Security tests (TEST-01)
+
+**Plans**:
+- [ ] 01-01-PLAN.md — Enable secp256k1 linkage, fail-close all security stubs
+- [ ] 01-02-PLAN.md — RFC6979 deterministic nonces, real MessageSigning::Verify, nonce+timestamp replay protection
+- [ ] 01-03-PLAN.md — AES-256-GCM key encryption at rest with PBKDF2 passphrase derivation
+- [ ] 01-04-PLAN.md — Automated security tests for NodeIdentity and MessageSigning
+
+**Cross-cutting constraints**:
+- All inter-node messages must include nonce + timestamp (30s replay window)
+- Security stubs must fail-closed (return false, never true)
+- Node private key must be encrypted at rest
 
 ### Phase 2: SuperGenius Connectivity
 **Goal**: The engine dispatches inference jobs to the SuperGenius blockchain compute network via TLS-protected, authenticated gRPC
@@ -89,7 +105,7 @@ Production readiness for the GNUS NEO SWARM decentralized AI inference engine. T
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Security Hardening | 0/TBD | Not started | - |
+| 1. Security Hardening | 0/4 | Ready to execute | - |
 | 2. SuperGenius Connectivity | 0/TBD | Not started | - |
 | 3. Persistence & Reliability | 0/TBD | Not started | - |
 | 4. SGProcessing Integration | 0/TBD | Not started | - |
