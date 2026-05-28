@@ -10,6 +10,7 @@
 
 #include "NodeIdentity.hpp"
 #include "common/Error.hpp"
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -44,6 +45,21 @@ namespace sgns::neoswarm::security
         static bool Verify( const std::string          &payload,
                             const std::vector<uint8_t> &signature,
                             const std::string          &pub_key_hex );
+
+        /// Replay protection window in seconds.
+        static constexpr int64_t kReplayWindowSec = 30;
+
+        /**
+         * @brief Generate a cryptographically random nonce.
+         * @return Hex-encoded 32-byte nonce.
+         */
+        static std::string GenerateNonce();
+
+        /**
+         * @brief Get current Unix timestamp in milliseconds.
+         * @return Milliseconds since epoch.
+         */
+        static uint64_t CurrentTimestampMs();
 
         /**
          * @brief Attach a signature field to a JSON payload string.

@@ -8,7 +8,9 @@
 #include "MessageSigning.hpp"
 #include "common/Logging.hpp"
 
+#include <chrono>
 #include <iomanip>
+#include <random>
 #include <sstream>
 
 #ifdef GENIUS_HAS_SECP256K1
@@ -136,18 +138,58 @@ namespace sgns::neoswarm::security
     }
 
     // -----------------------------------------------------------------------
+    // GenerateNonce / CurrentTimestampMs
+    // -----------------------------------------------------------------------
+    std::string MessageSigning::GenerateNonce()
+    {
+        std::random_device              rd;
+        std::mt19937_64                 rng( rd() );
+        std::uniform_int_distribution<uint8_t> dist( 0, 255 );
+        std::vector<uint8_t>            nonceBytes( 32 );
+        for ( auto &b : nonceBytes )
+        {
+            b = dist( rng );
+        }
+        return ToHex( nonceBytes );
+    }
+
+    uint64_t MessageSigning::CurrentTimestampMs()
+    {
+        auto now = std::chrono::system_clock::now();
+        return static_cast<uint64_t>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                now.time_since_epoch() ).count() );
+    }
+
+    // -----------------------------------------------------------------------
     // AttachSignature
     // -----------------------------------------------------------------------
     std::string MessageSigning::AttachSignature( const std::string &payload ) const
     {
-        auto sig_res = Sign( payload );
+        // Generate nonce and timestamp
+        const std::string nonce = GenerateNonce();
+        const uint64_t    ts    = CurrentTimestampMs();
+
+        // Build signed payload: inject nonce + ts into JSON before signing
+        std::string signedPayload = payload;
+        if ( !signedPayload.empty() && signedPayload.back() == '}' )
+        {
+            signedPayload.pop_back();
+            signedPayload += ",\"nonce\":\"" + nonce + "\"";
+            signedPayload += ",\"ts\":" + std::to_string( ts );
+            signedPayload += "}";
+        }
+
+        // Sign the payload WITH nonce+ts included
+        auto sig_res = Sign( signedPayload );
         if ( !sig_res.has_value() )
         {
             SigningLogger()->warn( "MessageSigning: failed to sign payload" );
             return payload;
         }
 
-        std::string result = payload;
+        // Append signature field
+        std::string result = signedPayload;
         if ( !result.empty() && result.back() == '}' )
         {
             result.pop_back();
@@ -161,14 +203,84 @@ namespace sgns::neoswarm::security
     // -----------------------------------------------------------------------
     bool MessageSigning::VerifyAndStrip( std::string &payload, const std::string &pub_key_hex )
     {
-        auto sig_pos = payload.rfind( ",\"sig\":\"" );
-        if ( sig_pos == std::string::npos )
+        // Step 1: Extract sig field (last field appended by AttachSignature)
+        auto sigPos = payload.rfind( ",\"sig\":\"" );
+        if ( sigPos == std::string::npos )
         {
             return false;
         }
-        std::string original_payload = payload.substr( 0, sig_pos ) + "}";
-        payload                      = original_payload;
-        return Verify( original_payload, {}, pub_key_hex );
+        auto sigStart = sigPos + 8;  // strlen(",\"sig\":\"")
+        auto sigEnd   = payload.find( "\"", sigStart );
+        if ( sigEnd == std::string::npos )
+        {
+            return false;
+        }
+        auto sigBytes = FromHex( payload.substr( sigStart, sigEnd - sigStart ) );
+        if ( sigBytes.empty() )
+        {
+            return false;
+        }
+
+        // Step 2: Build the verify payload (everything before ",sig" + "}")
+        std::string verifyPayload = payload.substr( 0, sigPos ) + "}";
+
+        // Step 3: Extract ts from verifyPayload
+        auto tsPos = verifyPayload.rfind( ",\"ts\":" );
+        if ( tsPos == std::string::npos )
+        {
+            SigningLogger()->warn( "MessageSigning: missing timestamp in signed payload" );
+            return false;
+        }
+        auto     tsStart = tsPos + 6;  // strlen(",\"ts\":")
+        auto     tsEnd   = verifyPayload.find_first_of( ",}", tsStart );
+        uint64_t msgTs   = 0;
+        try
+        {
+            msgTs = std::stoull( verifyPayload.substr( tsStart, tsEnd - tsStart ) );
+        }
+        catch ( ... )
+        {
+            return false;
+        }
+
+        // Step 4: Validate replay window
+        uint64_t nowMs = CurrentTimestampMs();
+        int64_t  ageMs = static_cast<int64_t>( nowMs - msgTs );
+        if ( ageMs < 0 || ageMs > ( kReplayWindowSec * 1000 ) )
+        {
+            SigningLogger()->warn(
+                "MessageSigning: replay detected — message age {}ms exceeds {}s window",
+                ageMs, kReplayWindowSec );
+            return false;
+        }
+
+        // Step 5: Verify signature on the full payload (includes nonce+ts)
+        if ( !Verify( verifyPayload, sigBytes, pub_key_hex ) )
+        {
+            return false;
+        }
+
+        // Step 6: Strip injected fields to recover original payload
+        // Remove ",sig":"<hex>" (keep trailing '}')
+        payload.erase( sigPos, sigEnd - sigPos + 1 );  // +1 to include closing '"'
+
+        // Remove ",ts":<num>
+        tsPos = payload.rfind( ",\"ts\":" );
+        if ( tsPos != std::string::npos )
+        {
+            auto tsEnd2 = payload.find_first_of( ",}", tsPos + 6 );
+            payload.erase( tsPos, tsEnd2 - tsPos );
+        }
+
+        // Remove ",nonce":"<hex>"
+        auto noncePos = payload.rfind( ",\"nonce\":\"" );
+        if ( noncePos != std::string::npos )
+        {
+            auto nonceEnd = payload.find( "\"", noncePos + 10 );
+            payload.erase( noncePos, nonceEnd - noncePos + 1 );
+        }
+
+        return true;
     }
 
 } // namespace sgns::neoswarm::security
