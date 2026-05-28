@@ -1,52 +1,41 @@
----
-gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: ELM Training & Distillation Pipeline (gnus-poc)
-status: planning
-last_updated: "2026-05-27T20:10:07.770Z"
-last_activity: 2026-05-27 — ROADMAP.md written
-progress:
-  total_phases: 7
-  completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
-  percent: 14
----
-
 # Project State
 
 ## Project Reference
 
-See: `.planning/PROJECT.md` (updated 2026-05-27)
+See: .planning/PROJECT.md (updated 2026-05-28)
 
-**Core value:** Python POC pipeline for training and distilling Expert Language Models using DeepSeek v4 pro API as teacher
-**Current focus:** Roadmap defined; ready for Phase 1 planning
+**Core value:** Real LLM inference on consumer hardware in a fully decentralized swarm, production-connected to the SuperGenius/GNUS network for distributed AI compute.
+**Current focus:** Phase 1 — Security Hardening
 
 ## Current Position
 
-Phase: 1 (Foundation & Bug Fixes) — COMPLETE
-Plan: 3/3 complete
-Status: Ready for Phase 2 planning
-Last activity: 2026-05-27 — Phase 1 plans 01-01, 01-02, 01-03 executed
+Phase: 1 of 6 (Security Hardening)
+Plan: 2 of 4 in current phase (01-03 planned next)
+Status: Executing
+Last activity: 2026-05-28 — Plan 01-02 complete: real secp256k1 signatures with replay protection
 
-Progress: [███░░░░░░░░░░░░░░░░░░░] 14%
+Progress: [████░░░░░░░░░░░░░░░░░░] 33%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: ~22 minutes/plan
-- Total execution time: ~1.1 hours
+- Total plans completed: 2
+- Average duration: ~10 minutes
+- Total execution time: ~0.3 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01-foundation-bug-fixes | 3 | 01:05 | 00:22 |
+| 1. Security Hardening | 2/4 | ~18 min | ~9 min |
+| 2. SuperGenius Connectivity | TBD | - | - |
+| 3. Persistence & Reliability | TBD | - | - |
+| 4. SGProcessing Integration | TBD | - | - |
+| 5. Production Hardening | TBD | - | - |
+| 6. Testing & Validation | TBD | - | - |
 
 **Recent Trend:**
-- Last 5 plans: 01-02 (15m), 01-01 (30m), 01-03 (20m)
-- Trend: Steady — avg 22 min/plan
+- 2026-05-28: Plans 01-01 (~10 min) and 01-02 (~8 min) completed — security foundation active
 
 *Updated after each plan completion*
 
@@ -54,22 +43,14 @@ Progress: [███░░░░░░░░░░░░░░░░░░░] 1
 
 ### Decisions
 
-- Teacher model: DeepSeek v4 pro API (not local GPU cluster) — fundamental architecture decision
-- Target: `gnus-poc/` subdirectory only — Python POC, feeds into C++ engine Phase 4 later
-- Existing assets: 5 trained MLX-LoRA specialists, FP4 pyramid code, Common Pile niche discovery
-- Built on `docs/` strategic vision: dAMoE, FP4 quantization, teaching phase workflow
-- 7-phase sequential roadmap: Foundation → Teacher API → Training → Eval → Distillation → Orchestration → FP4 Deploy
-- DISTILL-03 (subspace extraction) is optional — research spike, may be deferred
-- Phase 2 gated on teacher licensing decision (DeepSeek v4 pro API ToS compliance)
-- 01-02: Use Path(__file__).resolve().parent convention for all project paths
-- 01-02: PROJECT_ROOT = parent.parent for training/, parent.parent.parent for data/scripts/
-- 01-01: Use HuggingFace AutoTokenizer for chat template (not mlx_lm) in tokenizer_utils.py
-- 01-01: 3-phase skip logic: force-retrain → milestone file → metadata validation
-- 01-01: TRAINING_STATUS.json with iters_completed for skip check
-- 01-01: Metadata field validation (RuntimeError on Common Pile schema drift)
-- 01-03: YAML config hierarchy: pipeline.yaml → specialist/*.yaml → experiments/*.yaml
-- 01-03: code.yaml uses Qwen3-Coder base model (different from default)
-- 01-03: ${DEEPSEEK_API_KEY} placeholder for Phase 3 env-var interpolation
+Decisions are logged in PROJECT.md Key Decisions table.
+Recent decisions affecting current work:
+
+- [Roadmap]: Security MUST come first — real secp256k1 identity and MessageSigning are prerequisites for all network connectivity
+- [Roadmap]: New `SuperGeniusClient` component (6 files) encapsulates all SuperGenius communication via PubSub, not simple unary gRPC
+- [Roadmap]: Persistence (RocksDB) and Production Hardening are parallelizable with SuperGenius Connectivity
+- [Roadmap]: SGProcessing protobuf conflict (PROC-03/FIX-04) must be resolved before SentencePiece and SGProcessing coexist in one binary
+- [Roadmap]: Testing gates the release — Phase 6 validates all prior phases
 
 ### Pending Todos
 
@@ -77,22 +58,25 @@ None yet.
 
 ### Blockers/Concerns
 
-- **Teacher licensing decision (BLOCKING Phase 2):** DeepSeek v4 pro API ToS may prohibit synthetic data generation for training derivative models. User must resolve before Phase 2 code is written. Fallback: open-source teacher (DeepSeek-V3, Llama 3.1, Qwen 3).
-- **API cost explosion:** Hard dollar budget cap must be implemented with the API client — retrofitting after an incident is too late.
-- **Apple Silicon OOM:** Qwen3-30B-A3B (~55GB bf16) + optimizer states push 64GB Mac Studio limits. qLoRA mitigation in Phase 3.
-- **C++ `FP4Codec` alignment:** Python FP4 binary format must match C++ codec spec exactly. Round-trip test in Phase 7 is non-negotiable.
-- **MNN adapter format conversion:** No off-the-shelf MLX-LoRA → MNN converter. Defer decision to Phase 7 planning.
+- [Phase 2]: SuperGenius PubSub room-based dispatch pattern needs deeper research during planning — spike against actual SuperGenius test node recommended
+- [Phase 4]: FP4_ULTRA processor integration depends on understanding FP4 v3 codec and MNN quantized inference API — flagged for research during planning
+- [Phase 3]: RocksDB v10.7+ requires C++20 — must pin to v10.6.2 (C++17 ceiling)
 
 ## Deferred Items
 
-Items from v1.0 C++ engine milestone (not in gnus-poc scope):
+Items acknowledged and carried forward from previous milestone close:
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
-| C++ Engine | Phase 1-8 (bug fixes through advanced cognitive) | Separate workstream | 2026-05-27 |
+| Network | Full libp2p P2P (GossipSub, mDNS, DHT) | Deferred to v2 | 2026-05-28 |
+| Flutter | Streaming token output in chat UI | Deferred to v2 | 2026-05-28 |
+| Knowledge | Semantic embeddings (replace TF-IDF stub) | Deferred to v2 | 2026-05-28 |
+| Operations | gRPC serve mode (real server) | Deferred to v2 | 2026-05-28 |
+| Operations | Rate limiting at engine level | Deferred to v2 | 2026-05-28 |
+| Mobile | iOS/Android deployment | Deferred to v2 | 2026-05-28 |
 
 ## Session Continuity
 
-Last session: 2026-05-27
-Stopped at: Completed Phase 1 (3/3 plans) — Foundation & Bug Fixes
-Resume file: `.planning/phases/01-foundation-bug-fixes/01-03-SUMMARY.md`
+Last session: 2026-05-28 00:00
+Stopped at: Roadmap creation complete — all 26 v1 requirements mapped to 6 phases
+Resume file: None
