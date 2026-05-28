@@ -192,3 +192,33 @@ TEST( MessageSigning, VerifyAndStripValid )
     EXPECT_TRUE( MessageSigning::VerifyAndStrip( payload, pubKeyHex ) );
     EXPECT_EQ( payload, original );
 }
+
+TEST( MessageSigning, VerifyAndStripExpiredTimestamp )
+{
+    // A message with a timestamp older than the replay window
+    // (30s) is rejected.
+    NodeIdentity ident;
+    ASSERT_TRUE( ident.Generate().has_value() );
+
+    const std::string pubKeyHex = PubKeyToHex( ident.PublicKey() );
+    MessageSigning   signer( ident );
+
+    // Build a signed payload then inject an expired timestamp
+    std::string payload = signer.AttachSignature( R"({"msg":"test"})" );
+
+    // Find and replace the "ts" field with an old timestamp
+    auto tsPos = payload.rfind( ",\"ts\":" );
+    ASSERT_NE( tsPos, std::string::npos );
+
+    // Replace timestamp with one from 60 seconds ago
+    uint64_t oldTs = MessageSigning::CurrentTimestampMs() - 61000;
+    auto     tsVal = payload.find_first_of( "0123456789", tsPos + 6 );
+    auto     tsEnd = payload.find_first_of( ",}", tsVal );
+    ASSERT_NE( tsVal, std::string::npos );
+    ASSERT_NE( tsEnd, std::string::npos );
+
+    payload.replace( tsVal, tsEnd - tsVal, std::to_string( oldTs ) );
+
+    // VerifyAndStrip should reject the expired message
+    EXPECT_FALSE( MessageSigning::VerifyAndStrip( payload, pubKeyHex ) );
+}
