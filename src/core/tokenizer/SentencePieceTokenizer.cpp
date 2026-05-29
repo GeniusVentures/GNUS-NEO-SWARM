@@ -137,7 +137,7 @@ namespace sgns::neoswarm::core
             return static_cast<size_t>( impl_->processor_.GetPieceSize() );
         }
 #endif
-        return 32000;  // Mistral 7B default
+        return 0;  // unknown until model is loaded
     }
 
 } // namespace sgns::neoswarm::core

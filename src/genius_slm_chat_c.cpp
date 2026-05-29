@@ -9,6 +9,7 @@
 #include "api/GeniusAPIServer.hpp"
 #include "common/Types.hpp"
 
+#include <nlohmann/json.hpp>
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
@@ -50,84 +51,29 @@ namespace
             return "";
         }
 
-        const std::string json( request_json );
-        const std::string role_key    = "\"role\"";
-        const std::string user_val    = "\"user\"";
-        const std::string content_key = "\"content\"";
-
-        size_t search_pos        = 0;
-        size_t last_user_content = std::string::npos;
-
-        while ( true )
+        try
         {
-            size_t role_pos = json.find( role_key, search_pos );
-            if ( role_pos == std::string::npos ) break;
-
-            size_t colon_pos = json.find( ':', role_pos + role_key.size() );
-            if ( colon_pos == std::string::npos ) break;
-
-            size_t value_start = json.find_first_not_of( " \t\r\n", colon_pos + 1 );
-            if ( value_start == std::string::npos ) break;
-
-            if ( json.compare( value_start, user_val.size(), user_val ) == 0 )
+            nlohmann::json j = nlohmann::json::parse( request_json );
+            if ( !j.contains( "messages" ) || !j["messages"].is_array() )
             {
-                size_t obj_start  = json.rfind( '{', role_pos );
-                if ( obj_start == std::string::npos ) obj_start = 0;
+                return "";
+            }
 
-                size_t content_pos = json.find( content_key, obj_start );
-                if ( content_pos != std::string::npos
-                     && content_pos < json.find( '}', role_pos ) )
+            // Find the last user message
+            std::string lastUserContent;
+            for ( const auto &msg : j["messages"] )
+            {
+                if ( msg.value( "role", "" ) == "user" )
                 {
-                    size_t c_colon = json.find( ':', content_pos + content_key.size() );
-                    if ( c_colon != std::string::npos )
-                    {
-                        size_t c_start = json.find_first_not_of( " \t\r\n", c_colon + 1 );
-                        if ( c_start != std::string::npos && json[c_start] == '"' )
-                        {
-                            last_user_content = c_start + 1;
-                        }
-                    }
+                    lastUserContent = msg.value( "content", "" );
                 }
             }
-            search_pos = role_pos + role_key.size();
+            return lastUserContent;
         }
-
-        if ( last_user_content != std::string::npos )
+        catch ( ... )
         {
-            size_t c_end = json.find( '"', last_user_content );
-            while ( c_end != std::string::npos && json[c_end - 1] == '\\' )
-            {
-                c_end = json.find( '"', c_end + 1 );
-            }
-            if ( c_end != std::string::npos )
-            {
-                std::string content = json.substr( last_user_content, c_end - last_user_content );
-                std::string unescaped;
-                unescaped.reserve( content.size() );
-                for ( size_t i = 0; i < content.size(); ++i )
-                {
-                    if ( content[i] == '\\' && i + 1 < content.size() )
-                    {
-                        ++i;
-                        switch ( content[i] )
-                        {
-                            case 'n':  unescaped += '\n'; break;
-                            case 't':  unescaped += '\t'; break;
-                            case 'r':  unescaped += '\r'; break;
-                            case '"':  unescaped += '"';  break;
-                            case '\\': unescaped += '\\'; break;
-                            default:   unescaped += content[i]; break;
-                        }
-                    }
-                    else
-                    {
-                        unescaped += content[i];
-                    }
-                }
-                return unescaped;
-            }
+            return "";
         }
-        return json;
     }
 
     /**

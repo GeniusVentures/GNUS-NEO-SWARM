@@ -502,8 +502,9 @@ namespace sgns::neoswarm::core
 #ifdef GENIUS_HAS_MNN
         if ( !session_ )
         {
-            // Stub: return random logits
-            std::vector<float>              logits( 32000, 0.0f );
+            // Stub: return random logits using dynamic vocab size
+            const size_t kVocabSize = tokenizer_ ? tokenizer_->VocabSize() : 32000;
+            std::vector<float>              logits( kVocabSize, 0.0f );
             static std::mt19937             rng( 42 );
             std::normal_distribution<float> dist( 0.0f, 1.0f );
             for ( auto &v : logits ) v = dist( rng );
@@ -542,7 +543,8 @@ namespace sgns::neoswarm::core
         return outcome::success( std::move( logits ) );
 #else
         ( void )input_ids;
-        std::vector<float>              logits( 32000, 0.0f );
+        const size_t kVocabSize = tokenizer_ ? tokenizer_->VocabSize() : 32000;
+        std::vector<float>              logits( kVocabSize, 0.0f );
         static std::mt19937             rng( 42 );
         std::normal_distribution<float> dist( 0.0f, 1.0f );
         for ( auto &v : logits ) v = dist( rng );
