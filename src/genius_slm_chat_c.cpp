@@ -254,12 +254,20 @@ char *GeniusSlmGetStatus( void ) noexcept
     }
 
     const bool   model_loaded = !g_model_path.empty();
-    const char  *mode         = model_loaded ? "sgprocessing" : "stub";
+    const char  *mode         = "stub";
     const char  *backend      = "vulkan";
 
-    std::string node_id;
-    // Extract node_id from the server's identity (already logged at init)
-    // We'll use the model path presence as the key indicator
+    // Check SG connectivity if network mode is configured
+    bool sgConnected = false;
+    bool fallbackActive = false;
+    if ( g_server )
+    {
+        sgConnected   = g_server->IsSuperGeniusConnected();
+        // fallback is active if we expected SG but aren't connected
+        // This is a simplified check — the bridge knows more precisely
+        fallbackActive = !sgConnected;
+    }
+
     std::string json = R"({"model_loaded":)";
     json += model_loaded ? "true" : "false";
     json += R"(,"mode":")";
@@ -268,6 +276,10 @@ char *GeniusSlmGetStatus( void ) noexcept
     json += backend;
     json += R"(","model_path":")";
     json += g_model_path;
+    json += R"(","supergenius_connected":)";
+    json += sgConnected ? "true" : "false";
+    json += R"(,"fallback_active":)";
+    json += fallbackActive ? "true" : "false";
     json += R"("})";
 
     return DuplicateString( json );

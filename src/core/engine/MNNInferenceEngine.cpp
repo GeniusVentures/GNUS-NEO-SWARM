@@ -630,4 +630,16 @@ namespace sgns::neoswarm::core
         return probs.back().second;
     }
 
+    // -----------------------------------------------------------------------
+    // SetSuperGeniusClient
+    // -----------------------------------------------------------------------
+    void MNNInferenceEngine::SetSuperGeniusClient(
+        network::SuperGeniusClient *client ) noexcept
+    {
+        if ( bridge_ )
+        {
+            bridge_->SetClient( client );
+        }
+    }
+
 } // namespace sgns::neoswarm::core

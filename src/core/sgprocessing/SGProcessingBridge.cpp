@@ -8,6 +8,7 @@
  */
 
 #include "SGProcessingBridge.hpp"
+#include "network/sg_client/SuperGeniusClient.hpp"
 #include "common/Logging.hpp"
 
 #include <boost/asio/io_context.hpp>
@@ -263,7 +264,22 @@ namespace sgns::neoswarm::core
 
         if ( cfg_.network_mode_ )
         {
-            return SubmitNetwork( json_res.value() );
+            auto result = SubmitNetwork( json_res.value() );
+            if ( !result.has_value() )
+            {
+                // Auto-fallback to local MNN on network failure
+                // Auth failures (SignatureInvalid) are NOT silently swallowed
+                if ( result.error() == Error::SignatureInvalid ||
+                     result.error() == Error::IdentityError )
+                {
+                    BridgeLogger()->error( "Network dispatch auth failed — NOT falling back to local mode" );
+                    return result;
+                }
+                BridgeLogger()->warn( "Network dispatch failed ({}), falling back to local mode",
+                                      result.error().message() );
+                return SubmitDirect( json_res.value(), ioc );
+            }
+            return result;
         }
         return SubmitDirect( json_res.value(), ioc );
     }
@@ -335,14 +351,29 @@ namespace sgns::neoswarm::core
     }
 
     // -----------------------------------------------------------------------
-    // SubmitNetwork — Phase 2 stub
+    // SetClient
+    // -----------------------------------------------------------------------
+    void SGProcessingBridge::SetClient( network::SuperGeniusClient *client ) noexcept
+    {
+        client_ = client;
+        BridgeLogger()->info( "SuperGeniusClient set (network_mode_={})",
+                              client ? "true" : "false" );
+    }
+
+    // -----------------------------------------------------------------------
+    // SubmitNetwork — Phase 2: dispatch via SuperGeniusClient
     // -----------------------------------------------------------------------
     outcome::result<std::vector<uint8_t>> SGProcessingBridge::SubmitNetwork(
         const std::string &jsondata ) const
     {
-        ( void )jsondata;
-        BridgeLogger()->warn( "SGProcessingBridge: Phase 2 network dispatch not yet implemented" );
-        return outcome::failure( Error::NotImplemented );
+        if ( !client_ )
+        {
+            BridgeLogger()->error( "SubmitNetwork: SuperGeniusClient not configured" );
+            return outcome::failure( Error::NetworkError );
+        }
+
+        BridgeLogger()->debug( "Submitting job via SuperGeniusClient ({} bytes)", jsondata.size() );
+        return client_->SubmitJob( jsondata );
     }
 
 } // namespace sgns::neoswarm::core

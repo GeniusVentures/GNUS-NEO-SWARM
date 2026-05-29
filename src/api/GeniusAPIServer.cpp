@@ -8,6 +8,7 @@
 #include "GeniusAPIServer.hpp"
 #include "core/engine/MNNInferenceEngine.hpp"
 #include "core/tokenizer/Tokenizer.hpp"
+#include "network/sg_client/SuperGeniusClient.hpp"
 #include "common/Logging.hpp"
 
 #include <algorithm>
@@ -134,6 +135,44 @@ namespace sgns::neoswarm::api
             if ( !net_res.has_value() )
             {
                 ServerLogger()->warn( "P2P network start failed" );
+            }
+        }
+
+        // 6b. SuperGenius connectivity (optional — Phase 2 network dispatch)
+        if ( !cfg_.sg_endpoint_.empty() )
+        {
+            network::SuperGeniusClient::Config sgCfg;
+            sgCfg.endpoint_     = cfg_.sg_endpoint_;
+            sgCfg.tls_ca_path_  = cfg_.sg_tls_ca_;
+            sgCfg.tls_cert_path_ = cfg_.sg_tls_cert_;
+
+            sg_client_ = std::make_unique<network::SuperGeniusClient>( std::move( sgCfg ) );
+            auto initRes = sg_client_->Initialize( *identity_ );
+            if ( initRes.has_value() )
+            {
+                auto connRes = sg_client_->Connect();
+                if ( connRes.has_value() )
+                {
+                    ServerLogger()->info( "Connected to SuperGenius at {}", cfg_.sg_endpoint_ );
+                }
+                else
+                {
+                    ServerLogger()->warn( "SuperGenius connection failed — will fall back to local mode" );
+                }
+            }
+            else
+            {
+                ServerLogger()->warn( "SuperGeniusClient initialization failed" );
+            }
+
+            // Wire SuperGeniusClient into the engine's SGProcessingBridge
+            if ( core_engine_ )
+            {
+                auto *mnnEngine = dynamic_cast<core::MNNInferenceEngine *>( core_engine_.get() );
+                if ( mnnEngine )
+                {
+                    mnnEngine->SetSuperGeniusClient( sg_client_.get() );
+                }
             }
         }
 
@@ -435,8 +474,14 @@ namespace sgns::neoswarm::api
     {
         running_.store( false );
         if ( p2p_node_ ) p2p_node_->Stop();
+        if ( sg_client_ ) sg_client_->Disconnect();
         if ( rep_storage_ ) rep_storage_->Close();
         ServerLogger()->info( "GeniusAPIServer stopped" );
+    }
+
+    bool GeniusAPIServer::IsSuperGeniusConnected() const noexcept
+    {
+        return sg_client_ != nullptr && sg_client_->IsConnected();
     }
 
 } // namespace sgns::neoswarm::api

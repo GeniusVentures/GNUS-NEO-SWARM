@@ -28,6 +28,11 @@
 #include <memory>
 #include <string>
 
+namespace sgns::neoswarm::network
+{
+class SuperGeniusClient;
+}
+
 namespace sgns::neoswarm::api
 {
     /**
@@ -90,6 +95,9 @@ namespace sgns::neoswarm::api
             return running_.load();
         }
 
+        /// @return True if connected to SuperGenius network.
+        bool IsSuperGeniusConnected() const noexcept;
+
     private:
         Config            cfg_;
         std::atomic<bool> running_{ false };
@@ -108,6 +116,7 @@ namespace sgns::neoswarm::api
         std::shared_ptr<knowledge::KnowledgeRetrieval>   knowledge_;
         std::unique_ptr<knowledge::ContextInjection>     context_inj_;
         std::unique_ptr<knowledge::FactValidation>       fact_val_;
+        std::unique_ptr<network::SuperGeniusClient>      sg_client_;
 
         outcome::result<GeniusResponse> RunSingleNode( const Task        &task,
                                                        const RouteDecision &route );

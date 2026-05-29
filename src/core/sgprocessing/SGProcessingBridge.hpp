@@ -24,6 +24,11 @@ namespace sgns
 enum class InputFormat : int;
 } // namespace sgns
 
+namespace sgns::neoswarm::network
+{
+class SuperGeniusClient;
+}
+
 namespace sgns::neoswarm::core
 {
     /**
@@ -41,6 +46,12 @@ namespace sgns::neoswarm::core
         SGProcessingBridge();
         explicit SGProcessingBridge( Config cfg );
         ~SGProcessingBridge() = default;
+
+        /**
+         * @brief Set the SuperGeniusClient for Phase 2 network dispatch.
+         * @param client  The SuperGeniusClient instance (owned by GeniusAPIServer).
+         */
+        void SetClient( network::SuperGeniusClient *client ) noexcept;
 
         /**
          * @brief Build a GNUS_Schema JSON string from the supplied parameters.
@@ -78,6 +89,7 @@ namespace sgns::neoswarm::core
 
     private:
         Config cfg_;
+        network::SuperGeniusClient *client_ = nullptr;
 
         outcome::result<std::vector<uint8_t>> SubmitDirect(
             const std::string                       &jsondata,

@@ -19,30 +19,11 @@
 #include "core/fp4/FP4Codec.hpp"
 #include "core/tokenizer/Tokenizer.hpp"
 #include "core/sgprocessing/SGProcessingBridge.hpp"
-#include "core/sgprocessing/TensorInterpreter.hpp"
-#include <atomic>
-#include <memory>
-#include <string>
 
-namespace MNN
+namespace sgns::neoswarm::network
 {
-class Interpreter;
-class Session;
-namespace Transformer
-{
-class Llm;
-} // namespace Transformer
-} // namespace MNN
-
-namespace boost::asio
-{
-class io_context;
-} // namespace boost::asio
-
-namespace sgns
-{
-enum class InputFormat : int;
-} // namespace sgns
+class SuperGeniusClient;
+}
 
 namespace sgns::neoswarm::core
 {
@@ -116,6 +97,17 @@ namespace sgns::neoswarm::core
         {
             loaded_.store( true );
         }
+
+        /**
+         * @brief Set the SuperGeniusClient for Phase 2 network dispatch.
+         *
+         * Call once during initialization after both the engine and the
+         * SuperGeniusClient are created. The client pointer is passed through
+         * to the internal SGProcessingBridge.
+         *
+         * @param client  The SuperGeniusClient instance (owned by GeniusAPIServer).
+         */
+        void SetSuperGeniusClient( network::SuperGeniusClient *client ) noexcept;
 
     private:
         Config cfg_;
