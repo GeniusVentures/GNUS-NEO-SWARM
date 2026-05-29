@@ -105,4 +105,6 @@ namespace sgns::neoswarm::network
 #endif
     }
 
+    SGJobSubmitter::~SGJobSubmitter() = default;
+
 } // namespace sgns::neoswarm::network

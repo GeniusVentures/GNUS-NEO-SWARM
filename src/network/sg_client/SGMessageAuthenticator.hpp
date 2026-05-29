@@ -37,7 +37,7 @@ namespace sgns::neoswarm::network
         explicit SGMessageAuthenticator(
             const security::NodeIdentity &identity );
 
-        ~SGMessageAuthenticator() = default;
+        ~SGMessageAuthenticator();
 
         /**
          * @brief Sign a JSON payload with nonce + timestamp replays protection.
