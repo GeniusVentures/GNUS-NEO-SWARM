@@ -71,4 +71,6 @@ namespace sgns::neoswarm::network
         return true;
     }
 
+    SGMessageAuthenticator::~SGMessageAuthenticator() = default;
+
 } // namespace sgns::neoswarm::network

@@ -25,7 +25,7 @@ namespace sgns::neoswarm::network
     {
         std::shared_ptr<grpc::Channel> channel_;
         SGMessageAuthenticator        &authenticator_;
-        Config                         cfg_;
+        SGResultCollectorConfig        cfg_;
 
         // Timeout-bounded collection using condition_variable
         // (matches existing ResultAggregation pattern)
@@ -36,7 +36,7 @@ namespace sgns::neoswarm::network
 
         Impl( std::shared_ptr<grpc::Channel>  channel,
               SGMessageAuthenticator         &authenticator,
-              Config                          cfg )
+              SGResultCollectorConfig         cfg )
             : channel_( std::move( channel ) )
             , authenticator_( authenticator )
             , cfg_( std::move( cfg ) )
@@ -47,7 +47,7 @@ namespace sgns::neoswarm::network
     SGResultCollector::SGResultCollector(
         std::shared_ptr<grpc::Channel>  channel,
         SGMessageAuthenticator         &authenticator,
-        Config                          cfg )
+        SGResultCollectorConfig         cfg )
         : impl_( std::make_unique<Impl>(
             std::move( channel ), authenticator, std::move( cfg ) ) )
     {
@@ -98,5 +98,7 @@ namespace sgns::neoswarm::network
     {
         return WaitForResult( taskId, impl_->cfg_.result_timeout_ );
     }
+
+    SGResultCollector::~SGResultCollector() = default;
 
 } // namespace sgns::neoswarm::network

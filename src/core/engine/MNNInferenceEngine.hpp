@@ -19,6 +19,30 @@
 #include "core/fp4/FP4Codec.hpp"
 #include "core/tokenizer/Tokenizer.hpp"
 #include "core/sgprocessing/SGProcessingBridge.hpp"
+#include "core/sgprocessing/TensorInterpreter.hpp"
+#include <atomic>
+#include <memory>
+#include <string>
+
+namespace MNN
+{
+class Interpreter;
+class Session;
+namespace Transformer
+{
+class Llm;
+} // namespace Transformer
+} // namespace MNN
+
+namespace boost::asio
+{
+class io_context;
+} // namespace boost::asio
+
+namespace sgns
+{
+enum class InputFormat : int;
+} // namespace sgns
 
 namespace sgns::neoswarm::network
 {

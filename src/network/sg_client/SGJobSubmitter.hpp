@@ -34,7 +34,7 @@ class SGMessageAuthenticator;
         SGJobSubmitter(
             std::shared_ptr<grpc::Channel>  channel,
             SGMessageAuthenticator         &authenticator );
-        ~SGJobSubmitter() = default;
+        ~SGJobSubmitter();
 
         /**
          * @brief Sign and publish a GNUS schema JSON job to the grid channel.

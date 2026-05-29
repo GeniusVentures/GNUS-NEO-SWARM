@@ -24,26 +24,22 @@ namespace sgns::neoswarm::network
 {
 class SGMessageAuthenticator;
 
+    struct SGResultCollectorConfig
+    {
+        std::chrono::seconds result_timeout_{300};
+    };
+
     /**
      * @brief Collects inference results from SuperGenius PubSub result channels.
-     *
-     * Subscribes to per-job result channels (results/<taskId>), waits with
-     * timeout-bounded condition_variable, verifies the result signature,
-     * and returns raw output bytes.
      */
     class SGResultCollector
     {
     public:
-        struct Config
-        {
-            std::chrono::seconds result_timeout_{300};  ///< Max wait for result (5 min)
-        };
-
         SGResultCollector(
             std::shared_ptr<grpc::Channel>  channel,
             SGMessageAuthenticator         &authenticator,
-            Config                          cfg = {} );
-        ~SGResultCollector() = default;
+            SGResultCollectorConfig         cfg = {} );
+        ~SGResultCollector();
 
         /**
          * @brief Block until a result arrives or timeout expires.

@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 
+using namespace sgns::neoswarm;
 using namespace sgns::neoswarm::security;
 
 namespace

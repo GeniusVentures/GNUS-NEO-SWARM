@@ -1,6 +1,11 @@
 add_library(genius_network STATIC
     P2PNode.cpp
     ResultAggregation.cpp
+    sg_client/SuperGeniusClient.cpp
+    sg_client/SGChannelManager.cpp
+    sg_client/SGJobSubmitter.cpp
+    sg_client/SGResultCollector.cpp
+    sg_client/SGMessageAuthenticator.cpp
 )
 
 target_include_directories(genius_network PUBLIC

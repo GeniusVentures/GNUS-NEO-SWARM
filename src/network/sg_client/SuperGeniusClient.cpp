@@ -89,7 +89,7 @@ namespace sgns::neoswarm::network
             impl_->jobSubmitter_ = std::make_unique<SGJobSubmitter>(
                 channel, *impl_->authenticator_ );
 
-            SGResultCollector::Config rcCfg;
+            SGResultCollectorConfig rcCfg;
             rcCfg.result_timeout_ = impl_->cfg_.result_timeout_;
             impl_->resultCollector_ = std::make_unique<SGResultCollector>(
                 channel, *impl_->authenticator_, rcCfg );
