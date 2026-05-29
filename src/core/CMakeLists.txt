@@ -37,6 +37,8 @@ find_library(_SGPROC_PROCESSING_BASE ProcessingBase PATHS "${_SGPROC_LIB_DIR}" N
 # ---------------------------------------------------------------------------
 # SentencePiece tokenizer (+ Abseil transitive deps)
 # Skip when SGProcessingManager is linked (avoids protobuf duplicate symbols)
+# When skipped, the tokenizer falls back to whitespace mode — MNN's built-in
+# tokenizer (tokenizer.mtok) is used in the LLM path instead.
 # ---------------------------------------------------------------------------
 if(NOT _SGPROC_PROCESSING_BASE AND TARGET sentencepiece)
     target_link_libraries(genius_core PUBLIC sentencepiece)
@@ -50,6 +52,8 @@ if(NOT _SGPROC_PROCESSING_BASE AND TARGET sentencepiece)
     if(_ABSL_LIBS)
         target_link_libraries(genius_core PUBLIC ${_ABSL_LIBS})
     endif()
+elseif(_SGPROC_PROCESSING_BASE AND TARGET sentencepiece)
+    message(STATUS "SentencePiece skipped — protobuf conflict with SGProcessingManager. Using MNN built-in tokenizer.")
 endif()
 
 # ---------------------------------------------------------------------------
