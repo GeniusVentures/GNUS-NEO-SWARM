@@ -50,6 +50,9 @@ struct Args
     std::string knowledge_path_;
     int         max_tokens_   = 512;
     float       temperature_  = 0.7f;
+    std::string sg_endpoint_   = "localhost:50051";
+    std::string sg_tls_ca_;
+    std::string sg_tls_cert_;
     bool        network_      = false;
     bool        serve_        = false;
     bool        verbose_      = false;
@@ -69,6 +72,9 @@ static void PrintHelp( const char *prog )
         << "  --port <n>               gRPC port (default: 50051)\n"
         << "  --db <path>              Reputation DB (default: ./reputation.db)\n"
         << "  --key <path>             Node key file (default: ./node.key)\n"
+        << "  --sg-endpoint <host:port> SuperGenius node address (default: localhost:50051)\n"
+        << "  --sg-tls-ca <path>       TLS CA certificate bundle for SuperGenius\n"
+        << "  --sg-tls-cert <path>     TLS client certificate for SuperGenius\n"
         << "  --network                Enable P2P networking\n"
         << "  --knowledge <path>       Grokipedia facts CSV\n"
         << "  --max-tokens <n>         Max tokens (default: 512)\n"
@@ -100,6 +106,9 @@ static Args ParseArgs( int argc, char **argv )
         else if ( a == "--knowledge" )     args.knowledge_path_     = next();
         else if ( a == "--max-tokens" )    args.max_tokens_         = std::stoi( next() );
         else if ( a == "--temperature" )   args.temperature_        = std::stof( next() );
+        else if ( a == "--sg-endpoint" )   args.sg_endpoint_        = next();
+        else if ( a == "--sg-tls-ca" )     args.sg_tls_ca_          = next();
+        else if ( a == "--sg-tls-cert" )   args.sg_tls_cert_        = next();
         else if ( a == "--network" )       args.network_            = true;
         else if ( a == "--serve" )         args.serve_              = true;
         else if ( a == "--verbose" )       args.verbose_            = true;
@@ -193,7 +202,10 @@ int main( int argc, char **argv )
     cfg.enable_network_      = args.network_;
     cfg.enable_knowledge_    = true;
     cfg.grpc_port_           = args.port_;
-    cfg.node_key_file_       = args.key_file_;
+    cfg.node_key_file_         = args.key_file_;
+    cfg.sg_endpoint_           = args.sg_endpoint_;
+    cfg.sg_tls_ca_             = args.sg_tls_ca_;
+    cfg.sg_tls_cert_           = args.sg_tls_cert_;
 
     api::GeniusAPIServer server( cfg );
 

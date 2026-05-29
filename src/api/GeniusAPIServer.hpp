@@ -54,6 +54,9 @@ namespace sgns::neoswarm::api
             std::string node_key_file_       = "./node.key";
             bool        enable_sg_processing_ = false;
             bool        sg_processing_network_mode_ = false;
+            std::string sg_endpoint_            = "localhost:50051";
+            std::string sg_tls_ca_;
+            std::string sg_tls_cert_;
         };
 
         explicit GeniusAPIServer( Config cfg );
