@@ -59,6 +59,10 @@ genius_test(test_pipeline              integration/test_pipeline.cpp            
 genius_test(test_sgprocessing_pipeline integration/test_sgprocessing_pipeline.cpp       "genius_api")
 genius_test(test_node_identity     security/test_node_identity.cpp        "genius_security;genius_common")
 genius_test(test_message_signing   security/test_message_signing.cpp      "genius_security;genius_common")
+genius_test(test_genius_slm_ffi    ffi/test_genius_slm_ffi.cpp             "genius_api")
+target_sources(test_genius_slm_ffi PRIVATE "${PROJECT_ROOT}/src/genius_slm_chat_c.cpp")
+genius_test(test_fact_validation   knowledge/test_fact_validation.cpp      "genius_knowledge;genius_common")
+genius_test(test_network           network/test_network.cpp                "genius_network;genius_security;genius_common")
 
 # Benchmarks (not part of CTest — run manually)
 add_subdirectory(benchmark)
