@@ -28,6 +28,8 @@
 #include "api/GeniusAPIServer.hpp"
 #include "common/Logging.hpp"
 
+#include <nlohmann/json.hpp>
+#include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -53,6 +55,7 @@ struct Args
     std::string sg_endpoint_   = "localhost:50051";
     std::string sg_tls_ca_;
     std::string sg_tls_cert_;
+    std::string config_path_;
     bool        network_      = false;
     bool        serve_        = false;
     bool        verbose_      = false;
@@ -72,6 +75,7 @@ static void PrintHelp( const char *prog )
         << "  --port <n>               gRPC port (default: 50051)\n"
         << "  --db <path>              Reputation DB (default: ./reputation.db)\n"
         << "  --key <path>             Node key file (default: ./node.key)\n"
+        << "  --config <path>         JSON config file (CLI flags override file values)\n"
         << "  --sg-endpoint <host:port> SuperGenius node address (default: localhost:50051)\n"
         << "  --sg-tls-ca <path>       TLS CA certificate bundle for SuperGenius\n"
         << "  --sg-tls-cert <path>     TLS client certificate for SuperGenius\n"
@@ -82,6 +86,60 @@ static void PrintHelp( const char *prog )
         << "  --serve                  Start gRPC server\n"
         << "  --verbose                Debug logging\n"
         << "  --help                   Show this help\n";
+}
+
+// ---------------------------------------------------------------------------
+// Config file loader
+// ---------------------------------------------------------------------------
+static void LoadConfigFile( const std::string &path, Args &args )
+{
+    std::ifstream f( path );
+    if ( !f.is_open() )
+    {
+        std::cerr << "Warning: cannot open config file '" << path << "'\n";
+        return;
+    }
+
+    nlohmann::json j;
+    try
+    {
+        f >> j;
+    }
+    catch ( const std::exception &e )
+    {
+        std::cerr << "Warning: invalid JSON in config file '" << path << "': " << e.what() << "\n";
+        return;
+    }
+
+    // Only set defaults — CLI args will override
+    if ( j.contains( "model" ) && args.model_path_.empty() )
+        args.model_path_ = j["model"].get<std::string>();
+    if ( j.contains( "grammar_model" ) && args.grammar_model_path_.empty() )
+        args.grammar_model_path_ = j["grammar_model"].get<std::string>();
+    if ( j.contains( "math_model" ) && args.math_model_path_.empty() )
+        args.math_model_path_ = j["math_model"].get<std::string>();
+    if ( j.contains( "mode" ) && args.mode_ == "auto" )
+        args.mode_ = j["mode"].get<std::string>();
+    if ( j.contains( "port" ) && args.port_ == 50051 )
+        args.port_ = j["port"].get<int>();
+    if ( j.contains( "db" ) && args.db_path_ == "./reputation.db" )
+        args.db_path_ = j["db"].get<std::string>();
+    if ( j.contains( "key" ) && args.key_file_ == "./node.key" )
+        args.key_file_ = j["key"].get<std::string>();
+    if ( j.contains( "knowledge" ) && args.knowledge_path_.empty() )
+        args.knowledge_path_ = j["knowledge"].get<std::string>();
+    if ( j.contains( "max_tokens" ) && args.max_tokens_ == 512 )
+        args.max_tokens_ = j["max_tokens"].get<int>();
+    if ( j.contains( "temperature" ) && args.temperature_ == 0.7f )
+        args.temperature_ = j["temperature"].get<float>();
+    if ( j.contains( "sg_endpoint" ) && args.sg_endpoint_ == "localhost:50051" )
+        args.sg_endpoint_ = j["sg_endpoint"].get<std::string>();
+    if ( j.contains( "network" ) && !args.network_ )
+        args.network_ = j["network"].get<bool>();
+    if ( j.contains( "verbose" ) && !args.verbose_ )
+        args.verbose_ = j["verbose"].get<bool>();
+
+    std::cout << "Loaded config: " << path << "\n";
 }
 
 static Args ParseArgs( int argc, char **argv )
@@ -106,6 +164,7 @@ static Args ParseArgs( int argc, char **argv )
         else if ( a == "--knowledge" )     args.knowledge_path_     = next();
         else if ( a == "--max-tokens" )    args.max_tokens_         = std::stoi( next() );
         else if ( a == "--temperature" )   args.temperature_        = std::stof( next() );
+        else if ( a == "--config" )        args.config_path_        = next();
         else if ( a == "--sg-endpoint" )   args.sg_endpoint_        = next();
         else if ( a == "--sg-tls-ca" )     args.sg_tls_ca_          = next();
         else if ( a == "--sg-tls-cert" )   args.sg_tls_cert_        = next();
@@ -185,6 +244,12 @@ int main( int argc, char **argv )
     {
         PrintHelp( argv[0] );
         return 0;
+    }
+
+    // Load config file if specified (CLI flags already parsed, override file values)
+    if ( !args.config_path_.empty() )
+    {
+        LoadConfigFile( args.config_path_, args );
     }
 
     if ( args.verbose_ )

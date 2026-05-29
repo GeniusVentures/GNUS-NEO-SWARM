@@ -8,6 +8,7 @@
 #include "ReputationStorage.hpp"
 #include "common/Logging.hpp"
 
+#include <nlohmann/json.hpp>
 #include <sstream>
 #include <stdexcept>
 #include <unordered_map>
@@ -29,40 +30,42 @@ namespace sgns::neoswarm::reputation
     }
 
     // -----------------------------------------------------------------------
-    // Serialization — simple CSV; replace with protobuf in production
+    // Serialization — JSON (nlohmann/json)
     // -----------------------------------------------------------------------
     std::string ReputationStorage::Serialize( const NodeReputation &r )
     {
-        std::ostringstream oss;
-        oss << r.identity_key_     << ','
-            << r.global_score_     << ','
-            << r.math_score_       << ','
-            << r.grammar_score_    << ','
-            << r.latency_score_    << ','
-            << r.consistency_score_ << ','
-            << r.task_count_       << ','
-            << r.last_updated_ms_;
-        return oss.str();
+        nlohmann::json j;
+        j["identity_key"]      = r.identity_key_;
+        j["global_score"]      = r.global_score_;
+        j["math_score"]        = r.math_score_;
+        j["grammar_score"]     = r.grammar_score_;
+        j["latency_score"]     = r.latency_score_;
+        j["consistency_score"] = r.consistency_score_;
+        j["task_count"]        = r.task_count_;
+        j["last_updated_ms"]   = r.last_updated_ms_;
+        return j.dump();
     }
 
     NodeReputation ReputationStorage::Deserialize( const std::string &data )
     {
-        NodeReputation     r;
-        std::istringstream iss( data );
-        std::string        token;
-        auto               next = [&]() -> std::string
+        NodeReputation r;
+        try
         {
-            std::getline( iss, token, ',' );
-            return token;
-        };
-        r.identity_key_      = next();
-        r.global_score_      = std::stod( next() );
-        r.math_score_        = std::stod( next() );
-        r.grammar_score_     = std::stod( next() );
-        r.latency_score_     = std::stod( next() );
-        r.consistency_score_ = std::stod( next() );
-        r.task_count_        = std::stoull( next() );
-        r.last_updated_ms_   = std::stoull( next() );
+            nlohmann::json j = nlohmann::json::parse( data );
+            r.identity_key_      = j.value( "identity_key", "" );
+            r.global_score_      = j.value( "global_score", 0.0 );
+            r.math_score_        = j.value( "math_score", 0.0 );
+            r.grammar_score_     = j.value( "grammar_score", 0.0 );
+            r.latency_score_     = j.value( "latency_score", 0.0 );
+            r.consistency_score_ = j.value( "consistency_score", 0.0 );
+            r.task_count_        = j.value( "task_count", 0ULL );
+            r.last_updated_ms_   = j.value( "last_updated_ms", 0ULL );
+        }
+        catch ( const std::exception &e )
+        {
+            StorageLogger()->error( "Corrupt reputation record, skipping: {}", e.what() );
+            r.identity_key_ = "";
+        }
         return r;
     }
 
