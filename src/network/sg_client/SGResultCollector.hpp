@@ -1,0 +1,73 @@
+/**
+ * @file       SGResultCollector.hpp
+ * @brief      Subscribes to per-job result channels and collects TaskResult messages
+ * @date       2026-05-28
+ * @author     Subaskar S (ssivakumar@gnus.ai)
+ */
+
+#ifndef NEOSWARM_NETWORK_SG_CLIENT_SGRESULTCOLLECTOR_HPP_
+#define NEOSWARM_NETWORK_SG_CLIENT_SGRESULTCOLLECTOR_HPP_
+
+#include "common/Error.hpp"
+#include <chrono>
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <vector>
+
+namespace grpc
+{
+class Channel;
+}
+
+namespace sgns::neoswarm::network
+{
+class SGMessageAuthenticator;
+
+    /**
+     * @brief Collects inference results from SuperGenius PubSub result channels.
+     *
+     * Subscribes to per-job result channels (results/<taskId>), waits with
+     * timeout-bounded condition_variable, verifies the result signature,
+     * and returns raw output bytes.
+     */
+    class SGResultCollector
+    {
+    public:
+        struct Config
+        {
+            std::chrono::seconds result_timeout_{300};  ///< Max wait for result (5 min)
+        };
+
+        SGResultCollector(
+            std::shared_ptr<grpc::Channel>  channel,
+            SGMessageAuthenticator         &authenticator,
+            Config                          cfg = {} );
+        ~SGResultCollector() = default;
+
+        /**
+         * @brief Block until a result arrives or timeout expires.
+         * @param taskId  The task ID to collect results for.
+         * @param timeout Maximum time to wait.
+         * @return        Raw output bytes or timeout/network error.
+         */
+        outcome::result<std::vector<uint8_t>> WaitForResult(
+            const std::string          &taskId,
+            std::chrono::seconds        timeout );
+
+        /**
+         * @brief Wait for result using the configured default timeout.
+         * @param taskId  The task ID to collect results for.
+         * @return        Raw output bytes or error.
+         */
+        outcome::result<std::vector<uint8_t>> WaitForResult(
+            const std::string &taskId );
+
+    private:
+        struct Impl;
+        std::unique_ptr<Impl> impl_;
+    };
+
+} // namespace sgns::neoswarm::network
+
+#endif // NEOSWARM_NETWORK_SG_CLIENT_SGRESULTCOLLECTOR_HPP_
