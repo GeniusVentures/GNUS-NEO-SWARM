@@ -43,6 +43,8 @@ namespace sgns
 #    include <MNN/MNNDefine.h>
 #    include <MNN/Tensor.hpp>
 #    include <MNN/llm/llm.hpp>
+#    include <MNN/MNNForwardType.h>
+#    include <MNN/expr/Executor.hpp>
 #endif
 
 namespace sgns::neoswarm::core
@@ -161,6 +163,16 @@ namespace sgns::neoswarm::core
 
             if ( !config_path.empty() )
             {
+                // Configure Vulkan backend for MNN LLM before creation
+                if ( cfg_.backend_ == "vulkan" )
+                {
+                    auto executor = MNN::Express::Executor::getGlobalExecutor();
+                    MNN::BackendConfig backendConfig;
+                    executor->setGlobalExecutorConfig(
+                        MNN_FORWARD_VULKAN, backendConfig, cfg_.num_threads_ );
+                    EngineLogger()->info( "MNN Vulkan backend configured for LLM" );
+                }
+
                 // Use MNN's native LLM API for autoregressive generation
                 // createLLM expects a directory path ending with '/'
                 std::string llm_dir = config_path;
