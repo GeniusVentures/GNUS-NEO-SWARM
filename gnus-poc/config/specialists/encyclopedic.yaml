@@ -1,0 +1,15 @@
+# Encyclopedic knowledge specialist — Wikipedia and general reference
+
+specialist:
+  name: "encyclopedic"
+  base_model: "mlx-community/Qwen3-30B-A3B-Instruct-2507-bf16"
+  niche_sources: ["Wikipedia", "Encyclopedic References"]
+  system_prompt: "You are an encyclopedic knowledge specialist."
+  synthetic_prompts:
+    - "Provide a comprehensive overview of the French Revolution."
+    - "Explain the theory of evolution by natural selection."
+    - "Describe the geography and climate of the Amazon rainforest."
+    - "Summarize the history of the Roman Empire."
+  training:
+    lora_rank: 16
+    iterations: 1000
