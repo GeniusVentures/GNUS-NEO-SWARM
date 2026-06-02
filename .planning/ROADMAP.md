@@ -1,156 +1,113 @@
-# Roadmap: GNUS-POC — ELM Training & Distillation Pipeline (v1.1)
+# Roadmap: GNUS NEO SWARM
 
 ## Overview
 
-This roadmap covers the **v1.1 milestone**: building a Python pipeline in `gnus-poc/` to train, distill, evaluate, orchestrate, quantize, and deploy Expert Language Models (ELMs) for the Genius NEO-SWARM C++ engine. The teacher model is DeepSeek v4 pro API; the training platform is Apple Silicon macOS with MLX 0.30.0; the pipeline output is FP4-quantized specialist binaries consumed by the C++ `FP4Codec`.
-
-**Current state:** 5 LoRA-adapted Qwen3-30B-MoE specialists exist (medical, code, qa_technical, encyclopedic, patents) with training scripts in a flat `gnus-poc/` layout. Two silent data-corrupting bugs exist (chat template mismatch, skip-on-existing false completions). No evaluation, distillation, orchestration, or deployment pipeline exists.
-
-**Exit strategy:** FP4 binaries + `manifest.json` + subspace vectors — consumed by C++ engine Phase 4+ as pre-quantized adapters.
+Production readiness for the GNUS NEO SWARM decentralized AI inference engine. The journey starts with cryptographic identity and message signing (the security foundation every other phase builds on), connects the engine to the SuperGenius blockchain compute network via PubSub-based gRPC, hardens persistence and configuration, integrates SGProcessing processors, eliminates known bugs, and gates the release with automated test coverage. All 26 v1 requirements are mapped across 6 phases in dependency order.
 
 ## Phases
 
-- [x] **Phase 1: Foundation & Bug Fixes** — Fix silent data-corrupting bugs, restructure directories, establish YAML config hierarchy
-- [ ] **Phase 2: Teacher API & Synthetic Data Generation** — DeepSeek v4 pro API client with cost controls, synthetic data generator
-- [ ] **Phase 3: Training Hardening** — Centralize configs, memory safety, status tracking, cross-niche deduplication
-- [ ] **Phase 4: Evaluation & Experiment Tracking** — Per-specialist eval, benchmarking, MLflow experiment tracking
-- [ ] **Phase 5: Knowledge Distillation** — Logit-based distillation with temperature sweep, optional subspace extraction
-- [ ] **Phase 6: Orchestration & Pipeline Unification** — Single-command DAG runner, CLI entry point, checkpoint detection
-- [ ] **Phase 7: FP4 Quantization & Deployment** — FP4 binary export, manifest catalog, round-trip C++ validation
+- [ ] **Phase 1: Security Hardening** — Real secp256k1 identity, message signing, key encryption, replay protection
+- [ ] **Phase 2: SuperGenius Connectivity** — PubSub-based gRPC dispatch to SuperGenius blockchain compute network
+- [ ] **Phase 3: Persistence & Reliability** — RocksDB reputation storage, protobuf serialization, JSON config
+- [ ] **Phase 4: SGProcessing Integration** — MNN LLM and FP4_ULTRA processors, protobuf conflict resolution
+- [ ] **Phase 5: Production Hardening** — Eliminate hardcoded values, fix re-init deadlock, robust JSON parsing
+- [ ] **Phase 6: Testing & Validation** — Automated test coverage for security, FFI, knowledge, and network paths
 
 ## Phase Details
 
-### Phase 1: Foundation & Bug Fixes
-**Goal**: The existing gnus-poc codebase is structurally sound, bug-free, and ready for new capability development.
+### Phase 1: Security Hardening
+**Goal**: Nodes have real cryptographic identity; all inter-node messages are authenticated, tamper-protected, and replay-resistant
 **Depends on**: Nothing (first phase)
-**Requirements**: FOUND-01, FOUND-02, FOUND-03, FOUND-04
+**Requirements**: SEC-01, SEC-02, SEC-03, SEC-04, SEC-05, SEC-06
 **Success Criteria** (what must be TRUE):
-1. Running `prepare_datasets.py` and then training on its output produces coherent completions — the chat template used during data prep matches what `train_specialists_mlx.py` consumes (no garbled tokens from template mismatch)
-2. A partially-trained specialist (e.g., iteration 200/1000) is NOT recognized as complete by the skip-on-existing check; only a specialist with `training_metadata.json` reporting `iters == configured_iters` passes. The `--force-retrain` flag bypasses the check
-3. All existing scripts run from their new module locations (`data/scripts/`, `training/`) without import errors, broken relative paths, or missing dependencies
-4. YAML config hierarchy loads correctly: `pipeline.yaml` → per-specialist overrides → experiment overrides, with `${DEEPSEEK_API_KEY}` resolved from environment at load time
-**Plans**: 3 plans
+  1. Node can generate a secp256k1 keypair, derive a PeerId, and save the key encrypted at rest (AES-256-GCM with PBKDF2-derived key)
+  2. Signatures are produced with deterministic RFC6979 nonces; the same message always produces an identical signature
+  3. MessageSigning::Verify rejects tampered messages and fails closed (returns false) when crypto libraries are unavailable
+  4. Every inter-node message includes a nonce + timestamp; replayed or expired messages (outside 30s window) are rejected
+  5. Security stub code paths are unreachable in release builds — missing crypto is a hard error, not a silent acceptance
+**Plans**: 4 plans
 
-Plans:
-- [x] 01-01-PLAN.md — Bug fixes: chat template mismatch (FOUND-01) + skip-on-existing false completions (FOUND-02)
-- [x] 01-02-PLAN.md — Directory restructure: move scripts, fix paths, delete stale files (FOUND-03)
-- [x] 01-03-PLAN.md — Config & test infrastructure: YAML hierarchy, pytest skeleton, .gitignore (FOUND-04)
+**Wave Structure**:
+- **Wave 1** *(no dependencies)*: Plan 01 — Cryptographic foundation (SEC-01, SEC-06)
+- **Wave 2** *(blocked on Wave 1 completion)*: Plan 02 — Signature security + replay protection (SEC-02, SEC-03, SEC-05), Plan 03 — Key encryption at rest (SEC-04)
+- **Wave 3** *(blocked on Waves 1-2 completion)*: Plan 04 — Security tests (TEST-01)
 
-### Phase 2: Teacher API & Synthetic Data Generation
-**Goal**: The pipeline can generate high-quality synthetic training data using the DeepSeek v4 pro API, with cost controls active from day one.
-**Depends on**: Phase 1 (needs YAML config for API key resolution and directory structure for output)
-**Requirements**: DATA-01, DATA-02
-**⚠️ Gating Decision**: Teacher licensing (Pitfall #6) — user must resolve whether DeepSeek v4 pro API ToS permits synthetic data generation for training derivative models before any API code is written. Fallback: open-source teacher model (DeepSeek-V3, Llama 3.1, Qwen 3).
+**Plans**:
+- [x] 01-01-PLAN.md — Enable secp256k1 linkage, fail-close all security stubs
+- [x] 01-02-PLAN.md — RFC6979 deterministic nonces, real MessageSigning::Verify, nonce+timestamp replay protection
+- [ ] 01-03-PLAN.md — AES-256-GCM key encryption at rest with PBKDF2 passphrase derivation
+- [ ] 01-04-PLAN.md — Automated security tests for NodeIdentity and MessageSigning
+
+**Cross-cutting constraints**:
+- All inter-node messages must include nonce + timestamp (30s replay window)
+- Security stubs must fail-closed (return false, never true)
+- Node private key must be encrypted at rest
+
+### Phase 2: SuperGenius Connectivity
+**Goal**: The engine dispatches inference jobs to the SuperGenius blockchain compute network via TLS-protected, authenticated gRPC
+**Depends on**: Phase 1 (needs real NodeIdentity and MessageSigning for signed dispatch)
+**Requirements**: SG-01, SG-02, SG-03, SG-04, SG-05
 **Success Criteria** (what must be TRUE):
-1. Running `TeacherClient.generate()` with a valid prompt returns a completion from the DeepSeek v4 pro API; running it 5 consecutive times against a failing endpoint triggers exponential backoff and stops after `max_retries=3`
-2. Attempting to generate data that would exceed the configured `budget_cap` (e.g., $10) raises `BudgetExceededError` and logs cumulative cost — no further API calls are made
-3. Running `SyntheticDataGenerator.generate_for_niche("medical", num_samples=100)` against a mock teacher API produces 100 valid JSONL entries in `data/synthetic/medical/` with `prompt`, `completion`, and `quality_score` fields
+  1. Operator can launch the engine with `--sg-endpoint <host:port>` pointing to a SuperGenius node
+  2. Engine establishes a TLS-encrypted, authenticated gRPC channel to the SuperGenius node (no insecure fallback)
+  3. `SubmitNetwork()` dispatches signed `Task` messages via PubSub and collects results from `results/<taskId>` channels
+  4. gRPC calls time out after the configured deadline (120s default) instead of hanging indefinitely
+  5. Engine reports connectivity status and gracefully degrades (falls back to local mode) when SuperGenius is unreachable
 **Plans**: TBD
 
-### Phase 3: Training Hardening
-**Goal**: Training is production-grade — configs are centralized, memory is checked before OOM, results are tracked, and data contamination across niches is eliminated.
-**Depends on**: Phase 1 (needs directory structure), Phase 2 (synthetic data may augment training sets)
-**Requirements**: TRAIN-01, TRAIN-02, TRAIN-03, TRAIN-04, DATA-03
+### Phase 3: Persistence & Reliability
+**Goal**: Reputation data survives restarts via RocksDB; the engine is configurable via JSON file with CLI-override precedence
+**Depends on**: Nothing (parallelizable with Phase 2)
+**Requirements**: PERS-01, PERS-02, PERS-03, PERS-04
 **Success Criteria** (what must be TRUE):
-1. Changing a LoRA hyperparameter (e.g., `lora_rank=32`) in `TrainingConfig` and passing it to `SpecialistTrainer.train()` produces a trained adapter with that rank — no `OVERRIDES` dicts remain scattered across training scripts
-2. Running training on a machine with insufficient RAM (e.g., `batch_size=32` on a 64GB Mac Studio) prints a pre-flight warning recommending qLoRA or reduced `batch_size` BEFORE allocating any GPU memory
-3. After training completes or fails, `TRAINING_STATUS.json` exists in the specialist directory containing `final_train_loss`, `best_val_loss`, `perplexity`, `iterations`, and `duration_seconds`
-4. Training two specialists on overlapping niche data logs a deduplication report showing Jaccard overlap percentage and count of duplicate samples removed before training starts
+  1. Node reputation scores persist across process restarts via RocksDB with protobuf binary serialization
+  2. Corrupted or malformed reputation data does not crash the process — deserialization recovers gracefully
+  3. Operator can configure the engine via a JSON config file (`nlohmann/json`); CLI flags override config file values
+  4. Reputation writes are atomic (WriteBatch with `sync=true`) for consistency on unexpected shutdown
 **Plans**: TBD
 
-### Phase 4: Evaluation & Experiment Tracking
-**Goal**: Every trained specialist can be quantitatively evaluated against baselines, and experiments are tracked for cross-run comparison.
-**Depends on**: Phase 3 (needs trained specialists and validation metrics to evaluate)
-**Requirements**: EVAL-01, EVAL-02, EVAL-03
+### Phase 4: SGProcessing Integration
+**Goal**: The SuperGenius network can execute MNN LLM and FP4_ULTRA processors without protobuf symbol conflicts
+**Depends on**: Nothing (parallelizable with Phases 2-3; resolve protobuf conflict before Phase 2 links both libs)
+**Requirements**: PROC-01, PROC-02, PROC-03, FIX-04
 **Success Criteria** (what must be TRUE):
-1. Running `Evaluator.evaluate()` on a trained medical specialist produces an `EvalResult` with `accuracy`, `perplexity`, and `avg_latency_ms` — all three fields populated from MLX native inference on the held-out test set
-2. Running `Benchmarker.benchmark()` across two training variants (e.g., rank-16 vs. rank-32) produces a human-readable comparison table showing which variant scores higher on each metric
-3. MLflow experiment tracking is active: two training runs with different hyperparameters are visible in `mlflow ui` as separate runs with logged params, metrics, loss curves, and evaluation artifacts, comparable side-by-side
+  1. SGProcessingManager includes an MNN LLM text generation processor usable by SuperGenius compute nodes
+  2. SGProcessingManager includes an FP4_ULTRA input format processor for quantized model dispatch
+  3. SentencePiece and SGProcessing coexist in the same build binary without protobuf version symbol conflicts
+  4. Test binaries link successfully with `GENIUS_HAS_SGPROCESSING` enabled (no duplicate symbol errors)
 **Plans**: TBD
 
-### Phase 5: Knowledge Distillation
-**Goal**: Specialists can be distilled from the teacher model using logit-based transfer with temperature calibration, producing higher-quality adapters than direct LoRA training alone.
-**Depends on**: Phase 2 (needs teacher API for logit extraction), Phase 4 (needs evaluation to measure distillation quality)
-**Requirements**: DISTILL-01, DISTILL-02, DISTILL-03 (optional)
+### Phase 5: Production Hardening
+**Goal**: All known bugs and hardcoded values are eliminated; the engine is robust against re-initialization and malformed input
+**Depends on**: Nothing (parallelizable with Phases 2-4)
+**Requirements**: FIX-01, FIX-02, FIX-03
 **Success Criteria** (what must be TRUE):
-1. Running `Distiller.distill()` on a medical specialist trains a distilled adapter whose KL divergence from teacher logits decreases over training iterations (logged to MLflow)
-2. Running the temperature sweep framework with temperatures `[0.5, 1.0, 2.0, 4.0]` produces a summary identifying the optimal temperature (lowest student eval loss) per specialist
-3. *(Optional)* Running `Distiller.extract_subspace_vector()` on a trained adapter produces a float32 NumPy array that can be written to `artifacts/adapters/subspace_vectors.npy` for C++ router consumption
+  1. Calling `GeniusSlmInit` twice succeeds — the second call returns the existing instance instead of deadlocking on `std::call_once`
+  2. Vocab size is read dynamically from the loaded tokenizer (`tokenizer_->VocabSize()`) — no hardcoded 32000 assumption
+  3. `ExtractPrompt` parses JSON requests via `nlohmann/json` — no fragile manual string parsing
+  4. All 46 existing tests continue to pass with zero regressions after fixes are applied
 **Plans**: TBD
 
-### Phase 6: Orchestration & Pipeline Unification
-**Goal**: The entire pipeline runs end-to-end with a single command, respecting stage dependencies and supporting checkpoint-based resumption.
-**Depends on**: Phase 3 (training stage must exist), Phase 4 (eval stage must exist), Phase 5 (distillation stage must exist)
-**Requirements**: ORCH-01, ORCH-02, ORCH-03
+### Phase 6: Testing & Validation
+**Goal**: All critical production paths have automated test coverage proving correctness, security, and integration behavior
+**Depends on**: Phases 1, 2, 5 (tests for security, network, FFI, and knowledge paths)
+**Requirements**: TEST-01, TEST-02, TEST-03, TEST-04
 **Success Criteria** (what must be TRUE):
-1. Running `python orchestrate.py --niche medical` executes the full DAG (data → train → eval → distill → quantize) in dependency order, producing FP4 binaries in `artifacts/adapters/` for the medical specialist
-2. Running the same command a second time skips all completed stages with log messages (e.g., `Stage 'train' already complete — skipping`); running with `--force-retrain` re-executes training regardless
-3. Running `orchestrate.py --from-stage eval --niche medical` skips data preparation and training, starting execution at evaluation
-4. All pipeline runs are grouped under a single MLflow parent run with child runs per stage, hyperparameters logged at pipeline start, and a summary report at pipeline end
+  1. Security tests prove: key generation, sign/verify roundtrip, tamper rejection, replay protection, and encrypted save/load cycle
+  2. FFI layer tests cover: `GeniusSlmInit`, chat completions flow, null/edge-case input handling, and re-init sequence
+  3. Knowledge module tests verify: fact validation accuracy meets threshold and knowledge retrieval returns relevant results
+  4. Network integration tests demonstrate: two nodes exchange a signed task, result aggregation completes, and timeout triggers correctly
 **Plans**: TBD
-**UI hint**: yes
-
-### Phase 7: FP4 Quantization & Deployment
-**Goal**: Trained/distilled specialists are exported as FP4-packed binaries consumable by the C++ engine, with verified round-trip fidelity and a complete manifest catalog.
-**Depends on**: Phase 3 (needs trained adapters to quantize), Phase 5 (distilled adapters are the preferred quantization source)
-**Requirements**: DEPLOY-01, DEPLOY-02, DEPLOY-03
-**Success Criteria** (what must be TRUE):
-1. Running `FP4Exporter.export_adapter()` on a trained medical specialist produces `<niche>_fp4.bin` and `<niche>_fp4_meta.json` in `artifacts/adapters/` — the binary is approximately 4× smaller than the original safetensors
-2. `manifest.json` exists in `artifacts/adapters/` listing all exported specialists with checksums, LoRA signatures, evaluation scores, FP4 binary paths, and tokenizer config — matching the contract in `ARCHITECTURE.md` Section 5.3
-3. Round-trip validation passes: Python quantize → write binary → C++ `FP4Codec` parse → dequantize → compare reports MSE < 1e-6 against original weights
-**Plans**: TBD
-
-## Inter-Phase Dependency Chain
-
-```
-Phase 1 (Foundation & Bug Fixes) ─────────────────────────────────────────────────────►
-    │         │
-    │         └────────────────────────────────────────────────────────────────────────┐
-    ▼                                                                                  │
-Phase 2 (Teacher API & Synthetic Data) ──────┐                                        │
-    │                                         │                                        │
-    ▼                                         ▼                                        │
-Phase 3 (Training Hardening) ───────────────────────────────────────┐                  │
-    │         │                                                      │                  │
-    │         └───────────────────────────┐                          │                  │
-    ▼                                     │                          ▼                  │
-Phase 4 (Evaluation & Tracking) ──┐       │               Phase 5 (Distillation)       │
-    │                             │       │                      │                     │
-    │                             │       │                      │                     │
-    ├─────────────────────────────┤       │                      │                     │
-    ▼                             ▼       ▼                      ▼                     ▼
-Phase 6 (Orchestration) ◄── Needs all stages built before orchestrator can wrap them ──┘
-    │
-    ▼
-Phase 7 (FP4 Quantization & Deployment) ◄── Needs trained/distilled adapters to quantize
-```
-
-**Hard dependencies:**
-- **Phase 2 → Phase 1**: YAML config and directory structure required for API client and output paths
-- **Phase 3 → Phase 2**: Synthetic data may augment training sets (soft dep — pipeline runs on source data alone if teacher API unavailable)
-- **Phase 4 → Phase 3**: Needs trained specialists and `TRAINING_STATUS.json` to evaluate
-- **Phase 5 → Phase 2 + Phase 4**: Needs teacher API for logit extraction AND evaluation framework to measure distillation quality
-- **Phase 6 → Phase 3, 4, 5**: The orchestrator wraps stages that must exist first
-- **Phase 7 → Phase 3, 5**: Needs trained/distilled adapters to quantize
-
-**Partially parallelizable:**
-- Phase 7 (FP4 quantize) can begin development in parallel with Phase 5 (distillation) and Phase 6 (orchestration), since it depends on having trained adapters (Phase 3 output), not on distillation or orchestration being complete. Final integration validation requires full pipeline output.
-
-**Gating risks:**
-- **Teacher licensing decision (Phase 2)**: User must resolve DeepSeek v4 pro API ToS compliance before any API code. If rejected, fallback to open-source teacher model changes Phase 2 implementation significantly.
-- **API cost control (Phase 2)**: Hard dollar budget cap must be implemented before any API call — retrofitting after an incident is too late.
-- **C++ `FP4Codec` alignment (Phase 7)**: Binary format must match the C++ codec spec exactly. Round-trip test is non-negotiable.
 
 ## Progress
 
-| Phase | Plans Complete | Status |
-|-------|----------------|--------|
-| 1. Foundation & Bug Fixes | 3/3 | ✅ Complete |
-| 2. Teacher API & Synthetic Data | 0/3 | Not started |
-| 3. Training Hardening | 0/5 | Not started |
-| 4. Evaluation & Experiment Tracking | 0/3 | Not started |
-| 5. Knowledge Distillation | 0/3 | Not started |
-| 6. Orchestration & Pipeline Unification | 0/3 | Not started |
-| 7. FP4 Quantization & Deployment | 0/3 | Not started |
+**Execution Order:** Phases 2 and 4 depend on Phase 1 (security foundation). Phase 3 and Phase 5 are parallelizable with Phases 2/4. Phase 6 gates the release after all implementation phases.
 
----\n*Last updated: 2026-05-27 — Phase 1 complete (3/3 plans), Phase 2 ready for planning*
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 1. Security Hardening | 2/4 | Executing (2 plans done) | - |
+| 2. SuperGenius Connectivity | 0/TBD | Not started | - |
+| 3. Persistence & Reliability | 0/TBD | Not started | - |
+| 4. SGProcessing Integration | 0/TBD | Not started | - |
+| 5. Production Hardening | 0/TBD | Not started | - |
+| 6. Testing & Validation | 0/TBD | Not started | - |

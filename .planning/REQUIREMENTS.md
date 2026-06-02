@@ -1,102 +1,132 @@
-# GNUS-POC ELM Training & Distillation Pipeline — Requirements v1.1
+# Requirements: GNUS NEO SWARM
 
-## Milestone v1.1: ELM Training & Distillation Pipeline (gnus-poc)
+**Defined:** 2026-05-28
+**Core Value:** Real LLM inference on consumer hardware in a fully decentralized swarm, production-connected to the SuperGenius/GNUS network for distributed AI compute.
 
-**Teacher model:** DeepSeek v4 pro API (MIT license, explicit distillation permission)
-**Platform:** Apple Silicon macOS with MLX 0.30.0
-**Output:** Trained/distilled ELM specialists, FP4 binaries for C++ engine consumption
+## v1 Requirements
 
-## Active Requirements
+Requirements for production readiness milestone. Each maps to roadmap phases.
 
-### Foundation & Bug Fixes
+### Security
 
-- [x] **FOUND-01**: Fix chat template mismatch — use `tokenizer.apply_chat_template()` from the actual loaded tokenizer, not hand-rolled `<|im_start|>` format, to match Qwen3-30B-A3B models in `train_specialists_mlx.py`
-- [x] **FOUND-02**: Fix skip-on-existing false completions — check for milestone file matching configured `iters` (e.g., `0001000_adapters.safetensors`), validate `training_metadata.json` iters field, add `--force-retrain` flag
-- [x] **FOUND-03**: Directory restructure — create module layout: `pipeline/`, `distill/`, `training/` (refactored from `models/`), `eval/`, `quantize/`, `config/`, `artifacts/`, `data/scripts/` (moved existing scripts)
-- [x] **FOUND-04**: YAML config hierarchy — `pipeline.yaml` (global), `specialists/<niche>.yaml` (per-specialist overrides), `experiments/<exp>.yaml` (A/B test overrides), with `${ENV_VAR}` interpolation for API keys and budget caps
+- [x] **SEC-01**: Enable `GENIUS_HAS_SECP256K1` — real secp256k1 node identity with key generation and PeerId derivation
+- [x] **SEC-02**: Implement real `MessageSigning::Verify` — reject tampered signatures (replace always-true stub)
+- [x] **SEC-03**: Use RFC6979 deterministic nonces for ECDSA signing to prevent nonce-reuse key recovery
+- [ ] **SEC-04**: Encrypt node private key at rest using AES-256-GCM with PBKDF2-derived key
+- [x] **SEC-05**: Add nonce + timestamp replay protection to signed inter-node messages
+- [x] **SEC-06**: Fail-close all security stubs — reject when crypto unavailable instead of silently accepting
 
-### Data Pipeline
+### SuperGenius Connectivity
 
-- [ ] **DATA-01**: Teacher API client — `TeacherClient` using `openai` SDK with `base_url="https://api.deepseek.com"`, retry/backoff via `tenacity`, hard dollar budget cap via config, per-call cost tracking logged to MLflow
-- [ ] **DATA-02**: Synthetic data generation — per-niche prompt templates, output quality filtering (min length, relevance scoring, valid JSONL), output to `data/specialists/<niche>/synthetic/`
-- [ ] **DATA-03**: Cross-niche deduplication — MinHash or Jaccard overlap computation between niche datasets, dedup before training, log overlap percentage in metadata
+- [ ] **SG-01**: Implement `SuperGeniusClient` component for PubSub-based network dispatch
+- [ ] **SG-02**: Implement `SGProcessingBridge::SubmitNetwork()` — real gRPC dispatch to SuperGenius node
+- [ ] **SG-03**: Add `--sg-endpoint <host:port>` CLI flag for SuperGenius node address
+- [ ] **SG-04**: Require TLS from first `SubmitNetwork()` implementation (no insecure channel)
+- [ ] **SG-05**: Add gRPC deadline enforcement (120s default for inference jobs)
 
-### Training
+### SGProcessing
 
-- [ ] **TRAIN-01**: TrainingConfig dataclass — single source of truth for all LoRA hyperparameters (rank, alpha, dropout, scale, iters, batch_size, num_layers, learning_rate, etc.), extracted from scattered `OVERRIDES` dicts in `train_specialists_mlx.py`
-- [ ] **TRAIN-02**: Pre-flight memory estimator — check `psutil` available RAM against estimated model+optimizer requirements, warn/recommend qLoRA or reduced batch_size before training starts
-- [ ] **TRAIN-03**: Structured per-specialist status — `TRAINING_STATUS.json` with `final_train_loss`, `best_val_loss`, `perplexity`, loss curves, iteration count, training duration; write on completion or failure
-- [ ] **TRAIN-04**: SpecialistTrainer wrapper — wraps `mlx_lm.lora.train_model()` with MLflow logging (`mlflow.log_params`, `mlflow.log_metrics`), post-training adapter load test, structured error reporting
+- [ ] **PROC-01**: Add MNN LLM text generation processor to SGProcessingManager (SuperGenius repo)
+- [ ] **PROC-02**: Add FP4_ULTRA input format processor to SGProcessingManager (SuperGenius repo)
+- [ ] **PROC-03**: Resolve SentencePiece/SGProcessing protobuf version conflict (unified protobuf version)
 
-### Evaluation
+### Persistence & Reliability
 
-- [ ] **EVAL-01**: Per-specialist evaluator — compute perplexity, generation accuracy (exact match / BLEU / ROUGE), and token latency on held-out test sets using MLX native inference
-- [ ] **EVAL-02**: Benchmarker — head-to-head comparison across training variants (differing LoRA ranks, layer counts, batch sizes), produce comparison table output
-- [ ] **EVAL-03**: Standard benchmarks — `lm-eval` integration via HF backend for MMLU, HellaSwag, ARC, GSM8K on base models; custom MLX evaluation scripts for LoRA-adapted specialists
+- [ ] **PERS-01**: Enable `GENIUS_HAS_ROCKSDB` — real RocksDB persistence for ReputationStorage (library already linked)
+- [ ] **PERS-02**: Switch ReputationStorage from CSV to protobuf binary serialization
+- [ ] **PERS-03**: Fix `ReputationStorage::Deserialize` crash — wrap stod/stoull in try/catch
+- [ ] **PERS-04**: Add JSON config file support (nlohmann/json) with CLI-override precedence
 
-### Knowledge Distillation
+### Fixes
 
-- [ ] **DISTILL-01**: Logit-based distillation — temperature-scaled KL divergence loss from teacher logprobs (DeepSeek API `logprobs=True`) to student output distribution, combined with standard cross-entropy loss
-- [ ] **DISTILL-02**: Temperature sweep framework — grid search over temperature values per specialist, log optimal temperature to config
-- [ ] **DISTILL-03**: *(Optional)* Subspace extraction — SVD on teacher logit matrices to produce subspace vectors for C++ router consumption; research spike, may be deferred
+- [ ] **FIX-01**: Fix `GeniusSlmInit` re-init bug — remove dead `std::call_once` / `g_init_flag` code
+- [ ] **FIX-02**: Remove hardcoded vocab size 32000 — use `tokenizer_->VocabSize()` dynamically
+- [ ] **FIX-03**: Replace manual JSON parsing in `ExtractPrompt` with nlohmann/json
+- [ ] **FIX-04**: Fix test binary linker errors with SGProcessingManager enabled (duplicate protobuf symbols)
 
-### Orchestration
+### Testing
 
-- [ ] **ORCH-01**: PipelineRunner — single-command DAG executing stages in dependency order (data → train → eval → distill → quantize), checkpoint detection (skip completed, retry failed), reads YAML config
-- [ ] **ORCH-02**: CLI entry point — `orchestrate.py` with `--niche`, `--from-stage`, `--config`, `--force-retrain`, `--budget-cap` flags
-- [ ] **ORCH-03**: Experiment tracking — MLflow run grouping per pipeline execution, hyperparameter logging, artifact management, cross-run comparison UI via `mlflow ui`
+- [ ] **TEST-01**: Security module tests — key generation, sign/verify, save/load roundtrip, tamper rejection
+- [ ] **TEST-02**: FFI layer tests — GeniusSlmInit, chat completions, null handling, re-init sequence
+- [ ] **TEST-03**: Knowledge module tests — FactValidation accuracy, KnowledgeRetrieval relevance
+- [ ] **TEST-04**: Network integration tests — two P2PNode instances exchange a task, ResultAggregation timeout
 
-### Deployment
+## v2 Requirements
 
-- [ ] **DEPLOY-01**: FP4 exporter — convert LoRA safetensors to FP4-packed binary matching C++ `FP4Codec` spec in `src/core/fp4/FP4Codec.hpp`, using MLX native `mlx.core.quantize()`
-- [ ] **DEPLOY-02**: Manifest catalog — `manifest.json` per specialist with model checksums, LoRA adapter signature, training metadata, tokenizer config, FP4 binary paths, and versioning
-- [ ] **DEPLOY-03**: Round-trip validation — Python quantize → write binary → read with C++ parser → dequantize → compare MSE against original weights; acceptable threshold: MSE < 1e-6
+Deferred to future release. Tracked but not in current roadmap.
 
-## Future Requirements (deferred to v1.2+)
+### Network
 
-- Multi-teacher distillation (cost/latency prohibitive for v1.1)
-- Full pretraining from scratch
-- Real-time inference serving endpoint
-- Human feedback LoRA retraining loops (requires swarm runtime)
-- Dynamic adapter hot-swapping (C++ runtime concern)
-- AutoML hyperparameter optimization (Optuna/Ray Tune)
-- Distributed training across multiple Macs (swarm networking Phase 6+)
+- **NET-01**: Full libp2p P2P network integration (GossipSub, mDNS, Kademlia DHT)
+- **NET-02**: CRDT-based reputation sync across multiple swarm nodes
+
+### Flutter
+
+- **FLUT-01**: Streaming token output in Flutter chat UI (SSE/WebSocket)
+- **FLUT-02**: iOS/Android deployment with real device testing
+
+### Knowledge
+
+- **KNOW-01**: Replace TF-IDF stub with real semantic embeddings (Sentence-BERT or MiniLM)
+- **KNOW-02**: Knowledge graph integration for verified fact retrieval
+
+### Operations
+
+- **OPS-01**: gRPC serve mode implementation (real server, not sleep loop)
+- **OPS-02**: Health/readiness HTTP endpoint with metrics export
+- **OPS-03**: Rate limiting at the engine level
 
 ## Out of Scope
 
-- C++ engine Phase 4 ELM integration (separate workstream)
-- Flutter/UI changes
-- gRPC server modifications
-- Network/P2P integration
-- Any changes outside `gnus-poc/` directory (except .gitignore)
+| Feature | Reason |
+|---------|--------|
+| Full libp2p P2P swarm (GossipSub, DHT) | Route through SuperGenius gRPC first; complex, deferred to later milestone |
+| Semantic embeddings for KnowledgeRetrieval | TF-IDF stub sufficient for current use case; adds operational complexity |
+| Multi-model hot-swapping | Single-model (Mistral-7B) focus for this milestone |
+| Mobile (iOS/Android) deployment | macOS proven; mobile is separate platform task |
+| Web dashboard / admin UI | CLI sufficient for operators at this stage |
+| Model training / fine-tuning | Inference-only engine; not in scope |
+| OAuth / social login for swarm nodes | Not relevant to engine layer |
+| Real-time streaming tokens in Flutter | UX polish, not blocking production connectivity |
 
 ## Traceability
 
-| REQ-ID | Requirement | Category | Phase | Status |
-|--------|-------------|----------|-------|--------|
-| FOUND-01 | Fix chat template mismatch | Foundation | Phase 1 | Pending |
-| FOUND-02 | Fix skip-on-existing false completions | Foundation | Phase 1 | Pending |
-| FOUND-03 | Directory restructure | Foundation | Phase 1 | Pending |
-| FOUND-04 | YAML config hierarchy | Foundation | Phase 1 | Pending |
-| DATA-01 | Teacher API client | Data | Phase 2 | Pending |
-| DATA-02 | Synthetic data generation | Data | Phase 2 | Pending |
-| DATA-03 | Cross-niche deduplication | Data | Phase 3 | Pending |
-| TRAIN-01 | TrainingConfig dataclass | Training | Phase 3 | Pending |
-| TRAIN-02 | Pre-flight memory estimator | Training | Phase 3 | Pending |
-| TRAIN-03 | Structured per-specialist status | Training | Phase 3 | Pending |
-| TRAIN-04 | SpecialistTrainer wrapper | Training | Phase 3 | Pending |
-| EVAL-01 | Per-specialist evaluator | Evaluation | Phase 4 | Pending |
-| EVAL-02 | Benchmarker | Evaluation | Phase 4 | Pending |
-| EVAL-03 | Standard benchmarks | Evaluation | Phase 4 | Pending |
-| DISTILL-01 | Logit-based distillation | Distillation | Phase 5 | Pending |
-| DISTILL-02 | Temperature sweep | Distillation | Phase 5 | Pending |
-| DISTILL-03 | Subspace extraction (optional) | Distillation | Phase 5 | Pending |
-| ORCH-01 | PipelineRunner | Orchestration | Phase 6 | Pending |
-| ORCH-02 | CLI entry point | Orchestration | Phase 6 | Pending |
-| ORCH-03 | Experiment tracking | Orchestration | Phase 6 | Pending |
-| DEPLOY-01 | FP4 exporter | Deployment | Phase 7 | Pending |
-| DEPLOY-02 | Manifest catalog | Deployment | Phase 7 | Pending |
-| DEPLOY-03 | Round-trip validation | Deployment | Phase 7 | Pending |
+Which phases cover which requirements. Updated during roadmap creation.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| SEC-01 | Phase 1 | Done (01-01) |
+| SEC-02 | Phase 1 | Done (01-02) |
+| SEC-03 | Phase 1 | Done (01-02) |
+| SEC-04 | Phase 1 | Pending |
+| SEC-05 | Phase 1 | Done (01-02) |
+| SEC-06 | Phase 1 | Done (01-01) |
+| SG-01 | Phase 2 | Pending |
+| SG-02 | Phase 2 | Pending |
+| SG-03 | Phase 2 | Pending |
+| SG-04 | Phase 2 | Pending |
+| SG-05 | Phase 2 | Pending |
+| PROC-01 | Phase 4 | Pending |
+| PROC-02 | Phase 4 | Pending |
+| PROC-03 | Phase 4 | Pending |
+| PERS-01 | Phase 3 | Pending |
+| PERS-02 | Phase 3 | Pending |
+| PERS-03 | Phase 3 | Pending |
+| PERS-04 | Phase 3 | Pending |
+| FIX-01 | Phase 5 | Pending |
+| FIX-02 | Phase 5 | Pending |
+| FIX-03 | Phase 5 | Pending |
+| FIX-04 | Phase 4 | Pending |
+| TEST-01 | Phase 6 | Pending |
+| TEST-02 | Phase 6 | Pending |
+| TEST-03 | Phase 6 | Pending |
+| TEST-04 | Phase 6 | Pending |
+
+**Coverage:**
+- v1 requirements: 26 total
+- Mapped to phases: 26 ✓
+- Unmapped: 0
 
 ---
-*Last updated: 2026-05-27 — Milestone v1.1 requirements + traceability with phase mappings*
+*Requirements defined: 2026-05-28*
+*Last updated: 2026-05-28 after roadmap creation — traceability complete*
