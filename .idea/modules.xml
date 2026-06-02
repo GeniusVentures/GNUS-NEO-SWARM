@@ -3,6 +3,8 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/GNUS-NEO-SWARM.iml" filepath="$PROJECT_DIR$/.idea/GNUS-NEO-SWARM.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/GNUS-NEO-SWARM2.iml" filepath="$PROJECT_DIR$/.idea/GNUS-NEO-SWARM2.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/gnus-poc.iml" filepath="$PROJECT_DIR$/.idea/gnus-poc.iml" />
     </modules>
   </component>
 </project>

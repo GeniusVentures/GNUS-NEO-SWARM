@@ -273,4 +273,8 @@ ninja
 - Unit tests should be placed in the test/ directory matching source structure
 - Use cmake test framework for unit tests
 - Test names should be descriptive of what they're testing
-- 
+
+## Shipping / PR Workflow
+- **Before running `/gsd:ship`**, run `/codex:review --wait` to get a Codex code review on the current diff.
+- The GSD ship workflow does not have a pre-PR hook for code reviews, so this must be done manually as a prerequisite.
+- `/codex:review` uses the OpenAI Codex plugin and produces a structured review with severity-classified findings.
