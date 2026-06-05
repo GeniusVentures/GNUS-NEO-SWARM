@@ -13,22 +13,22 @@
 #include <sstream>
 
 #ifdef GENIUS_HAS_SGPROCESSING
-#    include <InputFormat.hpp>
+#include <InputFormat.hpp>
 #else
 namespace sgns
 {
     enum class InputFormat : int
     {
-        FLOAT16   = 0,
-        FLOAT32   = 1,
+        FLOAT16 = 0,
+        FLOAT32 = 1,
         FP4_ULTRA = 2,
-        INT16     = 3,
-        INT32     = 4,
-        INT8      = 5,
-        RGB8      = 6,
-        RGBA8     = 7
+        INT16 = 3,
+        INT32 = 4,
+        INT8 = 5,
+        RGB8 = 6,
+        RGBA8 = 7
     };
-}
+} // namespace sgns
 #endif
 
 namespace sgns::neoswarm::core
@@ -39,7 +39,7 @@ namespace sgns::neoswarm::core
         {
             return neoswarm::CreateLogger( "TensorInterpreter" );
         }
-    }
+    } // namespace
 
     void TensorInterpreter::SetTokenizer( std::shared_ptr<Tokenizer> tok )
     {
@@ -49,12 +49,10 @@ namespace sgns::neoswarm::core
     // -----------------------------------------------------------------------
     // Interpret
     // -----------------------------------------------------------------------
-    outcome::result<std::string> TensorInterpreter::Interpret(
-        const std::vector<uint8_t> &bytes,
-        sgns::InputFormat            format ) const
+    outcome::result<std::string> TensorInterpreter::Interpret( const std::vector<uint8_t>& bytes,
+                                                               sgns::InputFormat format ) const
     {
-        InterpreterLogger()->debug( "Interpret: bytes={} format={}",
-                                    bytes.size(), static_cast<int>( format ) );
+        InterpreterLogger()->debug( "Interpret: bytes={} format={}", bytes.size(), static_cast<int>( format ) );
 
         if ( bytes.empty() )
         {
@@ -82,8 +80,7 @@ namespace sgns::neoswarm::core
     // -----------------------------------------------------------------------
     // InterpretFloat32
     // -----------------------------------------------------------------------
-    outcome::result<std::string> TensorInterpreter::InterpretFloat32(
-        const std::vector<uint8_t> &bytes ) const
+    outcome::result<std::string> TensorInterpreter::InterpretFloat32( const std::vector<uint8_t>& bytes ) const
     {
         constexpr size_t kElemSize = sizeof( float );
         if ( bytes.size() % kElemSize != 0 )
@@ -91,7 +88,7 @@ namespace sgns::neoswarm::core
             return outcome::failure( Error::InferenceFailed );
         }
 
-        const size_t       count = bytes.size() / kElemSize;
+        const size_t count = bytes.size() / kElemSize;
         std::vector<float> values( count );
         std::memcpy( values.data(), bytes.data(), bytes.size() );
 
@@ -103,7 +100,8 @@ namespace sgns::neoswarm::core
         std::ostringstream oss;
         for ( size_t i = 0; i < values.size(); ++i )
         {
-            if ( i > 0 ) oss << ", ";
+            if ( i > 0 )
+                oss << ", ";
             oss << values[i];
         }
         return outcome::success( oss.str() );
@@ -112,8 +110,7 @@ namespace sgns::neoswarm::core
     // -----------------------------------------------------------------------
     // InterpretFloat16
     // -----------------------------------------------------------------------
-    outcome::result<std::string> TensorInterpreter::InterpretFloat16(
-        const std::vector<uint8_t> &bytes ) const
+    outcome::result<std::string> TensorInterpreter::InterpretFloat16( const std::vector<uint8_t>& bytes ) const
     {
         constexpr size_t kElemSize = 2U;
         if ( bytes.size() % kElemSize != 0 )
@@ -121,7 +118,7 @@ namespace sgns::neoswarm::core
             return outcome::failure( Error::InferenceFailed );
         }
 
-        const size_t       count = bytes.size() / kElemSize;
+        const size_t count = bytes.size() / kElemSize;
         std::vector<float> values;
         values.reserve( count );
 
@@ -130,9 +127,9 @@ namespace sgns::neoswarm::core
             uint16_t h = 0;
             std::memcpy( &h, bytes.data() + i * kElemSize, kElemSize );
 
-            const uint32_t sign     = ( static_cast<uint32_t>( h ) >> 15U ) & 0x1U;
+            const uint32_t sign = ( static_cast<uint32_t>( h ) >> 15U ) & 0x1U;
             const uint32_t exponent = ( static_cast<uint32_t>( h ) >> 10U ) & 0x1FU;
-            const uint32_t mantissa =   static_cast<uint32_t>( h )          & 0x3FFU;
+            const uint32_t mantissa = static_cast<uint32_t>( h ) & 0x3FFU;
 
             uint32_t f32 = 0;
             if ( exponent == 0U )
@@ -145,8 +142,12 @@ namespace sgns::neoswarm::core
                 {
                     uint32_t e = 0;
                     uint32_t m = mantissa;
-                    while ( ( m & 0x400U ) == 0U ) { m <<= 1U; ++e; }
-                    m  &= 0x3FFU;
+                    while ( ( m & 0x400U ) == 0U )
+                    {
+                        m <<= 1U;
+                        ++e;
+                    }
+                    m &= 0x3FFU;
                     f32 = ( sign << 31U ) | ( ( 127U - 14U - e ) << 23U ) | ( m << 13U );
                 }
             }
@@ -172,8 +173,7 @@ namespace sgns::neoswarm::core
     // -----------------------------------------------------------------------
     // InterpretInt32
     // -----------------------------------------------------------------------
-    outcome::result<std::string> TensorInterpreter::InterpretInt32(
-        const std::vector<uint8_t> &bytes ) const
+    outcome::result<std::string> TensorInterpreter::InterpretInt32( const std::vector<uint8_t>& bytes ) const
     {
         constexpr size_t kElemSize = sizeof( int32_t );
         if ( bytes.size() % kElemSize != 0 )
@@ -181,13 +181,14 @@ namespace sgns::neoswarm::core
             return outcome::failure( Error::InferenceFailed );
         }
 
-        const size_t       count = bytes.size() / kElemSize;
+        const size_t count = bytes.size() / kElemSize;
         std::ostringstream oss;
         for ( size_t i = 0; i < count; ++i )
         {
             int32_t v = 0;
             std::memcpy( &v, bytes.data() + i * kElemSize, kElemSize );
-            if ( i > 0 ) oss << ", ";
+            if ( i > 0 )
+                oss << ", ";
             oss << v;
         }
         return outcome::success( oss.str() );
@@ -196,13 +197,13 @@ namespace sgns::neoswarm::core
     // -----------------------------------------------------------------------
     // InterpretInt8
     // -----------------------------------------------------------------------
-    outcome::result<std::string> TensorInterpreter::InterpretInt8(
-        const std::vector<uint8_t> &bytes ) const
+    outcome::result<std::string> TensorInterpreter::InterpretInt8( const std::vector<uint8_t>& bytes ) const
     {
         std::ostringstream oss;
         for ( size_t i = 0; i < bytes.size(); ++i )
         {
-            if ( i > 0 ) oss << ", ";
+            if ( i > 0 )
+                oss << ", ";
             oss << static_cast<int>( static_cast<int8_t>( bytes[i] ) );
         }
         return outcome::success( oss.str() );
@@ -211,8 +212,7 @@ namespace sgns::neoswarm::core
     // -----------------------------------------------------------------------
     // DecodeLogits
     // -----------------------------------------------------------------------
-    outcome::result<std::string> TensorInterpreter::DecodeLogits(
-        const std::vector<float> &logits ) const
+    outcome::result<std::string> TensorInterpreter::DecodeLogits( const std::vector<float>& logits ) const
     {
         if ( !tokenizer_ )
         {
@@ -220,7 +220,7 @@ namespace sgns::neoswarm::core
         }
 
         const auto max_it = std::max_element( logits.begin(), logits.end() );
-        const int  argmax = static_cast<int>( std::distance( logits.begin(), max_it ) );
+        const int argmax = static_cast<int>( std::distance( logits.begin(), max_it ) );
 
         auto dec_res = tokenizer_->Decode( { argmax } );
         if ( !dec_res.has_value() )

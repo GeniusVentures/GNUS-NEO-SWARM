@@ -14,10 +14,10 @@
 #include <sstream>
 
 #ifdef GENIUS_HAS_SECP256K1
-#    include <secp256k1.h>
+#include <secp256k1.h>
 #endif
 #ifdef GENIUS_HAS_OPENSSL
-#    include <openssl/sha.h>
+#include <openssl/sha.h>
 #endif
 
 namespace sgns::neoswarm::security
@@ -29,35 +29,36 @@ namespace sgns::neoswarm::security
             return neoswarm::CreateLogger( "MessageSigning" );
         }
 
-        std::string ToHex( const std::vector<uint8_t> &data )
+        std::string ToHex( const std::vector<uint8_t>& data )
         {
             std::ostringstream oss;
             for ( auto b : data )
             {
-                oss << std::hex << std::setw( 2 ) << std::setfill( '0' )
-                    << static_cast<int>( b );
+                oss << std::hex << std::setw( 2 ) << std::setfill( '0' ) << static_cast<int>( b );
             }
             return oss.str();
         }
 
-        std::vector<uint8_t> FromHex( const std::string &hex )
+        std::vector<uint8_t> FromHex( const std::string& hex )
         {
             std::vector<uint8_t> bytes;
             for ( size_t i = 0; i + 1 < hex.size(); i += 2 )
             {
-                bytes.push_back(
-                    static_cast<uint8_t>( std::stoul( hex.substr( i, 2 ), nullptr, 16 ) ) );
+                bytes.push_back( static_cast<uint8_t>( std::stoul( hex.substr( i, 2 ), nullptr, 16 ) ) );
             }
             return bytes;
         }
-    }
+    } // namespace
 
-    MessageSigning::MessageSigning( const NodeIdentity &identity ) : identity_( identity ) {}
+    MessageSigning::MessageSigning( const NodeIdentity& identity )
+        : identity_( identity )
+    {
+    }
 
     // -----------------------------------------------------------------------
     // Sign
     // -----------------------------------------------------------------------
-    outcome::result<std::vector<uint8_t>> MessageSigning::Sign( const std::string &payload ) const
+    outcome::result<std::vector<uint8_t>> MessageSigning::Sign( const std::string& payload ) const
     {
         std::vector<uint8_t> bytes( payload.begin(), payload.end() );
         return identity_.Sign( bytes );
@@ -66,9 +67,9 @@ namespace sgns::neoswarm::security
     // -----------------------------------------------------------------------
     // Verify
     // -----------------------------------------------------------------------
-    bool MessageSigning::Verify( const std::string          &payload,
-                                 const std::vector<uint8_t> &signature,
-                                 const std::string          &pub_key_hex )
+    bool MessageSigning::Verify( const std::string& payload,
+                                 const std::vector<uint8_t>& signature,
+                                 const std::string& pub_key_hex )
     {
 #ifdef GENIUS_HAS_SECP256K1
         // Validate inputs
@@ -102,8 +103,7 @@ namespace sgns::neoswarm::security
 
         // Parse DER signature
         secp256k1_ecdsa_signature sig;
-        if ( !secp256k1_ecdsa_signature_parse_der( ctx, &sig,
-                                                    signature.data(), signature.size() ) )
+        if ( !secp256k1_ecdsa_signature_parse_der( ctx, &sig, signature.data(), signature.size() ) )
         {
             secp256k1_context_destroy( ctx );
             return false;
@@ -114,24 +114,24 @@ namespace sgns::neoswarm::security
 
         // Hash payload with SHA-256
         uint8_t hash[32];
-#    ifdef GENIUS_HAS_OPENSSL
-        SHA256( reinterpret_cast<const uint8_t *>( payload.data() ), payload.size(), hash );
-#    else
+#ifdef GENIUS_HAS_OPENSSL
+        SHA256( reinterpret_cast<const uint8_t*>( payload.data() ), payload.size(), hash );
+#else
         std::fill( hash, hash + 32, 0 );
         for ( size_t i = 0; i < payload.size(); ++i )
         {
             hash[i % 32] ^= static_cast<uint8_t>( payload[i] );
         }
-#    endif
+#endif
 
         // Verify
         int result = secp256k1_ecdsa_verify( ctx, &sig, hash, &pubkey );
         secp256k1_context_destroy( ctx );
         return result == 1;
 #else
-        ( void )payload;
-        ( void )signature;
-        ( void )pub_key_hex;
+        (void) payload;
+        (void) signature;
+        (void) pub_key_hex;
         SigningLogger()->error( "MessageSigning::Verify — secp256k1 not available, REJECTING signature" );
         return false;
 #endif
@@ -142,11 +142,11 @@ namespace sgns::neoswarm::security
     // -----------------------------------------------------------------------
     std::string MessageSigning::GenerateNonce()
     {
-        std::random_device              rd;
-        std::mt19937_64                 rng( rd() );
+        std::random_device rd;
+        std::mt19937_64 rng( rd() );
         std::uniform_int_distribution<uint8_t> dist( 0, 255 );
-        std::vector<uint8_t>            nonceBytes( 32 );
-        for ( auto &b : nonceBytes )
+        std::vector<uint8_t> nonceBytes( 32 );
+        for ( auto& b : nonceBytes )
         {
             b = dist( rng );
         }
@@ -157,18 +157,17 @@ namespace sgns::neoswarm::security
     {
         auto now = std::chrono::system_clock::now();
         return static_cast<uint64_t>(
-            std::chrono::duration_cast<std::chrono::milliseconds>(
-                now.time_since_epoch() ).count() );
+            std::chrono::duration_cast<std::chrono::milliseconds>( now.time_since_epoch() ).count() );
     }
 
     // -----------------------------------------------------------------------
     // AttachSignature
     // -----------------------------------------------------------------------
-    std::string MessageSigning::AttachSignature( const std::string &payload ) const
+    std::string MessageSigning::AttachSignature( const std::string& payload ) const
     {
         // Generate nonce and timestamp
         const std::string nonce = GenerateNonce();
-        const uint64_t    ts    = CurrentTimestampMs();
+        const uint64_t ts = CurrentTimestampMs();
 
         // Build signed payload: inject nonce + ts into JSON before signing
         std::string signedPayload = payload;
@@ -201,7 +200,7 @@ namespace sgns::neoswarm::security
     // -----------------------------------------------------------------------
     // VerifyAndStrip
     // -----------------------------------------------------------------------
-    bool MessageSigning::VerifyAndStrip( std::string &payload, const std::string &pub_key_hex )
+    bool MessageSigning::VerifyAndStrip( std::string& payload, const std::string& pub_key_hex )
     {
         // Step 1: Extract sig field (last field appended by AttachSignature)
         auto sigPos = payload.rfind( ",\"sig\":\"" );
@@ -209,8 +208,8 @@ namespace sgns::neoswarm::security
         {
             return false;
         }
-        auto sigStart = sigPos + 8;  // strlen(",\"sig\":\"")
-        auto sigEnd   = payload.find( "\"", sigStart );
+        auto sigStart = sigPos + 8; // strlen(",\"sig\":\"")
+        auto sigEnd = payload.find( "\"", sigStart );
         if ( sigEnd == std::string::npos )
         {
             return false;
@@ -231,9 +230,9 @@ namespace sgns::neoswarm::security
             SigningLogger()->warn( "MessageSigning: missing timestamp in signed payload" );
             return false;
         }
-        auto     tsStart = tsPos + 6;  // strlen(",\"ts\":")
-        auto     tsEnd   = verifyPayload.find_first_of( ",}", tsStart );
-        uint64_t msgTs   = 0;
+        auto tsStart = tsPos + 6; // strlen(",\"ts\":")
+        auto tsEnd = verifyPayload.find_first_of( ",}", tsStart );
+        uint64_t msgTs = 0;
         try
         {
             msgTs = std::stoull( verifyPayload.substr( tsStart, tsEnd - tsStart ) );
@@ -245,12 +244,11 @@ namespace sgns::neoswarm::security
 
         // Step 4: Validate replay window
         uint64_t nowMs = CurrentTimestampMs();
-        int64_t  ageMs = static_cast<int64_t>( nowMs - msgTs );
+        int64_t ageMs = static_cast<int64_t>( nowMs - msgTs );
         if ( ageMs < 0 || ageMs > ( kReplayWindowSec * 1000 ) )
         {
-            SigningLogger()->warn(
-                "MessageSigning: replay detected — message age {}ms exceeds {}s window",
-                ageMs, kReplayWindowSec );
+            SigningLogger()->warn( "MessageSigning: replay detected — message age {}ms exceeds {}s window", ageMs,
+                                   kReplayWindowSec );
             return false;
         }
 
@@ -262,7 +260,7 @@ namespace sgns::neoswarm::security
 
         // Step 6: Strip injected fields to recover original payload
         // Remove ",sig":"<hex>" (keep trailing '}')
-        payload.erase( sigPos, sigEnd - sigPos + 1 );  // +1 to include closing '"'
+        payload.erase( sigPos, sigEnd - sigPos + 1 ); // +1 to include closing '"'
 
         // Remove ",ts":<num>
         tsPos = payload.rfind( ",\"ts\":" );

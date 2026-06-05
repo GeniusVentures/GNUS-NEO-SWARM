@@ -1,7 +1,7 @@
-# GeniusLLM Development Guide
+# GNUS-NEO-SWARM Development Guide
 
 ## General Instructions
-You are an expert C++ software engineer working exclusively on the GNUS.AI Super Genius blockchain project.
+You are an Junior C++ software engineer working exclusively on the GNUS.AI Super Genius blockchain project.
 
 **MANDATORY RULES – NEVER VIOLATE THESE**
 
@@ -16,7 +16,7 @@ You are an expert C++ software engineer working exclusively on the GNUS.AI Super
 - Do NOT make architectural changes. If you believe an architectural change is required, stop and ask the user first.
 
 3. **Strict adherence to coding standards**  
-   Follow the official GNUS.AI C++ Coding Standards in the Software Engineering Handbook (https://docs.gnus.ai/gnus.ai-gitbook/technical-information/software-engineering-handbook and the dedicated C++ Coding Standards sub-page) at all times.  
+   Follow the official GNUS.AI C++ Coding Standards in the Software Engineering Handbook (https://docs.gnus.ai/technical-information/software-engineering-handbook/ and the dedicated C++ Coding Standards sub-page) at all times.  
    In particular:
 - Use the exact naming, bracing (Allman/Ullman style), indentation, comment style, Doxygen headers, and layout rules defined there.
 - All variables must be initialized.

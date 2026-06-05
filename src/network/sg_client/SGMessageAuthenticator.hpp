@@ -15,7 +15,7 @@
 
 namespace sgns::neoswarm::security
 {
-class NodeIdentity;
+    class NodeIdentity;
 }
 
 namespace sgns::neoswarm::network
@@ -29,13 +29,12 @@ namespace sgns::neoswarm::network
      */
     class SGMessageAuthenticator
     {
-    public:
+        public:
         /**
          * @brief Construct with the node's cryptographic identity.
          * @param identity The node's secp256k1 identity (from Phase 1).
          */
-        explicit SGMessageAuthenticator(
-            const security::NodeIdentity &identity );
+        explicit SGMessageAuthenticator( const security::NodeIdentity& identity );
 
         ~SGMessageAuthenticator();
 
@@ -44,8 +43,7 @@ namespace sgns::neoswarm::network
          * @param payload  The raw JSON payload to sign.
          * @return         The signed payload (JSON with attached signature fields).
          */
-        outcome::result<std::string> SignPayload(
-            const std::string &payload ) const;
+        outcome::result<std::string> SignPayload( const std::string& payload ) const;
 
         /**
          * @brief Verify a signed result and strip authentication fields.
@@ -53,11 +51,9 @@ namespace sgns::neoswarm::network
          * @param pubKeyHex    The expected signer's public key as hex.
          * @return             true if signature is valid and replay-check passes.
          */
-        outcome::result<bool> VerifyResult(
-            std::string       &payload,
-            const std::string &pubKeyHex ) const;
+        outcome::result<bool> VerifyResult( std::string& payload, const std::string& pubKeyHex ) const;
 
-    private:
+        private:
         struct Impl;
         std::unique_ptr<Impl> impl_;
     };

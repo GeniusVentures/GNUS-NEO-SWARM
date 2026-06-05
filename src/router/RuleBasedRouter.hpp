@@ -24,12 +24,12 @@ namespace sgns::neoswarm::router
      */
     class RuleBasedRouter : public IRouter
     {
-    public:
+        public:
         struct Config
         {
-            float numeric_density_threshold_  = 0.30f;
+            float numeric_density_threshold_ = 0.30f;
             float complexity_swarm_threshold_ = 5.0f;
-            bool  enable_swarm_mode_          = true;
+            bool enable_swarm_mode_ = true;
         };
 
         RuleBasedRouter();
@@ -40,10 +40,10 @@ namespace sgns::neoswarm::router
          * @param task  Incoming task.
          * @return      RouteDecision on success, Error on failure.
          */
-        outcome::result<RouteDecision> Route( const Task &task ) override;
+        outcome::result<RouteDecision> Route( const Task& task ) override;
 
-    private:
-        Config         cfg_;
+        private:
+        Config cfg_;
         PromptAnalyzer analyzer_;
 
         /**
@@ -52,8 +52,7 @@ namespace sgns::neoswarm::router
          * @param requested  Mode explicitly requested by the caller.
          * @return           Selected ExecutionMode.
          */
-        ExecutionMode SelectMode( const PromptFeatures &features,
-                                  ExecutionMode         requested ) const;
+        ExecutionMode SelectMode( const PromptFeatures& features, ExecutionMode requested ) const;
     };
 
 } // namespace sgns::neoswarm::router

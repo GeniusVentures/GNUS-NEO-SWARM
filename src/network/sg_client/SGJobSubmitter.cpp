@@ -9,9 +9,9 @@
 #include "SGMessageAuthenticator.hpp"
 #include "common/Logging.hpp"
 #include <chrono>
+#include <iomanip>
 #include <random>
 #include <sstream>
-#include <iomanip>
 
 namespace sgns::neoswarm::network
 {
@@ -26,42 +26,37 @@ namespace sgns::neoswarm::network
         {
             // Simple unique task ID: timestamp + random hex
             auto now = std::chrono::steady_clock::now();
-            auto ms  = std::chrono::duration_cast<std::chrono::milliseconds>(
-                now.time_since_epoch() ).count();
+            auto ms = std::chrono::duration_cast<std::chrono::milliseconds>( now.time_since_epoch() ).count();
 
             std::random_device rd;
-            std::mt19937       gen( rd() );
+            std::mt19937 gen( rd() );
             std::uniform_int_distribution<uint32_t> dist;
 
             std::ostringstream oss;
             oss << "task-" << std::hex << ms << "-" << dist( gen );
             return oss.str();
         }
-    }
+    } // namespace
 
     struct SGJobSubmitter::Impl
     {
         std::shared_ptr<grpc::Channel> channel_;
-        SGMessageAuthenticator        &authenticator_;
-        std::string                    gridChannel_ = "gnus.processing.grid";
+        SGMessageAuthenticator& authenticator_;
+        std::string gridChannel_ = "gnus.processing.grid";
 
-        Impl( std::shared_ptr<grpc::Channel>  channel,
-              SGMessageAuthenticator         &authenticator )
+        Impl( std::shared_ptr<grpc::Channel> channel, SGMessageAuthenticator& authenticator )
             : channel_( std::move( channel ) )
             , authenticator_( authenticator )
         {
         }
     };
 
-    SGJobSubmitter::SGJobSubmitter(
-        std::shared_ptr<grpc::Channel>  channel,
-        SGMessageAuthenticator         &authenticator )
+    SGJobSubmitter::SGJobSubmitter( std::shared_ptr<grpc::Channel> channel, SGMessageAuthenticator& authenticator )
         : impl_( std::make_unique<Impl>( std::move( channel ), authenticator ) )
     {
     }
 
-    outcome::result<std::string> SGJobSubmitter::PublishJob(
-        const std::string &gnusSchemaJson )
+    outcome::result<std::string> SGJobSubmitter::PublishJob( const std::string& gnusSchemaJson )
     {
         std::string taskId = GenerateTaskId();
 
@@ -81,22 +76,19 @@ namespace sgns::neoswarm::network
         taskJson << "{"
                  << "\"task_id\":\"" << taskId << "\","
                  << "\"results_channel\":\"results/" << taskId << "\","
-                 << "\"json_data\":" << signedPayload.value()
-                 << "}";
+                 << "\"json_data\":" << signedPayload.value() << "}";
 
         std::string taskMessage = taskJson.str();
 
         // Publish to grid channel via PubSub
         // Actual gRPC PubSub publish implementation depends on the
         // SuperGenius gRPC service definitions
-        SubmitLogger()->info( "Publishing task {} to grid channel ({} bytes, signed)",
-                              taskId, taskMessage.size() );
+        SubmitLogger()->info( "Publishing task {} to grid channel ({} bytes, signed)", taskId, taskMessage.size() );
         SubmitLogger()->debug( "Task payload preview: {}...", taskMessage.substr( 0, 120 ) );
 
         // TODO(Phase 2): implement actual gRPC PubSub publish via
         // SuperGenius processing API once service stubs are linked
-        SubmitLogger()->warn( "gRPC PubSub publish not yet wired — task {} prepared for dispatch",
-                              taskId );
+        SubmitLogger()->warn( "gRPC PubSub publish not yet wired — task {} prepared for dispatch", taskId );
 
         return taskId;
 #else

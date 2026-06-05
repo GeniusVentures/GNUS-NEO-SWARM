@@ -8,8 +8,8 @@
 #ifndef NEOSWARM_NETWORK_RESULTAGGREGATION_HPP_
 #define NEOSWARM_NETWORK_RESULTAGGREGATION_HPP_
 
-#include "common/Types.hpp"
 #include "common/Error.hpp"
+#include "common/Types.hpp"
 #include <chrono>
 #include <condition_variable>
 #include <mutex>
@@ -24,12 +24,12 @@ namespace sgns::neoswarm::network
      */
     class ResultAggregation
     {
-    public:
+        public:
         struct Config
         {
-            std::chrono::milliseconds timeout_{ 5000 };  ///< max wait for responses
-            size_t                    min_responses_ = 1;  ///< minimum before returning
-            size_t                    max_responses_ = 10; ///< stop collecting after this many
+            std::chrono::milliseconds timeout_{ 5000 }; ///< max wait for responses
+            size_t min_responses_ = 1;                  ///< minimum before returning
+            size_t max_responses_ = 10;                 ///< stop collecting after this many
         };
 
         ResultAggregation();
@@ -39,7 +39,7 @@ namespace sgns::neoswarm::network
          * @brief Submit a response from a node (thread-safe).
          * @param output  Node output to add to the collection.
          */
-        void Submit( const NodeOutput &output );
+        void Submit( const NodeOutput& output );
 
         /**
          * @brief Wait for responses and return collected results.
@@ -55,12 +55,12 @@ namespace sgns::neoswarm::network
         /// @return Number of responses received so far.
         size_t ResponseCount() const;
 
-    private:
-        Config                  cfg_;
+        private:
+        Config cfg_;
         std::vector<NodeOutput> results_;
-        mutable std::mutex      mutex_;
+        mutable std::mutex mutex_;
         std::condition_variable cv_;
-        bool                    done_ = false;
+        bool done_ = false;
     };
 
 } // namespace sgns::neoswarm::network

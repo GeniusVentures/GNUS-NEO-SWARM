@@ -5,8 +5,8 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include <gtest/gtest.h>
 #include "genius_slm_chat_c.h"
+#include <gtest/gtest.h>
 
 TEST( GeniusSlmFFI, InitWithNullptrSucceeds )
 {
@@ -27,7 +27,7 @@ TEST( GeniusSlmFFI, GetStatusReturnsValidJson )
     int result = GeniusSlmInit( nullptr, nullptr );
     EXPECT_EQ( result, 0 );
 
-    char *status = GeniusSlmGetStatus();
+    char* status = GeniusSlmGetStatus();
     ASSERT_NE( status, nullptr );
 
     std::string statusStr( status );
@@ -44,8 +44,8 @@ TEST( GeniusSlmFFI, ChatCompletionsReturnsValidJson )
     int result = GeniusSlmInit( nullptr, nullptr );
     EXPECT_EQ( result, 0 );
 
-    const char *request = R"({"messages":[{"role":"user","content":"Hello"}]})";
-    char       *response = GeniusSlmChatCompletionsCreate( request );
+    const char* request = R"({"messages":[{"role":"user","content":"Hello"}]})";
+    char* response = GeniusSlmChatCompletionsCreate( request );
     ASSERT_NE( response, nullptr );
 
     std::string respStr( response );
@@ -62,7 +62,7 @@ TEST( GeniusSlmFFI, ChatCompletionsWithNullDoesNotCrash )
     EXPECT_EQ( result, 0 );
 
     // Null request should not crash — returns a valid response or error JSON
-    char *response = GeniusSlmChatCompletionsCreate( nullptr );
+    char* response = GeniusSlmChatCompletionsCreate( nullptr );
     ASSERT_NE( response, nullptr );
 
     std::string respStr( response );
@@ -83,8 +83,8 @@ TEST( GeniusSlmFFI, MultipleInitCallsSucceed )
 TEST( GeniusSlmFFI, ChatCompletionsWithoutInitSucceeds )
 {
     // Chat should lazy-init if GeniusSlmInit was never called
-    const char *request = R"({"messages":[{"role":"user","content":"test"}]})";
-    char       *response = GeniusSlmChatCompletionsCreate( request );
+    const char* request = R"({"messages":[{"role":"user","content":"test"}]})";
+    char* response = GeniusSlmChatCompletionsCreate( request );
     ASSERT_NE( response, nullptr );
 
     GeniusSlmStringFree( response );

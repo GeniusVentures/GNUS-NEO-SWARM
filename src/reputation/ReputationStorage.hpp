@@ -23,12 +23,12 @@ namespace sgns::neoswarm::reputation
      */
     class ReputationStorage
     {
-    public:
+        public:
         /**
          * @brief Construct storage pointing at the given database path.
          * @param db_path  Filesystem path for the RocksDB database directory.
          */
-        explicit ReputationStorage( const std::string &db_path );
+        explicit ReputationStorage( const std::string& db_path );
         ~ReputationStorage();
 
         /**
@@ -45,21 +45,21 @@ namespace sgns::neoswarm::reputation
          * @param rep  Record to store.
          * @return     outcome::success or StorageError.
          */
-        outcome::result<void> Put( const NodeReputation &rep );
+        outcome::result<void> Put( const NodeReputation& rep );
 
         /**
          * @brief Retrieve a reputation record by identity key.
          * @param identity_key  Node identity key.
          * @return              NodeReputation or ReputationNotFound / StorageError.
          */
-        outcome::result<NodeReputation> Get( const std::string &identity_key ) const;
+        outcome::result<NodeReputation> Get( const std::string& identity_key ) const;
 
         /**
          * @brief Delete a reputation record.
          * @param identity_key  Node identity key.
          * @return              outcome::success or StorageError.
          */
-        outcome::result<void> Remove( const std::string &identity_key );
+        outcome::result<void> Remove( const std::string& identity_key );
 
         /**
          * @brief Retrieve all stored reputation records.
@@ -73,14 +73,14 @@ namespace sgns::neoswarm::reputation
             return open_;
         }
 
-    private:
+        private:
         struct Impl;
         std::unique_ptr<Impl> impl_;
-        std::string           db_path_;
-        bool                  open_ = false;
+        std::string db_path_;
+        bool open_ = false;
 
-        static std::string     Serialize( const NodeReputation &rep );
-        static NodeReputation  Deserialize( const std::string &data );
+        static std::string Serialize( const NodeReputation& rep );
+        static NodeReputation Deserialize( const std::string& data );
     };
 
 } // namespace sgns::neoswarm::reputation

@@ -20,8 +20,8 @@ namespace sgns::neoswarm::network
         }
 
         constexpr int kMaxReconnectAttempts = 5;
-        constexpr std::chrono::seconds kMaxBackoff{30};
-    }
+        constexpr std::chrono::seconds kMaxBackoff{ 30 };
+    } // namespace
 
     SGChannelManager::SGChannelManager( Config cfg )
         : cfg_( std::move( cfg ) )
@@ -65,8 +65,7 @@ namespace sgns::neoswarm::network
         args.SetInt( GRPC_ARG_KEEPALIVE_TIMEOUT_MS, 10000 );
         args.SetInt( GRPC_ARG_KEEPALIVE_PERMIT_WITHOUT_CALLS, 1 );
 
-        channel_ = grpc::CreateCustomChannel(
-            cfg_.endpoint_, creds, args );
+        channel_ = grpc::CreateCustomChannel( cfg_.endpoint_, creds, args );
 
         if ( !channel_ )
         {
@@ -106,12 +105,12 @@ namespace sgns::neoswarm::network
     {
         channel_.reset();
 
-        std::chrono::seconds backoff{1};
+        std::chrono::seconds backoff{ 1 };
 
         for ( int attempt = 0; attempt < kMaxReconnectAttempts; ++attempt )
         {
-            ChannelLogger()->info( "Reconnect attempt {}/{} (backoff={}s)",
-                                   attempt + 1, kMaxReconnectAttempts, backoff.count() );
+            ChannelLogger()->info( "Reconnect attempt {}/{} (backoff={}s)", attempt + 1, kMaxReconnectAttempts,
+                                   backoff.count() );
 
             std::this_thread::sleep_for( backoff );
 
@@ -122,8 +121,7 @@ namespace sgns::neoswarm::network
                 auto health = HealthCheck();
                 if ( health.has_value() && health.value() )
                 {
-                    ChannelLogger()->info( "Reconnected successfully on attempt {}",
-                                           attempt + 1 );
+                    ChannelLogger()->info( "Reconnected successfully on attempt {}", attempt + 1 );
                     return outcome::success();
                 }
             }

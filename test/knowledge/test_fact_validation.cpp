@@ -5,10 +5,10 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include <gtest/gtest.h>
+#include "common/Types.hpp"
 #include "knowledge/FactValidation.hpp"
 #include "knowledge/KnowledgeRetrieval.hpp"
-#include "common/Types.hpp"
+#include <gtest/gtest.h>
 
 #include <memory>
 
@@ -17,11 +17,10 @@ using namespace sgns::neoswarm::knowledge;
 
 namespace
 {
-    KnowledgeFact MakeFact( const std::string &source,
-                            const std::string &content )
+    KnowledgeFact MakeFact( const std::string& source, const std::string& content )
     {
         KnowledgeFact f;
-        f.source_  = source;
+        f.source_ = source;
         f.content_ = content;
         return f;
     }
@@ -34,7 +33,7 @@ namespace
         ret->Load();
         return ret;
     }
-}
+} // namespace
 
 TEST( FactValidation, EmptyFactsPasses )
 {
@@ -52,12 +51,9 @@ TEST( FactValidation, MatchingFactPasses )
     auto retrieval = MakeRetrieval();
     FactValidation validator( retrieval );
 
-    std::vector<KnowledgeFact> facts = {
-        MakeFact( "physics", "speed of light: 299792 km/s" )
-    };
+    std::vector<KnowledgeFact> facts = { MakeFact( "physics", "speed of light: 299792 km/s" ) };
 
-    auto result = validator.Validate(
-        "The speed of light is approximately 299792 km per second", facts );
+    auto result = validator.Validate( "The speed of light is approximately 299792 km per second", facts );
     EXPECT_TRUE( result.passed_ );
 }
 
@@ -66,13 +62,10 @@ TEST( FactValidation, NoRelevantFactsPasses )
     auto retrieval = MakeRetrieval();
     FactValidation validator( retrieval );
 
-    std::vector<KnowledgeFact> facts = {
-        MakeFact( "geography", "Earth radius is 6371 km" ),
-        MakeFact( "chemistry", "Water boils at 100 degrees Celsius at sea level" )
-    };
+    std::vector<KnowledgeFact> facts = { MakeFact( "geography", "Earth radius is 6371 km" ),
+                                         MakeFact( "chemistry", "Water boils at 100 degrees Celsius at sea level" ) };
 
-    auto result = validator.Validate(
-        "The speed of light is very fast", facts );
+    auto result = validator.Validate( "The speed of light is very fast", facts );
     EXPECT_TRUE( result.passed_ );
 }
 

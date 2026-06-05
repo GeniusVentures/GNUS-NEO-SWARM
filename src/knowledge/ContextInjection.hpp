@@ -19,11 +19,11 @@ namespace sgns::neoswarm::knowledge
      */
     class ContextInjection
     {
-    public:
+        public:
         struct Config
         {
-            size_t max_token_budget_ = 256;   ///< max tokens to add for context
-            bool   add_source_tags_  = true;  ///< add [GROKIPEDIA: source] tags
+            size_t max_token_budget_ = 256; ///< max tokens to add for context
+            bool add_source_tags_ = true;   ///< add [GROKIPEDIA: source] tags
         };
 
         ContextInjection();
@@ -35,10 +35,9 @@ namespace sgns::neoswarm::knowledge
          * @param facts   Retrieved knowledge facts.
          * @return        Augmented prompt string.
          */
-        std::string Inject( const std::string              &prompt,
-                            const std::vector<KnowledgeFact> &facts ) const;
+        std::string Inject( const std::string& prompt, const std::vector<KnowledgeFact>& facts ) const;
 
-    private:
+        private:
         Config cfg_;
 
         /**
@@ -46,7 +45,7 @@ namespace sgns::neoswarm::knowledge
          * @param text  Input string.
          * @return      Estimated token count.
          */
-        static size_t EstimateTokens( const std::string &text );
+        static size_t EstimateTokens( const std::string& text );
     };
 
 } // namespace sgns::neoswarm::knowledge

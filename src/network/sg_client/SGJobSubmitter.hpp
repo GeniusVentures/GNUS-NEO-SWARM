@@ -15,12 +15,12 @@
 
 namespace grpc
 {
-class Channel;
+    class Channel;
 }
 
 namespace sgns::neoswarm::network
 {
-class SGMessageAuthenticator;
+    class SGMessageAuthenticator;
 
     /**
      * @brief Signs and publishes Task messages to the SuperGenius grid channel.
@@ -30,10 +30,8 @@ class SGMessageAuthenticator;
      */
     class SGJobSubmitter
     {
-    public:
-        SGJobSubmitter(
-            std::shared_ptr<grpc::Channel>  channel,
-            SGMessageAuthenticator         &authenticator );
+        public:
+        SGJobSubmitter( std::shared_ptr<grpc::Channel> channel, SGMessageAuthenticator& authenticator );
         ~SGJobSubmitter();
 
         /**
@@ -41,10 +39,9 @@ class SGMessageAuthenticator;
          * @param gnusSchemaJson  The GNUS_Schema JSON from BuildSchemaJson().
          * @return                The generated taskId for result collection.
          */
-        outcome::result<std::string> PublishJob(
-            const std::string &gnusSchemaJson );
+        outcome::result<std::string> PublishJob( const std::string& gnusSchemaJson );
 
-    private:
+        private:
         struct Impl;
         std::unique_ptr<Impl> impl_;
     };

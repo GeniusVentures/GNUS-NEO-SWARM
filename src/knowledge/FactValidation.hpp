@@ -24,13 +24,13 @@ namespace sgns::neoswarm::knowledge
      */
     class FactValidation
     {
-    public:
+        public:
         struct ValidationResult
         {
-            bool                     passed_              = true;
-            float                    contradiction_score_ = 0.0f;  ///< 0=none, 1=full
+            bool passed_ = true;
+            float contradiction_score_ = 0.0f; ///< 0=none, 1=full
             std::vector<std::string> contradictions_;
-            std::string              suggestion_;
+            std::string suggestion_;
         };
 
         /**
@@ -45,13 +45,12 @@ namespace sgns::neoswarm::knowledge
          * @param grounding_facts Facts that were injected into the prompt.
          * @return                ValidationResult with contradiction details.
          */
-        ValidationResult Validate( const std::string              &output,
-                                   const std::vector<KnowledgeFact> &grounding_facts ) const;
+        ValidationResult Validate( const std::string& output, const std::vector<KnowledgeFact>& grounding_facts ) const;
 
         /// @return True if the retrieval index is loaded and validation is possible.
         bool IsAvailable() const;
 
-    private:
+        private:
         std::shared_ptr<KnowledgeRetrieval> retrieval_;
 
         /**
@@ -59,8 +58,7 @@ namespace sgns::neoswarm::knowledge
          * @param text  Input string.
          * @return      Vector of (claim_text, numeric_value) pairs.
          */
-        std::vector<std::pair<std::string, double>> ExtractNumericClaims(
-            const std::string &text ) const;
+        std::vector<std::pair<std::string, double>> ExtractNumericClaims( const std::string& text ) const;
 
         /**
          * @brief Check if a numeric claim contradicts a known fact string.
@@ -68,7 +66,7 @@ namespace sgns::neoswarm::knowledge
          * @param fact_content Fact content string to check against.
          * @return             True if a contradiction is detected.
          */
-        bool Contradicts( double claim, const std::string &fact_content ) const;
+        bool Contradicts( double claim, const std::string& fact_content ) const;
     };
 
 } // namespace sgns::neoswarm::knowledge

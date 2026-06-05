@@ -22,7 +22,7 @@ namespace sgns::neoswarm::specialists
      */
     class SymbolicFallback
     {
-    public:
+        public:
         static constexpr float kConfidenceThreshold = 0.6f;
 
         /**
@@ -30,14 +30,14 @@ namespace sgns::neoswarm::specialists
          * @param expr  Expression string (e.g. "847 * 963").
          * @return      Result value or std::nullopt if parsing fails.
          */
-        static std::optional<double> Evaluate( const std::string &expr );
+        static std::optional<double> Evaluate( const std::string& expr );
 
         /**
          * @brief Extract the first numeric expression from text and evaluate it.
          * @param text  Free-form text containing a math expression.
          * @return      Result value or std::nullopt if no expression found.
          */
-        static std::optional<double> ExtractAndEvaluate( const std::string &text );
+        static std::optional<double> ExtractAndEvaluate( const std::string& text );
 
         /**
          * @brief Format a double result as a clean string.
@@ -46,19 +46,19 @@ namespace sgns::neoswarm::specialists
          */
         static std::string FormatResult( double value );
 
-    private:
+        private:
         struct Parser
         {
-            const std::string &input_;
-            size_t             pos_ = 0;
+            const std::string& input_;
+            size_t pos_ = 0;
 
             double ParseExpr();
             double ParseTerm();
             double ParseFactor();
             double ParsePrimary();
-            void   SkipWhitespace();
-            char   Peek() const;
-            char   Consume();
+            void SkipWhitespace();
+            char Peek() const;
+            char Consume();
         };
     };
 

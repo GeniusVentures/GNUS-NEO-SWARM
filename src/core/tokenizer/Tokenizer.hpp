@@ -20,7 +20,7 @@ namespace sgns::neoswarm::core
      */
     class Tokenizer
     {
-    public:
+        public:
         virtual ~Tokenizer() = default;
 
         /**
@@ -28,14 +28,14 @@ namespace sgns::neoswarm::core
          * @param text  Input string.
          * @return      Token ID vector or TokenizerFailed.
          */
-        virtual outcome::result<std::vector<int>> Encode( const std::string &text ) const = 0;
+        virtual outcome::result<std::vector<int>> Encode( const std::string& text ) const = 0;
 
         /**
          * @brief Decode token IDs to text.
          * @param ids  Token ID vector.
          * @return     Decoded string or TokenizerFailed.
          */
-        virtual outcome::result<std::string> Decode( const std::vector<int> &ids ) const = 0;
+        virtual outcome::result<std::string> Decode( const std::vector<int>& ids ) const = 0;
 
         /**
          * @brief Check whether a token ID is the end-of-sequence token.
@@ -62,7 +62,7 @@ namespace sgns::neoswarm::core
      */
     class SentencePieceTokenizer : public Tokenizer
     {
-    public:
+        public:
         explicit SentencePieceTokenizer( int eos_id = 2, int bos_id = 1 );
         ~SentencePieceTokenizer() override;
 
@@ -71,20 +71,29 @@ namespace sgns::neoswarm::core
          * @param model_path  Path to the .model file.
          * @return            outcome::success or TokenizerFailed.
          */
-        outcome::result<void> Load( const std::string &model_path );
+        outcome::result<void> Load( const std::string& model_path );
 
-        outcome::result<std::vector<int>> Encode( const std::string &text ) const override;
-        outcome::result<std::string>      Decode( const std::vector<int> &ids ) const override;
-        bool                              IsEOS( int token_id ) const override { return token_id == eos_id_; }
-        int                               EosTokenId() const override { return eos_id_; }
-        int                               BosTokenId() const override { return bos_id_; }
-        size_t                            VocabSize() const override;
+        outcome::result<std::vector<int>> Encode( const std::string& text ) const override;
+        outcome::result<std::string> Decode( const std::vector<int>& ids ) const override;
+        bool IsEOS( int token_id ) const override
+        {
+            return token_id == eos_id_;
+        }
+        int EosTokenId() const override
+        {
+            return eos_id_;
+        }
+        int BosTokenId() const override
+        {
+            return bos_id_;
+        }
+        size_t VocabSize() const override;
 
-    private:
+        private:
         struct Impl;
         std::unique_ptr<Impl> impl_;
-        int                   eos_id_;
-        int                   bos_id_;
+        int eos_id_;
+        int bos_id_;
     };
 
 } // namespace sgns::neoswarm::core

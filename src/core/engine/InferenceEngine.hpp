@@ -8,8 +8,8 @@
 #ifndef NEOSWARM_CORE_ENGINE_INFERENCEENGINE_HPP_
 #define NEOSWARM_CORE_ENGINE_INFERENCEENGINE_HPP_
 
-#include "common/Types.hpp"
 #include "common/Error.hpp"
+#include "common/Types.hpp"
 #include <functional>
 #include <string>
 
@@ -20,7 +20,7 @@ namespace sgns::neoswarm::core
      */
     class InferenceEngine
     {
-    public:
+        public:
         virtual ~InferenceEngine() = default;
 
         /**
@@ -28,14 +28,14 @@ namespace sgns::neoswarm::core
          * @param model_path  Path to the model file.
          * @return            outcome::success or ModelLoadFailed.
          */
-        virtual outcome::result<void> LoadModel( const std::string &model_path ) = 0;
+        virtual outcome::result<void> LoadModel( const std::string& model_path ) = 0;
 
         /**
          * @brief Synchronous inference — returns the full generated output.
          * @param task  Inference task with prompt and generation parameters.
          * @return      InferenceResponse or InferenceFailed.
          */
-        virtual outcome::result<InferenceResponse> Infer( const Task &task ) = 0;
+        virtual outcome::result<InferenceResponse> Infer( const Task& task ) = 0;
 
         /**
          * @brief Streaming inference — calls callback for each generated token.
@@ -43,9 +43,8 @@ namespace sgns::neoswarm::core
          * @param callback  Called with each token string as it is generated.
          * @return          outcome::success or InferenceFailed.
          */
-        virtual outcome::result<void> StreamInfer(
-            const Task                                    &task,
-            std::function<void( const std::string &token )> callback ) = 0;
+        virtual outcome::result<void> StreamInfer( const Task& task,
+                                                   std::function<void( const std::string& token )> callback ) = 0;
 
         /// @return True if a model has been loaded.
         virtual bool IsLoaded() const = 0;

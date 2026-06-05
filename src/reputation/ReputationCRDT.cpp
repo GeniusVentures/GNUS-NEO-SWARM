@@ -19,15 +19,15 @@ namespace sgns::neoswarm::reputation
         {
             return neoswarm::CreateLogger( "ReputationCRDT" );
         }
-    }
+    } // namespace
 
     // -----------------------------------------------------------------------
     // Merge
     // -----------------------------------------------------------------------
-    void ReputationCRDT::Merge( const NodeReputation &remote )
+    void ReputationCRDT::Merge( const NodeReputation& remote )
     {
         std::lock_guard<std::mutex> lock( mutex_ );
-        auto                        it = state_.find( remote.identity_key_ );
+        auto it = state_.find( remote.identity_key_ );
         if ( it == state_.end() )
         {
             state_[remote.identity_key_] = remote;
@@ -35,13 +35,11 @@ namespace sgns::neoswarm::reputation
             return;
         }
 
-        NodeReputation &local = it->second;
+        NodeReputation& local = it->second;
         if ( remote.last_updated_ms_ > local.last_updated_ms_ )
         {
-            CRDTLogger()->debug( "CRDT: updated {} (remote ts={} > local ts={})",
-                                  remote.identity_key_,
-                                  remote.last_updated_ms_,
-                                  local.last_updated_ms_ );
+            CRDTLogger()->debug( "CRDT: updated {} (remote ts={} > local ts={})", remote.identity_key_,
+                                 remote.last_updated_ms_, local.last_updated_ms_ );
             local = remote;
         }
     }
@@ -49,10 +47,10 @@ namespace sgns::neoswarm::reputation
     // -----------------------------------------------------------------------
     // Get
     // -----------------------------------------------------------------------
-    std::optional<NodeReputation> ReputationCRDT::Get( const std::string &identity_key ) const
+    std::optional<NodeReputation> ReputationCRDT::Get( const std::string& identity_key ) const
     {
         std::lock_guard<std::mutex> lock( mutex_ );
-        auto                        it = state_.find( identity_key );
+        auto it = state_.find( identity_key );
         if ( it == state_.end() )
         {
             return std::nullopt;
@@ -68,7 +66,7 @@ namespace sgns::neoswarm::reputation
         std::lock_guard<std::mutex> lock( mutex_ );
         std::vector<NodeReputation> result;
         result.reserve( state_.size() );
-        for ( const auto &[k, v] : state_ )
+        for ( const auto& [k, v] : state_ )
         {
             result.push_back( v );
         }
@@ -81,17 +79,12 @@ namespace sgns::neoswarm::reputation
     std::string ReputationCRDT::Serialize() const
     {
         std::lock_guard<std::mutex> lock( mutex_ );
-        std::ostringstream          oss;
-        for ( const auto &[k, r] : state_ )
+        std::ostringstream oss;
+        for ( const auto& [k, r] : state_ )
         {
-            oss << r.identity_key_     << ','
-                << r.global_score_     << ','
-                << r.math_score_       << ','
-                << r.grammar_score_    << ','
-                << r.latency_score_    << ','
-                << r.consistency_score_ << ','
-                << r.task_count_       << ','
-                << r.last_updated_ms_  << '\n';
+            oss << r.identity_key_ << ',' << r.global_score_ << ',' << r.math_score_ << ',' << r.grammar_score_ << ','
+                << r.latency_score_ << ',' << r.consistency_score_ << ',' << r.task_count_ << ',' << r.last_updated_ms_
+                << '\n';
         }
         return oss.str();
     }
@@ -99,10 +92,10 @@ namespace sgns::neoswarm::reputation
     // -----------------------------------------------------------------------
     // DeserializeAndMerge
     // -----------------------------------------------------------------------
-    void ReputationCRDT::DeserializeAndMerge( const std::string &data )
+    void ReputationCRDT::DeserializeAndMerge( const std::string& data )
     {
         std::istringstream iss( data );
-        std::string        line;
+        std::string line;
         while ( std::getline( iss, line ) )
         {
             if ( line.empty() )
@@ -110,8 +103,8 @@ namespace sgns::neoswarm::reputation
                 continue;
             }
             std::istringstream ls( line );
-            std::string        token;
-            auto               next = [&]() -> std::string
+            std::string token;
+            auto next = [&]() -> std::string
             {
                 std::getline( ls, token, ',' );
                 return token;
@@ -119,17 +112,17 @@ namespace sgns::neoswarm::reputation
             try
             {
                 NodeReputation r;
-                r.identity_key_      = next();
-                r.global_score_      = std::stod( next() );
-                r.math_score_        = std::stod( next() );
-                r.grammar_score_     = std::stod( next() );
-                r.latency_score_     = std::stod( next() );
+                r.identity_key_ = next();
+                r.global_score_ = std::stod( next() );
+                r.math_score_ = std::stod( next() );
+                r.grammar_score_ = std::stod( next() );
+                r.latency_score_ = std::stod( next() );
                 r.consistency_score_ = std::stod( next() );
-                r.task_count_        = std::stoull( next() );
-                r.last_updated_ms_   = std::stoull( next() );
+                r.task_count_ = std::stoull( next() );
+                r.last_updated_ms_ = std::stoull( next() );
                 Merge( r );
             }
-            catch ( const std::exception &e )
+            catch ( const std::exception& e )
             {
                 CRDTLogger()->warn( "CRDT deserialize error: {}", e.what() );
             }

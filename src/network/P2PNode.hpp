@@ -8,8 +8,8 @@
 #ifndef NEOSWARM_NETWORK_P2PNODE_HPP_
 #define NEOSWARM_NETWORK_P2PNODE_HPP_
 
-#include "common/Types.hpp"
 #include "common/Error.hpp"
+#include "common/Types.hpp"
 #include "security/NodeIdentity.hpp"
 #include <functional>
 #include <memory>
@@ -26,18 +26,18 @@ namespace sgns::neoswarm::network
      */
     class P2PNode
     {
-    public:
+        public:
         struct Config
         {
-            std::string listen_addr_     = "/ip4/0.0.0.0/tcp/0";
-            std::string bootstrap_peer_  = "";    ///< optional bootstrap peer multiaddr
-            bool        enable_mdns_     = true;  ///< local peer discovery
-            bool        enable_kademlia_ = true;
-            int         max_peers_       = 50;
+            std::string listen_addr_ = "/ip4/0.0.0.0/tcp/0";
+            std::string bootstrap_peer_ = ""; ///< optional bootstrap peer multiaddr
+            bool enable_mdns_ = true;         ///< local peer discovery
+            bool enable_kademlia_ = true;
+            int max_peers_ = 50;
         };
 
-        using TaskHandler = std::function<void( const Task &task, const std::string &from_peer )>;
-        using CRDTHandler = std::function<void( const std::string &crdt_data )>;
+        using TaskHandler = std::function<void( const Task& task, const std::string& from_peer )>;
+        using CRDTHandler = std::function<void( const std::string& crdt_data )>;
 
         P2PNode( std::shared_ptr<security::NodeIdentity> identity, Config cfg );
         explicit P2PNode( std::shared_ptr<security::NodeIdentity> identity );
@@ -87,14 +87,14 @@ namespace sgns::neoswarm::network
          * @param task  Task to broadcast.
          * @return      outcome::success or NetworkError.
          */
-        outcome::result<void> BroadcastTask( const Task &task );
+        outcome::result<void> BroadcastTask( const Task& task );
 
         /**
          * @brief Broadcast a CRDT state update to all peers.
          * @param crdt_data  Serialised CRDT state.
          * @return           outcome::success or NetworkError.
          */
-        outcome::result<void> BroadcastCRDT( const std::string &crdt_data );
+        outcome::result<void> BroadcastCRDT( const std::string& crdt_data );
 
         /**
          * @brief Get the list of currently connected peer IDs.
@@ -102,14 +102,14 @@ namespace sgns::neoswarm::network
          */
         std::vector<std::string> ConnectedPeers() const;
 
-    private:
+        private:
         struct Impl;
-        std::unique_ptr<Impl>                   impl_;
+        std::unique_ptr<Impl> impl_;
         std::shared_ptr<security::NodeIdentity> identity_;
-        Config                                  cfg_;
-        bool                                    running_      = false;
-        TaskHandler                             task_handler_;
-        CRDTHandler                             crdt_handler_;
+        Config cfg_;
+        bool running_ = false;
+        TaskHandler task_handler_;
+        CRDTHandler crdt_handler_;
     };
 
 } // namespace sgns::neoswarm::network

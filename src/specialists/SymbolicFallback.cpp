@@ -21,8 +21,7 @@ namespace sgns::neoswarm::specialists
     // -----------------------------------------------------------------------
     void SymbolicFallback::Parser::SkipWhitespace()
     {
-        while ( pos_ < input_.size()
-                && std::isspace( static_cast<unsigned char>( input_[pos_] ) ) )
+        while ( pos_ < input_.size() && std::isspace( static_cast<unsigned char>( input_[pos_] ) ) )
         {
             ++pos_;
         }
@@ -49,9 +48,9 @@ namespace sgns::neoswarm::specialists
         SkipWhitespace();
         while ( Peek() == '+' || Peek() == '-' )
         {
-            char   op  = Consume();
+            char op = Consume();
             double rhs = ParseTerm();
-            result     = ( op == '+' ) ? result + rhs : result - rhs;
+            result = ( op == '+' ) ? result + rhs : result - rhs;
             SkipWhitespace();
         }
         return result;
@@ -64,7 +63,7 @@ namespace sgns::neoswarm::specialists
         SkipWhitespace();
         while ( Peek() == '*' || Peek() == '/' )
         {
-            char   op  = Consume();
+            char op = Consume();
             double rhs = ParseFactor();
             if ( op == '/' && rhs == 0.0 )
             {
@@ -117,8 +116,7 @@ namespace sgns::neoswarm::specialists
         if ( std::isalpha( static_cast<unsigned char>( c ) ) )
         {
             std::string name;
-            while ( pos_ < input_.size()
-                    && std::isalpha( static_cast<unsigned char>( input_[pos_] ) ) )
+            while ( pos_ < input_.size() && std::isalpha( static_cast<unsigned char>( input_[pos_] ) ) )
             {
                 name += Consume();
             }
@@ -132,13 +130,20 @@ namespace sgns::neoswarm::specialists
                 {
                     Consume();
                 }
-                if ( name == "sqrt" ) return std::sqrt( arg );
-                if ( name == "abs" )  return std::abs( arg );
-                if ( name == "sin" )  return std::sin( arg );
-                if ( name == "cos" )  return std::cos( arg );
-                if ( name == "tan" )  return std::tan( arg );
-                if ( name == "log" )  return std::log( arg );
-                if ( name == "exp" )  return std::exp( arg );
+                if ( name == "sqrt" )
+                    return std::sqrt( arg );
+                if ( name == "abs" )
+                    return std::abs( arg );
+                if ( name == "sin" )
+                    return std::sin( arg );
+                if ( name == "cos" )
+                    return std::cos( arg );
+                if ( name == "tan" )
+                    return std::tan( arg );
+                if ( name == "log" )
+                    return std::log( arg );
+                if ( name == "exp" )
+                    return std::exp( arg );
                 throw std::runtime_error( "unknown function: " + name );
             }
             throw std::runtime_error( "unexpected identifier: " + name );
@@ -147,9 +152,8 @@ namespace sgns::neoswarm::specialists
         if ( std::isdigit( static_cast<unsigned char>( c ) ) || c == '.' )
         {
             std::string num_str;
-            while ( pos_ < input_.size()
-                    && ( std::isdigit( static_cast<unsigned char>( input_[pos_] ) )
-                         || input_[pos_] == '.' ) )
+            while ( pos_ < input_.size() &&
+                    ( std::isdigit( static_cast<unsigned char>( input_[pos_] ) ) || input_[pos_] == '.' ) )
             {
                 num_str += Consume();
             }
@@ -162,7 +166,7 @@ namespace sgns::neoswarm::specialists
     // -----------------------------------------------------------------------
     // Evaluate
     // -----------------------------------------------------------------------
-    std::optional<double> SymbolicFallback::Evaluate( const std::string &expr )
+    std::optional<double> SymbolicFallback::Evaluate( const std::string& expr )
     {
         try
         {
@@ -171,7 +175,7 @@ namespace sgns::neoswarm::specialists
             p.SkipWhitespace();
             if ( p.pos_ != expr.size() )
             {
-                return std::nullopt;  // trailing garbage
+                return std::nullopt; // trailing garbage
             }
             return result;
         }
@@ -184,15 +188,15 @@ namespace sgns::neoswarm::specialists
     // -----------------------------------------------------------------------
     // ExtractAndEvaluate
     // -----------------------------------------------------------------------
-    std::optional<double> SymbolicFallback::ExtractAndEvaluate( const std::string &text )
+    std::optional<double> SymbolicFallback::ExtractAndEvaluate( const std::string& text )
     {
         static const std::regex kExprPattern( R"([\d\.\+\-\*\/\^\(\)\s]{3,})" );
-        std::sregex_iterator    it( text.begin(), text.end(), kExprPattern );
-        std::sregex_iterator    end;
+        std::sregex_iterator it( text.begin(), text.end(), kExprPattern );
+        std::sregex_iterator end;
         for ( ; it != end; ++it )
         {
             auto candidate = it->str();
-            auto result    = Evaluate( candidate );
+            auto result = Evaluate( candidate );
             if ( result.has_value() )
             {
                 return result;

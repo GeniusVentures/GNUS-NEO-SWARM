@@ -6,10 +6,10 @@
  */
 
 #include "GeniusAPIServer.hpp"
+#include "common/Logging.hpp"
 #include "core/engine/MNNInferenceEngine.hpp"
 #include "core/tokenizer/Tokenizer.hpp"
 #include "network/sg_client/SuperGeniusClient.hpp"
-#include "common/Logging.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -32,9 +32,12 @@ namespace sgns::neoswarm::api
             auto tid = std::hash<std::thread::id>{}( std::this_thread::get_id() );
             return "task-" + std::to_string( now ) + "-" + std::to_string( tid & 0xFFFF );
         }
-    }
+    } // namespace
 
-    GeniusAPIServer::GeniusAPIServer( Config cfg ) : cfg_( std::move( cfg ) ) {}
+    GeniusAPIServer::GeniusAPIServer( Config cfg )
+        : cfg_( std::move( cfg ) )
+    {
+    }
     GeniusAPIServer::~GeniusAPIServer()
     {
         Stop();
@@ -69,17 +72,18 @@ namespace sgns::neoswarm::api
 
         // 2. Core inference engine
         core::MNNInferenceEngine::Config engine_cfg;
-        engine_cfg.engine_mode_     = cfg_.enable_sg_processing_ ? "sgprocessing" : "interpreter";
-        engine_cfg.backend_         = "vulkan";  // cross-platform; MoltenVK on Apple
+        engine_cfg.engine_mode_ = cfg_.enable_sg_processing_ ? "sgprocessing" : "interpreter";
+        engine_cfg.backend_ = "vulkan"; // cross-platform; MoltenVK on Apple
         engine_cfg.sg_network_mode_ = cfg_.sg_processing_network_mode_;
         auto engine = std::make_shared<core::MNNInferenceEngine>( engine_cfg );
 
         auto tokenizer = std::make_shared<core::SentencePieceTokenizer>();
         std::string tok_path = cfg_.model_path_;
         auto dot_pos = tok_path.rfind( '.' );
-        if ( dot_pos != std::string::npos ) tok_path = tok_path.substr( 0, dot_pos );
+        if ( dot_pos != std::string::npos )
+            tok_path = tok_path.substr( 0, dot_pos );
         tok_path += ".tokenizer.model";
-        tokenizer->Load( tok_path );  // degrades gracefully if not found
+        tokenizer->Load( tok_path ); // degrades gracefully if not found
         engine->SetTokenizer( tokenizer );
 
         if ( !cfg_.model_path_.empty() )
@@ -99,8 +103,8 @@ namespace sgns::neoswarm::api
         // 3. Specialists
         grammar_spec_ = std::make_shared<specialists::GrammarSpecialist>(
             cfg_.grammar_model_path_.empty() ? nullptr : core_engine_ );
-        math_spec_ = std::make_shared<specialists::MathSpecialist>(
-            cfg_.math_model_path_.empty() ? nullptr : core_engine_ );
+        math_spec_ =
+            std::make_shared<specialists::MathSpecialist>( cfg_.math_model_path_.empty() ? nullptr : core_engine_ );
 
         if ( !cfg_.grammar_model_path_.empty() )
         {
@@ -115,9 +119,9 @@ namespace sgns::neoswarm::api
         router_ = std::make_unique<router::RuleBasedRouter>();
 
         // 5. Reputation
-        scoring_     = std::make_unique<reputation::ReputationScoring>();
-        consensus_   = std::make_unique<reputation::WeightedConsensus>();
-        rep_crdt_    = std::make_unique<reputation::ReputationCRDT>();
+        scoring_ = std::make_unique<reputation::ReputationScoring>();
+        consensus_ = std::make_unique<reputation::WeightedConsensus>();
+        rep_crdt_ = std::make_unique<reputation::ReputationCRDT>();
         rep_storage_ = std::make_unique<reputation::ReputationStorage>( cfg_.reputation_db_path_ );
         auto stor_res = rep_storage_->Open();
         if ( !stor_res.has_value() )
@@ -129,7 +133,7 @@ namespace sgns::neoswarm::api
         if ( cfg_.enable_network_ )
         {
             network::P2PNode::Config net_cfg;
-            p2p_node_    = std::make_unique<network::P2PNode>( identity_, net_cfg );
+            p2p_node_ = std::make_unique<network::P2PNode>( identity_, net_cfg );
             aggregation_ = std::make_unique<network::ResultAggregation>();
             auto net_res = p2p_node_->Start();
             if ( !net_res.has_value() )
@@ -142,8 +146,8 @@ namespace sgns::neoswarm::api
         if ( !cfg_.sg_endpoint_.empty() )
         {
             network::SuperGeniusClient::Config sgCfg;
-            sgCfg.endpoint_     = cfg_.sg_endpoint_;
-            sgCfg.tls_ca_path_  = cfg_.sg_tls_ca_;
+            sgCfg.endpoint_ = cfg_.sg_endpoint_;
+            sgCfg.tls_ca_path_ = cfg_.sg_tls_ca_;
             sgCfg.tls_cert_path_ = cfg_.sg_tls_cert_;
 
             sg_client_ = std::make_unique<network::SuperGeniusClient>( std::move( sgCfg ) );
@@ -168,7 +172,7 @@ namespace sgns::neoswarm::api
             // Wire SuperGeniusClient into the engine's SGProcessingBridge
             if ( core_engine_ )
             {
-                auto *mnnEngine = dynamic_cast<core::MNNInferenceEngine *>( core_engine_.get() );
+                auto* mnnEngine = dynamic_cast<core::MNNInferenceEngine*>( core_engine_.get() );
                 if ( mnnEngine )
                 {
                     mnnEngine->SetSuperGeniusClient( sg_client_.get() );
@@ -184,7 +188,7 @@ namespace sgns::neoswarm::api
             knowledge_ = std::make_shared<knowledge::KnowledgeRetrieval>( k_cfg );
             knowledge_->Load();
             context_inj_ = std::make_unique<knowledge::ContextInjection>();
-            fact_val_    = std::make_unique<knowledge::FactValidation>( knowledge_ );
+            fact_val_ = std::make_unique<knowledge::FactValidation>( knowledge_ );
         }
 
         ServerLogger()->info( "GeniusAPIServer initialized (node={})", identity_->PeerId() );
@@ -194,8 +198,7 @@ namespace sgns::neoswarm::api
     // -----------------------------------------------------------------------
     // AugmentPrompt
     // -----------------------------------------------------------------------
-    std::string GeniusAPIServer::AugmentPrompt( const std::string          &prompt,
-                                                std::vector<KnowledgeFact> &out_facts ) const
+    std::string GeniusAPIServer::AugmentPrompt( const std::string& prompt, std::vector<KnowledgeFact>& out_facts ) const
     {
         if ( !knowledge_ || !knowledge_->IsLoaded() || !context_inj_ )
         {
@@ -213,9 +216,9 @@ namespace sgns::neoswarm::api
     // -----------------------------------------------------------------------
     // UpdateReputation
     // -----------------------------------------------------------------------
-    void GeniusAPIServer::UpdateReputation( const InferenceResponse &resp,
-                                            double                   median_latency_ms,
-                                            const std::string       &consensus_output )
+    void GeniusAPIServer::UpdateReputation( const InferenceResponse& resp,
+                                            double median_latency_ms,
+                                            const std::string& consensus_output )
     {
         if ( !rep_storage_ || !rep_storage_->IsOpen() )
         {
@@ -233,8 +236,7 @@ namespace sgns::neoswarm::api
             rep.identity_key_ = resp.node_id_;
         }
 
-        auto updated = scoring_->Update( rep, resp, median_latency_ms,
-                                         std::nullopt, consensus_output );
+        auto updated = scoring_->Update( rep, resp, median_latency_ms, std::nullopt, consensus_output );
         rep_storage_->Put( updated );
         rep_crdt_->Merge( updated );
 
@@ -247,11 +249,10 @@ namespace sgns::neoswarm::api
     // -----------------------------------------------------------------------
     // RunSingleNode
     // -----------------------------------------------------------------------
-    outcome::result<GeniusResponse> GeniusAPIServer::RunSingleNode(
-        const Task &task, const RouteDecision &route )
+    outcome::result<GeniusResponse> GeniusAPIServer::RunSingleNode( const Task& task, const RouteDecision& route )
     {
         std::vector<KnowledgeFact> facts;
-        Task                       aug_task = task;
+        Task aug_task = task;
         aug_task.prompt_ = AugmentPrompt( task.prompt_, facts );
 
         auto res = core_engine_->Infer( aug_task );
@@ -261,13 +262,13 @@ namespace sgns::neoswarm::api
         }
 
         GeniusResponse resp;
-        resp.output_          = res.value().output_;
-        resp.task_id_         = task.id_;
-        resp.mode_used_       = ExecutionMode::SingleNode;
-        resp.route_used_      = route.target_;
+        resp.output_ = res.value().output_;
+        resp.task_id_ = task.id_;
+        resp.mode_used_ = ExecutionMode::SingleNode;
+        resp.route_used_ = route.target_;
         resp.grounding_facts_ = facts;
         resp.total_latency_ms_ = res.value().latency_ms_;
-        resp.success_         = true;
+        resp.success_ = true;
 
         UpdateReputation( res.value(), res.value().latency_ms_, res.value().output_ );
         return outcome::success( std::move( resp ) );
@@ -276,13 +277,12 @@ namespace sgns::neoswarm::api
     // -----------------------------------------------------------------------
     // RunSpecialist
     // -----------------------------------------------------------------------
-    outcome::result<GeniusResponse> GeniusAPIServer::RunSpecialist(
-        const Task &task, const RouteDecision &route )
+    outcome::result<GeniusResponse> GeniusAPIServer::RunSpecialist( const Task& task, const RouteDecision& route )
     {
         auto t0 = std::chrono::steady_clock::now();
 
         std::vector<KnowledgeFact> facts;
-        Task                       aug_task = task;
+        Task aug_task = task;
         aug_task.prompt_ = AugmentPrompt( task.prompt_, facts );
 
         auto core_res = core_engine_->Infer( aug_task );
@@ -296,16 +296,18 @@ namespace sgns::neoswarm::api
         if ( route.target_ == RouteTarget::CorePlusMath && math_spec_ )
         {
             auto spec_res = math_spec_->Process( output );
-            if ( spec_res.has_value() ) output = spec_res.value();
+            if ( spec_res.has_value() )
+                output = spec_res.value();
         }
         else if ( route.target_ == RouteTarget::CorePlusGrammar && grammar_spec_ )
         {
             auto spec_res = grammar_spec_->Process( output );
-            if ( spec_res.has_value() ) output = spec_res.value();
+            if ( spec_res.has_value() )
+                output = spec_res.value();
         }
 
-        auto   t1         = std::chrono::steady_clock::now();
-        double total_ms   = std::chrono::duration<double, std::milli>( t1 - t0 ).count();
+        auto t1 = std::chrono::steady_clock::now();
+        double total_ms = std::chrono::duration<double, std::milli>( t1 - t0 ).count();
 
         if ( fact_val_ && fact_val_->IsAvailable() )
         {
@@ -314,21 +316,20 @@ namespace sgns::neoswarm::api
             {
                 ServerLogger()->warn( "Fact validation failed: {}", val_result.suggestion_ );
                 InferenceResponse penalty_resp = core_res.value();
-                penalty_resp.perplexity_ = std::min(
-                    penalty_resp.perplexity_ * ( 1.0f + val_result.contradiction_score_ ),
-                    100.0f );
+                penalty_resp.perplexity_ =
+                    std::min( penalty_resp.perplexity_ * ( 1.0f + val_result.contradiction_score_ ), 100.0f );
                 UpdateReputation( penalty_resp, total_ms, output );
             }
         }
 
         GeniusResponse resp;
-        resp.output_           = output;
-        resp.task_id_          = task.id_;
-        resp.mode_used_        = ExecutionMode::Specialist;
-        resp.route_used_       = route.target_;
-        resp.grounding_facts_  = facts;
+        resp.output_ = output;
+        resp.task_id_ = task.id_;
+        resp.mode_used_ = ExecutionMode::Specialist;
+        resp.route_used_ = route.target_;
+        resp.grounding_facts_ = facts;
         resp.total_latency_ms_ = total_ms;
-        resp.success_          = true;
+        resp.success_ = true;
 
         UpdateReputation( core_res.value(), total_ms, output );
         return outcome::success( std::move( resp ) );
@@ -337,40 +338,40 @@ namespace sgns::neoswarm::api
     // -----------------------------------------------------------------------
     // RunSwarm
     // -----------------------------------------------------------------------
-    outcome::result<GeniusResponse> GeniusAPIServer::RunSwarm(
-        const Task &task, const RouteDecision &route )
+    outcome::result<GeniusResponse> GeniusAPIServer::RunSwarm( const Task& task, const RouteDecision& route )
     {
         auto t0 = std::chrono::steady_clock::now();
 
         std::vector<KnowledgeFact> facts;
-        Task                       aug_task = task;
+        Task aug_task = task;
         aug_task.prompt_ = AugmentPrompt( task.prompt_, facts );
 
         if ( p2p_node_ && p2p_node_->IsRunning() && aggregation_ )
         {
             aggregation_->Reset();
 
-            p2p_node_->OnTask( [this, aug_task]( const Task &t, const std::string &from_peer )
-            {
-                auto res = core_engine_->Infer( t );
-                if ( res.has_value() )
+            p2p_node_->OnTask(
+                [this, aug_task]( const Task& t, const std::string& from_peer )
                 {
-                    NodeOutput out;
-                    out.node_id_    = from_peer;
-                    out.output_     = res.value().output_;
-                    out.perplexity_ = res.value().perplexity_;
-                    out.latency_ms_ = res.value().latency_ms_;
-                    if ( rep_storage_ && rep_storage_->IsOpen() )
+                    auto res = core_engine_->Infer( t );
+                    if ( res.has_value() )
                     {
-                        auto rep_res = rep_storage_->Get( from_peer );
-                        if ( rep_res.has_value() )
+                        NodeOutput out;
+                        out.node_id_ = from_peer;
+                        out.output_ = res.value().output_;
+                        out.perplexity_ = res.value().perplexity_;
+                        out.latency_ms_ = res.value().latency_ms_;
+                        if ( rep_storage_ && rep_storage_->IsOpen() )
                         {
-                            out.reputation_ = rep_res.value().global_score_;
+                            auto rep_res = rep_storage_->Get( from_peer );
+                            if ( rep_res.has_value() )
+                            {
+                                out.reputation_ = rep_res.value().global_score_;
+                            }
                         }
+                        aggregation_->Submit( out );
                     }
-                    aggregation_->Submit( out );
-                }
-            } );
+                } );
 
             p2p_node_->BroadcastTask( aug_task );
             auto collect_res = aggregation_->Collect();
@@ -383,33 +384,34 @@ namespace sgns::neoswarm::api
             auto winner = consensus_->SelectWinner( collect_res.value() );
 
             double median_latency = 0.0;
-            auto  &outputs        = collect_res.value();
+            auto& outputs = collect_res.value();
             if ( !outputs.empty() )
             {
                 std::vector<double> latencies;
-                for ( const auto &o : outputs ) latencies.push_back( o.latency_ms_ );
+                for ( const auto& o : outputs )
+                    latencies.push_back( o.latency_ms_ );
                 std::sort( latencies.begin(), latencies.end() );
                 median_latency = latencies[latencies.size() / 2];
             }
-            for ( const auto &o : outputs )
+            for ( const auto& o : outputs )
             {
                 InferenceResponse r;
-                r.output_     = o.output_;
+                r.output_ = o.output_;
                 r.perplexity_ = o.perplexity_;
                 r.latency_ms_ = o.latency_ms_;
-                r.node_id_    = o.node_id_;
+                r.node_id_ = o.node_id_;
                 UpdateReputation( r, median_latency, winner.output_ );
             }
 
             auto t1 = std::chrono::steady_clock::now();
             GeniusResponse resp;
-            resp.output_           = winner.output_;
-            resp.task_id_          = task.id_;
-            resp.mode_used_        = ExecutionMode::Swarm;
-            resp.route_used_       = route.target_;
-            resp.grounding_facts_  = facts;
+            resp.output_ = winner.output_;
+            resp.task_id_ = task.id_;
+            resp.mode_used_ = ExecutionMode::Swarm;
+            resp.route_used_ = route.target_;
+            resp.grounding_facts_ = facts;
             resp.total_latency_ms_ = std::chrono::duration<double, std::milli>( t1 - t0 ).count();
-            resp.success_          = true;
+            resp.success_ = true;
             return outcome::success( std::move( resp ) );
         }
 
@@ -420,7 +422,7 @@ namespace sgns::neoswarm::api
     // -----------------------------------------------------------------------
     // Process
     // -----------------------------------------------------------------------
-    outcome::result<GeniusResponse> GeniusAPIServer::Process( const Task &task )
+    outcome::result<GeniusResponse> GeniusAPIServer::Process( const Task& task )
     {
         if ( !core_engine_ )
         {
@@ -428,19 +430,19 @@ namespace sgns::neoswarm::api
         }
 
         Task t = task;
-        if ( t.id_.empty() )   t.id_      = GenerateId();
-        if ( t.node_id_.empty() ) t.node_id_ = identity_ ? identity_->PeerId() : "local";
+        if ( t.id_.empty() )
+            t.id_ = GenerateId();
+        if ( t.node_id_.empty() )
+            t.node_id_ = identity_ ? identity_->PeerId() : "local";
 
         auto route_res = router_->Route( t );
         if ( !route_res.has_value() )
         {
             return outcome::failure( route_res.error() );
         }
-        const RouteDecision &route = route_res.value();
+        const RouteDecision& route = route_res.value();
 
-        ServerLogger()->info( "Processing task {}: mode={} route={}",
-                              t.id_,
-                              static_cast<int>( route.mode_ ),
+        ServerLogger()->info( "Processing task {}: mode={} route={}", t.id_, static_cast<int>( route.mode_ ),
                               static_cast<int>( route.target_ ) );
 
         switch ( route.mode_ )
@@ -473,9 +475,12 @@ namespace sgns::neoswarm::api
     void GeniusAPIServer::Stop()
     {
         running_.store( false );
-        if ( p2p_node_ ) p2p_node_->Stop();
-        if ( sg_client_ ) sg_client_->Disconnect();
-        if ( rep_storage_ ) rep_storage_->Close();
+        if ( p2p_node_ )
+            p2p_node_->Stop();
+        if ( sg_client_ )
+            sg_client_->Disconnect();
+        if ( rep_storage_ )
+            rep_storage_->Close();
         ServerLogger()->info( "GeniusAPIServer stopped" );
     }
 

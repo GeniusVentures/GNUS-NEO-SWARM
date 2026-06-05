@@ -21,7 +21,7 @@
 
 namespace sgns::neoswarm::security
 {
-class NodeIdentity;
+    class NodeIdentity;
 }
 
 namespace sgns::neoswarm::network
@@ -42,17 +42,17 @@ namespace sgns::neoswarm::network
      */
     class SuperGeniusClient
     {
-    public:
+        public:
         /**
          * @brief Configuration for SuperGenius network connectivity.
          */
         struct Config
         {
-            std::string              endpoint_ = "localhost:50051";  ///< SuperGenius node address
-            std::string              tls_ca_path_;                  ///< TLS CA certificate bundle
-            std::string              tls_cert_path_;                ///< TLS client certificate
-            std::chrono::seconds     channel_timeout_{30};          ///< Channel creation timeout
-            std::chrono::seconds     result_timeout_{300};          ///< Inference result timeout (5 min)
+            std::string endpoint_ = "localhost:50051";   ///< SuperGenius node address
+            std::string tls_ca_path_;                    ///< TLS CA certificate bundle
+            std::string tls_cert_path_;                  ///< TLS client certificate
+            std::chrono::seconds channel_timeout_{ 30 }; ///< Channel creation timeout
+            std::chrono::seconds result_timeout_{ 300 }; ///< Inference result timeout (5 min)
         };
 
         /**
@@ -64,10 +64,10 @@ namespace sgns::neoswarm::network
         ~SuperGeniusClient();
 
         // Non-copyable, movable
-        SuperGeniusClient( const SuperGeniusClient & ) = delete;
-        SuperGeniusClient &operator=( const SuperGeniusClient & ) = delete;
-        SuperGeniusClient( SuperGeniusClient && ) noexcept;
-        SuperGeniusClient &operator=( SuperGeniusClient && ) noexcept;
+        SuperGeniusClient( const SuperGeniusClient& ) = delete;
+        SuperGeniusClient& operator=( const SuperGeniusClient& ) = delete;
+        SuperGeniusClient( SuperGeniusClient&& ) noexcept;
+        SuperGeniusClient& operator=( SuperGeniusClient&& ) noexcept;
 
         /**
          * @brief Initialize with the node's cryptographic identity.
@@ -78,8 +78,7 @@ namespace sgns::neoswarm::network
          * @param identity The node's secp256k1 identity.
          * @return        outcome::success or IdentityError.
          */
-        outcome::result<void> Initialize(
-            const security::NodeIdentity &identity );
+        outcome::result<void> Initialize( const security::NodeIdentity& identity );
 
         /**
          * @brief Establish connection to the SuperGenius node.
@@ -105,8 +104,7 @@ namespace sgns::neoswarm::network
          * @param gnusSchemaJson  The GNUS_Schema JSON from BuildSchemaJson().
          * @return                Raw output bytes or error.
          */
-        outcome::result<std::vector<uint8_t>> SubmitJob(
-            const std::string &gnusSchemaJson );
+        outcome::result<std::vector<uint8_t>> SubmitJob( const std::string& gnusSchemaJson );
 
         /**
          * @brief Disconnect from the SuperGenius node.
@@ -122,7 +120,7 @@ namespace sgns::neoswarm::network
          */
         bool IsConnected() const noexcept;
 
-    private:
+        private:
         struct Impl;
         std::unique_ptr<Impl> impl_;
     };

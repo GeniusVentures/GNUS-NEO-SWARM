@@ -25,19 +25,19 @@ namespace sgns::neoswarm::reputation
      */
     class ReputationCRDT
     {
-    public:
+        public:
         /**
          * @brief Apply a remote reputation update (merge).
          * @param remote  Reputation record received from a peer.
          */
-        void Merge( const NodeReputation &remote );
+        void Merge( const NodeReputation& remote );
 
         /**
          * @brief Get the current merged state for a node.
          * @param identity_key  Node identity key.
          * @return              NodeReputation if known, std::nullopt otherwise.
          */
-        std::optional<NodeReputation> Get( const std::string &identity_key ) const;
+        std::optional<NodeReputation> Get( const std::string& identity_key ) const;
 
         /**
          * @brief Get all merged reputation records.
@@ -55,11 +55,11 @@ namespace sgns::neoswarm::reputation
          * @brief Deserialise and merge a received CRDT state.
          * @param data  CSV-encoded state string from a peer.
          */
-        void DeserializeAndMerge( const std::string &data );
+        void DeserializeAndMerge( const std::string& data );
 
-    private:
-        mutable std::mutex                              mutex_;
-        std::unordered_map<std::string, NodeReputation> state_;  ///< key = identity_key_
+        private:
+        mutable std::mutex mutex_;
+        std::unordered_map<std::string, NodeReputation> state_; ///< key = identity_key_
     };
 
 } // namespace sgns::neoswarm::reputation

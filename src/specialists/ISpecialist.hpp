@@ -20,7 +20,7 @@ namespace sgns::neoswarm::specialists
      */
     class ISpecialist
     {
-    public:
+        public:
         virtual ~ISpecialist() = default;
 
         /// @return Human-readable name of this specialist.
@@ -34,14 +34,14 @@ namespace sgns::neoswarm::specialists
          * @param model_path  Path to the model file.
          * @return            outcome::success or ModelLoadFailed.
          */
-        virtual outcome::result<void> Load( const std::string &model_path ) = 0;
+        virtual outcome::result<void> Load( const std::string& model_path ) = 0;
 
         /**
          * @brief Process input (typically Core LLM output) and return refined output.
          * @param input  Text to process.
          * @return       Refined text or InferenceFailed.
          */
-        virtual outcome::result<std::string> Process( const std::string &input ) = 0;
+        virtual outcome::result<std::string> Process( const std::string& input ) = 0;
 
         /**
          * @brief Confidence in the last Process() call.

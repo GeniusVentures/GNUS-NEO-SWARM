@@ -20,31 +20,31 @@
 #include <stdexcept>
 
 #ifdef GENIUS_HAS_SGPROCESSING
-#    include <InputFormat.hpp>
+#include <InputFormat.hpp>
 #else
 namespace sgns
 {
     enum class InputFormat : int
     {
-        FLOAT16   = 0,
-        FLOAT32   = 1,
+        FLOAT16 = 0,
+        FLOAT32 = 1,
         FP4_ULTRA = 2,
-        INT16     = 3,
-        INT32     = 4,
-        INT8      = 5,
-        RGB8      = 6,
-        RGBA8     = 7
+        INT16 = 3,
+        INT32 = 4,
+        INT8 = 5,
+        RGB8 = 6,
+        RGBA8 = 7
     };
-}
+} // namespace sgns
 #endif
 
 #ifdef GENIUS_HAS_MNN
-#    include <MNN/Interpreter.hpp>
-#    include <MNN/MNNDefine.h>
-#    include <MNN/Tensor.hpp>
-#    include <MNN/llm/llm.hpp>
-#    include <MNN/MNNForwardType.h>
-#    include <MNN/expr/Executor.hpp>
+#include <MNN/Interpreter.hpp>
+#include <MNN/MNNDefine.h>
+#include <MNN/MNNForwardType.h>
+#include <MNN/Tensor.hpp>
+#include <MNN/expr/Executor.hpp>
+#include <MNN/llm/llm.hpp>
 #endif
 
 namespace sgns::neoswarm::core
@@ -55,15 +55,19 @@ namespace sgns::neoswarm::core
         {
             return neoswarm::CreateLogger( "MNNInferenceEngine" );
         }
-    }
+    } // namespace
 
     // -----------------------------------------------------------------------
     // Construction / destruction
     // -----------------------------------------------------------------------
-    MNNInferenceEngine::MNNInferenceEngine() : cfg_( {} ) {}
-    MNNInferenceEngine::MNNInferenceEngine( Config cfg ) : cfg_( std::move( cfg ) )
+    MNNInferenceEngine::MNNInferenceEngine()
+        : cfg_( {} )
     {
-        ( void )fp4_codec_;
+    }
+    MNNInferenceEngine::MNNInferenceEngine( Config cfg )
+        : cfg_( std::move( cfg ) )
+    {
+        (void) fp4_codec_;
     }
 
     MNNInferenceEngine::~MNNInferenceEngine()
@@ -110,10 +114,9 @@ namespace sgns::neoswarm::core
     // -----------------------------------------------------------------------
     // LoadModel
     // -----------------------------------------------------------------------
-    outcome::result<void> MNNInferenceEngine::LoadModel( const std::string &model_path )
+    outcome::result<void> MNNInferenceEngine::LoadModel( const std::string& model_path )
     {
-        EngineLogger()->info( "Loading model: {} (mode={}, backend={})",
-                              model_path, cfg_.engine_mode_, BackendName() );
+        EngineLogger()->info( "Loading model: {} (mode={}, backend={})", model_path, cfg_.engine_mode_, BackendName() );
 
         // ---- SGProcessing path (primary) ----
         if ( cfg_.engine_mode_ == "sgprocessing" )
@@ -150,8 +153,10 @@ namespace sgns::neoswarm::core
                 // If model_path points to a .mnn file, check for llm_config.json in same dir
                 std::string dir = model_path;
                 auto slash_pos = dir.rfind( '/' );
-                if ( slash_pos != std::string::npos ) dir = dir.substr( 0, slash_pos );
-                else dir = ".";
+                if ( slash_pos != std::string::npos )
+                    dir = dir.substr( 0, slash_pos );
+                else
+                    dir = ".";
 
                 std::string llm_config = dir + "/llm_config.json";
                 std::ifstream check( llm_config );
@@ -168,8 +173,7 @@ namespace sgns::neoswarm::core
                 {
                     auto executor = MNN::Express::Executor::getGlobalExecutor();
                     MNN::BackendConfig backendConfig;
-                    executor->setGlobalExecutorConfig(
-                        MNN_FORWARD_VULKAN, backendConfig, cfg_.num_threads_ );
+                    executor->setGlobalExecutorConfig( MNN_FORWARD_VULKAN, backendConfig, cfg_.num_threads_ );
                     EngineLogger()->info( "MNN Vulkan backend configured for LLM" );
                 }
 
@@ -207,7 +211,7 @@ namespace sgns::neoswarm::core
                 return outcome::failure( Error::ModelLoadFailed );
             }
             MNN::ScheduleConfig sched_cfg;
-            sched_cfg.type      = static_cast<MNNForwardType>( SelectBackend() );
+            sched_cfg.type = static_cast<MNNForwardType>( SelectBackend() );
             sched_cfg.numThread = cfg_.num_threads_;
             session_ = interpreter_->createSession( sched_cfg );
             if ( !session_ )
@@ -231,7 +235,7 @@ namespace sgns::neoswarm::core
     // -----------------------------------------------------------------------
     // Infer
     // -----------------------------------------------------------------------
-    outcome::result<InferenceResponse> MNNInferenceEngine::Infer( const Task &task )
+    outcome::result<InferenceResponse> MNNInferenceEngine::Infer( const Task& task )
     {
         if ( !loaded_.load() )
         {
@@ -242,10 +246,10 @@ namespace sgns::neoswarm::core
         if ( model_path_.empty() )
         {
             InferenceResponse resp;
-            resp.output_     = "[stub response — no model loaded]";
+            resp.output_ = "[stub response — no model loaded]";
             resp.latency_ms_ = 1.0;
-            resp.node_id_    = task.node_id_;
-            resp.success_    = true;
+            resp.node_id_ = task.node_id_;
+            resp.success_ = true;
             return outcome::success( std::move( resp ) );
         }
 
@@ -259,9 +263,8 @@ namespace sgns::neoswarm::core
 
             auto t0 = std::chrono::steady_clock::now();
 
-            const sgns::InputFormat input_fmt = cfg_.use_fp4_
-                ? sgns::InputFormat::FP4_ULTRA
-                : sgns::InputFormat::FLOAT32;
+            const sgns::InputFormat input_fmt =
+                cfg_.use_fp4_ ? sgns::InputFormat::FP4_ULTRA : sgns::InputFormat::FLOAT32;
             const std::vector<int64_t> shape = { 1, static_cast<int64_t>( task.prompt_.size() ) };
 
             auto bytes_res = bridge_->SubmitJob( model_path_, task.prompt_, input_fmt, shape, ioc_ );
@@ -269,8 +272,7 @@ namespace sgns::neoswarm::core
             {
                 return outcome::failure( bytes_res.error() );
             }
-            auto text_res = tensor_interpreter_->Interpret( bytes_res.value(),
-                                                            sgns::InputFormat::FLOAT32 );
+            auto text_res = tensor_interpreter_->Interpret( bytes_res.value(), sgns::InputFormat::FLOAT32 );
             if ( !text_res.has_value() )
             {
                 return outcome::failure( text_res.error() );
@@ -278,10 +280,10 @@ namespace sgns::neoswarm::core
 
             auto t1 = std::chrono::steady_clock::now();
             InferenceResponse resp;
-            resp.output_     = text_res.value();
+            resp.output_ = text_res.value();
             resp.latency_ms_ = std::chrono::duration<double, std::milli>( t1 - t0 ).count();
-            resp.node_id_    = task.node_id_;
-            resp.success_    = true;
+            resp.node_id_ = task.node_id_;
+            resp.success_ = true;
             return outcome::success( std::move( resp ) );
         }
 
@@ -295,24 +297,22 @@ namespace sgns::neoswarm::core
                 auto t0 = std::chrono::steady_clock::now();
 
                 std::ostringstream oss;
-                mnn_llm_->response( task.prompt_, &oss, nullptr,
-                                    static_cast<int>( task.max_tokens_ ) );
+                mnn_llm_->response( task.prompt_, &oss, nullptr, static_cast<int>( task.max_tokens_ ) );
 
-                auto   t1         = std::chrono::steady_clock::now();
+                auto t1 = std::chrono::steady_clock::now();
                 double latency_ms = std::chrono::duration<double, std::milli>( t1 - t0 ).count();
 
-                const auto *ctx = mnn_llm_->getContext();
+                const auto* ctx = mnn_llm_->getContext();
                 int gen_tokens = ctx ? static_cast<int>( ctx->output_tokens.size() ) : 0;
 
                 InferenceResponse resp;
-                resp.output_     = oss.str();
+                resp.output_ = oss.str();
                 resp.perplexity_ = 1.0f;
                 resp.latency_ms_ = latency_ms;
-                resp.node_id_    = task.node_id_;
-                resp.success_    = true;
+                resp.node_id_ = task.node_id_;
+                resp.success_ = true;
 
-                EngineLogger()->info( "MNN LLM inference: {} tokens, {:.1f} ms",
-                                      gen_tokens, latency_ms );
+                EngineLogger()->info( "MNN LLM inference: {} tokens, {:.1f} ms", gen_tokens, latency_ms );
                 return outcome::success( std::move( resp ) );
             }
 
@@ -334,8 +334,8 @@ namespace sgns::neoswarm::core
             generated.reserve( task.max_tokens_ );
 
             std::string output_text;
-            float       total_log_prob = 0.0f;
-            int         token_count    = 0;
+            float total_log_prob = 0.0f;
+            int token_count = 0;
 
             for ( uint32_t step = 0; step < task.max_tokens_; ++step )
             {
@@ -348,57 +348,57 @@ namespace sgns::neoswarm::core
                     return outcome::failure( logits_res.error() );
                 }
 
-                auto &logits = logits_res.value();
+                auto& logits = logits_res.value();
                 ApplyRepetitionPenalty( logits, generated, cfg_.repetition_penalty_ );
                 int next_token = SampleToken( logits, task.temperature_, cfg_.top_p_, cfg_.top_k_ );
 
-                float max_l   = *std::max_element( logits.begin(), logits.end() );
+                float max_l = *std::max_element( logits.begin(), logits.end() );
                 float sum_exp = 0.0f;
-                for ( auto v : logits ) sum_exp += std::exp( v - max_l );
+                for ( auto v : logits )
+                    sum_exp += std::exp( v - max_l );
                 total_log_prob += logits[next_token] - max_l - std::log( sum_exp );
                 ++token_count;
 
-                if ( tokenizer_->IsEOS( next_token ) ) break;
+                if ( tokenizer_->IsEOS( next_token ) )
+                    break;
                 generated.push_back( next_token );
 
                 auto dec_res = tokenizer_->Decode( { next_token } );
-                if ( dec_res.has_value() ) output_text += dec_res.value();
+                if ( dec_res.has_value() )
+                    output_text += dec_res.value();
             }
 
-            auto   t1         = std::chrono::steady_clock::now();
+            auto t1 = std::chrono::steady_clock::now();
             double latency_ms = std::chrono::duration<double, std::milli>( t1 - t0 ).count();
-            float  perplexity = token_count > 0
-                ? std::exp( -total_log_prob / static_cast<float>( token_count ) )
-                : 1.0f;
+            float perplexity = token_count > 0 ? std::exp( -total_log_prob / static_cast<float>( token_count ) ) : 1.0f;
 
             InferenceResponse resp;
-            resp.output_     = output_text;
+            resp.output_ = output_text;
             resp.perplexity_ = perplexity;
             resp.latency_ms_ = latency_ms;
-            resp.node_id_    = task.node_id_;
-            resp.success_    = true;
+            resp.node_id_ = task.node_id_;
+            resp.success_ = true;
 
-            EngineLogger()->debug( "Inference done: {} tokens, {:.1f} ms, perplexity={:.2f}",
-                                   generated.size(), latency_ms, perplexity );
+            EngineLogger()->debug( "Inference done: {} tokens, {:.1f} ms, perplexity={:.2f}", generated.size(),
+                                   latency_ms, perplexity );
             return outcome::success( std::move( resp ) );
         }
 #endif
 
         // ---- Stub path ----
         InferenceResponse resp;
-        resp.output_     = "[stub response — engine not configured]";
+        resp.output_ = "[stub response — engine not configured]";
         resp.latency_ms_ = 1.0;
-        resp.node_id_    = task.node_id_;
-        resp.success_    = true;
+        resp.node_id_ = task.node_id_;
+        resp.success_ = true;
         return outcome::success( std::move( resp ) );
     }
 
     // -----------------------------------------------------------------------
     // StreamInfer
     // -----------------------------------------------------------------------
-    outcome::result<void> MNNInferenceEngine::StreamInfer(
-        const Task                                       &task,
-        std::function<void( const std::string &token )>  callback )
+    outcome::result<void> MNNInferenceEngine::StreamInfer( const Task& task,
+                                                           std::function<void( const std::string& token )> callback )
     {
         if ( !loaded_.load() )
         {
@@ -418,12 +418,14 @@ namespace sgns::neoswarm::core
                 // We use a custom streambuf to intercept each write and call the callback
                 class CallbackStreambuf : public std::streambuf
                 {
-                public:
-                    explicit CallbackStreambuf(
-                        std::function<void( const std::string & )> cb )
-                        : cb_( std::move( cb ) ) {}
-                protected:
-                    std::streamsize xsputn( const char *s, std::streamsize n ) override
+                    public:
+                    explicit CallbackStreambuf( std::function<void( const std::string& )> cb )
+                        : cb_( std::move( cb ) )
+                    {
+                    }
+
+                    protected:
+                    std::streamsize xsputn( const char* s, std::streamsize n ) override
                     {
                         if ( cb_ && n > 0 )
                         {
@@ -440,14 +442,14 @@ namespace sgns::neoswarm::core
                         }
                         return c;
                     }
-                private:
-                    std::function<void( const std::string & )> cb_;
+
+                    private:
+                    std::function<void( const std::string& )> cb_;
                 };
 
                 CallbackStreambuf buf( callback );
-                std::ostream     os( &buf );
-                mnn_llm_->response( task.prompt_, &os, nullptr,
-                                    static_cast<int>( task.max_tokens_ ) );
+                std::ostream os( &buf );
+                mnn_llm_->response( task.prompt_, &os, nullptr, static_cast<int>( task.max_tokens_ ) );
                 return outcome::success();
             }
 
@@ -475,11 +477,12 @@ namespace sgns::neoswarm::core
                     return outcome::failure( logits_res.error() );
                 }
 
-                auto &logits = logits_res.value();
+                auto& logits = logits_res.value();
                 ApplyRepetitionPenalty( logits, generated, cfg_.repetition_penalty_ );
                 int next_token = SampleToken( logits, task.temperature_, cfg_.top_p_, cfg_.top_k_ );
 
-                if ( tokenizer_->IsEOS( next_token ) ) break;
+                if ( tokenizer_->IsEOS( next_token ) )
+                    break;
                 generated.push_back( next_token );
 
                 auto dec_res = tokenizer_->Decode( { next_token } );
@@ -508,22 +511,22 @@ namespace sgns::neoswarm::core
     // -----------------------------------------------------------------------
     // RunForward — Interpreter path only
     // -----------------------------------------------------------------------
-    outcome::result<std::vector<float>> MNNInferenceEngine::RunForward(
-        const std::vector<int> &input_ids )
+    outcome::result<std::vector<float>> MNNInferenceEngine::RunForward( const std::vector<int>& input_ids )
     {
 #ifdef GENIUS_HAS_MNN
         if ( !session_ )
         {
             // Stub: return random logits using dynamic vocab size
             const size_t kVocabSize = tokenizer_ ? tokenizer_->VocabSize() : 32000;
-            std::vector<float>              logits( kVocabSize, 0.0f );
-            static std::mt19937             rng( 42 );
+            std::vector<float> logits( kVocabSize, 0.0f );
+            static std::mt19937 rng( 42 );
             std::normal_distribution<float> dist( 0.0f, 1.0f );
-            for ( auto &v : logits ) v = dist( rng );
+            for ( auto& v : logits )
+                v = dist( rng );
             return outcome::success( std::move( logits ) );
         }
 
-        auto *input_tensor = interpreter_->getSessionInput( session_, "input_ids" );
+        auto* input_tensor = interpreter_->getSessionInput( session_, "input_ids" );
         if ( !input_tensor )
         {
             return outcome::failure( Error::InferenceFailed );
@@ -531,7 +534,7 @@ namespace sgns::neoswarm::core
         interpreter_->resizeTensor( input_tensor, { 1, static_cast<int>( input_ids.size() ) } );
         interpreter_->resizeSession( session_ );
 
-        auto *host_tensor = new MNN::Tensor( input_tensor, MNN::Tensor::CAFFE );
+        auto* host_tensor = new MNN::Tensor( input_tensor, MNN::Tensor::CAFFE );
         for ( size_t i = 0; i < input_ids.size(); ++i )
         {
             host_tensor->host<int>()[i] = input_ids[i];
@@ -541,25 +544,25 @@ namespace sgns::neoswarm::core
 
         interpreter_->runSession( session_ );
 
-        auto *logits_tensor = interpreter_->getSessionOutput( session_, "logits" );
+        auto* logits_tensor = interpreter_->getSessionOutput( session_, "logits" );
         if ( !logits_tensor )
         {
             return outcome::failure( Error::InferenceFailed );
         }
-        auto *host_logits = new MNN::Tensor( logits_tensor, MNN::Tensor::CAFFE );
+        auto* host_logits = new MNN::Tensor( logits_tensor, MNN::Tensor::CAFFE );
         logits_tensor->copyToHostTensor( host_logits );
-        int                vocab_size = host_logits->elementSize();
-        std::vector<float> logits( host_logits->host<float>(),
-                                   host_logits->host<float>() + vocab_size );
+        int vocab_size = host_logits->elementSize();
+        std::vector<float> logits( host_logits->host<float>(), host_logits->host<float>() + vocab_size );
         delete host_logits;
         return outcome::success( std::move( logits ) );
 #else
-        ( void )input_ids;
+        (void) input_ids;
         const size_t kVocabSize = tokenizer_ ? tokenizer_->VocabSize() : 32000;
-        std::vector<float>              logits( kVocabSize, 0.0f );
-        static std::mt19937             rng( 42 );
+        std::vector<float> logits( kVocabSize, 0.0f );
+        static std::mt19937 rng( 42 );
         std::normal_distribution<float> dist( 0.0f, 1.0f );
-        for ( auto &v : logits ) v = dist( rng );
+        for ( auto& v : logits )
+            v = dist( rng );
         return outcome::success( std::move( logits ) );
 #endif
     }
@@ -567,9 +570,9 @@ namespace sgns::neoswarm::core
     // -----------------------------------------------------------------------
     // ApplyRepetitionPenalty
     // -----------------------------------------------------------------------
-    void MNNInferenceEngine::ApplyRepetitionPenalty( std::vector<float>     &logits,
-                                                     const std::vector<int> &generated,
-                                                     float                   penalty ) const
+    void MNNInferenceEngine::ApplyRepetitionPenalty( std::vector<float>& logits,
+                                                     const std::vector<int>& generated,
+                                                     float penalty ) const
     {
         for ( int id : generated )
         {
@@ -583,25 +586,28 @@ namespace sgns::neoswarm::core
     // -----------------------------------------------------------------------
     // SampleToken
     // -----------------------------------------------------------------------
-    int MNNInferenceEngine::SampleToken( const std::vector<float> &logits,
-                                         float                     temperature,
-                                         float                     top_p,
-                                         int                       top_k ) const
+    int MNNInferenceEngine::SampleToken( const std::vector<float>& logits,
+                                         float temperature,
+                                         float top_p,
+                                         int top_k ) const
     {
-        if ( logits.empty() ) return 0;
+        if ( logits.empty() )
+            return 0;
 
         std::vector<float> scaled( logits.size() );
-        float              t = std::max( temperature, 1e-6f );
-        for ( size_t i = 0; i < logits.size(); ++i ) scaled[i] = logits[i] / t;
+        float t = std::max( temperature, 1e-6f );
+        for ( size_t i = 0; i < logits.size(); ++i )
+            scaled[i] = logits[i] / t;
 
         float max_val = *std::max_element( scaled.begin(), scaled.end() );
-        float sum     = 0.0f;
-        for ( auto &v : scaled )
+        float sum = 0.0f;
+        for ( auto& v : scaled )
         {
             v = std::exp( v - max_val );
             sum += v;
         }
-        for ( auto &v : scaled ) v /= sum;
+        for ( auto& v : scaled )
+            v /= sum;
 
         std::vector<std::pair<float, int>> probs;
         probs.reserve( scaled.size() );
@@ -609,14 +615,12 @@ namespace sgns::neoswarm::core
         {
             probs.push_back( { scaled[i], static_cast<int>( i ) } );
         }
-        std::partial_sort( probs.begin(),
-                           probs.begin() + std::min( top_k, static_cast<int>( probs.size() ) ),
-                           probs.end(),
-                           []( const auto &a, const auto &b ) { return a.first > b.first; } );
+        std::partial_sort( probs.begin(), probs.begin() + std::min( top_k, static_cast<int>( probs.size() ) ),
+                           probs.end(), []( const auto& a, const auto& b ) { return a.first > b.first; } );
         probs.resize( std::min( top_k, static_cast<int>( probs.size() ) ) );
 
-        float  cum_sum = 0.0f;
-        size_t cutoff  = probs.size();
+        float cum_sum = 0.0f;
+        size_t cutoff = probs.size();
         for ( size_t i = 0; i < probs.size(); ++i )
         {
             cum_sum += probs[i].first;
@@ -629,17 +633,20 @@ namespace sgns::neoswarm::core
         probs.resize( cutoff );
 
         float p_sum = 0.0f;
-        for ( auto &p : probs ) p_sum += p.first;
-        for ( auto &p : probs ) p.first /= p_sum;
+        for ( auto& p : probs )
+            p_sum += p.first;
+        for ( auto& p : probs )
+            p.first /= p_sum;
 
-        static thread_local std::mt19937      rng( std::random_device{}() );
+        static thread_local std::mt19937 rng( std::random_device{}() );
         std::uniform_real_distribution<float> dist( 0.0f, 1.0f );
-        float                                 r   = dist( rng );
-        float                                 acc = 0.0f;
-        for ( auto &p : probs )
+        float r = dist( rng );
+        float acc = 0.0f;
+        for ( auto& p : probs )
         {
             acc += p.first;
-            if ( r <= acc ) return p.second;
+            if ( r <= acc )
+                return p.second;
         }
         return probs.back().second;
     }
@@ -647,8 +654,7 @@ namespace sgns::neoswarm::core
     // -----------------------------------------------------------------------
     // SetSuperGeniusClient
     // -----------------------------------------------------------------------
-    void MNNInferenceEngine::SetSuperGeniusClient(
-        network::SuperGeniusClient *client ) noexcept
+    void MNNInferenceEngine::SetSuperGeniusClient( network::SuperGeniusClient* client ) noexcept
     {
         if ( bridge_ )
         {

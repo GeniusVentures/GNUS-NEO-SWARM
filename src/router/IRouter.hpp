@@ -8,8 +8,8 @@
 #ifndef NEOSWARM_ROUTER_IROUTER_HPP_
 #define NEOSWARM_ROUTER_IROUTER_HPP_
 
-#include "common/Types.hpp"
 #include "common/Error.hpp"
+#include "common/Types.hpp"
 
 namespace sgns::neoswarm::router
 {
@@ -18,7 +18,7 @@ namespace sgns::neoswarm::router
      */
     class IRouter
     {
-    public:
+        public:
         virtual ~IRouter() = default;
 
         /**
@@ -26,7 +26,7 @@ namespace sgns::neoswarm::router
          * @param task  Incoming task to route.
          * @return      RouteDecision on success, Error on failure.
          */
-        virtual outcome::result<RouteDecision> Route( const Task &task ) = 0;
+        virtual outcome::result<RouteDecision> Route( const Task& task ) = 0;
     };
 
 } // namespace sgns::neoswarm::router

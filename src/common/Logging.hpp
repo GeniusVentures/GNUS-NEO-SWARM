@@ -6,9 +6,9 @@
 #ifndef NEOSWARM_COMMON_LOGGING_HPP_
 #define NEOSWARM_COMMON_LOGGING_HPP_
 
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
 #include <memory>
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/spdlog.h>
 #include <string>
 
 namespace sgns::neoswarm
@@ -18,11 +18,11 @@ namespace sgns::neoswarm
 
     /**
      * @brief Create a named logger for a NEO SWARM component.
-     * 
+     *
      * @param tag  Component name shown in log output (e.g. "Router", "P2PNode").
      * @return     Logger instance.
      */
-    inline Logger CreateLogger( const std::string &tag )
+    inline Logger CreateLogger( const std::string& tag )
     {
         const std::string name = "NeoSwarm/" + tag;
         auto existing = spdlog::get( name );

@@ -5,8 +5,8 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include <gtest/gtest.h>
 #include "core/fp4/FP4Codec.hpp"
+#include <gtest/gtest.h>
 
 #include <cmath>
 #include <numeric>
@@ -19,14 +19,10 @@ using namespace sgns::neoswarm::fp4;
 TEST( FP4Codec, RoundtripSmallMatrix )
 {
     FP4Codec codec;
-    const size_t       rows    = 4;
-    const size_t       cols    = 4;
-    std::vector<float> weights = {
-         0.1f, -0.2f,  0.5f, -0.8f,
-         1.0f, -1.0f,  0.3f, -0.3f,
-         0.7f, -0.7f,  0.0f,  0.9f,
-        -0.9f,  0.4f, -0.4f,  0.6f
-    };
+    const size_t rows = 4;
+    const size_t cols = 4;
+    std::vector<float> weights = { 0.1f, -0.2f, 0.5f, -0.8f, 1.0f,  -1.0f, 0.3f,  -0.3f,
+                                   0.7f, -0.7f, 0.0f, 0.9f,  -0.9f, 0.4f,  -0.4f, 0.6f };
 
     auto enc_res = codec.Encode( weights.data(), rows, cols );
     ASSERT_TRUE( enc_res.has_value() );
@@ -48,13 +44,14 @@ TEST( FP4Codec, RoundtripSmallMatrix )
 TEST( FP4Codec, RoundtripLargeMatrix )
 {
     FP4Codec codec;
-    const size_t       rows = 128;
-    const size_t       cols = 128;
+    const size_t rows = 128;
+    const size_t cols = 128;
     std::vector<float> weights( rows * cols );
 
-    std::mt19937                    rng( 42 );
+    std::mt19937 rng( 42 );
     std::normal_distribution<float> dist( 0.0f, 0.5f );
-    for ( auto &w : weights ) w = dist( rng );
+    for ( auto& w : weights )
+        w = dist( rng );
 
     auto enc_res = codec.Encode( weights.data(), rows, cols );
     ASSERT_TRUE( enc_res.has_value() );
@@ -69,9 +66,9 @@ TEST( FP4Codec, RoundtripLargeMatrix )
 
 TEST( FP4Codec, TensorDimensions )
 {
-    FP4Codec           codec;
-    const size_t       rows = 65;
-    const size_t       cols = 65;
+    FP4Codec codec;
+    const size_t rows = 65;
+    const size_t cols = 65;
     std::vector<float> weights( rows * cols, 0.5f );
 
     auto enc_res = codec.Encode( weights.data(), rows, cols );
@@ -86,9 +83,9 @@ TEST( FP4Codec, TensorDimensions )
 
 TEST( FP4Codec, ZeroWeights )
 {
-    FP4Codec           codec;
-    const size_t       rows = 8;
-    const size_t       cols = 8;
+    FP4Codec codec;
+    const size_t rows = 8;
+    const size_t cols = 8;
     std::vector<float> weights( rows * cols, 0.0f );
 
     auto enc_res = codec.Encode( weights.data(), rows, cols );
@@ -98,7 +95,8 @@ TEST( FP4Codec, ZeroWeights )
     auto dec_res = codec.Decode( enc_res.value(), decoded.data() );
     ASSERT_TRUE( dec_res.has_value() );
 
-    for ( float v : decoded ) EXPECT_NEAR( v, 0.0f, 1e-5f );
+    for ( float v : decoded )
+        EXPECT_NEAR( v, 0.0f, 1e-5f );
 }
 
 TEST( FP4Codec, InvalidInput )
@@ -110,9 +108,9 @@ TEST( FP4Codec, InvalidInput )
 
 TEST( FP4Codec, MacroblockCount )
 {
-    FP4Codec           codec;
-    const size_t       rows = 128;
-    const size_t       cols = 128;
+    FP4Codec codec;
+    const size_t rows = 128;
+    const size_t cols = 128;
     std::vector<float> weights( rows * cols, 1.0f );
     auto enc_res = codec.Encode( weights.data(), rows, cols );
     ASSERT_TRUE( enc_res.has_value() );

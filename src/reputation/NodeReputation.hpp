@@ -30,10 +30,9 @@ namespace sgns::neoswarm::reputation
      * @param rep  Node reputation record.
      * @return     True if the node meets the high-trust threshold.
      */
-    inline bool IsHighTrust( const NodeReputation &rep )
+    inline bool IsHighTrust( const NodeReputation& rep )
     {
-        return rep.task_count_ >= NodeReputation::kMinTasksForHighTrust
-               && rep.global_score_ >= 0.7;
+        return rep.task_count_ >= NodeReputation::kMinTasksForHighTrust && rep.global_score_ >= 0.7;
     }
 
 } // namespace sgns::neoswarm::reputation

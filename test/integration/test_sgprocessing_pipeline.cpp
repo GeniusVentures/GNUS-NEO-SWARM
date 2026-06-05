@@ -15,32 +15,32 @@
  * See GNUS-NEO-SWARM/AgentDocs/SGPROCESSING_INTEGRATION.md for full details.
  */
 
-#include <gtest/gtest.h>
+#include "common/Error.hpp"
 #include "core/sgprocessing/SGProcessingBridge.hpp"
 #include "core/sgprocessing/TensorInterpreter.hpp"
-#include "common/Error.hpp"
 #include <boost/asio/io_context.hpp>
 #include <cstring>
 #include <fstream>
+#include <gtest/gtest.h>
 #include <memory>
 
 #ifdef GENIUS_HAS_SGPROCESSING
-#    include <InputFormat.hpp>
+#include <InputFormat.hpp>
 #else
 namespace sgns
 {
     enum class InputFormat : int
     {
-        FLOAT16   = 0,
-        FLOAT32   = 1,
+        FLOAT16 = 0,
+        FLOAT32 = 1,
         FP4_ULTRA = 2,
-        INT16     = 3,
-        INT32     = 4,
-        INT8      = 5,
-        RGB8      = 6,
-        RGBA8     = 7
+        INT16 = 3,
+        INT32 = 4,
+        INT8 = 5,
+        RGB8 = 6,
+        RGBA8 = 7
     };
-}
+} // namespace sgns
 #endif
 
 using namespace sgns::neoswarm;
@@ -55,29 +55,28 @@ namespace
     /// Adjust if running from a different working directory.
     std::string TestDataPath()
     {
-        return std::string( SUPERGENIUS_TEST_DATA_DIR )
-               + "/processing_datatypes/";
+        return std::string( SUPERGENIUS_TEST_DATA_DIR ) + "/processing_datatypes/";
     }
 
-    bool FileExists( const std::string &path )
+    bool FileExists( const std::string& path )
     {
         std::ifstream f( path );
         return f.good();
     }
 
-    std::vector<float> ReadFloatFile( const std::string &path )
+    std::vector<float> ReadFloatFile( const std::string& path )
     {
         std::ifstream f( path, std::ios::binary );
-        if ( !f ) return {};
+        if ( !f )
+            return {};
         f.seekg( 0, std::ios::end );
         const auto size = f.tellg();
         f.seekg( 0, std::ios::beg );
         std::vector<float> data( static_cast<size_t>( size ) / sizeof( float ) );
-        f.read( reinterpret_cast<char *>( data.data() ),
-                static_cast<std::streamsize>( size ) );
+        f.read( reinterpret_cast<char*>( data.data() ), static_cast<std::streamsize>( size ) );
         return data;
     }
-}
+} // namespace
 
 // ---------------------------------------------------------------------------
 // SGProcessingBridge — schema JSON generation (no SGProcessingManager needed)
@@ -85,46 +84,40 @@ namespace
 TEST( SGProcessingBridge, BuildSchemaJson_ValidInputs )
 {
     SGProcessingBridge bridge;
-    auto res = bridge.BuildSchemaJson(
-        "file:///models/bert-tiny.mnn",
-        "file:///data/input.raw",
-        sgns::InputFormat::FLOAT32,
-        { 1, 64 } );
+    auto res = bridge.BuildSchemaJson( "file:///models/bert-tiny.mnn", "file:///data/input.raw",
+                                       sgns::InputFormat::FLOAT32, { 1, 64 } );
 
     ASSERT_TRUE( res.has_value() );
     // Verify key fields are present
-    EXPECT_NE( res.value().find( "\"FLOAT32\"" ),           std::string::npos );
-    EXPECT_NE( res.value().find( "\"inference\"" ),         std::string::npos );
-    EXPECT_NE( res.value().find( "\"MNN\"" ),               std::string::npos );
-    EXPECT_NE( res.value().find( "\"dimensions\"" ),        std::string::npos );
-    EXPECT_NE( res.value().find( "neo-swarm-inference" ),   std::string::npos );
+    EXPECT_NE( res.value().find( "\"FLOAT32\"" ), std::string::npos );
+    EXPECT_NE( res.value().find( "\"inference\"" ), std::string::npos );
+    EXPECT_NE( res.value().find( "\"MNN\"" ), std::string::npos );
+    EXPECT_NE( res.value().find( "\"dimensions\"" ), std::string::npos );
+    EXPECT_NE( res.value().find( "neo-swarm-inference" ), std::string::npos );
     // type should be "float" for FLOAT32 (matches SGProcessingManager DataType)
-    EXPECT_NE( res.value().find( "\"float\"" ),             std::string::npos );
+    EXPECT_NE( res.value().find( "\"float\"" ), std::string::npos );
 }
 
 TEST( SGProcessingBridge, BuildSchemaJson_EmptyModelUri_ReturnsError )
 {
     SGProcessingBridge bridge;
-    EXPECT_FALSE( bridge.BuildSchemaJson( "", "file:///data/input.raw",
-                                          sgns::InputFormat::FLOAT32, { 64 } ).has_value() );
+    EXPECT_FALSE(
+        bridge.BuildSchemaJson( "", "file:///data/input.raw", sgns::InputFormat::FLOAT32, { 64 } ).has_value() );
 }
 
 TEST( SGProcessingBridge, BuildSchemaJson_EmptyInputUri_ReturnsError )
 {
     SGProcessingBridge bridge;
-    EXPECT_FALSE( bridge.BuildSchemaJson( "file:///models/model.mnn", "",
-                                          sgns::InputFormat::FLOAT32, { 64 } ).has_value() );
+    EXPECT_FALSE(
+        bridge.BuildSchemaJson( "file:///models/model.mnn", "", sgns::InputFormat::FLOAT32, { 64 } ).has_value() );
 }
 
 TEST( SGProcessingBridge, BuildSchemaJson_FlatWidthFromShape )
 {
     SGProcessingBridge bridge;
     // shape [2, 64] → flatWidth = 128
-    auto res = bridge.BuildSchemaJson(
-        "file:///models/model.mnn",
-        "file:///data/input.raw",
-        sgns::InputFormat::FLOAT32,
-        { 2, 64 } );
+    auto res = bridge.BuildSchemaJson( "file:///models/model.mnn", "file:///data/input.raw", sgns::InputFormat::FLOAT32,
+                                       { 2, 64 } );
     ASSERT_TRUE( res.has_value() );
     EXPECT_NE( res.value().find( "128" ), std::string::npos );
 }
@@ -133,18 +126,14 @@ TEST( SGProcessingBridge, SubmitJob_StubMode_ReturnsOk )
 {
     SGProcessingBridge bridge;
     auto ioc = std::make_shared<boost::asio::io_context>();
-    auto res = bridge.SubmitJob(
-        "file:///models/model.mnn",
-        "file:///data/input.raw",
-        sgns::InputFormat::FLOAT32,
-        { 1, 64 },
-        ioc );
+    auto res = bridge.SubmitJob( "file:///models/model.mnn", "file:///data/input.raw", sgns::InputFormat::FLOAT32,
+                                 { 1, 64 }, ioc );
 
 #ifdef GENIUS_HAS_SGPROCESSING
-    ( void )res;  // result depends on whether model file exists
+    (void) res; // result depends on whether model file exists
 #else
     ASSERT_TRUE( res.has_value() );
-    EXPECT_TRUE( res.value().empty() );  // stub returns empty bytes
+    EXPECT_TRUE( res.value().empty() ); // stub returns empty bytes
 #endif
 }
 
@@ -155,12 +144,8 @@ TEST( SGProcessingBridge, NetworkMode_ReturnsNotImplemented )
     SGProcessingBridge bridge( cfg );
 
     auto ioc = std::make_shared<boost::asio::io_context>();
-    auto res = bridge.SubmitJob(
-        "file:///models/model.mnn",
-        "file:///data/input.raw",
-        sgns::InputFormat::FLOAT32,
-        { 1, 64 },
-        ioc );
+    auto res = bridge.SubmitJob( "file:///models/model.mnn", "file:///data/input.raw", sgns::InputFormat::FLOAT32,
+                                 { 1, 64 }, ioc );
 
     EXPECT_FALSE( res.has_value() );
 }
@@ -175,10 +160,10 @@ TEST( SGProcessingBridge, NetworkMode_ReturnsNotImplemented )
 
 TEST( SGProcessingPipeline, FloatModel_EndToEnd )
 {
-    const std::string data_dir  = TestDataPath();
+    const std::string data_dir = TestDataPath();
     const std::string model_uri = "file://" + data_dir + "float_model.mnn";
     const std::string input_uri = "file://" + data_dir + "float_input.bin";
-    const std::string ref_path  = data_dir + "float_output_pt.raw";
+    const std::string ref_path = data_dir + "float_output_pt.raw";
 
     if ( !FileExists( data_dir + "float_model.mnn" ) )
     {
@@ -188,16 +173,10 @@ TEST( SGProcessingPipeline, FloatModel_EndToEnd )
     // Phase 1: NeoSwarm → SGProcessingManager
     SGProcessingBridge bridge;
     auto ioc = std::make_shared<boost::asio::io_context>();
-    auto result = bridge.SubmitJob(
-        model_uri, input_uri,
-        sgns::InputFormat::FLOAT32,
-        { 1, 64 },
-        ioc );
+    auto result = bridge.SubmitJob( model_uri, input_uri, sgns::InputFormat::FLOAT32, { 1, 64 }, ioc );
 
-    ASSERT_TRUE( result.has_value() )
-        << "SGProcessingBridge::SubmitJob failed";
-    ASSERT_FALSE( result.value().empty() )
-        << "Process() returned empty bytes";
+    ASSERT_TRUE( result.has_value() ) << "SGProcessingBridge::SubmitJob failed";
+    ASSERT_FALSE( result.value().empty() ) << "Process() returned empty bytes";
 
     // Phase 2: NeoSwarm interprets raw bytes → human-readable
     TensorInterpreter interp;
@@ -205,13 +184,12 @@ TEST( SGProcessingPipeline, FloatModel_EndToEnd )
     ASSERT_TRUE( text_res.has_value() );
     EXPECT_FALSE( text_res.value().empty() );
 
-    std::cout << "Float model output (first 80 chars): "
-              << text_res.value().substr( 0, 80 ) << "...\n";
+    std::cout << "Float model output (first 80 chars): " << text_res.value().substr( 0, 80 ) << "...\n";
 
     // Phase 3: Compare against PyTorch reference output
     if ( FileExists( ref_path ) )
     {
-        const size_t       n_bytes = result.value().size();
+        const size_t n_bytes = result.value().size();
         std::vector<float> output( n_bytes / sizeof( float ) );
         std::memcpy( output.data(), result.value().data(), n_bytes );
 
@@ -219,21 +197,20 @@ TEST( SGProcessingPipeline, FloatModel_EndToEnd )
         ASSERT_EQ( output.size(), reference.size() ) << "Output size mismatch vs reference";
 
         double mean_abs_diff = 0.0;
-        double max_abs_diff  = 0.0;
+        double max_abs_diff = 0.0;
         for ( size_t i = 0; i < output.size(); ++i )
         {
-            double diff = std::abs( static_cast<double>( output[i] )
-                                    - static_cast<double>( reference[i] ) );
+            double diff = std::abs( static_cast<double>( output[i] ) - static_cast<double>( reference[i] ) );
             mean_abs_diff += diff;
-            if ( diff > max_abs_diff ) max_abs_diff = diff;
+            if ( diff > max_abs_diff )
+                max_abs_diff = diff;
         }
         mean_abs_diff /= static_cast<double>( output.size() );
 
-        std::cout << "Float model diff: mean=" << mean_abs_diff
-                  << " max=" << max_abs_diff << "\n";
+        std::cout << "Float model diff: mean=" << mean_abs_diff << " max=" << max_abs_diff << "\n";
 
         EXPECT_LT( mean_abs_diff, 1e-3 ) << "Mean absolute diff too large";
-        EXPECT_LT( max_abs_diff,  1e-2 ) << "Max absolute diff too large";
+        EXPECT_LT( max_abs_diff, 1e-2 ) << "Max absolute diff too large";
     }
     else
     {
@@ -243,7 +220,7 @@ TEST( SGProcessingPipeline, FloatModel_EndToEnd )
 
 TEST( SGProcessingPipeline, TensorModel_EndToEnd )
 {
-    const std::string data_dir  = TestDataPath();
+    const std::string data_dir = TestDataPath();
     const std::string model_uri = "file://" + data_dir + "tensor_tiny.mnn";
     const std::string input_uri = "file://" + data_dir + "tensor_input.raw";
 
@@ -253,12 +230,8 @@ TEST( SGProcessingPipeline, TensorModel_EndToEnd )
     }
 
     SGProcessingBridge bridge;
-    auto ioc    = std::make_shared<boost::asio::io_context>();
-    auto result = bridge.SubmitJob(
-        model_uri, input_uri,
-        sgns::InputFormat::FLOAT32,
-        { 1, 64 },
-        ioc );
+    auto ioc = std::make_shared<boost::asio::io_context>();
+    auto result = bridge.SubmitJob( model_uri, input_uri, sgns::InputFormat::FLOAT32, { 1, 64 }, ioc );
 
     ASSERT_TRUE( result.has_value() );
     ASSERT_FALSE( result.value().empty() );
@@ -268,50 +241,49 @@ TEST( SGProcessingPipeline, TensorModel_EndToEnd )
     ASSERT_TRUE( text_res.has_value() );
     EXPECT_FALSE( text_res.value().empty() );
 
-    std::cout << "Tensor model output (first 80 chars): "
-              << text_res.value().substr( 0, 80 ) << "...\n";
+    std::cout << "Tensor model output (first 80 chars): " << text_res.value().substr( 0, 80 ) << "...\n";
 }
 
-#endif  // GENIUS_HAS_SGPROCESSING
+#endif // GENIUS_HAS_SGPROCESSING
 
 // ---------------------------------------------------------------------------
 // TensorInterpreter unit tests (no SGProcessingManager needed)
 // ---------------------------------------------------------------------------
 TEST( TensorInterpreter, InterpretFloat32_Values )
 {
-    TensorInterpreter  interp;
+    TensorInterpreter interp;
     std::vector<float> vals = { 1.0f, 2.5f, -0.5f };
     std::vector<uint8_t> bytes( vals.size() * sizeof( float ) );
     std::memcpy( bytes.data(), vals.data(), bytes.size() );
 
     auto res = interp.Interpret( bytes, sgns::InputFormat::FLOAT32 );
     ASSERT_TRUE( res.has_value() );
-    EXPECT_NE( res.value().find( "1" ),   std::string::npos );
+    EXPECT_NE( res.value().find( "1" ), std::string::npos );
     EXPECT_NE( res.value().find( "2.5" ), std::string::npos );
 }
 
 TEST( TensorInterpreter, InterpretInt32_Values )
 {
-    TensorInterpreter    interp;
+    TensorInterpreter interp;
     std::vector<int32_t> vals = { 42, -7, 0 };
     std::vector<uint8_t> bytes( vals.size() * sizeof( int32_t ) );
     std::memcpy( bytes.data(), vals.data(), bytes.size() );
 
     auto res = interp.Interpret( bytes, sgns::InputFormat::INT32 );
     ASSERT_TRUE( res.has_value() );
-    EXPECT_NE( res.value().find( "42" ),  std::string::npos );
-    EXPECT_NE( res.value().find( "-7" ),  std::string::npos );
+    EXPECT_NE( res.value().find( "42" ), std::string::npos );
+    EXPECT_NE( res.value().find( "-7" ), std::string::npos );
 }
 
 TEST( TensorInterpreter, InterpretInt8_Values )
 {
-    TensorInterpreter   interp;
+    TensorInterpreter interp;
     std::vector<int8_t> vals = { 10, -20, 127 };
     std::vector<uint8_t> bytes( vals.begin(), vals.end() );
 
     auto res = interp.Interpret( bytes, sgns::InputFormat::INT8 );
     ASSERT_TRUE( res.has_value() );
-    EXPECT_NE( res.value().find( "10" ),  std::string::npos );
+    EXPECT_NE( res.value().find( "10" ), std::string::npos );
     EXPECT_NE( res.value().find( "-20" ), std::string::npos );
 }
 
@@ -323,7 +295,7 @@ TEST( TensorInterpreter, InterpretEmptyBytes_ReturnsError )
 
 TEST( TensorInterpreter, InterpretFloat32_MisalignedBytes_ReturnsError )
 {
-    TensorInterpreter    interp;
+    TensorInterpreter interp;
     std::vector<uint8_t> bytes( 5, 0 );
     EXPECT_FALSE( interp.Interpret( bytes, sgns::InputFormat::FLOAT32 ).has_value() );
 }

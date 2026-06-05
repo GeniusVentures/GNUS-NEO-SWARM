@@ -6,9 +6,9 @@
  */
 
 #include "SGMessageAuthenticator.hpp"
-#include "security/NodeIdentity.hpp"
-#include "security/MessageSigning.hpp"
 #include "common/Logging.hpp"
+#include "security/MessageSigning.hpp"
+#include "security/NodeIdentity.hpp"
 
 namespace sgns::neoswarm::network
 {
@@ -18,29 +18,27 @@ namespace sgns::neoswarm::network
         {
             return CreateLogger( "NeoSwarm/SGAuth" );
         }
-    }
+    } // namespace
 
     struct SGMessageAuthenticator::Impl
     {
-        const security::NodeIdentity &identity_;
+        const security::NodeIdentity& identity_;
         std::unique_ptr<security::MessageSigning> signer_;
 
-        explicit Impl( const security::NodeIdentity &identity )
+        explicit Impl( const security::NodeIdentity& identity )
             : identity_( identity )
             , signer_( std::make_unique<security::MessageSigning>( identity ) )
         {
         }
     };
 
-    SGMessageAuthenticator::SGMessageAuthenticator(
-        const security::NodeIdentity &identity )
+    SGMessageAuthenticator::SGMessageAuthenticator( const security::NodeIdentity& identity )
         : impl_( std::make_unique<Impl>( identity ) )
     {
         AuthLogger()->debug( "SGMessageAuthenticator created" );
     }
 
-    outcome::result<std::string> SGMessageAuthenticator::SignPayload(
-        const std::string &payload ) const
+    outcome::result<std::string> SGMessageAuthenticator::SignPayload( const std::string& payload ) const
     {
         if ( !impl_->identity_.IsLoaded() )
         {
@@ -50,14 +48,12 @@ namespace sgns::neoswarm::network
 
         std::string signedPayload = impl_->signer_->AttachSignature( payload );
 
-        AuthLogger()->debug( "Payload signed ({} bytes → {} bytes)",
-                             payload.size(), signedPayload.size() );
+        AuthLogger()->debug( "Payload signed ({} bytes → {} bytes)", payload.size(), signedPayload.size() );
         return signedPayload;
     }
 
-    outcome::result<bool> SGMessageAuthenticator::VerifyResult(
-        std::string       &payload,
-        const std::string &pubKeyHex ) const
+    outcome::result<bool> SGMessageAuthenticator::VerifyResult( std::string& payload,
+                                                                const std::string& pubKeyHex ) const
     {
         bool valid = security::MessageSigning::VerifyAndStrip( payload, pubKeyHex );
 

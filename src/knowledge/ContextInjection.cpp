@@ -9,16 +9,21 @@
 
 namespace sgns::neoswarm::knowledge
 {
-    ContextInjection::ContextInjection() : cfg_( {} ) {}
-    ContextInjection::ContextInjection( Config cfg ) : cfg_( std::move( cfg ) ) {}
+    ContextInjection::ContextInjection()
+        : cfg_( {} )
+    {
+    }
+    ContextInjection::ContextInjection( Config cfg )
+        : cfg_( std::move( cfg ) )
+    {
+    }
 
-    size_t ContextInjection::EstimateTokens( const std::string &text )
+    size_t ContextInjection::EstimateTokens( const std::string& text )
     {
         return text.size() / 4;
     }
 
-    std::string ContextInjection::Inject( const std::string              &prompt,
-                                          const std::vector<KnowledgeFact> &facts ) const
+    std::string ContextInjection::Inject( const std::string& prompt, const std::vector<KnowledgeFact>& facts ) const
     {
         if ( facts.empty() )
         {
@@ -26,9 +31,9 @@ namespace sgns::neoswarm::knowledge
         }
 
         std::string context;
-        size_t      used_tokens = 0;
+        size_t used_tokens = 0;
 
-        for ( const auto &fact : facts )
+        for ( const auto& fact : facts )
         {
             std::string entry;
             if ( cfg_.add_source_tags_ )
@@ -46,7 +51,7 @@ namespace sgns::neoswarm::knowledge
                 break;
             }
 
-            context     += entry;
+            context += entry;
             used_tokens += entry_tokens;
         }
 

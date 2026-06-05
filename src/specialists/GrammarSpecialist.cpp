@@ -18,7 +18,7 @@ namespace sgns::neoswarm::specialists
         {
             return neoswarm::CreateLogger( "GrammarSpecialist" );
         }
-    }
+    } // namespace
 
     GrammarSpecialist::GrammarSpecialist( std::shared_ptr<core::InferenceEngine> engine )
         : engine_( std::move( engine ) )
@@ -28,7 +28,7 @@ namespace sgns::neoswarm::specialists
     // -----------------------------------------------------------------------
     // Load
     // -----------------------------------------------------------------------
-    outcome::result<void> GrammarSpecialist::Load( const std::string &model_path )
+    outcome::result<void> GrammarSpecialist::Load( const std::string& model_path )
     {
         if ( !engine_ )
         {
@@ -43,19 +43,18 @@ namespace sgns::neoswarm::specialists
     // -----------------------------------------------------------------------
     // BuildPrompt
     // -----------------------------------------------------------------------
-    std::string GrammarSpecialist::BuildPrompt( const std::string &input ) const
+    std::string GrammarSpecialist::BuildPrompt( const std::string& input ) const
     {
         return "[INST] Correct the grammar, spelling, and fluency of the following text. "
                "Return only the corrected text without explanation.\n\n"
-               "Text: "
-               + input
-               + "\n\nCorrected: [/INST]";
+               "Text: " +
+               input + "\n\nCorrected: [/INST]";
     }
 
     // -----------------------------------------------------------------------
     // Process
     // -----------------------------------------------------------------------
-    outcome::result<std::string> GrammarSpecialist::Process( const std::string &input )
+    outcome::result<std::string> GrammarSpecialist::Process( const std::string& input )
     {
         if ( !loaded_ || !engine_ )
         {
@@ -65,9 +64,9 @@ namespace sgns::neoswarm::specialists
         }
 
         Task task;
-        task.id_          = "grammar-" + std::to_string( std::hash<std::string>{}( input ) );
-        task.prompt_      = BuildPrompt( input );
-        task.max_tokens_  = static_cast<uint32_t>( input.size() + 64 );
+        task.id_ = "grammar-" + std::to_string( std::hash<std::string>{}( input ) );
+        task.prompt_ = BuildPrompt( input );
+        task.max_tokens_ = static_cast<uint32_t>( input.size() + 64 );
         task.temperature_ = 0.1f;
 
         auto res = engine_->Infer( task );

@@ -8,8 +8,8 @@
 #include "SuperGeniusClient.hpp"
 #include "SGChannelManager.hpp"
 #include "SGJobSubmitter.hpp"
-#include "SGResultCollector.hpp"
 #include "SGMessageAuthenticator.hpp"
+#include "SGResultCollector.hpp"
 #include "common/Logging.hpp"
 #include "security/NodeIdentity.hpp"
 
@@ -21,17 +21,17 @@ namespace sgns::neoswarm::network
         {
             return CreateLogger( "NeoSwarm/SGClient" );
         }
-    }
+    } // namespace
 
     struct SuperGeniusClient::Impl
     {
-        Config                                   cfg_;
-        const security::NodeIdentity            *identity_ = nullptr;
-        std::unique_ptr<SGMessageAuthenticator>  authenticator_;
-        std::unique_ptr<SGChannelManager>        channelMgr_;
-        std::unique_ptr<SGJobSubmitter>          jobSubmitter_;
-        std::unique_ptr<SGResultCollector>       resultCollector_;
-        bool                                     connected_ = false;
+        Config cfg_;
+        const security::NodeIdentity* identity_ = nullptr;
+        std::unique_ptr<SGMessageAuthenticator> authenticator_;
+        std::unique_ptr<SGChannelManager> channelMgr_;
+        std::unique_ptr<SGJobSubmitter> jobSubmitter_;
+        std::unique_ptr<SGResultCollector> resultCollector_;
+        bool connected_ = false;
     };
 
     SuperGeniusClient::SuperGeniusClient( Config cfg )
@@ -42,11 +42,10 @@ namespace sgns::neoswarm::network
 
     SuperGeniusClient::~SuperGeniusClient() = default;
 
-    SuperGeniusClient::SuperGeniusClient( SuperGeniusClient && ) noexcept = default;
-    SuperGeniusClient &SuperGeniusClient::operator=( SuperGeniusClient && ) noexcept = default;
+    SuperGeniusClient::SuperGeniusClient( SuperGeniusClient&& ) noexcept = default;
+    SuperGeniusClient& SuperGeniusClient::operator=( SuperGeniusClient&& ) noexcept = default;
 
-    outcome::result<void> SuperGeniusClient::Initialize(
-        const security::NodeIdentity &identity )
+    outcome::result<void> SuperGeniusClient::Initialize( const security::NodeIdentity& identity )
     {
         impl_->identity_ = &identity;
 
@@ -55,10 +54,10 @@ namespace sgns::neoswarm::network
 
         // Create channel manager with configured endpoint and TLS settings
         SGChannelManager::Config chCfg;
-        chCfg.endpoint_      = impl_->cfg_.endpoint_;
-        chCfg.tls_ca_path_   = impl_->cfg_.tls_ca_path_;
+        chCfg.endpoint_ = impl_->cfg_.endpoint_;
+        chCfg.tls_ca_path_ = impl_->cfg_.tls_ca_path_;
         chCfg.tls_cert_path_ = impl_->cfg_.tls_cert_path_;
-        chCfg.timeout_       = impl_->cfg_.channel_timeout_;
+        chCfg.timeout_ = impl_->cfg_.channel_timeout_;
 
         impl_->channelMgr_ = std::make_unique<SGChannelManager>( std::move( chCfg ) );
 
@@ -77,8 +76,7 @@ namespace sgns::neoswarm::network
         auto result = impl_->channelMgr_->CreateChannel();
         if ( !result.has_value() )
         {
-            ClientLogger()->warn( "Failed to create channel to {} — SuperGenius unavailable",
-                                  impl_->cfg_.endpoint_ );
+            ClientLogger()->warn( "Failed to create channel to {} — SuperGenius unavailable", impl_->cfg_.endpoint_ );
             return result;
         }
 
@@ -86,13 +84,11 @@ namespace sgns::neoswarm::network
         if ( channel && impl_->authenticator_ )
         {
             // Create sub-components that depend on the channel
-            impl_->jobSubmitter_ = std::make_unique<SGJobSubmitter>(
-                channel, *impl_->authenticator_ );
+            impl_->jobSubmitter_ = std::make_unique<SGJobSubmitter>( channel, *impl_->authenticator_ );
 
             SGResultCollectorConfig rcCfg;
             rcCfg.result_timeout_ = impl_->cfg_.result_timeout_;
-            impl_->resultCollector_ = std::make_unique<SGResultCollector>(
-                channel, *impl_->authenticator_, rcCfg );
+            impl_->resultCollector_ = std::make_unique<SGResultCollector>( channel, *impl_->authenticator_, rcCfg );
         }
 
         // Verify connectivity
@@ -111,8 +107,7 @@ namespace sgns::neoswarm::network
         return outcome::success();
     }
 
-    outcome::result<std::vector<uint8_t>> SuperGeniusClient::SubmitJob(
-        const std::string &gnusSchemaJson )
+    outcome::result<std::vector<uint8_t>> SuperGeniusClient::SubmitJob( const std::string& gnusSchemaJson )
     {
         // Verify we are connected — attempt reconnect if channel is dead
         if ( !impl_->connected_ || !impl_->channelMgr_->IsConnected() )
@@ -145,13 +140,11 @@ namespace sgns::neoswarm::network
         ClientLogger()->info( "Job published as task {}", taskId );
 
         // Step 2: Wait for the result with timeout-bounded collection
-        auto result = impl_->resultCollector_->WaitForResult(
-            taskId, impl_->cfg_.result_timeout_ );
+        auto result = impl_->resultCollector_->WaitForResult( taskId, impl_->cfg_.result_timeout_ );
 
         if ( !result.has_value() )
         {
-            ClientLogger()->warn( "Job {} failed or timed out: {}",
-                                  taskId, result.error().message() );
+            ClientLogger()->warn( "Job {} failed or timed out: {}", taskId, result.error().message() );
         }
 
         return result;

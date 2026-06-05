@@ -18,29 +18,29 @@ namespace sgns::neoswarm
     enum class Error : uint8_t
     {
         // Core engine
-        ModelLoadFailed      = 1,
-        InferenceFailed      = 2,
-        TokenizerFailed      = 3,
-        FP4DecodeFailed      = 4,
+        ModelLoadFailed = 1,
+        InferenceFailed = 2,
+        TokenizerFailed = 3,
+        FP4DecodeFailed = 4,
         // Router
-        RoutingFailed        = 5,
+        RoutingFailed = 5,
         // Network
-        NetworkError         = 6,
-        PeerNotFound         = 7,
-        BroadcastTimeout     = 8,
+        NetworkError = 6,
+        PeerNotFound = 7,
+        BroadcastTimeout = 8,
         // Reputation
-        StorageError         = 9,
-        ReputationNotFound   = 10,
+        StorageError = 9,
+        ReputationNotFound = 10,
         // Knowledge
         KnowledgeUnavailable = 11,
         FactValidationFailed = 12,
         // Security
-        IdentityError        = 13,
-        SignatureInvalid     = 14,
+        IdentityError = 13,
+        SignatureInvalid = 14,
         // General
-        InvalidArgument      = 15,
-        NotImplemented       = 16,
-        InternalError        = 17,
+        InvalidArgument = 15,
+        NotImplemented = 16,
+        InternalError = 17,
     };
 
 } // namespace sgns::neoswarm

@@ -16,28 +16,24 @@
 
 namespace sgns::neoswarm::fp4
 {
-    static constexpr size_t kMacroblockRows  = 64;
-    static constexpr size_t kMacroblockCols  = 64;
-    static constexpr size_t kMacroblockSize  = kMacroblockRows * kMacroblockCols;
-    static constexpr int    kScaleSearchSteps = 32;
+    static constexpr size_t kMacroblockRows = 64;
+    static constexpr size_t kMacroblockCols = 64;
+    static constexpr size_t kMacroblockSize = kMacroblockRows * kMacroblockCols;
+    static constexpr int kScaleSearchSteps = 32;
 
     /// NF4-style symmetric lookup table: 16 representable values in [-1, 1]
-    static constexpr float kFP4LUT[16] = {
-        -1.0f,    -0.6962f, -0.5251f, -0.3949f,
-        -0.2844f, -0.1848f, -0.0911f,  0.0f,
-         0.0796f,  0.1609f,  0.2461f,  0.3379f,
-         0.4407f,  0.5626f,  0.7230f,  1.0f
-    };
+    static constexpr float kFP4LUT[16] = { -1.0f,   -0.6962f, -0.5251f, -0.3949f, -0.2844f, -0.1848f, -0.0911f, 0.0f,
+                                           0.0796f, 0.1609f,  0.2461f,  0.3379f,  0.4407f,  0.5626f,  0.7230f,  1.0f };
 
     /**
      * @brief Packed FP4 tensor: each byte holds two nibbles (high = even index).
      */
     struct FP4Tensor
     {
-        std::vector<uint8_t> data_;    ///< packed nibbles
-        std::vector<float>   scales_;  ///< one scale per macroblock
-        size_t               rows_ = 0;
-        size_t               cols_ = 0;
+        std::vector<uint8_t> data_; ///< packed nibbles
+        std::vector<float> scales_; ///< one scale per macroblock
+        size_t rows_ = 0;
+        size_t cols_ = 0;
 
         size_t NumMacroblocks() const
         {
@@ -52,7 +48,7 @@ namespace sgns::neoswarm::fp4
      */
     class FP4Codec
     {
-    public:
+        public:
         FP4Codec() = default;
 
         /**
@@ -63,10 +59,10 @@ namespace sgns::neoswarm::fp4
          * @param activation_stats Optional per-column activation magnitudes (may be nullptr).
          * @return                 Encoded FP4Tensor or FP4DecodeFailed.
          */
-        outcome::result<FP4Tensor> Encode( const float *weights,
-                                           size_t       rows,
-                                           size_t       cols,
-                                           const float *activation_stats = nullptr ) const;
+        outcome::result<FP4Tensor> Encode( const float* weights,
+                                           size_t rows,
+                                           size_t cols,
+                                           const float* activation_stats = nullptr ) const;
 
         /**
          * @brief Dequantize an FP4Tensor to a FP32 output buffer.
@@ -74,7 +70,7 @@ namespace sgns::neoswarm::fp4
          * @param output  Pre-allocated buffer of tensor.rows_ × tensor.cols_ floats.
          * @return        outcome::success or FP4DecodeFailed.
          */
-        outcome::result<void> Decode( const FP4Tensor &tensor, float *output ) const;
+        outcome::result<void> Decode( const FP4Tensor& tensor, float* output ) const;
 
         /**
          * @brief Compute mean squared error between original and round-tripped weights.
@@ -82,13 +78,12 @@ namespace sgns::neoswarm::fp4
          * @param encoded   Encoded FP4Tensor.
          * @return          MSE value.
          */
-        float ComputeError( const float *original, const FP4Tensor &encoded ) const;
+        float ComputeError( const float* original, const FP4Tensor& encoded ) const;
 
-    private:
-        float          FindBestScale( const float *block, size_t n,
-                                      const float *act_stats = nullptr ) const;
+        private:
+        float FindBestScale( const float* block, size_t n, const float* act_stats = nullptr ) const;
         static uint8_t QuantizeValue( float v, float scale );
-        static float   DequantizeValue( uint8_t idx, float scale );
+        static float DequantizeValue( uint8_t idx, float scale );
     };
 
 } // namespace sgns::neoswarm::fp4

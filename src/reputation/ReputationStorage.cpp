@@ -14,9 +14,9 @@
 #include <unordered_map>
 
 #ifdef GENIUS_HAS_ROCKSDB
-#    include <rocksdb/db.h>
-#    include <rocksdb/options.h>
-#    include <rocksdb/slice.h>
+#include <rocksdb/db.h>
+#include <rocksdb/options.h>
+#include <rocksdb/slice.h>
 #endif
 
 namespace sgns::neoswarm::reputation
@@ -27,41 +27,41 @@ namespace sgns::neoswarm::reputation
         {
             return neoswarm::CreateLogger( "ReputationStorage" );
         }
-    }
+    } // namespace
 
     // -----------------------------------------------------------------------
     // Serialization — JSON (nlohmann/json)
     // -----------------------------------------------------------------------
-    std::string ReputationStorage::Serialize( const NodeReputation &r )
+    std::string ReputationStorage::Serialize( const NodeReputation& r )
     {
         nlohmann::json j;
-        j["identity_key"]      = r.identity_key_;
-        j["global_score"]      = r.global_score_;
-        j["math_score"]        = r.math_score_;
-        j["grammar_score"]     = r.grammar_score_;
-        j["latency_score"]     = r.latency_score_;
+        j["identity_key"] = r.identity_key_;
+        j["global_score"] = r.global_score_;
+        j["math_score"] = r.math_score_;
+        j["grammar_score"] = r.grammar_score_;
+        j["latency_score"] = r.latency_score_;
         j["consistency_score"] = r.consistency_score_;
-        j["task_count"]        = r.task_count_;
-        j["last_updated_ms"]   = r.last_updated_ms_;
+        j["task_count"] = r.task_count_;
+        j["last_updated_ms"] = r.last_updated_ms_;
         return j.dump();
     }
 
-    NodeReputation ReputationStorage::Deserialize( const std::string &data )
+    NodeReputation ReputationStorage::Deserialize( const std::string& data )
     {
         NodeReputation r;
         try
         {
             nlohmann::json j = nlohmann::json::parse( data );
-            r.identity_key_      = j.value( "identity_key", "" );
-            r.global_score_      = j.value( "global_score", 0.0 );
-            r.math_score_        = j.value( "math_score", 0.0 );
-            r.grammar_score_     = j.value( "grammar_score", 0.0 );
-            r.latency_score_     = j.value( "latency_score", 0.0 );
+            r.identity_key_ = j.value( "identity_key", "" );
+            r.global_score_ = j.value( "global_score", 0.0 );
+            r.math_score_ = j.value( "math_score", 0.0 );
+            r.grammar_score_ = j.value( "grammar_score", 0.0 );
+            r.latency_score_ = j.value( "latency_score", 0.0 );
             r.consistency_score_ = j.value( "consistency_score", 0.0 );
-            r.task_count_        = j.value( "task_count", 0ULL );
-            r.last_updated_ms_   = j.value( "last_updated_ms", 0ULL );
+            r.task_count_ = j.value( "task_count", 0ULL );
+            r.last_updated_ms_ = j.value( "last_updated_ms", 0ULL );
         }
-        catch ( const std::exception &e )
+        catch ( const std::exception& e )
         {
             StorageLogger()->error( "Corrupt reputation record, skipping: {}", e.what() );
             r.identity_key_ = "";
@@ -75,14 +75,14 @@ namespace sgns::neoswarm::reputation
     struct ReputationStorage::Impl
     {
 #ifdef GENIUS_HAS_ROCKSDB
-        rocksdb::DB     *db_      = nullptr;
+        rocksdb::DB* db_ = nullptr;
         rocksdb::Options options_;
 #else
         std::unordered_map<std::string, std::string> store_;
 #endif
     };
 
-    ReputationStorage::ReputationStorage( const std::string &db_path )
+    ReputationStorage::ReputationStorage( const std::string& db_path )
         : impl_( std::make_unique<Impl>() )
         , db_path_( db_path )
     {
@@ -131,7 +131,7 @@ namespace sgns::neoswarm::reputation
     // -----------------------------------------------------------------------
     // Put
     // -----------------------------------------------------------------------
-    outcome::result<void> ReputationStorage::Put( const NodeReputation &rep )
+    outcome::result<void> ReputationStorage::Put( const NodeReputation& rep )
     {
         if ( !open_ )
         {
@@ -153,14 +153,14 @@ namespace sgns::neoswarm::reputation
     // -----------------------------------------------------------------------
     // Get
     // -----------------------------------------------------------------------
-    outcome::result<NodeReputation> ReputationStorage::Get( const std::string &identity_key ) const
+    outcome::result<NodeReputation> ReputationStorage::Get( const std::string& identity_key ) const
     {
         if ( !open_ )
         {
             return outcome::failure( Error::StorageError );
         }
 #ifdef GENIUS_HAS_ROCKSDB
-        std::string     val;
+        std::string val;
         rocksdb::Status status = impl_->db_->Get( rocksdb::ReadOptions(), identity_key, &val );
         if ( status.IsNotFound() )
         {
@@ -184,7 +184,7 @@ namespace sgns::neoswarm::reputation
     // -----------------------------------------------------------------------
     // Remove
     // -----------------------------------------------------------------------
-    outcome::result<void> ReputationStorage::Remove( const std::string &identity_key )
+    outcome::result<void> ReputationStorage::Remove( const std::string& identity_key )
     {
         if ( !open_ )
         {
@@ -213,14 +213,14 @@ namespace sgns::neoswarm::reputation
         }
         std::vector<NodeReputation> result;
 #ifdef GENIUS_HAS_ROCKSDB
-        auto *it = impl_->db_->NewIterator( rocksdb::ReadOptions() );
+        auto* it = impl_->db_->NewIterator( rocksdb::ReadOptions() );
         for ( it->SeekToFirst(); it->Valid(); it->Next() )
         {
             result.push_back( Deserialize( it->value().ToString() ) );
         }
         delete it;
 #else
-        for ( const auto &[k, v] : impl_->store_ )
+        for ( const auto& [k, v] : impl_->store_ )
         {
             result.push_back( Deserialize( v ) );
         }

@@ -5,11 +5,11 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include <gtest/gtest.h>
+#include "common/Types.hpp"
 #include "network/P2PNode.hpp"
 #include "network/ResultAggregation.hpp"
 #include "security/NodeIdentity.hpp"
-#include "common/Types.hpp"
+#include <gtest/gtest.h>
 
 using namespace sgns::neoswarm;
 using namespace sgns::neoswarm::network;
@@ -49,7 +49,7 @@ TEST( P2PNode, StopBeforeStartDoesNotCrash )
 TEST( ResultAggregation, CollectEmptyWithTimeout )
 {
     ResultAggregation::Config cfg;
-    cfg.timeout_       = std::chrono::milliseconds( 50 );
+    cfg.timeout_ = std::chrono::milliseconds( 50 );
     cfg.min_responses_ = 1;
 
     ResultAggregation agg( cfg );
@@ -63,15 +63,15 @@ TEST( ResultAggregation, CollectEmptyWithTimeout )
 TEST( ResultAggregation, SubmitAndCollectSingle )
 {
     ResultAggregation::Config cfg;
-    cfg.timeout_       = std::chrono::milliseconds( 200 );
+    cfg.timeout_ = std::chrono::milliseconds( 200 );
     cfg.min_responses_ = 1;
 
     ResultAggregation agg( cfg );
 
     NodeOutput output;
-    output.node_id_     = "test-node-1";
-    output.output_      = "test output";
-    output.latency_ms_  = 100.0;
+    output.node_id_ = "test-node-1";
+    output.output_ = "test output";
+    output.latency_ms_ = 100.0;
 
     agg.Submit( output );
 
@@ -85,7 +85,7 @@ TEST( ResultAggregation, SubmitAndCollectSingle )
 TEST( ResultAggregation, ResetClearsState )
 {
     ResultAggregation::Config cfg;
-    cfg.timeout_       = std::chrono::milliseconds( 50 );
+    cfg.timeout_ = std::chrono::milliseconds( 50 );
     cfg.min_responses_ = 1;
 
     ResultAggregation agg( cfg );

@@ -23,13 +23,13 @@ namespace sgns::neoswarm::security
      */
     class NodeIdentity
     {
-    public:
+        public:
         static constexpr size_t kPrivKeySize = 32;
-        static constexpr size_t kPubKeySize  = 33;  ///< compressed
-        static constexpr size_t kPeerIdSize  = 32;
+        static constexpr size_t kPubKeySize = 33; ///< compressed
+        static constexpr size_t kPeerIdSize = 32;
 
         using PrivKey = std::array<uint8_t, kPrivKeySize>;
-        using PubKey  = std::array<uint8_t, kPubKeySize>;
+        using PubKey = std::array<uint8_t, kPubKeySize>;
 
         NodeIdentity();
         ~NodeIdentity();
@@ -45,14 +45,14 @@ namespace sgns::neoswarm::security
          * @param path  Path to the key file.
          * @return      outcome::success or IdentityError.
          */
-        outcome::result<void> LoadFromFile( const std::string &path );
+        outcome::result<void> LoadFromFile( const std::string& path );
 
         /**
          * @brief Save the current keypair to a hex file.
          * @param path  Destination file path.
          * @return      outcome::success or IdentityError.
          */
-        outcome::result<void> SaveToFile( const std::string &path ) const;
+        outcome::result<void> SaveToFile( const std::string& path ) const;
 
         /**
          * @brief Save the current keypair encrypted with AES-256-GCM.
@@ -66,9 +66,7 @@ namespace sgns::neoswarm::security
          * @param passphrase  User-supplied encryption passphrase.
          * @return            outcome::success or IdentityError.
          */
-        outcome::result<void> SaveEncrypted(
-            const std::string &path,
-            const std::string &passphrase ) const;
+        outcome::result<void> SaveEncrypted( const std::string& path, const std::string& passphrase ) const;
 
         /**
          * @brief Load an encrypted keypair and decrypt it.
@@ -84,9 +82,7 @@ namespace sgns::neoswarm::security
          * @param passphrase  Decryption passphrase.
          * @return            outcome::success or IdentityError.
          */
-        outcome::result<void> LoadEncrypted(
-            const std::string &path,
-            const std::string &passphrase );
+        outcome::result<void> LoadEncrypted( const std::string& path, const std::string& passphrase );
 
         /**
          * @brief Derive the PeerId string from the public key.
@@ -95,7 +91,7 @@ namespace sgns::neoswarm::security
         std::string PeerId() const;
 
         /// @return The compressed public key bytes.
-        const PubKey &PublicKey() const
+        const PubKey& PublicKey() const
         {
             return pub_key_;
         }
@@ -111,7 +107,7 @@ namespace sgns::neoswarm::security
          * @param message  Raw bytes to sign.
          * @return         DER-encoded signature or IdentityError.
          */
-        outcome::result<std::vector<uint8_t>> Sign( const std::vector<uint8_t> &message ) const;
+        outcome::result<std::vector<uint8_t>> Sign( const std::vector<uint8_t>& message ) const;
 
         /**
          * @brief Verify a signature against this node's public key.
@@ -119,14 +115,13 @@ namespace sgns::neoswarm::security
          * @param signature  DER-encoded signature to verify.
          * @return           True if the signature is valid.
          */
-        bool Verify( const std::vector<uint8_t> &message,
-                     const std::vector<uint8_t> &signature ) const;
+        bool Verify( const std::vector<uint8_t>& message, const std::vector<uint8_t>& signature ) const;
 
-    private:
+        private:
         struct Impl;
         std::unique_ptr<Impl> impl_;
-        PubKey                pub_key_{};
-        bool                  loaded_ = false;
+        PubKey pub_key_{};
+        bool loaded_ = false;
     };
 
 } // namespace sgns::neoswarm::security

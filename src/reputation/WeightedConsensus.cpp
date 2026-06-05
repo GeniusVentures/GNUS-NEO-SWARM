@@ -19,20 +19,25 @@ namespace sgns::neoswarm::reputation
         {
             return neoswarm::CreateLogger( "WeightedConsensus" );
         }
-    }
+    } // namespace
 
-    WeightedConsensus::WeightedConsensus() : cfg_( {} ) {}
-    WeightedConsensus::WeightedConsensus( Config cfg ) : cfg_( std::move( cfg ) ) {}
+    WeightedConsensus::WeightedConsensus()
+        : cfg_( {} )
+    {
+    }
+    WeightedConsensus::WeightedConsensus( Config cfg )
+        : cfg_( std::move( cfg ) )
+    {
+    }
 
     // -----------------------------------------------------------------------
     // ComputeWeights
     // -----------------------------------------------------------------------
-    std::vector<double> WeightedConsensus::ComputeWeights(
-        const std::vector<NodeOutput> &outputs ) const
+    std::vector<double> WeightedConsensus::ComputeWeights( const std::vector<NodeOutput>& outputs ) const
     {
         std::vector<double> weights;
         weights.reserve( outputs.size() );
-        for ( const auto &o : outputs )
+        for ( const auto& o : outputs )
         {
             double w = o.reputation_ / ( static_cast<double>( o.perplexity_ ) + cfg_.epsilon_ );
             weights.push_back( std::max( w, 0.0 ) );
@@ -43,8 +48,8 @@ namespace sgns::neoswarm::reputation
     // -----------------------------------------------------------------------
     // WeightedVoting
     // -----------------------------------------------------------------------
-    NodeOutput WeightedConsensus::WeightedVoting( const std::vector<NodeOutput> &outputs,
-                                                  const std::vector<double>     &weights ) const
+    NodeOutput WeightedConsensus::WeightedVoting( const std::vector<NodeOutput>& outputs,
+                                                  const std::vector<double>& weights ) const
     {
         std::unordered_map<std::string, double> vote_map;
         for ( size_t i = 0; i < outputs.size(); ++i )
@@ -60,16 +65,14 @@ namespace sgns::neoswarm::reputation
             return outputs.front();
         }
 
-        auto winner = std::max_element(
-            vote_map.begin(), vote_map.end(),
-            []( const auto &a, const auto &b ) { return a.second < b.second; } );
+        auto winner = std::max_element( vote_map.begin(), vote_map.end(),
+                                        []( const auto& a, const auto& b ) { return a.second < b.second; } );
 
         for ( size_t i = 0; i < outputs.size(); ++i )
         {
             if ( outputs[i].output_ == winner->first )
             {
-                ConsensusLogger()->debug( "Consensus winner: node={} weight={:.3f}",
-                                          outputs[i].node_id_,
+                ConsensusLogger()->debug( "Consensus winner: node={} weight={:.3f}", outputs[i].node_id_,
                                           winner->second );
                 return outputs[i];
             }
@@ -80,29 +83,27 @@ namespace sgns::neoswarm::reputation
     // -----------------------------------------------------------------------
     // BestWeightedScore
     // -----------------------------------------------------------------------
-    NodeOutput WeightedConsensus::BestWeightedScore( const std::vector<NodeOutput> &outputs,
-                                                     const std::vector<double>     &weights ) const
+    NodeOutput WeightedConsensus::BestWeightedScore( const std::vector<NodeOutput>& outputs,
+                                                     const std::vector<double>& weights ) const
     {
         size_t best_idx = 0;
-        double best_w   = -1.0;
+        double best_w = -1.0;
         for ( size_t i = 0; i < outputs.size(); ++i )
         {
             if ( weights[i] > best_w )
             {
-                best_w   = weights[i];
+                best_w = weights[i];
                 best_idx = i;
             }
         }
-        ConsensusLogger()->debug( "Best-score winner: node={} weight={:.3f}",
-                                   outputs[best_idx].node_id_,
-                                   best_w );
+        ConsensusLogger()->debug( "Best-score winner: node={} weight={:.3f}", outputs[best_idx].node_id_, best_w );
         return outputs[best_idx];
     }
 
     // -----------------------------------------------------------------------
     // SelectWinner
     // -----------------------------------------------------------------------
-    NodeOutput WeightedConsensus::SelectWinner( const std::vector<NodeOutput> &outputs ) const
+    NodeOutput WeightedConsensus::SelectWinner( const std::vector<NodeOutput>& outputs ) const
     {
         if ( outputs.empty() )
         {

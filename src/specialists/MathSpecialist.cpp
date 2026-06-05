@@ -18,7 +18,7 @@ namespace sgns::neoswarm::specialists
         {
             return neoswarm::CreateLogger( "MathSpecialist" );
         }
-    }
+    } // namespace
 
     MathSpecialist::MathSpecialist( std::shared_ptr<core::InferenceEngine> engine )
         : engine_( std::move( engine ) )
@@ -28,7 +28,7 @@ namespace sgns::neoswarm::specialists
     // -----------------------------------------------------------------------
     // Load
     // -----------------------------------------------------------------------
-    outcome::result<void> MathSpecialist::Load( const std::string &model_path )
+    outcome::result<void> MathSpecialist::Load( const std::string& model_path )
     {
         if ( !engine_ )
         {
@@ -43,20 +43,18 @@ namespace sgns::neoswarm::specialists
     // -----------------------------------------------------------------------
     // BuildPrompt
     // -----------------------------------------------------------------------
-    std::string MathSpecialist::BuildPrompt( const std::string &input ) const
+    std::string MathSpecialist::BuildPrompt( const std::string& input ) const
     {
         return "[INST] Solve the following math problem step by step. "
                "Show your work and provide the final numerical answer clearly.\n\n"
-               "Problem: "
-               + input
-               + "\n\nSolution: [/INST]";
+               "Problem: " +
+               input + "\n\nSolution: [/INST]";
     }
 
     // -----------------------------------------------------------------------
     // TrySymbolicFallback
     // -----------------------------------------------------------------------
-    std::optional<std::string> MathSpecialist::TrySymbolicFallback(
-        const std::string &input ) const
+    std::optional<std::string> MathSpecialist::TrySymbolicFallback( const std::string& input ) const
     {
         auto result = SymbolicFallback::ExtractAndEvaluate( input );
         if ( result.has_value() )
@@ -69,7 +67,7 @@ namespace sgns::neoswarm::specialists
     // -----------------------------------------------------------------------
     // Process
     // -----------------------------------------------------------------------
-    outcome::result<std::string> MathSpecialist::Process( const std::string &input )
+    outcome::result<std::string> MathSpecialist::Process( const std::string& input )
     {
         // Always try symbolic fallback first for pure arithmetic
         auto symbolic = TrySymbolicFallback( input );
@@ -88,9 +86,9 @@ namespace sgns::neoswarm::specialists
         }
 
         Task task;
-        task.id_          = "math-" + std::to_string( std::hash<std::string>{}( input ) );
-        task.prompt_      = BuildPrompt( input );
-        task.max_tokens_  = 512;
+        task.id_ = "math-" + std::to_string( std::hash<std::string>{}( input ) );
+        task.prompt_ = BuildPrompt( input );
+        task.max_tokens_ = 512;
         task.temperature_ = 0.1f;
 
         auto res = engine_->Infer( task );

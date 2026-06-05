@@ -17,16 +17,16 @@
 
 namespace grpc
 {
-class Channel;
+    class Channel;
 }
 
 namespace sgns::neoswarm::network
 {
-class SGMessageAuthenticator;
+    class SGMessageAuthenticator;
 
     struct SGResultCollectorConfig
     {
-        std::chrono::seconds result_timeout_{300};
+        std::chrono::seconds result_timeout_{ 300 };
     };
 
     /**
@@ -34,11 +34,10 @@ class SGMessageAuthenticator;
      */
     class SGResultCollector
     {
-    public:
-        SGResultCollector(
-            std::shared_ptr<grpc::Channel>  channel,
-            SGMessageAuthenticator         &authenticator,
-            SGResultCollectorConfig         cfg = {} );
+        public:
+        SGResultCollector( std::shared_ptr<grpc::Channel> channel,
+                           SGMessageAuthenticator& authenticator,
+                           SGResultCollectorConfig cfg = {} );
         ~SGResultCollector();
 
         /**
@@ -47,19 +46,16 @@ class SGMessageAuthenticator;
          * @param timeout Maximum time to wait.
          * @return        Raw output bytes or timeout/network error.
          */
-        outcome::result<std::vector<uint8_t>> WaitForResult(
-            const std::string          &taskId,
-            std::chrono::seconds        timeout );
+        outcome::result<std::vector<uint8_t>> WaitForResult( const std::string& taskId, std::chrono::seconds timeout );
 
         /**
          * @brief Wait for result using the configured default timeout.
          * @param taskId  The task ID to collect results for.
          * @return        Raw output bytes or error.
          */
-        outcome::result<std::vector<uint8_t>> WaitForResult(
-            const std::string &taskId );
+        outcome::result<std::vector<uint8_t>> WaitForResult( const std::string& taskId );
 
-    private:
+        private:
         struct Impl;
         std::unique_ptr<Impl> impl_;
     };

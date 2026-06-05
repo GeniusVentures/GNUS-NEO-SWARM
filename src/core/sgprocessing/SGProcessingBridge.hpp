@@ -16,17 +16,17 @@
 
 namespace boost::asio
 {
-class io_context;
+    class io_context;
 } // namespace boost::asio
 
 namespace sgns
 {
-enum class InputFormat : int;
+    enum class InputFormat : int;
 } // namespace sgns
 
 namespace sgns::neoswarm::network
 {
-class SuperGeniusClient;
+    class SuperGeniusClient;
 }
 
 namespace sgns::neoswarm::core
@@ -37,10 +37,10 @@ namespace sgns::neoswarm::core
      */
     class SGProcessingBridge
     {
-    public:
+        public:
         struct Config
         {
-            bool network_mode_ = false;  ///< Phase 2: dispatch via gRPCForSuperGenius
+            bool network_mode_ = false; ///< Phase 2: dispatch via gRPCForSuperGenius
         };
 
         SGProcessingBridge();
@@ -51,7 +51,7 @@ namespace sgns::neoswarm::core
          * @brief Set the SuperGeniusClient for Phase 2 network dispatch.
          * @param client  The SuperGeniusClient instance (owned by GeniusAPIServer).
          */
-        void SetClient( network::SuperGeniusClient *client ) noexcept;
+        void SetClient( network::SuperGeniusClient* client ) noexcept;
 
         /**
          * @brief Build a GNUS_Schema JSON string from the supplied parameters.
@@ -61,11 +61,10 @@ namespace sgns::neoswarm::core
          * @param shape        Tensor shape dimensions.
          * @return             JSON string or InvalidArgument.
          */
-        outcome::result<std::string> BuildSchemaJson(
-            const std::string          &model_uri,
-            const std::string          &input_uri,
-            sgns::InputFormat           input_format,
-            const std::vector<int64_t> &shape ) const;
+        outcome::result<std::string> BuildSchemaJson( const std::string& model_uri,
+                                                      const std::string& input_uri,
+                                                      sgns::InputFormat input_format,
+                                                      const std::vector<int64_t>& shape ) const;
 
         /**
          * @brief Submit a job and return raw tensor output bytes.
@@ -80,23 +79,20 @@ namespace sgns::neoswarm::core
          * @param ioc          Boost ASIO io_context for async operations.
          * @return             Raw output bytes or InferenceFailed / NotImplemented.
          */
-        outcome::result<std::vector<uint8_t>> SubmitJob(
-            const std::string                       &model_uri,
-            const std::string                       &input_uri,
-            sgns::InputFormat                        input_format,
-            const std::vector<int64_t>              &shape,
-            std::shared_ptr<boost::asio::io_context> ioc );
+        outcome::result<std::vector<uint8_t>> SubmitJob( const std::string& model_uri,
+                                                         const std::string& input_uri,
+                                                         sgns::InputFormat input_format,
+                                                         const std::vector<int64_t>& shape,
+                                                         std::shared_ptr<boost::asio::io_context> ioc );
 
-    private:
+        private:
         Config cfg_;
-        network::SuperGeniusClient *client_ = nullptr;
+        network::SuperGeniusClient* client_ = nullptr;
 
-        outcome::result<std::vector<uint8_t>> SubmitDirect(
-            const std::string                       &jsondata,
-            std::shared_ptr<boost::asio::io_context> ioc ) const;
+        outcome::result<std::vector<uint8_t>> SubmitDirect( const std::string& jsondata,
+                                                            std::shared_ptr<boost::asio::io_context> ioc ) const;
 
-        outcome::result<std::vector<uint8_t>> SubmitNetwork(
-            const std::string &jsondata ) const;
+        outcome::result<std::vector<uint8_t>> SubmitNetwork( const std::string& jsondata ) const;
     };
 
 } // namespace sgns::neoswarm::core

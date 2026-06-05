@@ -17,36 +17,36 @@
 
 #include "InferenceEngine.hpp"
 #include "core/fp4/FP4Codec.hpp"
-#include "core/tokenizer/Tokenizer.hpp"
 #include "core/sgprocessing/SGProcessingBridge.hpp"
 #include "core/sgprocessing/TensorInterpreter.hpp"
+#include "core/tokenizer/Tokenizer.hpp"
 #include <atomic>
 #include <memory>
 #include <string>
 
 namespace MNN
 {
-class Interpreter;
-class Session;
-namespace Transformer
-{
-class Llm;
-} // namespace Transformer
+    class Interpreter;
+    class Session;
+    namespace Transformer
+    {
+        class Llm;
+    } // namespace Transformer
 } // namespace MNN
 
 namespace boost::asio
 {
-class io_context;
+    class io_context;
 } // namespace boost::asio
 
 namespace sgns
 {
-enum class InputFormat : int;
+    enum class InputFormat : int;
 } // namespace sgns
 
 namespace sgns::neoswarm::network
 {
-class SuperGeniusClient;
+    class SuperGeniusClient;
 }
 
 namespace sgns::neoswarm::core
@@ -71,43 +71,45 @@ namespace sgns::neoswarm::core
      */
     class MNNInferenceEngine : public InferenceEngine
     {
-    public:
+        public:
         struct Config
         {
             /// Inference path: "sgprocessing" (primary) or "interpreter" (fallback)
-            std::string engine_mode_       = "sgprocessing";
+            std::string engine_mode_ = "sgprocessing";
 
             /// GPU backend: "vulkan" (cross-platform) or "cpu"
-            std::string backend_           = "vulkan";
+            std::string backend_ = "vulkan";
 
             /// Use FP4 quantization for SGProcessing path
-            bool  use_fp4_                 = true;
+            bool use_fp4_ = true;
 
             /// CPU thread count (used when backend_ == "cpu")
-            int   num_threads_             = 4;
+            int num_threads_ = 4;
 
             /// Generation parameters
-            int   max_new_tokens_          = 512;
-            float temperature_             = 0.7f;
-            float top_p_                   = 0.9f;
-            int   top_k_                   = 40;
-            float repetition_penalty_      = 1.1f;
+            int max_new_tokens_ = 512;
+            float temperature_ = 0.7f;
+            float top_p_ = 0.9f;
+            int top_k_ = 40;
+            float repetition_penalty_ = 1.1f;
 
             /// SGProcessing network mode (Phase 2: dispatch via gRPC to SuperGenius)
-            bool  sg_network_mode_         = false;
+            bool sg_network_mode_ = false;
         };
 
         MNNInferenceEngine();
         explicit MNNInferenceEngine( Config cfg );
         ~MNNInferenceEngine() override;
 
-        outcome::result<void>              LoadModel( const std::string &model_path ) override;
-        outcome::result<InferenceResponse> Infer( const Task &task ) override;
-        outcome::result<void>              StreamInfer(
-            const Task                                       &task,
-            std::function<void( const std::string &token )>  callback ) override;
+        outcome::result<void> LoadModel( const std::string& model_path ) override;
+        outcome::result<InferenceResponse> Infer( const Task& task ) override;
+        outcome::result<void> StreamInfer( const Task& task,
+                                           std::function<void( const std::string& token )> callback ) override;
 
-        bool        IsLoaded()    const override { return loaded_.load(); }
+        bool IsLoaded() const override
+        {
+            return loaded_.load();
+        }
         std::string BackendName() const override;
 
         /// Attach a tokenizer (required for "interpreter" mode).
@@ -131,36 +133,35 @@ namespace sgns::neoswarm::core
          *
          * @param client  The SuperGeniusClient instance (owned by GeniusAPIServer).
          */
-        void SetSuperGeniusClient( network::SuperGeniusClient *client ) noexcept;
+        void SetSuperGeniusClient( network::SuperGeniusClient* client ) noexcept;
 
-    private:
+        private:
         Config cfg_;
 
         // --- MNN Interpreter path ---
         std::shared_ptr<MNN::Interpreter> interpreter_;
-        MNN::Session                     *session_   = nullptr;
+        MNN::Session* session_ = nullptr;
 
         // --- MNN LLM path (native autoregressive) ---
-        MNN::Transformer::Llm           *mnn_llm_   = nullptr;
+        MNN::Transformer::Llm* mnn_llm_ = nullptr;
 
         // --- SGProcessing path ---
-        std::unique_ptr<SGProcessingBridge>      bridge_;
-        std::unique_ptr<TensorInterpreter>       tensor_interpreter_;
+        std::unique_ptr<SGProcessingBridge> bridge_;
+        std::unique_ptr<TensorInterpreter> tensor_interpreter_;
         std::shared_ptr<boost::asio::io_context> ioc_;
 
-        std::atomic<bool>          loaded_    = false;
-        std::string                model_path_;
+        std::atomic<bool> loaded_ = false;
+        std::string model_path_;
         std::shared_ptr<Tokenizer> tokenizer_;
-        fp4::FP4Codec              fp4_codec_;
+        fp4::FP4Codec fp4_codec_;
 
         // Interpreter-path helpers
-        int  SelectBackend() const;
-        outcome::result<std::vector<float>> RunForward( const std::vector<int> &input_ids );
-        int  SampleToken( const std::vector<float> &logits,
-                          float temperature, float top_p, int top_k ) const;
-        void ApplyRepetitionPenalty( std::vector<float>     &logits,
-                                     const std::vector<int> &generated,
-                                     float                   penalty ) const;
+        int SelectBackend() const;
+        outcome::result<std::vector<float>> RunForward( const std::vector<int>& input_ids );
+        int SampleToken( const std::vector<float>& logits, float temperature, float top_p, int top_k ) const;
+        void ApplyRepetitionPenalty( std::vector<float>& logits,
+                                     const std::vector<int>& generated,
+                                     float penalty ) const;
     };
 
 } // namespace sgns::neoswarm::core

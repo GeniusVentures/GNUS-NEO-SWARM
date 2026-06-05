@@ -23,18 +23,18 @@ namespace sgns::neoswarm::reputation
      */
     class WeightedConsensus
     {
-    public:
+        public:
         enum class Strategy : uint8_t
         {
-            WeightedVoting    = 0,
+            WeightedVoting = 0,
             BestWeightedScore = 1
         };
 
         struct Config
         {
-            Strategy strategy_   = Strategy::WeightedVoting;
-            double   epsilon_    = 1e-6;
-            double   min_weight_ = 0.0;  ///< ignore nodes below this weight
+            Strategy strategy_ = Strategy::WeightedVoting;
+            double epsilon_ = 1e-6;
+            double min_weight_ = 0.0; ///< ignore nodes below this weight
         };
 
         WeightedConsensus();
@@ -45,9 +45,9 @@ namespace sgns::neoswarm::reputation
          * @param outputs  Responses from all participating nodes.
          * @return         The winning NodeOutput (or the first if empty).
          */
-        NodeOutput SelectWinner( const std::vector<NodeOutput> &outputs ) const;
+        NodeOutput SelectWinner( const std::vector<NodeOutput>& outputs ) const;
 
-    private:
+        private:
         Config cfg_;
 
         /**
@@ -55,19 +55,18 @@ namespace sgns::neoswarm::reputation
          * @param outputs  Node output records.
          * @return         Weight vector aligned with outputs.
          */
-        std::vector<double> ComputeWeights( const std::vector<NodeOutput> &outputs ) const;
+        std::vector<double> ComputeWeights( const std::vector<NodeOutput>& outputs ) const;
 
         /**
          * @brief Select winner by aggregating weights per unique output string.
          */
-        NodeOutput WeightedVoting( const std::vector<NodeOutput> &outputs,
-                                   const std::vector<double>     &weights ) const;
+        NodeOutput WeightedVoting( const std::vector<NodeOutput>& outputs, const std::vector<double>& weights ) const;
 
         /**
          * @brief Select the single node with the highest individual weight.
          */
-        NodeOutput BestWeightedScore( const std::vector<NodeOutput> &outputs,
-                                      const std::vector<double>     &weights ) const;
+        NodeOutput BestWeightedScore( const std::vector<NodeOutput>& outputs,
+                                      const std::vector<double>& weights ) const;
     };
 
 } // namespace sgns::neoswarm::reputation

@@ -5,9 +5,9 @@
  * @author     GSD Executor
  */
 
-#include <gtest/gtest.h>
-#include "security/NodeIdentity.hpp"
 #include "security/MessageSigning.hpp"
+#include "security/NodeIdentity.hpp"
+#include <gtest/gtest.h>
 
 #include <iomanip>
 #include <sstream>
@@ -19,17 +19,16 @@ using namespace sgns::neoswarm::security;
 
 namespace
 {
-    std::string PubKeyToHex( const NodeIdentity::PubKey &key )
+    std::string PubKeyToHex( const NodeIdentity::PubKey& key )
     {
         std::ostringstream oss;
         for ( auto b : key )
         {
-            oss << std::hex << std::setw( 2 ) << std::setfill( '0' )
-                << static_cast<int>( b );
+            oss << std::hex << std::setw( 2 ) << std::setfill( '0' ) << static_cast<int>( b );
         }
         return oss.str();
     }
-}
+} // namespace
 
 // =======================================================================
 // Signature Verification
@@ -101,7 +100,7 @@ TEST( MessageSigning, VerifyTruncatedSignature )
 
     const std::string pubKeyHex = PubKeyToHex( ident.PublicKey() );
 
-    std::vector<uint8_t> truncated = {0x30, 0x06, 0x02, 0x01, 0x01, 0x02, 0x01, 0x01};
+    std::vector<uint8_t> truncated = { 0x30, 0x06, 0x02, 0x01, 0x01, 0x02, 0x01, 0x01 };
     EXPECT_FALSE( MessageSigning::Verify( "payload", truncated, pubKeyHex ) );
 }
 

@@ -15,7 +15,7 @@
 
 namespace grpc
 {
-class Channel;
+    class Channel;
 }
 
 namespace sgns::neoswarm::network
@@ -28,13 +28,13 @@ namespace sgns::neoswarm::network
      */
     class SGChannelManager
     {
-    public:
+        public:
         struct Config
         {
             std::string endpoint_ = "localhost:50051";
             std::string tls_ca_path_;
             std::string tls_cert_path_;
-            std::chrono::seconds timeout_{30};
+            std::chrono::seconds timeout_{ 30 };
         };
 
         explicit SGChannelManager( Config cfg );
@@ -47,7 +47,7 @@ namespace sgns::neoswarm::network
 
         bool IsConnected() const noexcept;
 
-    private:
+        private:
         Config cfg_;
         std::shared_ptr<grpc::Channel> channel_;
     };

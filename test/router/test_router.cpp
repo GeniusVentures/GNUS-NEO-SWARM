@@ -5,9 +5,9 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include <gtest/gtest.h>
-#include "router/RuleBasedRouter.hpp"
 #include "router/PromptAnalyzer.hpp"
+#include "router/RuleBasedRouter.hpp"
+#include <gtest/gtest.h>
 
 using namespace sgns::neoswarm;
 using namespace sgns::neoswarm::router;
@@ -50,9 +50,9 @@ TEST( PromptAnalyzer, CodeSyntax )
 TEST( RuleBasedRouter, RouteMathByDensity )
 {
     RuleBasedRouter router;
-    Task            task;
+    Task task;
     task.prompt_ = "Calculate 847 × 963 + 12 / 4 - 100";
-    task.mode_   = ExecutionMode::SingleNode;
+    task.mode_ = ExecutionMode::SingleNode;
 
     auto res = router.Route( task );
     ASSERT_TRUE( res.has_value() );
@@ -62,9 +62,9 @@ TEST( RuleBasedRouter, RouteMathByDensity )
 TEST( RuleBasedRouter, RouteMathByKeyword )
 {
     RuleBasedRouter router;
-    Task            task;
+    Task task;
     task.prompt_ = "Solve the integral of x^2 from 0 to 1";
-    task.mode_   = ExecutionMode::SingleNode;
+    task.mode_ = ExecutionMode::SingleNode;
 
     auto res = router.Route( task );
     ASSERT_TRUE( res.has_value() );
@@ -74,9 +74,9 @@ TEST( RuleBasedRouter, RouteMathByKeyword )
 TEST( RuleBasedRouter, RouteGrammar )
 {
     RuleBasedRouter router;
-    Task            task;
+    Task task;
     task.prompt_ = "Please fix my grammar: I goes to the store yesterday.";
-    task.mode_   = ExecutionMode::SingleNode;
+    task.mode_ = ExecutionMode::SingleNode;
 
     auto res = router.Route( task );
     ASSERT_TRUE( res.has_value() );
@@ -86,9 +86,9 @@ TEST( RuleBasedRouter, RouteGrammar )
 TEST( RuleBasedRouter, RouteCoreOnly )
 {
     RuleBasedRouter router;
-    Task            task;
+    Task task;
     task.prompt_ = "Tell me about the history of ancient Rome.";
-    task.mode_   = ExecutionMode::SingleNode;
+    task.mode_ = ExecutionMode::SingleNode;
 
     auto res = router.Route( task );
     ASSERT_TRUE( res.has_value() );
@@ -98,9 +98,9 @@ TEST( RuleBasedRouter, RouteCoreOnly )
 TEST( RuleBasedRouter, HonourExplicitSwarmMode )
 {
     RuleBasedRouter router;
-    Task            task;
+    Task task;
     task.prompt_ = "Simple question";
-    task.mode_   = ExecutionMode::Swarm;
+    task.mode_ = ExecutionMode::Swarm;
 
     auto res = router.Route( task );
     ASSERT_TRUE( res.has_value() );
@@ -110,9 +110,9 @@ TEST( RuleBasedRouter, HonourExplicitSwarmMode )
 TEST( RuleBasedRouter, ConfidenceInRange )
 {
     RuleBasedRouter router;
-    Task            task;
+    Task task;
     task.prompt_ = "What is 2 + 2?";
-    task.mode_   = ExecutionMode::SingleNode;
+    task.mode_ = ExecutionMode::SingleNode;
 
     auto res = router.Route( task );
     ASSERT_TRUE( res.has_value() );

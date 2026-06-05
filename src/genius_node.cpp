@@ -28,9 +28,9 @@
 #include "api/GeniusAPIServer.hpp"
 #include "common/Logging.hpp"
 
-#include <nlohmann/json.hpp>
 #include <fstream>
 #include <iostream>
+#include <nlohmann/json.hpp>
 #include <stdexcept>
 #include <string>
 
@@ -44,54 +44,53 @@ struct Args
     std::string model_path_;
     std::string grammar_model_path_;
     std::string math_model_path_;
-    std::string mode_         = "auto";
+    std::string mode_ = "auto";
     std::string prompt_;
-    int         port_         = 50051;
-    std::string db_path_      = "./reputation.db";
-    std::string key_file_     = "./node.key";
+    int port_ = 50051;
+    std::string db_path_ = "./reputation.db";
+    std::string key_file_ = "./node.key";
     std::string knowledge_path_;
-    int         max_tokens_   = 512;
-    float       temperature_  = 0.7f;
-    std::string sg_endpoint_   = "localhost:50051";
+    int max_tokens_ = 512;
+    float temperature_ = 0.7f;
+    std::string sg_endpoint_ = "localhost:50051";
     std::string sg_tls_ca_;
     std::string sg_tls_cert_;
     std::string config_path_;
-    bool        network_      = false;
-    bool        serve_        = false;
-    bool        verbose_      = false;
-    bool        help_         = false;
+    bool network_ = false;
+    bool serve_ = false;
+    bool verbose_ = false;
+    bool help_ = false;
 };
 
-static void PrintHelp( const char *prog )
+static void PrintHelp( const char* prog )
 {
-    std::cout
-        << "Usage: " << prog << " --model <path> [options]\n\n"
-        << "Options:\n"
-        << "  --model <path>           Core MNN model file (required)\n"
-        << "  --grammar-model <path>   Grammar specialist model\n"
-        << "  --math-model <path>      Math specialist model\n"
-        << "  --mode single|specialist|swarm  Execution mode (default: auto)\n"
-        << "  --prompt <text>          Prompt to process\n"
-        << "  --port <n>               gRPC port (default: 50051)\n"
-        << "  --db <path>              Reputation DB (default: ./reputation.db)\n"
-        << "  --key <path>             Node key file (default: ./node.key)\n"
-        << "  --config <path>         JSON config file (CLI flags override file values)\n"
-        << "  --sg-endpoint <host:port> SuperGenius node address (default: localhost:50051)\n"
-        << "  --sg-tls-ca <path>       TLS CA certificate bundle for SuperGenius\n"
-        << "  --sg-tls-cert <path>     TLS client certificate for SuperGenius\n"
-        << "  --network                Enable P2P networking\n"
-        << "  --knowledge <path>       Grokipedia facts CSV\n"
-        << "  --max-tokens <n>         Max tokens (default: 512)\n"
-        << "  --temperature <f>        Temperature (default: 0.7)\n"
-        << "  --serve                  Start gRPC server\n"
-        << "  --verbose                Debug logging\n"
-        << "  --help                   Show this help\n";
+    std::cout << "Usage: " << prog << " --model <path> [options]\n\n"
+              << "Options:\n"
+              << "  --model <path>           Core MNN model file (required)\n"
+              << "  --grammar-model <path>   Grammar specialist model\n"
+              << "  --math-model <path>      Math specialist model\n"
+              << "  --mode single|specialist|swarm  Execution mode (default: auto)\n"
+              << "  --prompt <text>          Prompt to process\n"
+              << "  --port <n>               gRPC port (default: 50051)\n"
+              << "  --db <path>              Reputation DB (default: ./reputation.db)\n"
+              << "  --key <path>             Node key file (default: ./node.key)\n"
+              << "  --config <path>         JSON config file (CLI flags override file values)\n"
+              << "  --sg-endpoint <host:port> SuperGenius node address (default: localhost:50051)\n"
+              << "  --sg-tls-ca <path>       TLS CA certificate bundle for SuperGenius\n"
+              << "  --sg-tls-cert <path>     TLS client certificate for SuperGenius\n"
+              << "  --network                Enable P2P networking\n"
+              << "  --knowledge <path>       Grokipedia facts CSV\n"
+              << "  --max-tokens <n>         Max tokens (default: 512)\n"
+              << "  --temperature <f>        Temperature (default: 0.7)\n"
+              << "  --serve                  Start gRPC server\n"
+              << "  --verbose                Debug logging\n"
+              << "  --help                   Show this help\n";
 }
 
 // ---------------------------------------------------------------------------
 // Config file loader
 // ---------------------------------------------------------------------------
-static void LoadConfigFile( const std::string &path, Args &args )
+static void LoadConfigFile( const std::string& path, Args& args )
 {
     std::ifstream f( path );
     if ( !f.is_open() )
@@ -105,7 +104,7 @@ static void LoadConfigFile( const std::string &path, Args &args )
     {
         f >> j;
     }
-    catch ( const std::exception &e )
+    catch ( const std::exception& e )
     {
         std::cerr << "Warning: invalid JSON in config file '" << path << "': " << e.what() << "\n";
         return;
@@ -142,56 +141,77 @@ static void LoadConfigFile( const std::string &path, Args &args )
     std::cout << "Loaded config: " << path << "\n";
 }
 
-static Args ParseArgs( int argc, char **argv )
+static Args ParseArgs( int argc, char** argv )
 {
     Args args;
     for ( int i = 1; i < argc; ++i )
     {
         std::string a = argv[i];
-        auto        next = [&]() -> std::string
+        auto next = [&]() -> std::string
         {
-            if ( i + 1 >= argc ) throw std::runtime_error( "missing value for " + a );
+            if ( i + 1 >= argc )
+                throw std::runtime_error( "missing value for " + a );
             return argv[++i];
         };
-        if      ( a == "--model" )         args.model_path_         = next();
-        else if ( a == "--grammar-model" ) args.grammar_model_path_ = next();
-        else if ( a == "--math-model" )    args.math_model_path_    = next();
-        else if ( a == "--mode" )          args.mode_               = next();
-        else if ( a == "--prompt" )        args.prompt_             = next();
-        else if ( a == "--port" )          args.port_               = std::stoi( next() );
-        else if ( a == "--db" )            args.db_path_            = next();
-        else if ( a == "--key" )           args.key_file_           = next();
-        else if ( a == "--knowledge" )     args.knowledge_path_     = next();
-        else if ( a == "--max-tokens" )    args.max_tokens_         = std::stoi( next() );
-        else if ( a == "--temperature" )   args.temperature_        = std::stof( next() );
-        else if ( a == "--config" )        args.config_path_        = next();
-        else if ( a == "--sg-endpoint" )   args.sg_endpoint_        = next();
-        else if ( a == "--sg-tls-ca" )     args.sg_tls_ca_          = next();
-        else if ( a == "--sg-tls-cert" )   args.sg_tls_cert_        = next();
-        else if ( a == "--network" )       args.network_            = true;
-        else if ( a == "--serve" )         args.serve_              = true;
-        else if ( a == "--verbose" )       args.verbose_            = true;
-        else if ( a == "--help" )          args.help_               = true;
-        else std::cerr << "Unknown option: " << a << "\n";
+        if ( a == "--model" )
+            args.model_path_ = next();
+        else if ( a == "--grammar-model" )
+            args.grammar_model_path_ = next();
+        else if ( a == "--math-model" )
+            args.math_model_path_ = next();
+        else if ( a == "--mode" )
+            args.mode_ = next();
+        else if ( a == "--prompt" )
+            args.prompt_ = next();
+        else if ( a == "--port" )
+            args.port_ = std::stoi( next() );
+        else if ( a == "--db" )
+            args.db_path_ = next();
+        else if ( a == "--key" )
+            args.key_file_ = next();
+        else if ( a == "--knowledge" )
+            args.knowledge_path_ = next();
+        else if ( a == "--max-tokens" )
+            args.max_tokens_ = std::stoi( next() );
+        else if ( a == "--temperature" )
+            args.temperature_ = std::stof( next() );
+        else if ( a == "--config" )
+            args.config_path_ = next();
+        else if ( a == "--sg-endpoint" )
+            args.sg_endpoint_ = next();
+        else if ( a == "--sg-tls-ca" )
+            args.sg_tls_ca_ = next();
+        else if ( a == "--sg-tls-cert" )
+            args.sg_tls_cert_ = next();
+        else if ( a == "--network" )
+            args.network_ = true;
+        else if ( a == "--serve" )
+            args.serve_ = true;
+        else if ( a == "--verbose" )
+            args.verbose_ = true;
+        else if ( a == "--help" )
+            args.help_ = true;
+        else
+            std::cerr << "Unknown option: " << a << "\n";
     }
     return args;
 }
 
-static ExecutionMode ParseMode( const std::string &mode )
+static ExecutionMode ParseMode( const std::string& mode )
 {
-    if ( mode == "single" )     return ExecutionMode::SingleNode;
-    if ( mode == "specialist" ) return ExecutionMode::Specialist;
-    if ( mode == "swarm" )      return ExecutionMode::Swarm;
-    return ExecutionMode::SingleNode;  // "auto" — router decides
+    if ( mode == "single" )
+        return ExecutionMode::SingleNode;
+    if ( mode == "specialist" )
+        return ExecutionMode::Specialist;
+    if ( mode == "swarm" )
+        return ExecutionMode::Swarm;
+    return ExecutionMode::SingleNode; // "auto" — router decides
 }
 
 // ---------------------------------------------------------------------------
 // Interactive REPL
 // ---------------------------------------------------------------------------
-static void RunInteractive( api::GeniusAPIServer &server,
-                             ExecutionMode         mode,
-                             int                   max_tokens,
-                             float                 temperature )
+static void RunInteractive( api::GeniusAPIServer& server, ExecutionMode mode, int max_tokens, float temperature )
 {
     std::cout << "\nNEO SWARM v1 — Interactive Mode\n"
               << "Type your prompt and press Enter. Type 'quit' to exit.\n\n";
@@ -200,14 +220,17 @@ static void RunInteractive( api::GeniusAPIServer &server,
     while ( true )
     {
         std::cout << "> ";
-        if ( !std::getline( std::cin, line ) ) break;
-        if ( line == "quit" || line == "exit" ) break;
-        if ( line.empty() ) continue;
+        if ( !std::getline( std::cin, line ) )
+            break;
+        if ( line == "quit" || line == "exit" )
+            break;
+        if ( line.empty() )
+            continue;
 
         Task task;
-        task.prompt_      = line;
-        task.mode_        = mode;
-        task.max_tokens_  = static_cast<uint32_t>( max_tokens );
+        task.prompt_ = line;
+        task.mode_ = mode;
+        task.max_tokens_ = static_cast<uint32_t>( max_tokens );
         task.temperature_ = temperature;
 
         auto res = server.Process( task );
@@ -227,14 +250,14 @@ static void RunInteractive( api::GeniusAPIServer &server,
 // ---------------------------------------------------------------------------
 // main
 // ---------------------------------------------------------------------------
-int main( int argc, char **argv )
+int main( int argc, char** argv )
 {
     Args args;
     try
     {
         args = ParseArgs( argc, argv );
     }
-    catch ( const std::exception &e )
+    catch ( const std::exception& e )
     {
         std::cerr << "Argument error: " << e.what() << "\n";
         return 1;
@@ -259,18 +282,18 @@ int main( int argc, char **argv )
 
     // Build server config
     api::GeniusAPIServer::Config cfg;
-    cfg.model_path_          = args.model_path_;
-    cfg.grammar_model_path_  = args.grammar_model_path_;
-    cfg.math_model_path_     = args.math_model_path_;
-    cfg.reputation_db_path_  = args.db_path_;
-    cfg.knowledge_facts_     = args.knowledge_path_;
-    cfg.enable_network_      = args.network_;
-    cfg.enable_knowledge_    = true;
-    cfg.grpc_port_           = args.port_;
-    cfg.node_key_file_         = args.key_file_;
-    cfg.sg_endpoint_           = args.sg_endpoint_;
-    cfg.sg_tls_ca_             = args.sg_tls_ca_;
-    cfg.sg_tls_cert_           = args.sg_tls_cert_;
+    cfg.model_path_ = args.model_path_;
+    cfg.grammar_model_path_ = args.grammar_model_path_;
+    cfg.math_model_path_ = args.math_model_path_;
+    cfg.reputation_db_path_ = args.db_path_;
+    cfg.knowledge_facts_ = args.knowledge_path_;
+    cfg.enable_network_ = args.network_;
+    cfg.enable_knowledge_ = true;
+    cfg.grpc_port_ = args.port_;
+    cfg.node_key_file_ = args.key_file_;
+    cfg.sg_endpoint_ = args.sg_endpoint_;
+    cfg.sg_tls_ca_ = args.sg_tls_ca_;
+    cfg.sg_tls_cert_ = args.sg_tls_cert_;
 
     api::GeniusAPIServer server( cfg );
 
@@ -281,9 +304,7 @@ int main( int argc, char **argv )
         return 1;
     }
 
-    ExecutionMode mode = ( args.mode_ == "auto" )
-        ? ExecutionMode::SingleNode
-        : ParseMode( args.mode_ );
+    ExecutionMode mode = ( args.mode_ == "auto" ) ? ExecutionMode::SingleNode : ParseMode( args.mode_ );
 
     if ( args.serve_ )
     {
@@ -299,9 +320,9 @@ int main( int argc, char **argv )
     if ( !args.prompt_.empty() )
     {
         Task task;
-        task.prompt_      = args.prompt_;
-        task.mode_        = mode;
-        task.max_tokens_  = static_cast<uint32_t>( args.max_tokens_ );
+        task.prompt_ = args.prompt_;
+        task.mode_ = mode;
+        task.max_tokens_ = static_cast<uint32_t>( args.max_tokens_ );
         task.temperature_ = args.temperature_;
 
         auto res = server.Process( task );

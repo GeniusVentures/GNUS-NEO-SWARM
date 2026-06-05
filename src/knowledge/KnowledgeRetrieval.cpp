@@ -22,13 +22,13 @@ namespace sgns::neoswarm::knowledge
         {
             return neoswarm::CreateLogger( "KnowledgeRetrieval" );
         }
-    }
+    } // namespace
 
     struct KnowledgeRetrieval::Impl
     {
         struct FactEntry
         {
-            KnowledgeFact      fact_;
+            KnowledgeFact fact_;
             std::vector<float> embedding_;
         };
         std::vector<FactEntry> facts_;
@@ -62,17 +62,12 @@ namespace sgns::neoswarm::knowledge
         {
             KnowledgeLogger()->warn( "KnowledgeRetrieval: no facts path — using stub facts" );
             impl_->facts_.push_back(
-                { { "Grokipedia",
-                    "The speed of light in vacuum is approximately 299,792,458 m/s.",
-                    0.0f },
+                { { "Grokipedia", "The speed of light in vacuum is approximately 299,792,458 m/s.", 0.0f },
                   Embed( "speed of light vacuum" ) } );
+            impl_->facts_.push_back( { { "Grokipedia", "Pi (π) is approximately 3.14159265358979.", 0.0f },
+                                       Embed( "pi mathematical constant" ) } );
             impl_->facts_.push_back(
-                { { "Grokipedia", "Pi (π) is approximately 3.14159265358979.", 0.0f },
-                  Embed( "pi mathematical constant" ) } );
-            impl_->facts_.push_back(
-                { { "Grokipedia",
-                    "Water (H2O) has a molecular weight of approximately 18.015 g/mol.",
-                    0.0f },
+                { { "Grokipedia", "Water (H2O) has a molecular weight of approximately 18.015 g/mol.", 0.0f },
                   Embed( "water molecular weight chemistry" ) } );
             loaded_ = true;
             return outcome::success();
@@ -97,7 +92,7 @@ namespace sgns::neoswarm::knowledge
                 continue;
             }
             KnowledgeFact fact;
-            fact.source_  = line.substr( 0, comma );
+            fact.source_ = line.substr( 0, comma );
             fact.content_ = line.substr( comma + 1 );
             impl_->facts_.push_back( { fact, Embed( fact.content_ ) } );
         }
@@ -110,13 +105,13 @@ namespace sgns::neoswarm::knowledge
     // -----------------------------------------------------------------------
     // Embed — bag-of-words TF-IDF stub
     // -----------------------------------------------------------------------
-    std::vector<float> KnowledgeRetrieval::Embed( const std::string &text ) const
+    std::vector<float> KnowledgeRetrieval::Embed( const std::string& text ) const
     {
         static constexpr size_t kDim = 128;
-        std::vector<float>      vec( kDim, 0.0f );
+        std::vector<float> vec( kDim, 0.0f );
 
         std::istringstream iss( text );
-        std::string        word;
+        std::string word;
         while ( iss >> word )
         {
             std::transform( word.begin(), word.end(), word.begin(),
@@ -133,7 +128,7 @@ namespace sgns::neoswarm::knowledge
         norm = std::sqrt( norm );
         if ( norm > 0.0f )
         {
-            for ( auto &v : vec )
+            for ( auto& v : vec )
             {
                 v /= norm;
             }
@@ -144,8 +139,7 @@ namespace sgns::neoswarm::knowledge
     // -----------------------------------------------------------------------
     // CosineSimilarity
     // -----------------------------------------------------------------------
-    float KnowledgeRetrieval::CosineSimilarity( const std::vector<float> &a,
-                                                const std::vector<float> &b )
+    float KnowledgeRetrieval::CosineSimilarity( const std::vector<float>& a, const std::vector<float>& b )
     {
         if ( a.size() != b.size() )
         {
@@ -156,14 +150,13 @@ namespace sgns::neoswarm::knowledge
         {
             dot += a[i] * b[i];
         }
-        return dot;  // vectors are already L2-normalised
+        return dot; // vectors are already L2-normalised
     }
 
     // -----------------------------------------------------------------------
     // Retrieve
     // -----------------------------------------------------------------------
-    outcome::result<std::vector<KnowledgeFact>> KnowledgeRetrieval::Retrieve(
-        const std::string &query ) const
+    outcome::result<std::vector<KnowledgeFact>> KnowledgeRetrieval::Retrieve( const std::string& query ) const
     {
         if ( !loaded_ || impl_->facts_.empty() )
         {
@@ -183,21 +176,18 @@ namespace sgns::neoswarm::knowledge
             }
         }
 
-        std::sort( scored.begin(), scored.end(),
-                   []( const auto &a, const auto &b ) { return a.first > b.first; } );
+        std::sort( scored.begin(), scored.end(), []( const auto& a, const auto& b ) { return a.first > b.first; } );
 
         std::vector<KnowledgeFact> results;
-        int                        k = std::min( cfg_.top_k_, static_cast<int>( scored.size() ) );
+        int k = std::min( cfg_.top_k_, static_cast<int>( scored.size() ) );
         for ( int i = 0; i < k; ++i )
         {
-            KnowledgeFact f      = impl_->facts_[scored[i].second].fact_;
-            f.relevance_score_   = scored[i].first;
+            KnowledgeFact f = impl_->facts_[scored[i].second].fact_;
+            f.relevance_score_ = scored[i].first;
             results.push_back( std::move( f ) );
         }
 
-        KnowledgeLogger()->debug( "Retrieved {} facts for query '{}'",
-                                   results.size(),
-                                   query.substr( 0, 50 ) );
+        KnowledgeLogger()->debug( "Retrieved {} facts for query '{}'", results.size(), query.substr( 0, 50 ) );
         return outcome::success( std::move( results ) );
     }
 

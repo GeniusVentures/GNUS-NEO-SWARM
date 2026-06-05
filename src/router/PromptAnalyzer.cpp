@@ -20,20 +20,19 @@ namespace sgns::neoswarm::router
     {
         bool IsNumericChar( char c )
         {
-            return std::isdigit( static_cast<unsigned char>( c ) )
-                || c == '.' || c == ',' || c == '-' || c == '+'
-                || c == '/' || c == '*' || c == '%' || c == '^' || c == '=';
+            return std::isdigit( static_cast<unsigned char>( c ) ) || c == '.' || c == ',' || c == '-' || c == '+' ||
+                   c == '/' || c == '*' || c == '%' || c == '^' || c == '=';
         }
-    }
+    } // namespace
 
     // -----------------------------------------------------------------------
     // CountTokens
     // -----------------------------------------------------------------------
-    size_t PromptAnalyzer::CountTokens( const std::string &text ) const
+    size_t PromptAnalyzer::CountTokens( const std::string& text ) const
     {
         std::istringstream iss( text );
-        size_t             count = 0;
-        std::string        word;
+        size_t count = 0;
+        std::string word;
         while ( iss >> word )
         {
             ++count;
@@ -44,7 +43,7 @@ namespace sgns::neoswarm::router
     // -----------------------------------------------------------------------
     // ComputeNumericDensity
     // -----------------------------------------------------------------------
-    float PromptAnalyzer::ComputeNumericDensity( const std::string &prompt ) const
+    float PromptAnalyzer::ComputeNumericDensity( const std::string& prompt ) const
     {
         if ( prompt.empty() )
         {
@@ -52,9 +51,9 @@ namespace sgns::neoswarm::router
         }
 
         std::istringstream iss( prompt );
-        std::string        token;
-        size_t             total   = 0;
-        size_t             numeric = 0;
+        std::string token;
+        size_t total = 0;
+        size_t numeric = 0;
 
         while ( iss >> token )
         {
@@ -78,7 +77,7 @@ namespace sgns::neoswarm::router
     // -----------------------------------------------------------------------
     // DetectCodeSyntax
     // -----------------------------------------------------------------------
-    bool PromptAnalyzer::DetectCodeSyntax( const std::string &prompt ) const
+    bool PromptAnalyzer::DetectCodeSyntax( const std::string& prompt ) const
     {
         static const std::regex kCodePatterns(
             R"(\b(def |class |function |import |#include|void |int |float |return |if\s*\(|for\s*\(|while\s*\(|\{|\}|=>|->|::|std::))",
@@ -89,12 +88,12 @@ namespace sgns::neoswarm::router
     // -----------------------------------------------------------------------
     // EstimateComplexity
     // -----------------------------------------------------------------------
-    float PromptAnalyzer::EstimateComplexity( const std::string &prompt ) const
+    float PromptAnalyzer::EstimateComplexity( const std::string& prompt ) const
     {
-        std::istringstream              iss( prompt );
-        std::string                     word;
+        std::istringstream iss( prompt );
+        std::string word;
         std::unordered_set<std::string> vocab;
-        size_t                          total = 0;
+        size_t total = 0;
 
         while ( iss >> word )
         {
@@ -115,22 +114,20 @@ namespace sgns::neoswarm::router
     // -----------------------------------------------------------------------
     // HasMathKeywords
     // -----------------------------------------------------------------------
-    bool PromptAnalyzer::HasMathKeywords( const std::string &prompt ) const
+    bool PromptAnalyzer::HasMathKeywords( const std::string& prompt ) const
     {
         static const std::vector<std::string> kMathKeywords = {
-            "solve", "calculate", "compute", "integral", "derivative",
-            "equation", "algebra", "geometry", "trigonometry", "matrix",
-            "vector", "probability", "statistics", "factorial", "prime",
-            "sqrt", "logarithm", "exponent", "polynomial", "theorem",
-            "proof", "formula", "arithmetic", "multiply", "divide",
-            "sum", "product", "difference", "quotient", "remainder"
-        };
+            "solve",      "calculate", "compute",      "integral",   "derivative", "equation",
+            "algebra",    "geometry",  "trigonometry", "matrix",     "vector",     "probability",
+            "statistics", "factorial", "prime",        "sqrt",       "logarithm",  "exponent",
+            "polynomial", "theorem",   "proof",        "formula",    "arithmetic", "multiply",
+            "divide",     "sum",       "product",      "difference", "quotient",   "remainder" };
 
         std::string lower = prompt;
         std::transform( lower.begin(), lower.end(), lower.begin(),
                         []( unsigned char c ) { return std::tolower( c ); } );
 
-        for ( const auto &kw : kMathKeywords )
+        for ( const auto& kw : kMathKeywords )
         {
             if ( lower.find( kw ) != std::string::npos )
             {
@@ -143,19 +140,18 @@ namespace sgns::neoswarm::router
     // -----------------------------------------------------------------------
     // HasGrammarRequest
     // -----------------------------------------------------------------------
-    bool PromptAnalyzer::HasGrammarRequest( const std::string &prompt ) const
+    bool PromptAnalyzer::HasGrammarRequest( const std::string& prompt ) const
     {
         static const std::vector<std::string> kGrammarKeywords = {
-            "grammar", "spelling", "punctuation", "proofread", "correct my",
-            "fix my", "improve my writing", "rewrite", "rephrase", "paraphrase",
-            "fluency", "sentence structure", "typo", "edit this", "revise"
-        };
+            "grammar", "spelling",           "punctuation", "proofread", "correct my",
+            "fix my",  "improve my writing", "rewrite",     "rephrase",  "paraphrase",
+            "fluency", "sentence structure", "typo",        "edit this", "revise" };
 
         std::string lower = prompt;
         std::transform( lower.begin(), lower.end(), lower.begin(),
                         []( unsigned char c ) { return std::tolower( c ); } );
 
-        for ( const auto &kw : kGrammarKeywords )
+        for ( const auto& kw : kGrammarKeywords )
         {
             if ( lower.find( kw ) != std::string::npos )
             {
@@ -168,14 +164,14 @@ namespace sgns::neoswarm::router
     // -----------------------------------------------------------------------
     // Analyze
     // -----------------------------------------------------------------------
-    PromptFeatures PromptAnalyzer::Analyze( const std::string &prompt ) const
+    PromptFeatures PromptAnalyzer::Analyze( const std::string& prompt ) const
     {
         PromptFeatures f;
-        f.numeric_density_     = ComputeNumericDensity( prompt );
-        f.has_code_syntax_     = DetectCodeSyntax( prompt );
-        f.complexity_          = EstimateComplexity( prompt );
-        f.token_count_         = CountTokens( prompt );
-        f.has_math_keywords_   = HasMathKeywords( prompt );
+        f.numeric_density_ = ComputeNumericDensity( prompt );
+        f.has_code_syntax_ = DetectCodeSyntax( prompt );
+        f.complexity_ = EstimateComplexity( prompt );
+        f.token_count_ = CountTokens( prompt );
+        f.has_math_keywords_ = HasMathKeywords( prompt );
         f.has_grammar_request_ = HasGrammarRequest( prompt );
         return f;
     }

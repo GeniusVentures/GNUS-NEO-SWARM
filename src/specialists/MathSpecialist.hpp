@@ -24,24 +24,32 @@ namespace sgns::neoswarm::specialists
      */
     class MathSpecialist : public ISpecialist
     {
-    public:
-        explicit MathSpecialist(
-            std::shared_ptr<core::InferenceEngine> engine = nullptr );
+        public:
+        explicit MathSpecialist( std::shared_ptr<core::InferenceEngine> engine = nullptr );
 
-        std::string GetName()  const override { return "MathSpecialist"; }
-        bool        IsLoaded() const override { return loaded_; }
+        std::string GetName() const override
+        {
+            return "MathSpecialist";
+        }
+        bool IsLoaded() const override
+        {
+            return loaded_;
+        }
 
-        outcome::result<void>        Load( const std::string &model_path ) override;
-        outcome::result<std::string> Process( const std::string &input ) override;
-        float                        GetConfidence() const override { return last_confidence_; }
+        outcome::result<void> Load( const std::string& model_path ) override;
+        outcome::result<std::string> Process( const std::string& input ) override;
+        float GetConfidence() const override
+        {
+            return last_confidence_;
+        }
 
-    private:
+        private:
         std::shared_ptr<core::InferenceEngine> engine_;
-        bool                                   loaded_          = false;
-        float                                  last_confidence_ = 0.0f;
+        bool loaded_ = false;
+        float last_confidence_ = 0.0f;
 
-        std::string              BuildPrompt( const std::string &input ) const;
-        std::optional<std::string> TrySymbolicFallback( const std::string &input ) const;
+        std::string BuildPrompt( const std::string& input ) const;
+        std::optional<std::string> TrySymbolicFallback( const std::string& input ) const;
     };
 
 } // namespace sgns::neoswarm::specialists

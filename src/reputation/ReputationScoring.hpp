@@ -24,14 +24,14 @@ namespace sgns::neoswarm::reputation
      */
     class ReputationScoring
     {
-    public:
+        public:
         struct Config
         {
-            double alpha_             = 0.10;  ///< accuracy weight
-            double beta_              = 0.05;  ///< consensus agreement weight
-            double gamma_             = 0.02;  ///< latency penalty
-            double delta_             = 0.03;  ///< consistency bonus
-            double epsilon_           = 1e-6;  ///< perplexity smoothing
+            double alpha_ = 0.10;   ///< accuracy weight
+            double beta_ = 0.05;    ///< consensus agreement weight
+            double gamma_ = 0.02;   ///< latency penalty
+            double delta_ = 0.03;   ///< consistency bonus
+            double epsilon_ = 1e-6; ///< perplexity smoothing
             double baseline_accuracy_ = 0.5;
         };
 
@@ -47,11 +47,11 @@ namespace sgns::neoswarm::reputation
          * @param consensus_output  The winning consensus output string.
          * @return                  Updated NodeReputation.
          */
-        NodeReputation Update( const NodeReputation              &old,
-                               const InferenceResponse           &response,
-                               double                             median_latency_ms,
-                               std::optional<std::string>         ground_truth,
-                               const std::string                 &consensus_output ) const;
+        NodeReputation Update( const NodeReputation& old,
+                               const InferenceResponse& response,
+                               double median_latency_ms,
+                               std::optional<std::string> ground_truth,
+                               const std::string& consensus_output ) const;
 
         /**
          * @brief Compute the accuracy delta component.
@@ -76,7 +76,7 @@ namespace sgns::neoswarm::reputation
          */
         double DeltaConsistency( float perplexity ) const;
 
-    private:
+        private:
         Config cfg_;
     };
 

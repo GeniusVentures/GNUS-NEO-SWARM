@@ -8,8 +8,8 @@
 #ifndef NEOSWARM_KNOWLEDGE_KNOWLEDGERETRIEVAL_HPP_
 #define NEOSWARM_KNOWLEDGE_KNOWLEDGERETRIEVAL_HPP_
 
-#include "common/Types.hpp"
 #include "common/Error.hpp"
+#include "common/Types.hpp"
 #include <memory>
 #include <string>
 #include <vector>
@@ -24,14 +24,14 @@ namespace sgns::neoswarm::knowledge
      */
     class KnowledgeRetrieval
     {
-    public:
+        public:
         struct Config
         {
-            std::string index_path_ = "";    ///< path to HNSW index file (future)
-            std::string facts_path_ = "";    ///< path to facts CSV
-            int         top_k_      = 3;     ///< number of facts to retrieve
-            float       min_score_  = 0.5f;  ///< minimum relevance score
-            bool        enabled_    = true;
+            std::string index_path_ = ""; ///< path to HNSW index file (future)
+            std::string facts_path_ = ""; ///< path to facts CSV
+            int top_k_ = 3;               ///< number of facts to retrieve
+            float min_score_ = 0.5f;      ///< minimum relevance score
+            bool enabled_ = true;
         };
 
         KnowledgeRetrieval();
@@ -55,20 +55,20 @@ namespace sgns::neoswarm::knowledge
          * @param query  User prompt or search string.
          * @return       Vector of KnowledgeFact or KnowledgeUnavailable.
          */
-        outcome::result<std::vector<KnowledgeFact>> Retrieve( const std::string &query ) const;
+        outcome::result<std::vector<KnowledgeFact>> Retrieve( const std::string& query ) const;
 
-    private:
+        private:
         struct Impl;
         std::unique_ptr<Impl> impl_;
-        Config                cfg_;
-        bool                  loaded_ = false;
+        Config cfg_;
+        bool loaded_ = false;
 
         /**
          * @brief Compute a simple bag-of-words TF-IDF embedding.
          * @param text  Input string.
          * @return      L2-normalised embedding vector.
          */
-        std::vector<float> Embed( const std::string &text ) const;
+        std::vector<float> Embed( const std::string& text ) const;
 
         /**
          * @brief Compute cosine similarity between two L2-normalised vectors.
@@ -76,8 +76,7 @@ namespace sgns::neoswarm::knowledge
          * @param b  Second vector.
          * @return   Similarity in [0, 1].
          */
-        static float CosineSimilarity( const std::vector<float> &a,
-                                       const std::vector<float> &b );
+        static float CosineSimilarity( const std::vector<float>& a, const std::vector<float>& b );
     };
 
 } // namespace sgns::neoswarm::knowledge

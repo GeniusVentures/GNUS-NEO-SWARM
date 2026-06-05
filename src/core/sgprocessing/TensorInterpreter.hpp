@@ -17,7 +17,7 @@
 
 namespace sgns
 {
-enum class InputFormat : int;
+    enum class InputFormat : int;
 } // namespace sgns
 
 namespace sgns::neoswarm::core
@@ -31,8 +31,8 @@ namespace sgns::neoswarm::core
      */
     class TensorInterpreter
     {
-    public:
-        TensorInterpreter()  = default;
+        public:
+        TensorInterpreter() = default;
         ~TensorInterpreter() = default;
 
         /**
@@ -47,17 +47,16 @@ namespace sgns::neoswarm::core
          * @param format  Tensor element format.
          * @return        Decoded string or InferenceFailed / InvalidArgument.
          */
-        outcome::result<std::string> Interpret( const std::vector<uint8_t> &bytes,
-                                                sgns::InputFormat            format ) const;
+        outcome::result<std::string> Interpret( const std::vector<uint8_t>& bytes, sgns::InputFormat format ) const;
 
-    private:
+        private:
         std::shared_ptr<Tokenizer> tokenizer_;
 
-        outcome::result<std::string> InterpretFloat32( const std::vector<uint8_t> &bytes ) const;
-        outcome::result<std::string> InterpretFloat16( const std::vector<uint8_t> &bytes ) const;
-        outcome::result<std::string> InterpretInt32( const std::vector<uint8_t> &bytes ) const;
-        outcome::result<std::string> InterpretInt8( const std::vector<uint8_t> &bytes ) const;
-        outcome::result<std::string> DecodeLogits( const std::vector<float> &logits ) const;
+        outcome::result<std::string> InterpretFloat32( const std::vector<uint8_t>& bytes ) const;
+        outcome::result<std::string> InterpretFloat16( const std::vector<uint8_t>& bytes ) const;
+        outcome::result<std::string> InterpretInt32( const std::vector<uint8_t>& bytes ) const;
+        outcome::result<std::string> InterpretInt8( const std::vector<uint8_t>& bytes ) const;
+        outcome::result<std::string> DecodeLogits( const std::vector<float>& logits ) const;
     };
 
 } // namespace sgns::neoswarm::core
