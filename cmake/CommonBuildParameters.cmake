@@ -11,7 +11,7 @@
 # ---------------------------------------------------------------------------
 # Convenience alias (source CMakeLists use THIRDPARTY_BUILD_DIR)
 # ---------------------------------------------------------------------------
-set(THIRDPARTY_BUILD_DIR "${_THIRDPARTY_BUILD_DIR}" CACHE PATH "" FORCE)
+set(THIRDPARTY_BUILD_DIR "${THIRDPARTY_BUILD_DIR}/Release" CACHE PATH "" FORCE)
 
 # ---------------------------------------------------------------------------
 # Boost version
@@ -25,8 +25,8 @@ set(BOOST_VERSION_2U "${BOOST_MAJOR_VERSION}_${BOOST_MINOR_VERSION}")
 # ---------------------------------------------------------------------------
 # GTest
 # ---------------------------------------------------------------------------
-set(GTest_DIR         "${_THIRDPARTY_BUILD_DIR}/GTest/lib/cmake/GTest")
-set(GTest_INCLUDE_DIR "${_THIRDPARTY_BUILD_DIR}/GTest/include")
+set(GTest_DIR         "${THIRDPARTY_BUILD_DIR}/GTest/lib/cmake/GTest")
+set(GTest_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/GTest/include")
 find_package(GTest CONFIG REQUIRED)
 include_directories(${GTest_INCLUDE_DIR})
 
@@ -38,7 +38,7 @@ include(${PROJECT_ROOT}/cmake/functions.cmake)
 # ---------------------------------------------------------------------------
 # OpenSSL
 # ---------------------------------------------------------------------------
-set(OPENSSL_DIR "${_THIRDPARTY_BUILD_DIR}/openssl/build"
+set(OPENSSL_DIR "${THIRDPARTY_BUILD_DIR}/openssl/build"
     CACHE PATH "OpenSSL install folder")
 set(OPENSSL_USE_STATIC_LIBS   ON  CACHE BOOL "")
 set(OPENSSL_MSVC_STATIC_RT    ON  CACHE BOOL "")
@@ -53,22 +53,22 @@ include_directories(${OPENSSL_INCLUDE_DIR})
 # ---------------------------------------------------------------------------
 # Microsoft.GSL
 # ---------------------------------------------------------------------------
-set(GSL_INCLUDE_DIR "${_THIRDPARTY_BUILD_DIR}/Microsoft.GSL/include")
+set(GSL_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/Microsoft.GSL/include")
 include_directories(${GSL_INCLUDE_DIR})
 
 # ---------------------------------------------------------------------------
 # fmt
 # ---------------------------------------------------------------------------
-set(fmt_DIR         "${_THIRDPARTY_BUILD_DIR}/fmt/lib/cmake/fmt")
-set(fmt_INCLUDE_DIR "${_THIRDPARTY_BUILD_DIR}/fmt/include")
+set(fmt_DIR         "${THIRDPARTY_BUILD_DIR}/fmt/lib/cmake/fmt")
+set(fmt_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/fmt/include")
 find_package(fmt CONFIG REQUIRED)
 include_directories(${fmt_INCLUDE_DIR})
 
 # ---------------------------------------------------------------------------
 # spdlog
 # ---------------------------------------------------------------------------
-set(spdlog_DIR         "${_THIRDPARTY_BUILD_DIR}/spdlog/lib/cmake/spdlog")
-set(spdlog_INCLUDE_DIR "${_THIRDPARTY_BUILD_DIR}/spdlog/include")
+set(spdlog_DIR         "${THIRDPARTY_BUILD_DIR}/spdlog/lib/cmake/spdlog")
+set(spdlog_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/spdlog/include")
 find_package(spdlog CONFIG REQUIRED)
 include_directories(${spdlog_INCLUDE_DIR})
 add_compile_definitions(SPDLOG_FMT_EXTERNAL GENIUS_HAS_SPDLOG)
@@ -76,7 +76,7 @@ add_compile_definitions(SPDLOG_FMT_EXTERNAL GENIUS_HAS_SPDLOG)
 # ---------------------------------------------------------------------------
 # Boost
 # ---------------------------------------------------------------------------
-set(_BOOST_ROOT    "${_THIRDPARTY_BUILD_DIR}/boost/build")
+set(_BOOST_ROOT    "${THIRDPARTY_BUILD_DIR}/boost/build")
 set(Boost_LIB_DIR  "${_BOOST_ROOT}/lib")
 set(Boost_INCLUDE_DIR "${_BOOST_ROOT}/include")
 
@@ -99,9 +99,9 @@ include_directories(${Boost_INCLUDE_DIRS})
 # ---------------------------------------------------------------------------
 # nlohmann/json (header-only)
 # ---------------------------------------------------------------------------
-set(nlohmann_json_DIR "${_THIRDPARTY_BUILD_DIR}/json/share/cmake/nlohmann_json")
+set(nlohmann_json_DIR "${THIRDPARTY_BUILD_DIR}/json/share/cmake/nlohmann_json")
 find_package(nlohmann_json CONFIG QUIET)
-set(_JSON_INCLUDE "${_THIRDPARTY_BUILD_DIR}/json/include")
+set(_JSON_INCLUDE "${THIRDPARTY_BUILD_DIR}/json/include")
 if(EXISTS "${_JSON_INCLUDE}/nlohmann/json.hpp")
     include_directories(${_JSON_INCLUDE})
     message(STATUS "nlohmann/json: ${_JSON_INCLUDE}")
@@ -112,9 +112,9 @@ endif()
 # ---------------------------------------------------------------------------
 # secp256k1
 # ---------------------------------------------------------------------------
-set(libsecp256k1_DIR         "${_THIRDPARTY_BUILD_DIR}/libsecp256k1/lib/cmake/libsecp256k1")
-set(libsecp256k1_INCLUDE_DIR "${_THIRDPARTY_BUILD_DIR}/libsecp256k1/include")
-set(libsecp256k1_LIBRARY_DIR "${_THIRDPARTY_BUILD_DIR}/libsecp256k1/lib")
+set(libsecp256k1_DIR         "${THIRDPARTY_BUILD_DIR}/libsecp256k1/lib/cmake/libsecp256k1")
+set(libsecp256k1_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/libsecp256k1/include")
+set(libsecp256k1_LIBRARY_DIR "${THIRDPARTY_BUILD_DIR}/libsecp256k1/lib")
 find_package(libsecp256k1 CONFIG QUIET)
 if(libsecp256k1_FOUND)
     include_directories(${libsecp256k1_INCLUDE_DIR})
@@ -137,15 +137,15 @@ endif()
 # ---------------------------------------------------------------------------
 # MNN
 # ---------------------------------------------------------------------------
-set(_MNN_LIB "${_THIRDPARTY_BUILD_DIR}/MNN/lib/libMNN${CMAKE_STATIC_LIBRARY_SUFFIX}")
+set(_MNN_LIB "${THIRDPARTY_BUILD_DIR}/MNN/lib/libMNN${CMAKE_STATIC_LIBRARY_SUFFIX}")
 if(NOT EXISTS "${_MNN_LIB}")
-    set(_MNN_LIB "${_THIRDPARTY_BUILD_DIR}/MNN/lib/libMNN.dylib")
+    set(_MNN_LIB "${THIRDPARTY_BUILD_DIR}/MNN/lib/libMNN.dylib")
 endif()
 if(EXISTS "${_MNN_LIB}")
     add_library(MNN UNKNOWN IMPORTED)
     set_target_properties(MNN PROPERTIES
         IMPORTED_LOCATION "${_MNN_LIB}"
-        INTERFACE_INCLUDE_DIRECTORIES "${_THIRDPARTY_BUILD_DIR}/MNN/include"
+        INTERFACE_INCLUDE_DIRECTORIES "${THIRDPARTY_BUILD_DIR}/MNN/include"
     )
     message(STATUS "MNN: ${_MNN_LIB}")
 else()
@@ -156,12 +156,12 @@ endif()
 # SentencePiece
 # ---------------------------------------------------------------------------
 find_library(SENTENCEPIECE_LIB sentencepiece
-    PATHS "${_THIRDPARTY_BUILD_DIR}/sentencepiece/lib" NO_DEFAULT_PATH)
+    PATHS "${THIRDPARTY_BUILD_DIR}/sentencepiece/lib" NO_DEFAULT_PATH)
 if(SENTENCEPIECE_LIB)
     add_library(sentencepiece UNKNOWN IMPORTED)
     set_target_properties(sentencepiece PROPERTIES
         IMPORTED_LOCATION "${SENTENCEPIECE_LIB}"
-        INTERFACE_INCLUDE_DIRECTORIES "${_THIRDPARTY_BUILD_DIR}/sentencepiece/include"
+        INTERFACE_INCLUDE_DIRECTORIES "${THIRDPARTY_BUILD_DIR}/sentencepiece/include"
     )
     message(STATUS "SentencePiece: ${SENTENCEPIECE_LIB}")
 else()
@@ -171,32 +171,32 @@ endif()
 # ---------------------------------------------------------------------------
 # RocksDB
 # ---------------------------------------------------------------------------
-set(RocksDB_DIR "${_THIRDPARTY_BUILD_DIR}/rocksdb/lib/cmake/rocksdb")
+set(RocksDB_DIR "${THIRDPARTY_BUILD_DIR}/rocksdb/lib/cmake/rocksdb")
 find_package(RocksDB CONFIG QUIET)
 if(NOT RocksDB_FOUND)
     find_library(ROCKSDB_LIB rocksdb
-        PATHS "${_THIRDPARTY_BUILD_DIR}/rocksdb/lib" NO_DEFAULT_PATH)
+        PATHS "${THIRDPARTY_BUILD_DIR}/rocksdb/lib" NO_DEFAULT_PATH)
     if(ROCKSDB_LIB)
         add_library(rocksdb UNKNOWN IMPORTED)
         set_target_properties(rocksdb PROPERTIES
             IMPORTED_LOCATION "${ROCKSDB_LIB}"
-            INTERFACE_INCLUDE_DIRECTORIES "${_THIRDPARTY_BUILD_DIR}/rocksdb/include"
+            INTERFACE_INCLUDE_DIRECTORIES "${THIRDPARTY_BUILD_DIR}/rocksdb/include"
         )
         message(STATUS "RocksDB: ${ROCKSDB_LIB}")
     endif()
 endif()
 
 # Snappy (RocksDB dependency)
-set(Snappy_DIR "${_THIRDPARTY_BUILD_DIR}/snappy/lib/cmake/Snappy")
+set(Snappy_DIR "${THIRDPARTY_BUILD_DIR}/snappy/lib/cmake/Snappy")
 find_package(Snappy CONFIG QUIET)
 if(NOT TARGET Snappy::snappy)
     find_library(_SNAPPY_LIB snappy
-        PATHS "${_THIRDPARTY_BUILD_DIR}/snappy/lib" NO_DEFAULT_PATH)
+        PATHS "${THIRDPARTY_BUILD_DIR}/snappy/lib" NO_DEFAULT_PATH)
     if(_SNAPPY_LIB)
         add_library(Snappy::snappy UNKNOWN IMPORTED)
         set_target_properties(Snappy::snappy PROPERTIES
             IMPORTED_LOCATION "${_SNAPPY_LIB}"
-            INTERFACE_INCLUDE_DIRECTORIES "${_THIRDPARTY_BUILD_DIR}/snappy/include"
+            INTERFACE_INCLUDE_DIRECTORIES "${THIRDPARTY_BUILD_DIR}/snappy/include"
         )
         message(STATUS "Snappy: ${_SNAPPY_LIB}")
     endif()
@@ -208,15 +208,15 @@ endif()
 foreach(_tp_pkg protobuf yaml-cpp tsl_hat_trie soralog Boost.DI
                 ed25519 sr25519-donna xxhash cares ipfs-lite-cpp
                 ipfs-pubsub ipfs-bitswap-cpp sqlite3 SQLiteModernCpp)
-    list(APPEND CMAKE_PREFIX_PATH "${_THIRDPARTY_BUILD_DIR}/${_tp_pkg}/lib/cmake/${_tp_pkg}")
-    list(APPEND CMAKE_PREFIX_PATH "${_THIRDPARTY_BUILD_DIR}/${_tp_pkg}/lib/cmake")
+    list(APPEND CMAKE_PREFIX_PATH "${THIRDPARTY_BUILD_DIR}/${_tp_pkg}/lib/cmake/${_tp_pkg}")
+    list(APPEND CMAKE_PREFIX_PATH "${THIRDPARTY_BUILD_DIR}/${_tp_pkg}/lib/cmake")
 endforeach()
-list(APPEND CMAKE_PREFIX_PATH "${_THIRDPARTY_BUILD_DIR}")
+list(APPEND CMAKE_PREFIX_PATH "${THIRDPARTY_BUILD_DIR}")
 
-set(libp2p_DIR "${_THIRDPARTY_BUILD_DIR}/libp2p/lib/cmake/libp2p")
+set(libp2p_DIR "${THIRDPARTY_BUILD_DIR}/libp2p/lib/cmake/libp2p")
 find_package(libp2p CONFIG QUIET)
 if(libp2p_FOUND)
-    include_directories("${_THIRDPARTY_BUILD_DIR}/libp2p/include")
+    include_directories("${THIRDPARTY_BUILD_DIR}/libp2p/include")
     message(STATUS "libp2p found")
 else()
     message(STATUS "libp2p not found — P2P networking runs in stub mode")
@@ -232,8 +232,8 @@ find_package(Threads REQUIRED)
 # ---------------------------------------------------------------------------
 find_package(Vulkan QUIET)
 if(NOT Vulkan_FOUND)
-    set(_VULKAN_LOADER_LIB "${_THIRDPARTY_BUILD_DIR}/Vulkan-Loader/lib/libvulkan.1.dylib")
-    set(_VULKAN_HEADERS_DIR "${_THIRDPARTY_BUILD_DIR}/Vulkan-Loader/include")
+    set(_VULKAN_LOADER_LIB "${THIRDPARTY_BUILD_DIR}/Vulkan-Loader/lib/libvulkan.1.dylib")
+    set(_VULKAN_HEADERS_DIR "${THIRDPARTY_BUILD_DIR}/Vulkan-Loader/include")
     if(EXISTS "${_VULKAN_LOADER_LIB}" AND EXISTS "${_VULKAN_HEADERS_DIR}/vulkan/vulkan_core.h")
         add_library(Vulkan::Vulkan SHARED IMPORTED)
         set_target_properties(Vulkan::Vulkan PROPERTIES
@@ -271,7 +271,7 @@ add_subdirectory(${PROJECT_ROOT}/src/api         ${CMAKE_BINARY_DIR}/src/api)
 # ---------------------------------------------------------------------------
 # Main binary
 # ---------------------------------------------------------------------------
-add_executable(neo-swarm ${PROJECT_ROOT}/src/genius_node.cpp)
+add_executable(neo-swarm ${PROJECT_ROOT}/src/genius_chat_cli.cpp)
 target_link_libraries(neo-swarm PRIVATE genius_api Threads::Threads)
 if(UNIX AND NOT APPLE)
     target_link_libraries(neo-swarm PRIVATE uuid)

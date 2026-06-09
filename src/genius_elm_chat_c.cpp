@@ -1,14 +1,15 @@
 /**
  * @file       genius_elm_chat_c.cpp
- * @brief      C FFI entry point — stub for GeniusElmChatCompletionsCreate / GeniusElmStringFree
- * @date       2026-06-09
+ * @brief      C FFI entry point stub for GeniusElmInit / GeniusElmChatCompletionsCreate /
+ *             GeniusElmStringFree / GeniusElmGetStatus
+ * @date       2026-06-10
  * @author     Subaskar S (ssivakumar@gnus.ai)
  *
- * This stub returns a fixed JSON response until the real GeniusAPIServer
- * pipeline is wired. The shared library is consumed by the Flutter bridge.
+ * Returns canned responses until the real GeniusAPIServer pipeline is wired.
+ * The shared library is consumed by the Flutter bridge.
  */
 
-#include "genius_elm_chat_c.h"
+#include "genius_elm_chat_completions.h"
 
 #include <cstdlib>
 #include <cstring>
@@ -29,21 +30,40 @@ namespace
         std::memcpy( buf, value.data(), size );
         return buf;
     }
+
+    static const char kStubChatJson[] =
+        "{\"id\":\"chatcmpl-stub\",\"object\":\"chat.completion\","
+        "\"created\":0,\"model\":\"elm-v1\","
+        "\"choices\":[{\"index\":0,\"message\":{"
+        "\"role\":\"assistant\",\"content\":\"[ELM stub - engine not wired]\"},"
+        "\"finish_reason\":\"stop\"}],"
+        "\"usage\":{\"prompt_tokens\":0,\"completion_tokens\":0,\"total_tokens\":0}}";
+
+    static const char kStubStatusJson[] =
+        "{\"model_loaded\":false,\"mode\":\"stub\",\"backend\":\"none\",\"node_id\":\"stub\"}";
+
+    static bool g_initialized = false;
 } // namespace
 
-GENIUS_ELM_CHAT_C_API char* GeniusElmChatCompletionsCreate( const char* /* requestJson */ ) GENIUS_ELM_CHAT_C_NOEXCEPT
+GENIUS_ELM_CHAT_C_API int GeniusElmInit( const char* /* modelPath */, const char* /* knowledgePath */ )
+    GENIUS_ELM_CHAT_C_NOEXCEPT
 {
-    static const char kStubJson[] = "{\"id\":\"chatcmpl-stub\",\"object\":\"chat.completion\","
-                                    "\"created\":0,\"model\":\"elm-v1\","
-                                    "\"choices\":[{\"index\":0,\"message\":{"
-                                    "\"role\":\"assistant\",\"content\":\"[ELM stub — engine not wired]\"},"
-                                    "\"finish_reason\":\"stop\"}],"
-                                    "\"usage\":{\"prompt_tokens\":0,\"completion_tokens\":0,\"total_tokens\":0}}";
+    g_initialized = true;
+    return 0;
+}
 
-    return DuplicateString( kStubJson );
+GENIUS_ELM_CHAT_C_API char* GeniusElmChatCompletionsCreate( const char* /* requestJson */ )
+    GENIUS_ELM_CHAT_C_NOEXCEPT
+{
+    return DuplicateString( kStubChatJson );
 }
 
 GENIUS_ELM_CHAT_C_API void GeniusElmStringFree( char* value ) GENIUS_ELM_CHAT_C_NOEXCEPT
 {
     std::free( value );
+}
+
+GENIUS_ELM_CHAT_C_API char* GeniusElmGetStatus( void ) GENIUS_ELM_CHAT_C_NOEXCEPT
+{
+    return DuplicateString( kStubStatusJson );
 }

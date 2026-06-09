@@ -1,12 +1,18 @@
 /**
  * @file       test_genius_slm_ffi.cpp
- * @brief      Unit tests for C FFI layer — chat completions, string free
- * @date       2026-06-09
+ * @brief      Unit tests for C FFI layer — init, chat completions, status, string free
+ * @date       2026-06-10
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include "genius_elm_chat_c.h"
+#include "genius_elm_chat_completions.h"
 #include <gtest/gtest.h>
+
+TEST( GeniusElmFFI, InitSucceeds )
+{
+    int result = GeniusElmInit( nullptr, nullptr );
+    EXPECT_EQ( result, 0 );
+}
 
 TEST( GeniusElmFFI, StringFreeNullptrDoesNotCrash )
 {
@@ -14,10 +20,24 @@ TEST( GeniusElmFFI, StringFreeNullptrDoesNotCrash )
     SUCCEED();
 }
 
+TEST( GeniusElmFFI, GetStatusReturnsValidJson )
+{
+    char* status = GeniusElmGetStatus();
+    ASSERT_NE( status, nullptr );
+
+    std::string statusStr( status );
+    EXPECT_NE( statusStr.find( "model_loaded" ), std::string::npos );
+    EXPECT_NE( statusStr.find( "mode" ), std::string::npos );
+    EXPECT_NE( statusStr.find( "backend" ), std::string::npos );
+    EXPECT_NE( statusStr.find( "node_id" ), std::string::npos );
+
+    GeniusElmStringFree( status );
+}
+
 TEST( GeniusElmFFI, ChatCompletionsReturnsValidJson )
 {
-    const char *request = R"({"messages":[{"role":"user","content":"Hello"}]})";
-    char      *response = GeniusElmChatCompletionsCreate( request );
+    const char* request = R"({"messages":[{"role":"user","content":"Hello"}]})";
+    char*       response = GeniusElmChatCompletionsCreate( request );
     ASSERT_NE( response, nullptr );
 
     std::string respStr( response );
@@ -29,7 +49,7 @@ TEST( GeniusElmFFI, ChatCompletionsReturnsValidJson )
 
 TEST( GeniusElmFFI, ChatCompletionsWithNullDoesNotCrash )
 {
-    char *response = GeniusElmChatCompletionsCreate( nullptr );
+    char* response = GeniusElmChatCompletionsCreate( nullptr );
     ASSERT_NE( response, nullptr );
 
     std::string respStr( response );
@@ -38,15 +58,9 @@ TEST( GeniusElmFFI, ChatCompletionsWithNullDoesNotCrash )
     GeniusElmStringFree( response );
 }
 
-TEST( GeniusElmFFI, ChatCompletionsStubContainsRequiredFields )
+TEST( GeniusElmFFI, MultipleInitCallsSucceed )
 {
-    const char *request = R"({"messages":[{"role":"user","content":"test"}]})";
-    char      *response = GeniusElmChatCompletionsCreate( request );
-    ASSERT_NE( response, nullptr );
-
-    std::string respStr( response );
-    EXPECT_NE( respStr.find( "chat.completion" ), std::string::npos );
-    EXPECT_NE( respStr.find( "assistant" ), std::string::npos );
-
-    GeniusElmStringFree( response );
+    EXPECT_EQ( GeniusElmInit( nullptr, nullptr ), 0 );
+    EXPECT_EQ( GeniusElmInit( nullptr, nullptr ), 0 );
+    EXPECT_EQ( GeniusElmInit( nullptr, nullptr ), 0 );
 }
