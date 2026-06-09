@@ -279,15 +279,15 @@ endif()
 
 # ---------------------------------------------------------------------------
 # FFI shared library (Flutter bridge)
-# Links against genius_api so GeniusSlmChatCompletionsCreate calls the real
+# Links against genius_api so GeniusElmChatCompletionsCreate calls the real
 # GeniusAPIServer pipeline instead of returning a hardcoded stub.
 # ---------------------------------------------------------------------------
-add_library(Genius-MOS-SLM-FFI SHARED ${PROJECT_ROOT}/src/genius_slm_chat_c.cpp)
-target_include_directories(Genius-MOS-SLM-FFI PUBLIC ${PROJECT_ROOT}/src)
-target_compile_definitions(Genius-MOS-SLM-FFI PRIVATE GENIUS_SLM_CHAT_C_EXPORTS)
-target_link_libraries(Genius-MOS-SLM-FFI PRIVATE genius_api Threads::Threads)
+add_library(Genius-MOS-ELM-FFI SHARED ${PROJECT_ROOT}/src/genius_elm_chat_c.cpp)
+target_include_directories(Genius-MOS-ELM-FFI PUBLIC ${PROJECT_ROOT}/src)
+target_compile_definitions(Genius-MOS-ELM-FFI PRIVATE GENIUS_ELM_CHAT_C_EXPORTS)
+target_link_libraries(Genius-MOS-ELM-FFI PRIVATE genius_api Threads::Threads)
 if(APPLE)
-    target_link_options(Genius-MOS-SLM-FFI PRIVATE
+    target_link_options(Genius-MOS-ELM-FFI PRIVATE
         "LINKER:-force_load,$<TARGET_FILE:genius_api>"
     )
 endif()
@@ -304,7 +304,7 @@ endif()
 # Install
 # ---------------------------------------------------------------------------
 install(TARGETS neo-swarm RUNTIME DESTINATION bin)
-install(TARGETS Genius-MOS-SLM-FFI LIBRARY DESTINATION lib)
+install(TARGETS Genius-MOS-ELM-FFI LIBRARY DESTINATION lib)
 
 install(TARGETS
     genius_common genius_core genius_specialists genius_router
@@ -321,7 +321,7 @@ install(DIRECTORY ${PROJECT_ROOT}/src/
     DESTINATION include/genius
     FILES_MATCHING PATTERN "*.hpp"
 )
-install(FILES ${PROJECT_ROOT}/src/genius_slm_chat_c.h DESTINATION include/genius)
+install(FILES ${PROJECT_ROOT}/src/genius_elm_chat_c.h DESTINATION include/genius)
 
 # ---------------------------------------------------------------------------
 # Package config export
