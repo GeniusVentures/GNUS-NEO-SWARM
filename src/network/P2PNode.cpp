@@ -137,7 +137,7 @@ namespace sgns::neoswarm::network
                                                                                             : cfg_.listen_addr_ );
             if ( listen_ma )
             {
-                impl_->host_->listen( listen_ma.value() );
+                (void)impl_->host_->listen( listen_ma.value() );
             }
 
             // 5. Start the host and gossip

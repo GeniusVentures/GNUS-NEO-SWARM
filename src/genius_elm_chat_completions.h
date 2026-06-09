@@ -1,30 +1,30 @@
-#ifndef GENIUS_MOS_SLM_GENIUS_SLM_CHAT_C_H
-#define GENIUS_MOS_SLM_GENIUS_SLM_CHAT_C_H
+#ifndef GNUS_NEO_SWARM_GENIUS_ELM_CHAT_C_H
+#define GNUS_NEO_SWARM_GENIUS_ELM_CHAT_C_H
 
 #include <stddef.h>
 
 #if defined( _WIN32 )
-#if defined( GENIUS_SLM_CHAT_C_EXPORTS )
-#define GENIUS_SLM_CHAT_C_API __declspec( dllexport )
+#if defined( NEOSWARM_CHAT_C_EXPORTS )
+#define GENIUS_ELM_CHAT_C_API __declspec( dllexport )
 #else
-#define GENIUS_SLM_CHAT_C_API __declspec( dllimport )
+#define GENIUS_ELM_CHAT_C_API __declspec( dllimport )
 #endif
 #else
-#define GENIUS_SLM_CHAT_C_API
+#define GENIUS_ELM_CHAT_C_API
 #endif
 
 #if defined( __cplusplus )
-#define GENIUS_SLM_CHAT_C_NOEXCEPT noexcept
+#define GENIUS_ELM_CHAT_C_NOEXCEPT noexcept
 extern "C"
 {
 #else
-#define GENIUS_SLM_CHAT_C_NOEXCEPT
+#define GENIUS_ELM_CHAT_C_NOEXCEPT
 #endif
 
     /**
-     * \brief Initialises the Genius SLM engine.
+     * \brief Initialises the Genius ELM engine.
      *
-     * Must be called before \c GeniusSlmChatCompletionsCreate if a real model is
+     * Must be called before \c GeniusElmChatCompletionsCreate if a real model is
      * available. If not called, the engine starts in stub mode (returns canned
      * responses) which is useful for UI development and testing.
      *
@@ -32,8 +32,8 @@ extern "C"
      * \param knowledgePath  Path to a Grokipedia facts CSV, or NULL to disable.
      * \return 0 on success, -1 on failure.
      */
-    GENIUS_SLM_CHAT_C_API int GeniusSlmInit( const char* modelPath,
-                                             const char* knowledgePath ) GENIUS_SLM_CHAT_C_NOEXCEPT;
+    GENIUS_ELM_CHAT_C_API int GeniusElmInit( const char* modelPath,
+                                             const char* knowledgePath ) GENIUS_ELM_CHAT_C_NOEXCEPT;
 
     /**
      * \brief Creates an OpenAI v1-style chat completion response.
@@ -42,22 +42,22 @@ extern "C"
      * GeniusAPIServer pipeline (router → inference → optional specialist), and
      * returns a JSON string matching the /v1/chat/completions response schema.
      *
-     * If \c GeniusSlmInit has not been called, the engine initialises in stub
+     * If \c GeniusElmInit has not been called, the engine initialises in stub
      * mode on the first call.
      *
      * \param requestJson  UTF-8 JSON request in OpenAI v1 format, or NULL.
      * \return Heap-allocated UTF-8 JSON string. The caller must release it with
-     *         \c GeniusSlmStringFree. Returns NULL only on allocation failure.
+     *         \c GeniusElmStringFree. Returns NULL only on allocation failure.
      */
-    GENIUS_SLM_CHAT_C_API char* GeniusSlmChatCompletionsCreate( const char* requestJson ) GENIUS_SLM_CHAT_C_NOEXCEPT;
+    GENIUS_ELM_CHAT_C_API char* GeniusElmChatCompletionsCreate( const char* requestJson ) GENIUS_ELM_CHAT_C_NOEXCEPT;
 
     /**
      * \brief Releases a string buffer returned by the chat FFI API.
      *
      * \param value  Heap-allocated string returned by
-     *               \c GeniusSlmChatCompletionsCreate. NULL is allowed.
+     *               \c GeniusElmChatCompletionsCreate. NULL is allowed.
      */
-    GENIUS_SLM_CHAT_C_API void GeniusSlmStringFree( char* value ) GENIUS_SLM_CHAT_C_NOEXCEPT;
+    GENIUS_ELM_CHAT_C_API void GeniusElmStringFree( char* value ) GENIUS_ELM_CHAT_C_NOEXCEPT;
 
     /**
      * \brief Returns the current engine status as a JSON string.
@@ -69,12 +69,12 @@ extern "C"
      *   - "node_id": string — the node's peer identity
      *
      * \return Heap-allocated UTF-8 JSON string. The caller must release it with
-     *         \c GeniusSlmStringFree. Returns NULL only on allocation failure.
+     *         \c GeniusElmStringFree. Returns NULL only on allocation failure.
      */
-    GENIUS_SLM_CHAT_C_API char* GeniusSlmGetStatus( void ) GENIUS_SLM_CHAT_C_NOEXCEPT;
+    GENIUS_ELM_CHAT_C_API char* GeniusElmGetStatus( void ) GENIUS_ELM_CHAT_C_NOEXCEPT;
 
 #if defined( __cplusplus )
 }
 #endif
 
-#endif // GENIUS_MOS_SLM_GENIUS_SLM_CHAT_C_H
+#endif // GNUS_NEO_SWARM_GENIUS_ELM_CHAT_C_H
