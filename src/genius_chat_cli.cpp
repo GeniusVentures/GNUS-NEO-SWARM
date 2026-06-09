@@ -1,5 +1,5 @@
 /**
- * @file       genius_node.cpp
+ * @file       genius_chat.cpp
  * @brief      CLI entry point for GNUS NEO SWARM
  * @date       2026-05-08
  * @author     Subaskar S (ssivakumar@gnus.ai)
@@ -289,7 +289,7 @@ int main( int argc, char** argv )
     cfg.knowledge_facts_ = args.knowledge_path_;
     cfg.enable_network_ = args.network_;
     cfg.enable_knowledge_ = true;
-    cfg.grpc_port_ = args.port_;
+    (void) args.port_;
     cfg.node_key_file_ = args.key_file_;
     cfg.sg_endpoint_ = args.sg_endpoint_;
     cfg.sg_tls_ca_ = args.sg_tls_ca_;

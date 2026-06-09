@@ -23,7 +23,5 @@ if(TARGET fmt::fmt)
 endif()
 
 # outcome — required for outcome::result<>
-# libp2p ships its own outcome header; add its include path
-if(TARGET p2p::p2p)
-    target_link_libraries(genius_common PUBLIC p2p::p2p)
-endif()
+# libp2p ships its own outcome header; include path only, no link needed
+target_include_directories(genius_common PUBLIC "${THIRDPARTY_BUILD_DIR}/libp2p/include")
