@@ -5,26 +5,27 @@
  * @author     GSD Executor
  */
 
-#include <gtest/gtest.h>
 #include "security/NodeIdentity.hpp"
+#include <gtest/gtest.h>
 
 #include <cstdio>
 #include <fstream>
 #include <vector>
 
+using namespace sgns::neoswarm;
 using namespace sgns::neoswarm::security;
 
 namespace
 {
     const std::string kTestKeyPath = "/tmp/gnus_test_node.key";
-    const std::string kTestPass    = "test123";
-    const std::string kWrongPass   = "wrong456";
+    const std::string kTestPass = "test123";
+    const std::string kWrongPass = "wrong456";
 
     void RemoveTestFile()
     {
         std::remove( kTestKeyPath.c_str() );
     }
-}
+} // namespace
 
 // =======================================================================
 // Key Generation & Identity
@@ -36,8 +37,8 @@ TEST( NodeIdentity, DeterministicSignature )
     ASSERT_TRUE( ident.Generate().has_value() );
     ASSERT_TRUE( ident.IsLoaded() );
 
-    std::vector<uint8_t> msg1 = {0x01, 0x02, 0x03, 0x04};
-    std::vector<uint8_t> msg2 = {0x01, 0x02, 0x03, 0x04};
+    std::vector<uint8_t> msg1 = { 0x01, 0x02, 0x03, 0x04 };
+    std::vector<uint8_t> msg2 = { 0x01, 0x02, 0x03, 0x04 };
 
     auto sig1 = ident.Sign( msg1 );
     auto sig2 = ident.Sign( msg2 );
@@ -53,8 +54,8 @@ TEST( NodeIdentity, DifferentMessagesDifferentSignatures )
     NodeIdentity ident;
     ASSERT_TRUE( ident.Generate().has_value() );
 
-    std::vector<uint8_t> msgA = {0xAA};
-    std::vector<uint8_t> msgB = {0xBB};
+    std::vector<uint8_t> msgA = { 0xAA };
+    std::vector<uint8_t> msgB = { 0xBB };
 
     auto sigA = ident.Sign( msgA );
     auto sigB = ident.Sign( msgB );
@@ -69,7 +70,7 @@ TEST( NodeIdentity, SignAndVerifyRoundtrip )
     NodeIdentity ident;
     ASSERT_TRUE( ident.Generate().has_value() );
 
-    std::vector<uint8_t> msg = {0x01, 0x02, 0x03, 0x04, 0x05};
+    std::vector<uint8_t> msg = { 0x01, 0x02, 0x03, 0x04, 0x05 };
     auto sig = ident.Sign( msg );
     ASSERT_TRUE( sig.has_value() );
 

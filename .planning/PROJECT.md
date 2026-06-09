@@ -1,106 +1,112 @@
-# GENIUS NEO-SWARM
+# GNUS NEO SWARM
 
-A C++17 local inference engine and swarm networking node for the GNUS.AI Super Genius blockchain ecosystem. Runs MNN language models, routes prompts through specialists (math, grammar), aggregates results with reputation-weighted consensus, and optionally connects to the SuperGenius network for distributed inference.
+## What This Is
 
-## Current Milestone: v1.1 — ELM Training & Distillation Pipeline (gnus-poc)
+GNUS NEO SWARM is the decentralized peer-to-peer swarm AI engine powering the GNUS ecosystem.
+A Micro LLM router intelligently orchestrates specialist Nano Language Models (NLMs) into emergent
+ultra-smart intelligence via routed micro-nodes — running on consumer hardware with no central point
+of control.
 
-**Goal:** Build a Python pipeline in `gnus-poc/` to train, distill, evaluate, and orchestrate Expert Language Models using DeepSeek v4 pro API as the teacher model.
+The engine is a C++17 shared library (`libGenius-MOS-SLM-FFI`) with a Flutter chat UI, exposing
+an OpenAI v1-compatible chat completions API. It targets macOS, Linux, Windows, Android, and iOS,
+and integrates with the **SuperGenius** blockchain compute network for production-scale distributed
+inference via gRPC.
 
-**Target features:**
-- Teacher-driven synthetic data generation via DeepSeek v4 pro API
-- Specialist LoRA training pipeline (MLX-LM, extending 5→N specialists)
-- Knowledge distillation pipeline (teacher→student logit transfer, subspace extraction)
-- Evaluation & benchmarking per specialist (accuracy, latency, parameter efficiency)
-- Orchestration layer (auto-generate specialists from niche discovery, experiment tracking)
-- FP4 pyramid-based quantization for deployed specialists
-- Experimentation framework (A/B test LoRA ranks, layers, teacher prompts, niche clusters)
+## Core Value
+
+Real LLM inference on consumer hardware in a fully decentralized swarm, production-connected to the
+SuperGenius/GNUS network for distributed AI compute.
 
 ## Requirements
 
 ### Validated
 
-- CLI entry point with arg parsing (port, max_tokens, temperature, model path) — `src/genius_node.cpp`
-- OpenAI v1 chat-completions C FFI — `src/genius_slm_chat_c.cpp`
-- Orchestration pipeline: Route → Infer → Specialist → Consensus → Respond — `src/api/GeniusAPIServer.cpp`
-- Rule-based prompt router (CoreOnly, CorePlusMath, CorePlusGrammar) — `src/router/`
-- Math specialist (GSM8K-tuned 1-3B model with symbolic fallback) — `src/specialists/MathSpecialist.cpp`
-- Grammar specialist — `src/specialists/GrammarSpecialist.cpp`
-- Weighted consensus aggregation for swarm results — `src/reputation/WeightedConsensus.cpp`
-- Reputation scoring and storage (in-memory, optionally RocksDB) — `src/reputation/`
-- Node identity key generation and signing (secp256k1 optional) — `src/security/NodeIdentity.cpp`
-- P2P networking with libp2p (optional) — `src/network/P2PNode.cpp`
-- Knowledge retrieval from Grokipedia CSV with fact validation — `src/knowledge/`
-- FP4 weight quantization codec — `src/core/fp4/FP4Codec.hpp`
-- SuperGenius SGProcessing bridge (local + network optional) — `src/core/sgprocessing/`
-- Protobuf message definitions — `proto/`
-- Flutter UI scaffold + Dart FFI bridge plugin — `flutter_app/`, `flutter_slm_bridge/`
-- 46 passing GTest tests validating orchestration correctness — `test/`
-- CMake+Ninja build system with conditional `GENIUS_HAS_*` compilation — `CMakeLists.txt`
+- ✓ Real Mistral-7B inference via MNN LLM API with Metal GPU acceleration — existing
+- ✓ MNN model loading, SentencePiece tokenization, autoregressive token generation — existing
+- ✓ FP4 v3 codec for 4-bit weight quantization / decompression — existing
+- ✓ Rule-based router: SingleNode / Specialist / Swarm execution modes — existing
+- ✓ Reputation scoring, weighted consensus, CRDT-based sync — existing
+- ✓ Knowledge retrieval (TF-IDF stub), context injection, fact validation — existing
+- ✓ Grammar and Math specialist post-processing — existing
+- ✓ FFI layer for Flutter/Dart chat app integration — existing
+- ✓ CLI interface (`neo-swarm`) with REPL, single-shot, and serve modes — existing
+- ✓ Cross-platform CMake + Ninja build with stub fallbacks for all optional deps — existing
 
 ### Active
 
-- [ ] Fix GeniusSlmInit re-initialization race with std::call_once (`src/genius_slm_chat_c.cpp`)
-- [ ] Fix ReputationStorage::Deserialize crash on corrupt CSV data (`src/reputation/ReputationStorage.cpp`)
-- [ ] Add input validation to CLI ParseArgs (port, max_tokens, temperature ranges) (`src/genius_node.cpp`)
-- [ ] Fix Flutter FFI bridge memory leak on exception path (`flutter_slm_bridge/lib/flutter_slm_bridge.dart`)
-- [ ] Fix hardcoded absolute dylib path in Flutter bridge (`flutter_slm_bridge/lib/flutter_slm_bridge.dart`)
-- [ ] Replace fragile string-search JSON parsing with nlohmann/json in FFI layer (`src/genius_slm_chat_c.cpp`)
-- [ ] Fix NodeIdentity::LoadFromFile stale public key in stub mode (`src/security/NodeIdentity.cpp`)
-- [ ] Add security tests (key gen, sign/verify, tampered signatures) — `test/security/`
-- [ ] Add FFI layer tests (init, null safety, multiple-init, JSON handling) — `test/ffi/`
-- [ ] Add knowledge/fact validation tests — `test/knowledge/`
-- [ ] Remove std::this_thread::sleep_for from GeniusAPIServer::Serve() (`src/api/GeniusAPIServer.cpp`)
+- [ ] **SG-01**: SGProcessingBridge::SubmitNetwork dispatches inference jobs to SuperGenius via gRPC
+- [ ] **SG-02**: Add `--sg-endpoint` CLI flag for SuperGenius node address
+- [ ] **SEC-01**: Enable GENIUS_HAS_SECP256K1 — real secp256k1 node identity (library already linked)
+- [ ] **SEC-02**: Implement real MessageSigning::Verify (replace always-true stub)
+- [ ] **SEC-03**: Encrypt node private key at rest (AES-256-GCM)
+- [ ] **PERS-01**: RocksDB persistence for ReputationStorage (library already linked)
+- [ ] **PERS-02**: Fix ReputationStorage::Deserialize crash (wrap stod/stoull in try/catch)
+- [ ] **PROC-01**: Add MNN_LLM text generation processor to SGProcessingManager
+- [ ] **PROC-02**: Add FP4_ULTRA processor to SGProcessingManager
+- [ ] **FIX-01**: Fix GeniusSlmInit re-init bug (std::call_once deadlock)
+- [ ] **FIX-02**: Remove hardcoded vocab size 32000 (use tokenizer_->VocabSize())
+- [ ] **FIX-03**: Add JSON config file support (replace CLI-only config)
+- [ ] **TEST-01**: Security module tests (NodeIdentity, MessageSigning)
+- [ ] **TEST-02**: FFI layer tests (GeniusSlmInit, chat completions, re-init)
+- [ ] **TEST-03**: Knowledge module tests (FactValidation, KnowledgeRetrieval)
+- [ ] **FIX-04**: Fix test binary linker errors with SGProcessingManager enabled
 
-### Traceability
+### Out of Scope
 
-| ID | Requirement | Phase | Plan | Status |
-|----|-------------|-------|------|--------|
-| BUG-01 | Fix GeniusSlmInit re-init race (remove std::call_once, use null-check) | Phase 1 | 01-01 | Pending |
-| BUG-02 | Replace fragile string-search JSON parsing with nlohmann/json | Phase 1 | 01-01 | Pending |
-| BUG-03 | Fix Flutter FFI bridge memory leak (add try/finally) | Phase 1 | 01-01 | Pending |
-| BUG-04 | Fix ReputationStorage::Deserialize crash on corrupt CSV | Phase 1 | 01-02 | Pending |
-| BUG-05 | Add CLI input validation (port, max_tokens, temperature) | Phase 1 | 01-02 | Pending |
-| BUG-06 | Fix NodeIdentity::LoadFromFile stale public key in stub mode | Phase 1 | 01-02 | Pending |
-| BUG-07 | Fix hardcoded absolute dylib path in Flutter bridge | Phase 1 | 01-03 | Pending |
-| BUG-08 | Remove std::this_thread::sleep_for from GeniusAPIServer::Serve() | Phase 1 | 01-03 | Pending |
-| TEST-01 | Add security tests (key gen, sign/verify, tampered signatures) | Phase 2 | 02-01 | Pending |
-| TEST-02 | Add FFI layer tests (init, null safety, multiple-init, JSON) | Phase 2 | 02-02 | Pending |
-| TEST-03 | Add knowledge/fact validation tests | Phase 2 | 02-03 | Pending |
+- OAuth / social login for swarm nodes — not relevant to engine layer
+- Real-time streaming token output in Flutter (Task 7.2) — UX polish, not production-blocking
+- Full libp2p P2P network integration (GossipSub, mDNS) — complex, deferred to later milestone
+- iOS/Android device deployment — macOS proven, mobile is separate platform task
+- Semantic embeddings for KnowledgeRetrieval (replace TF-IDF stub) — nice-to-have
 
-### Out of Scope (this phase)
+## Context
 
-- Linking MNN, SentencePiece, secp256k1, RocksDB — user-managed thirdparty build
-- Real gRPC server implementation — requires Protobuf link + significant new code
-- Real gRPC client for SubmitNetwork — requires SuperGenius endpoint
-- Real Flutter chat UI wiring — Flutter-level feature work
-- YAML config file support — new feature requiring yaml-cpp integration
-- Streaming token output — new FFI API surface
-- Network/P2P tests — network mode not yet functional
+**Current State:** Prototype with Mistral-7B producing real inference output via MNN LLM API.
+All 46 tests pass, zero build errors. Most subsystems implemented but using stub/fallback mode
+for optional dependencies (secp256k1, RocksDB, SGProcessing network path).
+
+**SuperGenius Connection:** The sibling `SuperGenius/` repository contains the blockchain compute
+network. GNUS-NEO-SWARM connects as a client via `SGProcessingBridge`:
+- **Phase 1 (Local):** Direct processing via SGProcessingManager — working, stub mode
+- **Phase 2 (Network):** Dispatch via gRPCForSuperGenius to a SuperGenius node — NOT YET IMPLEMENTED
+
+`SGProcessingBridge::SubmitNetwork()` returns `Error::NotImplemented`. This is the gap to close.
+
+**Technical Environment:**
+- C++17, CMake 3.22+, Ninja, Boost 1.85.0 (outcome::result for error handling)
+- MNN with LLM support (Metal/Vulkan GPU), SentencePiece tokenizer
+- RocksDB, secp256k1, OpenSSL, libp2p, protobuf in thirdparty
+- Flutter 3.x UI with flutter_chat_ui, dart:ffi bridge
+- 8 compile-time feature flags (GENIUS_HAS_MNN, _SECP256K1, _ROCKSDB, etc.)
+
+**Known Issues:**
+- MessageSigning::Verify always returns true — zero inter-node auth
+- NodeIdentity private key stored as plain hex on disk
+- SentencePiece and SGProcessing have protobuf symbol conflict (cannot link both)
+- ExtractPrompt uses manual JSON parsing (fragile, no nlohmann/json)
+- gRPC serve mode is a busy-wait sleep loop (stub)
+- P2P libp2p integration is skeleton code, swarm falls back to single-node
+
+## Constraints
+
+- **Language:** C++17 only — no C++20 features permitted
+- **Platforms:** macOS (primary), Linux, Windows, Android, iOS
+- **Dependencies:** Pre-built thirdparty from `thirdparty/build/<Platform>/<BuildType>/`
+- **Style:** Microsoft-based with modifications (.clang-format), 120 char limit, Allman bracing
+- **Error Handling:** outcome::result<T>, noexcept by default, no exceptions in hot paths
+- **Testing:** Google Test, wait-condition templates, no sleep_for in tests
+- **SuperGenius:** Must work with existing SuperGenius/gRPCForSuperGenius interface
+- **Memory:** Mistral-7B requires 8GB+ RAM (5.3GB weights + KV cache)
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Fix code-level bugs first, third-party linkage deferred | Bugs are blocking correctness; stub-mode items need user-managed libs | Phase 1: code bugs + validation |
-| Add missing test directories (security, FFI, knowledge) | CONCERNS.md identified 4 untested areas as high risk | Included in Phase 1 |
-| Keep scope to items achievable without third-party changes | Avoids blocking on MNN/SentencePiece/secp256k1/RocksDB linkage | 7 code fixes + 3 test suites |
-
-## Evolution
-
-This document evolves at phase transitions and milestone boundaries.
-
-**After each phase transition** (via `/gsd-transition`):
-1. Requirements invalidated? → Move to Out of Scope with reason
-2. Requirements validated? → Move to Validated with phase reference
-3. New requirements emerged? → Add to Active
-4. Decisions to log? → Add to Key Decisions
-5. "What This Is" still accurate? → Update if drifted
-
-**After each milestone** (via `/gsd-complete-milestone`):
-1. Full review of all sections
-2. Core Value check — still the right priority?
-3. Audit Out of Scope — reasons still valid?
-4. Update Context with current state
+| MNN LLM API over raw Interpreter | LLMs need autoregressive generation with KV-cache; Interpreter only does single-pass tensor inference | ✓ Good |
+| Stub fallbacks for all optional deps | Enables build/testing without all libraries available; graceful degradation | ✓ Good |
+| Single Façade orchestrator (GeniusAPIServer) | Simple, explicit control flow; knows all component dependencies | — Pending |
+| CSV serialization for reputation (not protobuf) | Quick to implement, but fragile (commas in keys break parsing) | ⚠️ Revisit |
+| Manual JSON parsing in FFI layer | Avoids nlohmann/json dependency in FFI surface, but fragile and incomplete | ⚠️ Revisit |
 
 ---
-*Last updated: 2026-05-27 — Milestone v1.1 started*
+*Last updated: 2026-05-28 after initialization*

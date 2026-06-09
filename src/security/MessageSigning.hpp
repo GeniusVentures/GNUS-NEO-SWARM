@@ -21,19 +21,19 @@ namespace sgns::neoswarm::security
      */
     class MessageSigning
     {
-    public:
+        public:
         /**
          * @brief Construct with a reference to the local node identity.
          * @param identity  Node identity used for signing.
          */
-        explicit MessageSigning( const NodeIdentity &identity );
+        explicit MessageSigning( const NodeIdentity& identity );
 
         /**
          * @brief Sign a serialised message payload.
          * @param payload  UTF-8 payload string.
          * @return         DER-encoded signature bytes or IdentityError.
          */
-        outcome::result<std::vector<uint8_t>> Sign( const std::string &payload ) const;
+        outcome::result<std::vector<uint8_t>> Sign( const std::string& payload ) const;
 
         /**
          * @brief Verify a signature against a known public key.
@@ -42,9 +42,9 @@ namespace sgns::neoswarm::security
          * @param pub_key_hex Hex-encoded compressed public key of the signer.
          * @return            True if the signature is valid.
          */
-        static bool Verify( const std::string          &payload,
-                            const std::vector<uint8_t> &signature,
-                            const std::string          &pub_key_hex );
+        static bool Verify( const std::string& payload,
+                            const std::vector<uint8_t>& signature,
+                            const std::string& pub_key_hex );
 
         /// Replay protection window in seconds.
         static constexpr int64_t kReplayWindowSec = 30;
@@ -66,7 +66,7 @@ namespace sgns::neoswarm::security
          * @param payload  JSON object string (must end with '}').
          * @return         Payload with appended "sig" field.
          */
-        std::string AttachSignature( const std::string &payload ) const;
+        std::string AttachSignature( const std::string& payload ) const;
 
         /**
          * @brief Verify and strip the signature field from a signed JSON payload.
@@ -74,10 +74,10 @@ namespace sgns::neoswarm::security
          * @param         pub_key_hex Hex-encoded public key of the expected signer.
          * @return                    True if the signature is valid.
          */
-        static bool VerifyAndStrip( std::string &payload, const std::string &pub_key_hex );
+        static bool VerifyAndStrip( std::string& payload, const std::string& pub_key_hex );
 
-    private:
-        const NodeIdentity &identity_;
+        private:
+        const NodeIdentity& identity_;
     };
 
 } // namespace sgns::neoswarm::security
