@@ -102,7 +102,7 @@ namespace sgns::neoswarm::security
             if ( secp256k1_ec_seckey_verify( impl_->ctx_, impl_->priv_key_.data() ) )
             {
                 secp256k1_pubkey pubkey;
-                secp256k1_ec_pubkey_create( impl_->ctx_, &pubkey, impl_->priv_key_.data() );
+                (void)secp256k1_ec_pubkey_create( impl_->ctx_, &pubkey, impl_->priv_key_.data() );
                 size_t pub_len = kPubKeySize;
                 secp256k1_ec_pubkey_serialize( impl_->ctx_, pub_key_.data(), &pub_len, &pubkey,
                                                SECP256K1_EC_COMPRESSED );
@@ -174,7 +174,7 @@ namespace sgns::neoswarm::security
         std::copy( bytes.begin(), bytes.end(), impl_->priv_key_.begin() );
 #ifdef GENIUS_HAS_SECP256K1
         secp256k1_pubkey pubkey;
-        secp256k1_ec_pubkey_create( impl_->ctx_, &pubkey, impl_->priv_key_.data() );
+        (void)secp256k1_ec_pubkey_create( impl_->ctx_, &pubkey, impl_->priv_key_.data() );
         size_t pub_len = kPubKeySize;
         secp256k1_ec_pubkey_serialize( impl_->ctx_, pub_key_.data(), &pub_len, &pubkey, SECP256K1_EC_COMPRESSED );
 #endif
@@ -449,7 +449,7 @@ namespace sgns::neoswarm::security
         // 11. Derive public key from private key
 #ifdef GENIUS_HAS_SECP256K1
         secp256k1_pubkey pubkey;
-        secp256k1_ec_pubkey_create( impl_->ctx_, &pubkey, impl_->priv_key_.data() );
+        (void)secp256k1_ec_pubkey_create( impl_->ctx_, &pubkey, impl_->priv_key_.data() );
         size_t pubLen = kPubKeySize;
         secp256k1_ec_pubkey_serialize( impl_->ctx_, pub_key_.data(), &pubLen, &pubkey, SECP256K1_EC_COMPRESSED );
 #endif
