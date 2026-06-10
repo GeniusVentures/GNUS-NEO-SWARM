@@ -19,11 +19,11 @@ namespace sgns::neoswarm::network
     } // namespace
 
     ResultAggregation::ResultAggregation()
-        : cfg_( {} )
+        : m_cfg( {} )
     {
     }
     ResultAggregation::ResultAggregation( Config cfg )
-        : cfg_( std::move( cfg ) )
+        : m_cfg( std::move( cfg ) )
     {
     }
 
@@ -33,13 +33,13 @@ namespace sgns::neoswarm::network
     void ResultAggregation::Submit( const NodeOutput& output )
     {
         std::lock_guard<std::mutex> lock( m_mutex );
-        if ( results_.size() >= cfg_.max_responses_ )
+        if ( results_.size() >= m_cfg.max_responses_ )
         {
             return;
         }
         results_.push_back( output );
-        AggregationLogger()->debug( "Received from {} ({}/{})", output.node_id_, results_.size(), cfg_.max_responses_ );
-        if ( results_.size() >= cfg_.min_responses_ )
+        AggregationLogger()->debug( "Received from {} ({}/{})", output.m_nodeId, results_.size(), m_cfg.max_responses_ );
+        if ( results_.size() >= m_cfg.min_responses_ )
         {
             done_ = true;
             cv_.notify_all();
@@ -53,7 +53,7 @@ namespace sgns::neoswarm::network
     {
         std::unique_lock<std::mutex> lock( m_mutex );
         bool timed_out =
-            !cv_.wait_for( lock, cfg_.timeout_, [this] { return done_ || results_.size() >= cfg_.max_responses_; } );
+            !cv_.wait_for( lock, m_cfg.m_timeout, [this] { return done_ || results_.size() >= m_cfg.max_responses_; } );
 
         if ( timed_out && results_.empty() )
         {

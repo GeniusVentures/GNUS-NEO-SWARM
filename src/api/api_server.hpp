@@ -48,20 +48,20 @@ namespace sgns::neoswarm::api
         public:
         struct Config
         {
-            std::string model_path_;
-            std::string grammar_model_path_;
-            std::string math_model_path_;
-            std::string reputation_db_path_ = "./reputation.db";
+            std::string m_modelPath;
+            std::string grammar_m_modelPath;
+            std::string math_m_modelPath;
+            std::string m_reputationDbPath = "./reputation.db";
             std::string m_knowledgefacts_ = "";
-            bool enable_network_ = false;
+            bool m_enableNetwork = false;
             bool enable_m_knowledge = true;
-            int grpc_port_ = 50051;
-            std::string node_key_file_ = "./node.key";
-            bool enable_sg_processing_ = false;
-            bool sg_processing_network_mode_ = false;
+            int m_grpcPort = 50051;
+            std::string m_nodeKeyFile = "./node.key";
+            bool m_enableSgProcessing = false;
+            bool sg_processing_network_m_mode = false;
             std::string sg_m_endpoint = "localhost:50051";
-            std::string sg_tls_ca_;
-            std::string sg_tls_cert_;
+            std::string m_sgTlsCa;
+            std::string m_sgTlsCert;
         };
 
         explicit ApiServer( Config cfg );

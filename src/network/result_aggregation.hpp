@@ -27,7 +27,7 @@ namespace sgns::neoswarm::network
         public:
         struct Config
         {
-            std::chrono::milliseconds timeout_{ 5000 }; ///< max wait for responses
+            std::chrono::milliseconds m_timeout{ 5000 }; ///< max wait for responses
             size_t min_responses_ = 1;                  ///< minimum before returning
             size_t max_responses_ = 10;                 ///< stop collecting after this many
         };
@@ -56,7 +56,7 @@ namespace sgns::neoswarm::network
         size_t ResponseCount() const;
 
         private:
-        Config cfg_;
+        Config m_cfg;
         std::vector<NodeOutput> results_;
         mutable std::mutex m_mutex;
         std::condition_variable cv_;

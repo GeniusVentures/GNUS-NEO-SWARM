@@ -33,14 +33,14 @@ namespace sgns::neoswarm::reputation
     std::string ReputationStorage::Serialize( const NodeReputation& r )
     {
         nlohmann::json j;
-        j["identity_key"] = r.identity_key_;
-        j["global_score"] = r.global_score_;
-        j["math_score"] = r.math_score_;
-        j["grammar_score"] = r.grammar_score_;
-        j["latency_score"] = r.latency_score_;
-        j["consistency_score"] = r.consistency_score_;
-        j["task_count"] = r.task_count_;
-        j["last_updated_ms"] = r.last_updated_ms_;
+        j["identity_key"] = r.m_identityKey;
+        j["global_score"] = r.m_globalScore;
+        j["math_score"] = r.m_mathScore;
+        j["grammar_score"] = r.m_grammarScore;
+        j["latency_score"] = r.m_latencyScore;
+        j["consistency_score"] = r.m_consistencyScore;
+        j["task_count"] = r.m_taskCount;
+        j["last_updated_ms"] = r.m_lastUpdatedMs;
         return j.dump();
     }
 
@@ -50,19 +50,19 @@ namespace sgns::neoswarm::reputation
         try
         {
             nlohmann::json j = nlohmann::json::parse( data );
-            r.identity_key_ = j.value( "identity_key", "" );
-            r.global_score_ = j.value( "global_score", 0.0 );
-            r.math_score_ = j.value( "math_score", 0.0 );
-            r.grammar_score_ = j.value( "grammar_score", 0.0 );
-            r.latency_score_ = j.value( "latency_score", 0.0 );
-            r.consistency_score_ = j.value( "consistency_score", 0.0 );
-            r.task_count_ = j.value( "task_count", 0ULL );
-            r.last_updated_ms_ = j.value( "last_updated_ms", 0ULL );
+            r.m_identityKey = j.value( "identity_key", "" );
+            r.m_globalScore = j.value( "global_score", 0.0 );
+            r.m_mathScore = j.value( "math_score", 0.0 );
+            r.m_grammarScore = j.value( "grammar_score", 0.0 );
+            r.m_latencyScore = j.value( "latency_score", 0.0 );
+            r.m_consistencyScore = j.value( "consistency_score", 0.0 );
+            r.m_taskCount = j.value( "task_count", 0ULL );
+            r.m_lastUpdatedMs = j.value( "last_updated_ms", 0ULL );
         }
         catch ( const std::exception& e )
         {
             StorageLogger()->error( "Corrupt reputation record, skipping: {}", e.what() );
-            r.identity_key_ = "";
+            r.m_identityKey = "";
         }
         return r;
     }
@@ -72,7 +72,7 @@ namespace sgns::neoswarm::reputation
     // -----------------------------------------------------------------------
     struct ReputationStorage::Impl
     {
-        rocksdb::DB* db_ = nullptr;
+        rocksdb::DB* m_db = nullptr;
         rocksdb::Options options_;
 
     };
@@ -94,7 +94,7 @@ namespace sgns::neoswarm::reputation
     outcome::result<void> ReputationStorage::Open()
     {
         m_impl->options_.create_if_missing = true;
-        rocksdb::Status status = rocksdb::DB::Open( m_impl->options_, db_path_, &m_impl->db_ );
+        rocksdb::Status status = rocksdb::DB::Open( m_impl->options_, db_path_, &m_impl->m_db );
         if ( !status.ok() )
         {
             return outcome::failure( Error::StorageError );
@@ -110,10 +110,10 @@ namespace sgns::neoswarm::reputation
     // -----------------------------------------------------------------------
     void ReputationStorage::Close()
     {
-        if ( m_impl && m_impl->db_ )
+        if ( m_impl && m_impl->m_db )
         {
-            delete m_impl->db_;
-            m_impl->db_ = nullptr;
+            delete m_impl->m_db;
+            m_impl->m_db = nullptr;
         }
         open_ = false;
     }
@@ -128,7 +128,7 @@ namespace sgns::neoswarm::reputation
             return outcome::failure( Error::StorageError );
         }
         std::string val = Serialize( rep );
-        auto status = m_impl->db_->Put( rocksdb::WriteOptions(), rep.identity_key_, val );
+        auto status = m_impl->m_db->Put( rocksdb::WriteOptions(), rep.m_identityKey, val );
         if ( !status.ok() )
         {
             return outcome::failure( Error::StorageError );
@@ -147,7 +147,7 @@ namespace sgns::neoswarm::reputation
             return outcome::failure( Error::StorageError );
         }
         std::string val;
-        rocksdb::Status status = m_impl->db_->Get( rocksdb::ReadOptions(), identity_key, &val );
+        rocksdb::Status status = m_impl->m_db->Get( rocksdb::ReadOptions(), identity_key, &val );
         if ( status.IsNotFound() )
         {
             return outcome::failure( Error::ReputationNotFound );
@@ -169,7 +169,7 @@ namespace sgns::neoswarm::reputation
         {
             return outcome::failure( Error::StorageError );
         }
-        auto status = m_impl->db_->Delete( rocksdb::WriteOptions(), identity_key );
+        auto status = m_impl->m_db->Delete( rocksdb::WriteOptions(), identity_key );
         if ( !status.ok() )
         {
             return outcome::failure( Error::StorageError );
@@ -188,7 +188,7 @@ namespace sgns::neoswarm::reputation
             return outcome::failure( Error::StorageError );
         }
         std::vector<NodeReputation> result;
-        auto* it = m_impl->db_->NewIterator( rocksdb::ReadOptions() );
+        auto* it = m_impl->m_db->NewIterator( rocksdb::ReadOptions() );
         for ( it->SeekToFirst(); it->Valid(); it->Next() )
         {
             result.push_back( Deserialize( it->value().ToString() ) );

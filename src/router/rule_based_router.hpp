@@ -29,7 +29,7 @@ namespace sgns::neoswarm::router
         {
             float numeric_density_threshold_ = 0.30f;
             float complexity_swarm_threshold_ = 5.0f;
-            bool enable_swarm_mode_ = true;
+            bool enable_swarm_m_mode = true;
         };
 
         RuleBasedRouter();
@@ -44,7 +44,7 @@ namespace sgns::neoswarm::router
 
         private:
         Config m_cfg;
-        PromptAnalyzer analyzer_;
+        PromptAnalyzer m_analyzer;
 
         /**
          * @brief Select execution mode based on prompt features and explicit request.

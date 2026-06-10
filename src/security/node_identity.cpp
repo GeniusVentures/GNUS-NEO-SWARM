@@ -55,20 +55,20 @@ namespace sgns::neoswarm::security
     struct NodeIdentity::Impl
     {
         PrivKey m_privKey{};
-        secp256k1_context* ctx_ = nullptr;
+        secp256k1_context* m_ctx = nullptr;
     };
 
     NodeIdentity::NodeIdentity()
         : m_impl( std::make_unique<Impl>() )
     {
-        m_impl->ctx_ = secp256k1_context_create( SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY );
+        m_impl->m_ctx = secp256k1_context_create( SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY );
     }
 
     NodeIdentity::~NodeIdentity()
     {
-        if ( m_impl && m_impl->ctx_ )
+        if ( m_impl && m_impl->m_ctx )
         {
-            secp256k1_context_destroy( m_impl->ctx_ );
+            secp256k1_context_destroy( m_impl->m_ctx );
         }
     }
 
@@ -84,12 +84,12 @@ namespace sgns::neoswarm::security
             {
                 return outcome::failure( Error::IdentityError );
             }
-            if ( secp256k1_ec_seckey_verify( m_impl->ctx_, m_impl->m_privKey.data() ) )
+            if ( secp256k1_ec_seckey_verify( m_impl->m_ctx, m_impl->m_privKey.data() ) )
             {
                 secp256k1_pubkey pubkey;
-                (void)secp256k1_ec_pubkey_create( m_impl->ctx_, &pubkey, m_impl->m_privKey.data() );
+                (void)secp256k1_ec_pubkey_create( m_impl->m_ctx, &pubkey, m_impl->m_privKey.data() );
                 size_t pub_len = kPubKeySize;
-                secp256k1_ec_pubkey_serialize( m_impl->ctx_, m_pubKey.data(), &pub_len, &pubkey,
+                secp256k1_ec_pubkey_serialize( m_impl->m_ctx, m_pubKey.data(), &pub_len, &pubkey,
                                                SECP256K1_EC_COMPRESSED );
                 m_loaded = true;
                 IdentityLogger()->info( "NodeIdentity generated: peerId={}", PeerId() );
@@ -134,9 +134,9 @@ namespace sgns::neoswarm::security
         }
         std::copy( bytes.begin(), bytes.end(), m_impl->m_privKey.begin() );
         secp256k1_pubkey pubkey;
-        (void)secp256k1_ec_pubkey_create( m_impl->ctx_, &pubkey, m_impl->m_privKey.data() );
+        (void)secp256k1_ec_pubkey_create( m_impl->m_ctx, &pubkey, m_impl->m_privKey.data() );
         size_t pub_len = kPubKeySize;
-        secp256k1_ec_pubkey_serialize( m_impl->ctx_, m_pubKey.data(), &pub_len, &pubkey, SECP256K1_EC_COMPRESSED );
+        secp256k1_ec_pubkey_serialize( m_impl->m_ctx, m_pubKey.data(), &pub_len, &pubkey, SECP256K1_EC_COMPRESSED );
         m_loaded = true;
         return outcome::success();
     }
@@ -402,9 +402,9 @@ namespace sgns::neoswarm::security
 
         // 11. Derive public key from private key
         secp256k1_pubkey pubkey;
-        (void)secp256k1_ec_pubkey_create( m_impl->ctx_, &pubkey, m_impl->m_privKey.data() );
+        (void)secp256k1_ec_pubkey_create( m_impl->m_ctx, &pubkey, m_impl->m_privKey.data() );
         size_t pubLen = kPubKeySize;
-        secp256k1_ec_pubkey_serialize( m_impl->ctx_, m_pubKey.data(), &pubLen, &pubkey, SECP256K1_EC_COMPRESSED );
+        secp256k1_ec_pubkey_serialize( m_impl->m_ctx, m_pubKey.data(), &pubLen, &pubkey, SECP256K1_EC_COMPRESSED );
 
         m_loaded = true;
         IdentityLogger()->info( "NodeIdentity loaded encrypted from {}", path );
@@ -425,14 +425,14 @@ namespace sgns::neoswarm::security
         SHA256( message.data(), message.size(), hash );
 
         secp256k1_ecdsa_signature sig;
-        if ( !secp256k1_ecdsa_sign( m_impl->ctx_, &sig, hash, m_impl->m_privKey.data(), secp256k1_nonce_function_rfc6979,
+        if ( !secp256k1_ecdsa_sign( m_impl->m_ctx, &sig, hash, m_impl->m_privKey.data(), secp256k1_nonce_function_rfc6979,
                                     nullptr ) )
         {
             return outcome::failure( Error::IdentityError );
         }
         std::vector<uint8_t> der( 72 );
         size_t der_len = 72;
-        secp256k1_ecdsa_signature_serialize_der( m_impl->ctx_, der.data(), &der_len, &sig );
+        secp256k1_ecdsa_signature_serialize_der( m_impl->m_ctx, der.data(), &der_len, &sig );
         der.resize( der_len );
         return outcome::success( std::move( der ) );
 
@@ -451,16 +451,16 @@ namespace sgns::neoswarm::security
         SHA256( message.data(), message.size(), hash );
 
         secp256k1_ecdsa_signature sig;
-        if ( !secp256k1_ecdsa_signature_parse_der( m_impl->ctx_, &sig, signature.data(), signature.size() ) )
+        if ( !secp256k1_ecdsa_signature_parse_der( m_impl->m_ctx, &sig, signature.data(), signature.size() ) )
         {
             return false;
         }
         secp256k1_pubkey pubkey;
-        if ( !secp256k1_ec_pubkey_parse( m_impl->ctx_, &pubkey, m_pubKey.data(), kPubKeySize ) )
+        if ( !secp256k1_ec_pubkey_parse( m_impl->m_ctx, &pubkey, m_pubKey.data(), kPubKeySize ) )
         {
             return false;
         }
-        return secp256k1_ecdsa_verify( m_impl->ctx_, &sig, hash, &pubkey ) == 1;
+        return secp256k1_ecdsa_verify( m_impl->m_ctx, &sig, hash, &pubkey ) == 1;
 
     }
 

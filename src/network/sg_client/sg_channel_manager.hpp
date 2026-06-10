@@ -32,9 +32,9 @@ namespace sgns::neoswarm::network
         struct Config
         {
             std::string m_endpoint = "localhost:50051";
-            std::string tls_ca_path_;
-            std::string tls_cert_path_;
-            std::chrono::seconds timeout_{ 30 };
+            std::string m_tlsCaPath;
+            std::string m_tlsCertPath;
+            std::chrono::seconds m_timeout{ 30 };
         };
 
         explicit SGChannelManager( Config cfg );
@@ -49,7 +49,7 @@ namespace sgns::neoswarm::network
 
         private:
         Config m_cfg;
-        std::shared_ptr<grpc::Channel> channel_;
+        std::shared_ptr<grpc::Channel> m_channel;
     };
 
 } // namespace sgns::neoswarm::network

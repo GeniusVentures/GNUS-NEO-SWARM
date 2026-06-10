@@ -26,7 +26,7 @@ namespace sgns::neoswarm::network
 
     struct SGResultCollectorConfig
     {
-        std::chrono::seconds result_timeout_{ 300 };
+        std::chrono::seconds result_m_timeout{ 300 };
     };
 
     /**

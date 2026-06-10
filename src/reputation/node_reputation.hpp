@@ -32,7 +32,7 @@ namespace sgns::neoswarm::reputation
      */
     inline bool IsHighTrust( const NodeReputation& rep )
     {
-        return rep.task_count_ >= NodeReputation::kMinTasksForHighTrust && rep.global_score_ >= 0.7;
+        return rep.m_taskCount >= NodeReputation::kMinTasksForHighTrust && rep.m_globalScore >= 0.7;
     }
 
 } // namespace sgns::neoswarm::reputation

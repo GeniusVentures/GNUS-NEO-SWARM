@@ -43,7 +43,7 @@ namespace sgns::neoswarm::router
         }
 
         // Auto-upgrade to Swarm for complex prompts
-        if ( m_cfg.enable_swarm_mode_ && features.complexity_ > m_cfg.complexity_swarm_threshold_ )
+        if ( m_cfg.enable_swarm_m_mode && features.complexity_ > m_cfg.complexity_swarm_threshold_ )
         {
             return ExecutionMode::Swarm;
         }
@@ -63,39 +63,39 @@ namespace sgns::neoswarm::router
     // -----------------------------------------------------------------------
     outcome::result<RouteDecision> RuleBasedRouter::Route( const Task& task )
     {
-        PromptFeatures features = analyzer_.Analyze( task.prompt_ );
+        PromptFeatures features = m_analyzer.Analyze( task.m_prompt );
 
         RouteDecision decision;
-        decision.mode_ = SelectMode( features, task.mode_ );
+        decision.m_mode = SelectMode( features, task.m_mode );
 
         if ( features.numeric_density_ > m_cfg.numeric_density_threshold_ || features.has_math_keywords_ )
         {
-            decision.target_ = RouteTarget::CorePlusMath;
+            decision.m_target = RouteTarget::CorePlusMath;
             decision.confidence_ = 0.85f + features.numeric_density_ * 0.15f;
-            decision.reasoning_ = "High numeric density or math keywords detected";
+            decision.m_reasoning = "High numeric density or math keywords detected";
         }
         else if ( features.has_grammar_request_ )
         {
-            decision.target_ = RouteTarget::CorePlusGrammar;
+            decision.m_target = RouteTarget::CorePlusGrammar;
             decision.confidence_ = 0.90f;
-            decision.reasoning_ = "Grammar/writing correction request detected";
+            decision.m_reasoning = "Grammar/writing correction request detected";
         }
         else if ( features.has_code_syntax_ )
         {
-            decision.target_ = RouteTarget::CoreOnly;
+            decision.m_target = RouteTarget::CoreOnly;
             decision.confidence_ = 0.75f;
-            decision.reasoning_ = "Code syntax detected — routing to Core (Code specialist: future)";
+            decision.m_reasoning = "Code syntax detected — routing to Core (Code specialist: future)";
         }
         else
         {
-            decision.target_ = RouteTarget::CoreOnly;
+            decision.m_target = RouteTarget::CoreOnly;
             decision.confidence_ = 1.0f;
-            decision.reasoning_ = "General prompt — Core LLM only";
+            decision.m_reasoning = "General prompt — Core LLM only";
         }
 
         RouterLogger()->debug( "Route: target={} mode={} confidence={:.2f} reason='{}'",
-                               static_cast<int>( decision.target_ ), static_cast<int>( decision.mode_ ),
-                               decision.confidence_, decision.reasoning_ );
+                               static_cast<int>( decision.m_target ), static_cast<int>( decision.m_mode ),
+                               decision.confidence_, decision.m_reasoning );
 
         return outcome::success( std::move( decision ) );
     }

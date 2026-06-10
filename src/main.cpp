@@ -41,20 +41,20 @@ using namespace sgns::neoswarm;
 // ---------------------------------------------------------------------------
 struct Args
 {
-    std::string model_path_;
-    std::string grammar_model_path_;
-    std::string math_model_path_;
-    std::string mode_ = "auto";
-    std::string prompt_;
+    std::string m_modelPath;
+    std::string grammar_m_modelPath;
+    std::string math_m_modelPath;
+    std::string m_mode = "auto";
+    std::string m_prompt;
     int port_ = 50051;
     std::string db_path_ = "./reputation.db";
     std::string key_file_ = "./node.key";
     std::string m_knowledgepath_;
-    int max_tokens_ = 512;
-    float temperature_ = 0.7f;
+    int m_maxTokens = 512;
+    float m_temperature = 0.7f;
     std::string sg_m_endpoint = "localhost:50051";
-    std::string sg_tls_ca_;
-    std::string sg_tls_cert_;
+    std::string m_sgTlsCa;
+    std::string m_sgTlsCert;
     std::string config_path_;
     bool network_ = false;
     bool serve_ = false;
@@ -111,14 +111,14 @@ static void LoadConfigFile( const std::string& path, Args& args )
     }
 
     // Only set defaults — CLI args will override
-    if ( j.contains( "model" ) && args.model_path_.empty() )
-        args.model_path_ = j["model"].get<std::string>();
-    if ( j.contains( "grammar_model" ) && args.grammar_model_path_.empty() )
-        args.grammar_model_path_ = j["grammar_model"].get<std::string>();
-    if ( j.contains( "math_model" ) && args.math_model_path_.empty() )
-        args.math_model_path_ = j["math_model"].get<std::string>();
-    if ( j.contains( "mode" ) && args.mode_ == "auto" )
-        args.mode_ = j["mode"].get<std::string>();
+    if ( j.contains( "model" ) && args.m_modelPath.empty() )
+        args.m_modelPath = j["model"].get<std::string>();
+    if ( j.contains( "grammar_model" ) && args.grammar_m_modelPath.empty() )
+        args.grammar_m_modelPath = j["grammar_model"].get<std::string>();
+    if ( j.contains( "math_model" ) && args.math_m_modelPath.empty() )
+        args.math_m_modelPath = j["math_model"].get<std::string>();
+    if ( j.contains( "mode" ) && args.m_mode == "auto" )
+        args.m_mode = j["mode"].get<std::string>();
     if ( j.contains( "port" ) && args.port_ == 50051 )
         args.port_ = j["port"].get<int>();
     if ( j.contains( "db" ) && args.db_path_ == "./reputation.db" )
@@ -127,10 +127,10 @@ static void LoadConfigFile( const std::string& path, Args& args )
         args.key_file_ = j["key"].get<std::string>();
     if ( j.contains( "knowledge" ) && args.m_knowledgepath_.empty() )
         args.m_knowledgepath_ = j["knowledge"].get<std::string>();
-    if ( j.contains( "max_tokens" ) && args.max_tokens_ == 512 )
-        args.max_tokens_ = j["max_tokens"].get<int>();
-    if ( j.contains( "temperature" ) && args.temperature_ == 0.7f )
-        args.temperature_ = j["temperature"].get<float>();
+    if ( j.contains( "max_tokens" ) && args.m_maxTokens == 512 )
+        args.m_maxTokens = j["max_tokens"].get<int>();
+    if ( j.contains( "temperature" ) && args.m_temperature == 0.7f )
+        args.m_temperature = j["temperature"].get<float>();
     if ( j.contains( "sg_endpoint" ) && args.sg_m_endpoint == "localhost:50051" )
         args.sg_m_endpoint = j["sg_endpoint"].get<std::string>();
     if ( j.contains( "network" ) && !args.network_ )
@@ -154,15 +154,15 @@ static Args ParseArgs( int argc, char** argv )
             return argv[++i];
         };
         if ( a == "--model" )
-            args.model_path_ = next();
+            args.m_modelPath = next();
         else if ( a == "--grammar-model" )
-            args.grammar_model_path_ = next();
+            args.grammar_m_modelPath = next();
         else if ( a == "--math-model" )
-            args.math_model_path_ = next();
+            args.math_m_modelPath = next();
         else if ( a == "--mode" )
-            args.mode_ = next();
+            args.m_mode = next();
         else if ( a == "--prompt" )
-            args.prompt_ = next();
+            args.m_prompt = next();
         else if ( a == "--port" )
             args.port_ = std::stoi( next() );
         else if ( a == "--db" )
@@ -172,17 +172,17 @@ static Args ParseArgs( int argc, char** argv )
         else if ( a == "--knowledge" )
             args.m_knowledgepath_ = next();
         else if ( a == "--max-tokens" )
-            args.max_tokens_ = std::stoi( next() );
+            args.m_maxTokens = std::stoi( next() );
         else if ( a == "--temperature" )
-            args.temperature_ = std::stof( next() );
+            args.m_temperature = std::stof( next() );
         else if ( a == "--config" )
             args.config_path_ = next();
         else if ( a == "--sg-endpoint" )
             args.sg_m_endpoint = next();
         else if ( a == "--sg-tls-ca" )
-            args.sg_tls_ca_ = next();
+            args.m_sgTlsCa = next();
         else if ( a == "--sg-tls-cert" )
-            args.sg_tls_cert_ = next();
+            args.m_sgTlsCert = next();
         else if ( a == "--network" )
             args.network_ = true;
         else if ( a == "--serve" )
@@ -228,10 +228,10 @@ static void RunInteractive( api::ApiServer& server, ExecutionMode mode, int max_
             continue;
 
         Task task;
-        task.prompt_ = line;
-        task.mode_ = mode;
-        task.max_tokens_ = static_cast<uint32_t>( max_tokens );
-        task.temperature_ = temperature;
+        task.m_prompt = line;
+        task.m_mode = mode;
+        task.m_maxTokens = static_cast<uint32_t>( max_tokens );
+        task.m_temperature = temperature;
 
         auto res = server.Process( task );
         if ( !res.has_value() )
@@ -240,9 +240,9 @@ static void RunInteractive( api::ApiServer& server, ExecutionMode mode, int max_
         }
         else
         {
-            std::cout << "\n" << res.value().output_ << "\n\n";
-            std::cout << "[mode=" << static_cast<int>( res.value().mode_used_ )
-                      << " latency=" << res.value().total_latency_ms_ << "ms]\n\n";
+            std::cout << "\n" << res.value().m_output << "\n\n";
+            std::cout << "[mode=" << static_cast<int>( res.value().m_modeUsed )
+                      << " latency=" << res.value().m_totalLatencyMs << "ms]\n\n";
         }
     }
 }
@@ -282,18 +282,18 @@ int main( int argc, char** argv )
 
     // Build server config
     api::ApiServer::Config cfg;
-    cfg.model_path_ = args.model_path_;
-    cfg.grammar_model_path_ = args.grammar_model_path_;
-    cfg.math_model_path_ = args.math_model_path_;
-    cfg.reputation_db_path_ = args.db_path_;
+    cfg.m_modelPath = args.m_modelPath;
+    cfg.grammar_m_modelPath = args.grammar_m_modelPath;
+    cfg.math_m_modelPath = args.math_m_modelPath;
+    cfg.m_reputationDbPath = args.db_path_;
     cfg.m_knowledgefacts_ = args.m_knowledgepath_;
-    cfg.enable_network_ = args.network_;
+    cfg.m_enableNetwork = args.network_;
     cfg.enable_m_knowledge = true;
     (void) args.port_;
-    cfg.node_key_file_ = args.key_file_;
+    cfg.m_nodeKeyFile = args.key_file_;
     cfg.sg_m_endpoint = args.sg_m_endpoint;
-    cfg.sg_tls_ca_ = args.sg_tls_ca_;
-    cfg.sg_tls_cert_ = args.sg_tls_cert_;
+    cfg.m_sgTlsCa = args.m_sgTlsCa;
+    cfg.m_sgTlsCert = args.m_sgTlsCert;
 
     api::ApiServer server( cfg );
 
@@ -304,7 +304,7 @@ int main( int argc, char** argv )
         return 1;
     }
 
-    ExecutionMode mode = ( args.mode_ == "auto" ) ? ExecutionMode::SingleNode : ParseMode( args.mode_ );
+    ExecutionMode mode = ( args.m_mode == "auto" ) ? ExecutionMode::SingleNode : ParseMode( args.m_mode );
 
     if ( args.serve_ )
     {
@@ -317,13 +317,13 @@ int main( int argc, char** argv )
         return 0;
     }
 
-    if ( !args.prompt_.empty() )
+    if ( !args.m_prompt.empty() )
     {
         Task task;
-        task.prompt_ = args.prompt_;
-        task.mode_ = mode;
-        task.max_tokens_ = static_cast<uint32_t>( args.max_tokens_ );
-        task.temperature_ = args.temperature_;
+        task.m_prompt = args.m_prompt;
+        task.m_mode = mode;
+        task.m_maxTokens = static_cast<uint32_t>( args.m_maxTokens );
+        task.m_temperature = args.m_temperature;
 
         auto res = server.Process( task );
         if ( !res.has_value() )
@@ -331,10 +331,10 @@ int main( int argc, char** argv )
             std::cerr << "[ERROR] inference failed\n";
             return 1;
         }
-        std::cout << res.value().output_ << "\n";
+        std::cout << res.value().m_output << "\n";
         return 0;
     }
 
-    RunInteractive( server, mode, args.max_tokens_, args.temperature_ );
+    RunInteractive( server, mode, args.m_maxTokens, args.m_temperature );
     return 0;
 }

@@ -30,7 +30,7 @@ namespace sgns::neoswarm::network
 
     outcome::result<void> SGChannelManager::CreateChannel()
     {
-        if ( channel_ )
+        if ( m_channel )
         {
             ChannelLogger()->debug( "Channel already exists, reusing" );
             return outcome::success();
@@ -42,13 +42,13 @@ namespace sgns::neoswarm::network
 
         std::shared_ptr<grpc::ChannelCredentials> creds;
 
-        if ( !m_cfg.tls_ca_path_.empty() || !isLocalhost )
+        if ( !m_cfg.m_tlsCaPath.empty() || !isLocalhost )
         {
             // TLS required — load CA bundle
             grpc::SslCredentialsOptions sslOpts;
-            if ( !m_cfg.tls_ca_path_.empty() )
+            if ( !m_cfg.m_tlsCaPath.empty() )
             {
-                sslOpts.pem_root_certs = m_cfg.tls_ca_path_;
+                sslOpts.pem_root_certs = m_cfg.m_tlsCaPath;
             }
             creds = grpc::SslCredentials( sslOpts );
             ChannelLogger()->info( "Creating TLS-secured channel to {}", m_cfg.m_endpoint );
@@ -65,9 +65,9 @@ namespace sgns::neoswarm::network
         args.SetInt( GRPC_ARG_KEEPALIVE_TIMEOUT_MS, 10000 );
         args.SetInt( GRPC_ARG_KEEPALIVE_PERMIT_WITHOUT_CALLS, 1 );
 
-        channel_ = grpc::CreateCustomChannel( m_cfg.m_endpoint, creds, args );
+        m_channel = grpc::CreateCustomChannel( m_cfg.m_endpoint, creds, args );
 
-        if ( !channel_ )
+        if ( !m_channel )
         {
             ChannelLogger()->error( "Failed to create channel to {}", m_cfg.m_endpoint );
             return outcome::failure( Error::NetworkError );
@@ -81,12 +81,12 @@ namespace sgns::neoswarm::network
 
     outcome::result<bool> SGChannelManager::HealthCheck() const
     {
-        if ( !channel_ )
+        if ( !m_channel )
         {
             return false;
         }
 
-        auto state = channel_->GetState( false );
+        auto state = m_channel->GetState( false );
         if ( state == GRPC_CHANNEL_READY )
         {
             return true;
@@ -98,7 +98,7 @@ namespace sgns::neoswarm::network
 
     outcome::result<void> SGChannelManager::Reconnect()
     {
-        channel_.reset();
+        m_channel.reset();
 
         std::chrono::seconds backoff{ 1 };
 
@@ -131,7 +131,7 @@ namespace sgns::neoswarm::network
 
     std::shared_ptr<grpc::Channel> SGChannelManager::GetChannel() const
     {
-        return channel_;
+        return m_channel;
     }
 
     bool SGChannelManager::IsConnected() const noexcept
