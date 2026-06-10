@@ -5,10 +5,10 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include "reputation/ReputationCRDT.hpp"
-#include "reputation/ReputationScoring.hpp"
-#include "reputation/ReputationStorage.hpp"
-#include "reputation/WeightedConsensus.hpp"
+#include "reputation/reputation_crdt.hpp"
+#include "reputation/reputation_scoring.hpp"
+#include "reputation/reputation_storage.hpp"
+#include "reputation/weighted_consensus.hpp"
 #include <chrono>
 #include <gtest/gtest.h>
 

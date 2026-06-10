@@ -5,7 +5,7 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include "api/GeniusAPIServer.hpp"
+#include "api/api_server.hpp"
 #include <gtest/gtest.h>
 
 using namespace sgns::neoswarm;
@@ -16,18 +16,18 @@ class PipelineTest : public ::testing::Test
     protected:
     void SetUp() override
     {
-        GeniusAPIServer::Config cfg;
+        ApiServer::Config cfg;
         cfg.model_path_ = ""; // stub mode
         cfg.enable_network_ = false;
         cfg.enable_knowledge_ = true;
         cfg.reputation_db_path_ = ":memory:";
         cfg.node_key_file_ = "/tmp/test_genius_node.key";
 
-        server_ = std::make_unique<GeniusAPIServer>( cfg );
+        server_ = std::make_unique<ApiServer>( cfg );
         ASSERT_TRUE( server_->Initialize().has_value() );
     }
 
-    std::unique_ptr<GeniusAPIServer> server_;
+    std::unique_ptr<ApiServer> server_;
 };
 
 TEST_F( PipelineTest, SingleNodeMode )

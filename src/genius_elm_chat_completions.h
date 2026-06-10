@@ -1,5 +1,5 @@
-#ifndef GNUS_NEO_SWARM_GENIUS_ELM_CHAT_C_H
-#define GNUS_NEO_SWARM_GENIUS_ELM_CHAT_C_H
+#ifndef \1_H
+#define \1_H
 
 #include <stddef.h>
 
@@ -39,7 +39,7 @@ extern "C"
      * \brief Creates an OpenAI v1-style chat completion response.
      *
      * Parses the last user message from \p requestJson, routes it through the
-     * GeniusAPIServer pipeline (router → inference → optional specialist), and
+     * ApiServer pipeline (router → inference → optional specialist), and
      * returns a JSON string matching the /v1/chat/completions response schema.
      *
      * If \c GeniusElmInit has not been called, the engine initialises in stub
@@ -77,4 +77,4 @@ extern "C"
 }
 #endif
 
-#endif // GNUS_NEO_SWARM_GENIUS_ELM_CHAT_C_H
+#endif // \1_H

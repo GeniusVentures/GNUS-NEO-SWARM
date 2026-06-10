@@ -5,8 +5,8 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include "router/PromptAnalyzer.hpp"
-#include "router/RuleBasedRouter.hpp"
+#include "router/prompt_analyzer.hpp"
+#include "router/rule_based_router.hpp"
 #include <gtest/gtest.h>
 
 using namespace sgns::neoswarm;

@@ -5,9 +5,9 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include "common/Types.hpp"
-#include "knowledge/FactValidation.hpp"
-#include "knowledge/KnowledgeRetrieval.hpp"
+#include "common/types.hpp"
+#include "knowledge/fact_validation.hpp"
+#include "knowledge/knowledge_retrieval.hpp"
 #include <gtest/gtest.h>
 
 #include <memory>

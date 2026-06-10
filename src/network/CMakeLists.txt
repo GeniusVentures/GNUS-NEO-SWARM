@@ -1,25 +1,25 @@
-add_library(genius_network STATIC
-    P2PNode.cpp
-    ResultAggregation.cpp
-    sg_client/SuperGeniusClient.cpp
-    sg_client/SGChannelManager.cpp
-    sg_client/SGJobSubmitter.cpp
-    sg_client/SGResultCollector.cpp
-    sg_client/SGMessageAuthenticator.cpp
+add_library(neoswarm_network STATIC
+    p2p_node.cpp
+    result_aggregation.cpp
+    sg_client/super_genius_client.cpp
+    sg_client/sg_channel_manager.cpp
+    sg_client/sg_job_submitter.cpp
+    sg_client/sg_result_collector.cpp
+    sg_client/sg_message_authenticator.cpp
 )
 
-target_include_directories(genius_network PUBLIC
+target_include_directories(neoswarm_network PUBLIC
     $<BUILD_INTERFACE:${PROJECT_ROOT}/src>
     $<INSTALL_INTERFACE:include>
 )
 
-target_link_libraries(genius_network PUBLIC genius_common genius_security)
+target_link_libraries(neoswarm_network PUBLIC neoswarm_common neoswarm_security)
 
 # nlohmann/json
 if(TARGET nlohmann_json::nlohmann_json)
-    target_link_libraries(genius_network PUBLIC nlohmann_json::nlohmann_json)
+    target_link_libraries(neoswarm_network PUBLIC nlohmann_json::nlohmann_json)
 elseif(TARGET nlohmann_json)
-    target_link_libraries(genius_network PUBLIC nlohmann_json)
+    target_link_libraries(neoswarm_network PUBLIC nlohmann_json)
 endif()
 
 # libp2p — requires thirdparty fmt (Homebrew fmt must be unlinked)
@@ -48,24 +48,24 @@ if(TARGET p2p::p2p)
         )
     endif()
 
-    target_link_libraries(genius_network PUBLIC p2p::p2p)
+    target_link_libraries(neoswarm_network PUBLIC p2p::p2p)
     if(TARGET p2p::subscription)
-        target_link_libraries(genius_network PUBLIC p2p::subscription)
+        target_link_libraries(neoswarm_network PUBLIC p2p::subscription)
     endif()
     if(TARGET p2p::p2p_gossip)
-        target_link_libraries(genius_network PUBLIC p2p::p2p_gossip)
+        target_link_libraries(neoswarm_network PUBLIC p2p::p2p_gossip)
     endif()
     if(TARGET p2p::p2p_identity_manager)
-        target_link_libraries(genius_network PUBLIC p2p::p2p_identity_manager)
+        target_link_libraries(neoswarm_network PUBLIC p2p::p2p_identity_manager)
     endif()
     if(TARGET fmt::fmt)
-        target_link_libraries(genius_network PUBLIC fmt::fmt)
+        target_link_libraries(neoswarm_network PUBLIC fmt::fmt)
     endif()
     if(TARGET soralog::soralog)
-        target_link_libraries(genius_network PUBLIC soralog::soralog)
+        target_link_libraries(neoswarm_network PUBLIC soralog::soralog)
     endif()
 
-    target_include_directories(genius_network PUBLIC
+    target_include_directories(neoswarm_network PUBLIC
         "${THIRDPARTY_BUILD_DIR}/libp2p/include"
         "${THIRDPARTY_BUILD_DIR}/boost/build/include"
         "${THIRDPARTY_BUILD_DIR}/fmt/include"
@@ -73,9 +73,9 @@ if(TARGET p2p::p2p)
         "${THIRDPARTY_BUILD_DIR}/Microsoft.GSL/include"
     )
     # Use external fmt so spdlog's bundled fmt doesn't conflict
-    target_compile_definitions(genius_network PUBLIC
+    target_compile_definitions(neoswarm_network PUBLIC
         GENIUS_HAS_LIBP2P
         SPDLOG_FMT_EXTERNAL
     )
-    message(STATUS "libp2p enabled for genius_network")
+    message(STATUS "libp2p enabled for neoswarm_network")
 endif()

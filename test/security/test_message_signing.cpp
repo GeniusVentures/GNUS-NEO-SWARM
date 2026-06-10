@@ -5,8 +5,8 @@
  * @author     GSD Executor
  */
 
-#include "security/MessageSigning.hpp"
-#include "security/NodeIdentity.hpp"
+#include "security/message_signing.hpp"
+#include "security/node_identity.hpp"
 #include <gtest/gtest.h>
 
 #include <iomanip>

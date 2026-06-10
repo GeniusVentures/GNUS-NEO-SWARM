@@ -1,14 +1,14 @@
-add_library(genius_security STATIC
-    NodeIdentity.cpp
-    MessageSigning.cpp
+add_library(neoswarm_security STATIC
+    node_identity.cpp
+    message_signing.cpp
 )
 
-target_include_directories(genius_security PUBLIC
+target_include_directories(neoswarm_security PUBLIC
     $<BUILD_INTERFACE:${PROJECT_ROOT}/src>
     $<INSTALL_INTERFACE:include>
 )
 
-target_link_libraries(genius_security PUBLIC genius_common)
+target_link_libraries(neoswarm_security PUBLIC neoswarm_common)
 
 # Fallback: try to find/create secp256k1 target if CommonBuildParameters didn't
 if(NOT TARGET secp256k1)
@@ -20,12 +20,12 @@ if(NOT TARGET secp256k1)
 endif()
 
 if(TARGET secp256k1)
-    target_link_libraries(genius_security PUBLIC secp256k1)
-    target_compile_definitions(genius_security PUBLIC GENIUS_HAS_SECP256K1)
+    target_link_libraries(neoswarm_security PUBLIC secp256k1)
+    target_compile_definitions(neoswarm_security PUBLIC GENIUS_HAS_SECP256K1)
 endif()
 
 find_package(OpenSSL QUIET)
 if(OpenSSL_FOUND)
-    target_link_libraries(genius_security PUBLIC OpenSSL::SSL OpenSSL::Crypto)
-    target_compile_definitions(genius_security PUBLIC GENIUS_HAS_OPENSSL)
+    target_link_libraries(neoswarm_security PUBLIC OpenSSL::SSL OpenSSL::Crypto)
+    target_compile_definitions(neoswarm_security PUBLIC GENIUS_HAS_OPENSSL)
 endif()

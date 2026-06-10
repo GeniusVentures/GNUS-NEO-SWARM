@@ -5,7 +5,7 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include "core/fp4/FP4Codec.hpp"
+#include "core/fp4/fp4_codec.hpp"
 #include <gtest/gtest.h>
 
 #include <cmath>

@@ -1,33 +1,33 @@
-add_library(genius_core STATIC
-    fp4/FP4Codec.cpp
-    engine/MNNInferenceEngine.cpp
-    tokenizer/SentencePieceTokenizer.cpp
-    sgprocessing/SGProcessingBridge.cpp
-    sgprocessing/TensorInterpreter.cpp
+add_library(neoswarm_core STATIC
+    fp4/fp4_codec.cpp
+    engine/mnn_inference_engine.cpp
+    tokenizer/sentence_piece_tokenizer.cpp
+    sgprocessing/sg_processing_bridge.cpp
+    sgprocessing/tensor_interpreter.cpp
 )
 
-target_include_directories(genius_core PUBLIC
+target_include_directories(neoswarm_core PUBLIC
     $<BUILD_INTERFACE:${PROJECT_ROOT}/src>
     $<INSTALL_INTERFACE:include>
     "${_THIRDPARTY_BUILD_DIR}/boost/build/include"
     "${_THIRDPARTY_BUILD_DIR}/json/include"
 )
 
-target_link_libraries(genius_core PUBLIC genius_common)
+target_link_libraries(neoswarm_core PUBLIC neoswarm_common)
 
 # Boost (needed by SGProcessingManager generated headers and ASIO)
 find_library(BOOST_SYSTEM_LIB boost_system
     PATHS "${THIRDPARTY_BUILD_DIR}/boost/build/lib" NO_DEFAULT_PATH)
 if(BOOST_SYSTEM_LIB)
-    target_link_libraries(genius_core PUBLIC "${BOOST_SYSTEM_LIB}")
+    target_link_libraries(neoswarm_core PUBLIC "${BOOST_SYSTEM_LIB}")
 endif()
 
 # ---------------------------------------------------------------------------
 # MNN — standard Interpreter API (cross-platform, Vulkan via MoltenVK)
 # ---------------------------------------------------------------------------
 if(TARGET MNN)
-    target_link_libraries(genius_core PUBLIC MNN)
-    target_compile_definitions(genius_core PUBLIC GENIUS_HAS_MNN)
+    target_link_libraries(neoswarm_core PUBLIC MNN)
+    target_compile_definitions(neoswarm_core PUBLIC GENIUS_HAS_MNN)
 endif()
 
 # Check early if SGProcessingManager will be linked (used to skip SentencePiece)
@@ -41,8 +41,8 @@ find_library(_SGPROC_PROCESSING_BASE ProcessingBase PATHS "${_SGPROC_LIB_DIR}" N
 # tokenizer (tokenizer.mtok) is used in the LLM path instead.
 # ---------------------------------------------------------------------------
 if(NOT _SGPROC_PROCESSING_BASE AND TARGET sentencepiece)
-    target_link_libraries(genius_core PUBLIC sentencepiece)
-    target_compile_definitions(genius_core PUBLIC GENIUS_HAS_SENTENCEPIECE)
+    target_link_libraries(neoswarm_core PUBLIC sentencepiece)
+    target_compile_definitions(neoswarm_core PUBLIC GENIUS_HAS_SENTENCEPIECE)
 
     # Abseil static libs bundled in the SentencePiece build tree
     set(_SPM_BUILD_DIR "${_THIRDPARTY_BUILD_DIR}/../../../sentencepiece/build")
@@ -50,7 +50,7 @@ if(NOT _SGPROC_PROCESSING_BASE AND TARGET sentencepiece)
         "${_SPM_BUILD_DIR}/third_party/abseil-cpp/**/*.a"
     )
     if(_ABSL_LIBS)
-        target_link_libraries(genius_core PUBLIC ${_ABSL_LIBS})
+        target_link_libraries(neoswarm_core PUBLIC ${_ABSL_LIBS})
     endif()
 elseif(_SGPROC_PROCESSING_BASE AND TARGET sentencepiece)
     message(STATUS "SentencePiece skipped — protobuf conflict with SGProcessingManager. Using MNN built-in tokenizer.")
@@ -61,14 +61,14 @@ endif()
 # ---------------------------------------------------------------------------
 find_package(Vulkan QUIET)
 if(Vulkan_FOUND)
-    target_link_libraries(genius_core PUBLIC Vulkan::Vulkan)
-    target_compile_definitions(genius_core PUBLIC GENIUS_HAS_VULKAN)
+    target_link_libraries(neoswarm_core PUBLIC Vulkan::Vulkan)
+    target_compile_definitions(neoswarm_core PUBLIC GENIUS_HAS_VULKAN)
 endif()
 
 # MoltenVK — Vulkan-to-Metal translation layer (macOS/iOS only, but still Vulkan API)
 set(_MOLTENVK_LIB "${THIRDPARTY_BUILD_DIR}/MoltenVK/build/lib/MoltenVK.xcframework/macos-arm64_x86_64/libMoltenVK.a")
 if(EXISTS "${_MOLTENVK_LIB}")
-    target_link_libraries(genius_core PUBLIC
+    target_link_libraries(neoswarm_core PUBLIC
         "${_MOLTENVK_LIB}"
         "-framework Metal"
         "-framework Foundation"
@@ -98,11 +98,11 @@ find_library(_SGPROC_TYPES sgprocmanagertypes PATHS "${_SGPROC_LIB_DIR}" NO_DEFA
 find_library(_SGPROC_SHA sgprocmanagersha PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
 
 if(_SGPROC_PROCESSING_BASE AND EXISTS "${_SGPROC_INCLUDE}" AND EXISTS "${_SGPROC_GEN_INCLUDE}")
-    target_include_directories(genius_core PUBLIC
+    target_include_directories(neoswarm_core PUBLIC
         "${_SGPROC_INCLUDE}"
         "${_SGPROC_GEN_INCLUDE}"
     )
-    target_link_libraries(genius_core PUBLIC
+    target_link_libraries(neoswarm_core PUBLIC
         "${_SGPROC_PROCESSING_BASE}"
         "${_SGPROC_PROCESSORS}"
         "${_SGPROC_DATASPLITTER}"
@@ -114,8 +114,8 @@ if(_SGPROC_PROCESSING_BASE AND EXISTS "${_SGPROC_INCLUDE}" AND EXISTS "${_SGPROC
     find_library(_ASYNCIO_LIB AsyncIOManager
         PATHS "${_THIRDPARTY_BUILD_DIR}/AsyncIOManager/lib" NO_DEFAULT_PATH)
     if(_ASYNCIO_LIB)
-        target_link_libraries(genius_core PUBLIC "${_ASYNCIO_LIB}")
-        target_include_directories(genius_core PUBLIC
+        target_link_libraries(neoswarm_core PUBLIC "${_ASYNCIO_LIB}")
+        target_include_directories(neoswarm_core PUBLIC
             "${_THIRDPARTY_BUILD_DIR}/AsyncIOManager/include")
     endif()
 
@@ -134,7 +134,7 @@ if(_SGPROC_PROCESSING_BASE AND EXISTS "${_SGPROC_INCLUDE}" AND EXISTS "${_SGPROC
     find_library(_ROCKSDB_LIB rocksdb PATHS "${_THIRDPARTY_BUILD_DIR}/rocksdb/lib" NO_DEFAULT_PATH)
     find_library(_SNAPPY_LIB snappy PATHS "${_THIRDPARTY_BUILD_DIR}/snappy/lib" NO_DEFAULT_PATH)
 
-    target_link_libraries(genius_core PUBLIC
+    target_link_libraries(neoswarm_core PUBLIC
         ${_IPFS_BITSWAP_LIBS}
         ${_IPFS_LITE_LIBS}
         ${_IPFS_PUBSUB_LIBS}
@@ -142,22 +142,22 @@ if(_SGPROC_PROCESSING_BASE AND EXISTS "${_SGPROC_INCLUDE}" AND EXISTS "${_SGPROC
     )
     foreach(_dep_lib _SORALOG_LIB _CARES_LIB _ED25519_LIB _XXHASH_LIB _TSL_LIB _SQLITE3_LIB _ROCKSDB_LIB _SNAPPY_LIB)
         if(${_dep_lib})
-            target_link_libraries(genius_core PUBLIC "${${_dep_lib}}")
+            target_link_libraries(neoswarm_core PUBLIC "${${_dep_lib}}")
         endif()
     endforeach()
 
-    target_compile_definitions(genius_core PUBLIC GENIUS_HAS_SGPROCESSING)
+    target_compile_definitions(neoswarm_core PUBLIC GENIUS_HAS_SGPROCESSING)
     set(GENIUS_HAS_SGPROCESSING TRUE)
     # Static libs in the SGProcessing chain share protobuf symbols.
     # Allow the linker to pick one copy without erroring on duplicates.
     if(APPLE)
-        target_link_options(genius_core PUBLIC "LINKER:-ld_classic")
+        target_link_options(neoswarm_core PUBLIC "LINKER:-ld_classic")
     endif()
     message(STATUS "SGProcessingManager: linked (${_SGPROC_LIB_DIR})")
 else()
     # Headers only — stub mode
     if(EXISTS "${_SGPROC_INCLUDE}" AND EXISTS "${_SGPROC_GEN_INCLUDE}")
-        target_include_directories(genius_core PUBLIC
+        target_include_directories(neoswarm_core PUBLIC
             "${_SGPROC_INCLUDE}"
             "${_SGPROC_GEN_INCLUDE}"
         )

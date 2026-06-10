@@ -5,10 +5,10 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include "common/Types.hpp"
-#include "network/P2PNode.hpp"
-#include "network/ResultAggregation.hpp"
-#include "security/NodeIdentity.hpp"
+#include "common/types.hpp"
+#include "network/p2p_node.hpp"
+#include "network/result_aggregation.hpp"
+#include "security/node_identity.hpp"
 #include <gtest/gtest.h>
 
 using namespace sgns::neoswarm;

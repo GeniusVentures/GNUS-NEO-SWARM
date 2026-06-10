@@ -5,7 +5,7 @@
  * @author     GSD Executor
  */
 
-#include "security/NodeIdentity.hpp"
+#include "security/node_identity.hpp"
 #include <gtest/gtest.h>
 
 #include <cstdio>
