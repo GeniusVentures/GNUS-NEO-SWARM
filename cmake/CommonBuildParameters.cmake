@@ -336,7 +336,7 @@ add_subdirectory(${PROJECT_ROOT}/src ${CMAKE_BINARY_DIR}/src)
 
 # Main binary
 add_executable(neo-swarm ${PROJECT_ROOT}/src/genius_chat_cli.cpp)
-target_link_libraries(neo-swarm PRIVATE genius_api Threads::Threads)
+target_link_libraries(neo-swarm PRIVATE neoswarm_api Threads::Threads)
 if(APPLE)
     target_link_options(neo-swarm PRIVATE "LINKER:-no_warn_duplicate_libraries")
 endif()
@@ -349,8 +349,8 @@ add_library(Genius-MOS-ELM-FFI SHARED ${PROJECT_ROOT}/src/genius_elm_chat_comple
 target_include_directories(Genius-MOS-ELM-FFI PUBLIC ${PROJECT_ROOT}/src)
 target_compile_definitions(Genius-MOS-ELM-FFI PRIVATE NEOSWARM_CHAT_C_EXPORTS)
 target_link_libraries(Genius-MOS-ELM-FFI PRIVATE Threads::Threads)
-# Note: genius_api not linked — stub currently returns hardcoded responses.
-# When wiring to real GeniusAPIServer, add: target_link_libraries(Genius-MOS-ELM-FFI PRIVATE genius_api)
+# Note: neoswarm_api not linked — stub currently returns hardcoded responses.
+# When wiring to real GeniusAPIServer, add: target_link_libraries(Genius-MOS-ELM-FFI PRIVATE neoswarm_api)
 
 if(BUILD_TESTING)
     enable_testing()
@@ -370,8 +370,8 @@ install(TARGETS neo-swarm RUNTIME DESTINATION bin)
 install(TARGETS Genius-MOS-ELM-FFI LIBRARY DESTINATION lib)
 
 install(TARGETS
-    genius_common genius_core genius_specialists genius_router
-    genius_reputation genius_security genius_network genius_knowledge genius_api
+    neoswarm_common neoswarm_core neoswarm_specialists neoswarm_router
+    neoswarm_reputation neoswarm_security neoswarm_network neoswarm_knowledge neoswarm_api
     EXPORT ${PROJECT_ROOT_NAME}Targets
     LIBRARY       DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE       DESTINATION ${CMAKE_INSTALL_LIBDIR}
