@@ -1,0 +1,59 @@
+name: Build CI
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        build_type: [Debug, Release]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Configure CMake
+        run: |
+          cd build/OSX/${{ matrix.build_type }}
+          cmake ../.. -G "Ninja" -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+
+      - name: Build
+        run: |
+          cd build/OSX/${{ matrix.build_type }}
+          ninja -j$(sysctl -n hw.ncpu)
+
+      - name: Test
+        run: |
+          cd build/OSX/${{ matrix.build_type }}
+          ctest --output-on-failure -j$(sysctl -n hw.ncpu)
+
+  build-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        build_type: [Debug]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Configure CMake
+        run: |
+          cd build/Linux/${{ matrix.build_type }}
+          cmake ../.. -G "Ninja" -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+
+      - name: Build
+        run: |
+          cd build/Linux/${{ matrix.build_type }}
+          ninja -j$(nproc)
+
+      - name: Test
+        run: |
+          cd build/Linux/${{ matrix.build_type }}
+          ctest --output-on-failure -j$(nproc)
