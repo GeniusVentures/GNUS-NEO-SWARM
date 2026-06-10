@@ -5,8 +5,8 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#ifndef NEOSWARM_SPECIALISTS_MATHSPECIALIST_HPP_
-#define NEOSWARM_SPECIALISTS_MATHSPECIALIST_HPP_
+#ifndef NEOSWARM_SPECIALISTS_MATHSPECIALIST_HPP
+#define NEOSWARM_SPECIALISTS_MATHSPECIALIST_HPP
 
 #include "i_specialist.hpp"
 #include "symbolic_fallback.hpp"
@@ -54,4 +54,4 @@ namespace sgns::neoswarm::specialists
 
 } // namespace sgns::neoswarm::specialists
 
-#endif // NEOSWARM_SPECIALISTS_MATHSPECIALIST_HPP_
+#endif // NEOSWARM_SPECIALISTS_MATHSPECIALIST_HPP

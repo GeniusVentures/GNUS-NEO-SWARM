@@ -5,8 +5,8 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#ifndef NEOSWARM_KNOWLEDGE_KNOWLEDGERETRIEVAL_HPP_
-#define NEOSWARM_KNOWLEDGE_KNOWLEDGERETRIEVAL_HPP_
+#ifndef NEOSWARM_KNOWLEDGE_KNOWLEDGERETRIEVAL_HPP
+#define NEOSWARM_KNOWLEDGE_KNOWLEDGERETRIEVAL_HPP
 
 #include "common/error.hpp"
 #include "common/types.hpp"
@@ -81,4 +81,4 @@ namespace sgns::neoswarm::knowledge
 
 } // namespace sgns::neoswarm::knowledge
 
-#endif // NEOSWARM_KNOWLEDGE_KNOWLEDGERETRIEVAL_HPP_
+#endif // NEOSWARM_KNOWLEDGE_KNOWLEDGERETRIEVAL_HPP

@@ -5,8 +5,8 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#ifndef NEOSWARM_REPUTATION_REPUTATIONSTORAGE_HPP_
-#define NEOSWARM_REPUTATION_REPUTATIONSTORAGE_HPP_
+#ifndef NEOSWARM_REPUTATION_REPUTATIONSTORAGE_HPP
+#define NEOSWARM_REPUTATION_REPUTATIONSTORAGE_HPP
 
 #include "node_reputation.hpp"
 #include "common/error.hpp"
@@ -85,4 +85,4 @@ namespace sgns::neoswarm::reputation
 
 } // namespace sgns::neoswarm::reputation
 
-#endif // NEOSWARM_REPUTATION_REPUTATIONSTORAGE_HPP_
+#endif // NEOSWARM_REPUTATION_REPUTATIONSTORAGE_HPP

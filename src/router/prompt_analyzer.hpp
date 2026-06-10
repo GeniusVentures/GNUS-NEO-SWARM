@@ -5,8 +5,8 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#ifndef NEOSWARM_ROUTER_PROMPTANALYZER_HPP_
-#define NEOSWARM_ROUTER_PROMPTANALYZER_HPP_
+#ifndef NEOSWARM_ROUTER_PROMPTANALYZER_HPP
+#define NEOSWARM_ROUTER_PROMPTANALYZER_HPP
 
 #include "common/types.hpp"
 #include <string>
@@ -72,4 +72,4 @@ namespace sgns::neoswarm::router
 
 } // namespace sgns::neoswarm::router
 
-#endif // NEOSWARM_ROUTER_PROMPTANALYZER_HPP_
+#endif // NEOSWARM_ROUTER_PROMPTANALYZER_HPP

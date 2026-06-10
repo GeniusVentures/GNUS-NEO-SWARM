@@ -5,8 +5,8 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#ifndef NEOSWARM_CORE_SGPROCESSING_TENSORINTERPRETER_HPP_
-#define NEOSWARM_CORE_SGPROCESSING_TENSORINTERPRETER_HPP_
+#ifndef NEOSWARM_CORE_SGPROCESSING_TENSORINTERPRETER_HPP
+#define NEOSWARM_CORE_SGPROCESSING_TENSORINTERPRETER_HPP
 
 #include "common/error.hpp"
 #include "core/tokenizer/tokenizer.hpp"
@@ -61,4 +61,4 @@ namespace sgns::neoswarm::core
 
 } // namespace sgns::neoswarm::core
 
-#endif // NEOSWARM_CORE_SGPROCESSING_TENSORINTERPRETER_HPP_
+#endif // NEOSWARM_CORE_SGPROCESSING_TENSORINTERPRETER_HPP

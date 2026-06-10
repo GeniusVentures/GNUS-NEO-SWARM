@@ -5,8 +5,8 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#ifndef NEOSWARM_CORE_ENGINE_INFERENCEENGINE_HPP_
-#define NEOSWARM_CORE_ENGINE_INFERENCEENGINE_HPP_
+#ifndef NEOSWARM_CORE_ENGINE_INFERENCEENGINE_HPP
+#define NEOSWARM_CORE_ENGINE_INFERENCEENGINE_HPP
 
 #include "common/error.hpp"
 #include "common/types.hpp"
@@ -55,4 +55,4 @@ namespace sgns::neoswarm::core
 
 } // namespace sgns::neoswarm::core
 
-#endif // NEOSWARM_CORE_ENGINE_INFERENCEENGINE_HPP_
+#endif // NEOSWARM_CORE_ENGINE_INFERENCEENGINE_HPP

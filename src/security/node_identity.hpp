@@ -5,8 +5,8 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#ifndef NEOSWARM_SECURITY_NODEIDENTITY_HPP_
-#define NEOSWARM_SECURITY_NODEIDENTITY_HPP_
+#ifndef NEOSWARM_SECURITY_NODEIDENTITY_HPP
+#define NEOSWARM_SECURITY_NODEIDENTITY_HPP
 
 #include "common/error.hpp"
 #include <array>
@@ -126,4 +126,4 @@ namespace sgns::neoswarm::security
 
 } // namespace sgns::neoswarm::security
 
-#endif // NEOSWARM_SECURITY_NODEIDENTITY_HPP_
+#endif // NEOSWARM_SECURITY_NODEIDENTITY_HPP

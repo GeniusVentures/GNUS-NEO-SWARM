@@ -5,8 +5,8 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#ifndef NEOSWARM_REPUTATION_WEIGHTEDCONSENSUS_HPP_
-#define NEOSWARM_REPUTATION_WEIGHTEDCONSENSUS_HPP_
+#ifndef NEOSWARM_REPUTATION_WEIGHTEDCONSENSUS_HPP
+#define NEOSWARM_REPUTATION_WEIGHTEDCONSENSUS_HPP
 
 #include "common/types.hpp"
 #include <vector>
@@ -71,4 +71,4 @@ namespace sgns::neoswarm::reputation
 
 } // namespace sgns::neoswarm::reputation
 
-#endif // NEOSWARM_REPUTATION_WEIGHTEDCONSENSUS_HPP_
+#endif // NEOSWARM_REPUTATION_WEIGHTEDCONSENSUS_HPP

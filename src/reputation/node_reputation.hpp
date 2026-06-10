@@ -5,8 +5,8 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#ifndef NEOSWARM_REPUTATION_NODEREPUTATION_HPP_
-#define NEOSWARM_REPUTATION_NODEREPUTATION_HPP_
+#ifndef NEOSWARM_REPUTATION_NODEREPUTATION_HPP
+#define NEOSWARM_REPUTATION_NODEREPUTATION_HPP
 
 #include "common/types.hpp"
 #include <algorithm>
@@ -37,4 +37,4 @@ namespace sgns::neoswarm::reputation
 
 } // namespace sgns::neoswarm::reputation
 
-#endif // NEOSWARM_REPUTATION_NODEREPUTATION_HPP_
+#endif // NEOSWARM_REPUTATION_NODEREPUTATION_HPP

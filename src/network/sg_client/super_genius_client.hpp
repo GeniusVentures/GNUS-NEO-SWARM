@@ -9,8 +9,8 @@
  * grid channel via PubSub, and collects results from per-job result channels.
  */
 
-#ifndef NEOSWARM_NETWORK_SG_CLIENT_SUPERGENIUSCLIENT_HPP_
-#define NEOSWARM_NETWORK_SG_CLIENT_SUPERGENIUSCLIENT_HPP_
+#ifndef NEOSWARM_NETWORK_SG_CLIENT_SUPERGENIUSCLIENT_HPP
+#define NEOSWARM_NETWORK_SG_CLIENT_SUPERGENIUSCLIENT_HPP
 
 #include "common/error.hpp"
 #include <chrono>
@@ -127,4 +127,4 @@ namespace sgns::neoswarm::network
 
 } // namespace sgns::neoswarm::network
 
-#endif // NEOSWARM_NETWORK_SG_CLIENT_SUPERGENIUSCLIENT_HPP_
+#endif // NEOSWARM_NETWORK_SG_CLIENT_SUPERGENIUSCLIENT_HPP

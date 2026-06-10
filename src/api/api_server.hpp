@@ -5,8 +5,8 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#ifndef NEOSWARM_API_GENIUSAPISERVER_HPP_
-#define NEOSWARM_API_GENIUSAPISERVER_HPP_
+#ifndef NEOSWARM_API_GENIUSAPISERVER_HPP
+#define NEOSWARM_API_GENIUSAPISERVER_HPP
 
 #include "common/error.hpp"
 #include "common/types.hpp"
@@ -131,4 +131,4 @@ namespace sgns::neoswarm::api
 
 } // namespace sgns::neoswarm::api
 
-#endif // NEOSWARM_API_GENIUSAPISERVER_HPP_
+#endif // NEOSWARM_API_GENIUSAPISERVER_HPP

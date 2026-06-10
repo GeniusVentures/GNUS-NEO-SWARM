@@ -3,8 +3,8 @@
  * @brief      Error codes and outcome::result alias for GNUS NEO SWARM
  */
 
-#ifndef NEOSWARM_COMMON_ERROR_HPP_
-#define NEOSWARM_COMMON_ERROR_HPP_
+#ifndef NEOSWARM_COMMON_ERROR_HPP
+#define NEOSWARM_COMMON_ERROR_HPP
 
 #include <libp2p/outcome/outcome.hpp>
 
@@ -48,4 +48,4 @@ namespace sgns::neoswarm
 // Register the error enum with Boost.Outcome so it can be used in outcome::result<>
 OUTCOME_HPP_DECLARE_ERROR_2( sgns::neoswarm, Error )
 
-#endif // NEOSWARM_COMMON_ERROR_HPP_
+#endif // NEOSWARM_COMMON_ERROR_HPP

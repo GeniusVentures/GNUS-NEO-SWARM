@@ -3,8 +3,8 @@
  * @brief      Shared data types for the GNUS NEO SWARM engine
  */
 
-#ifndef NEOSWARM_COMMON_TYPES_HPP_
-#define NEOSWARM_COMMON_TYPES_HPP_
+#ifndef NEOSWARM_COMMON_TYPES_HPP
+#define NEOSWARM_COMMON_TYPES_HPP
 
 #include <chrono>
 #include <optional>
@@ -142,4 +142,4 @@ namespace sgns::neoswarm
 
 } // namespace sgns::neoswarm
 
-#endif // NEOSWARM_COMMON_TYPES_HPP_
+#endif // NEOSWARM_COMMON_TYPES_HPP

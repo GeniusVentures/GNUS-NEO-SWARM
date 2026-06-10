@@ -5,8 +5,8 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#ifndef NEOSWARM_NETWORK_SG_CLIENT_SGMESSAGEAUTHENTICATOR_HPP_
-#define NEOSWARM_NETWORK_SG_CLIENT_SGMESSAGEAUTHENTICATOR_HPP_
+#ifndef NEOSWARM_NETWORK_SG_CLIENT_SGMESSAGEAUTHENTICATOR_HPP
+#define NEOSWARM_NETWORK_SG_CLIENT_SGMESSAGEAUTHENTICATOR_HPP
 
 #include "common/error.hpp"
 #include <memory>
@@ -60,4 +60,4 @@ namespace sgns::neoswarm::network
 
 } // namespace sgns::neoswarm::network
 
-#endif // NEOSWARM_NETWORK_SG_CLIENT_SGMESSAGEAUTHENTICATOR_HPP_
+#endif // NEOSWARM_NETWORK_SG_CLIENT_SGMESSAGEAUTHENTICATOR_HPP

@@ -5,8 +5,8 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#ifndef NEOSWARM_KNOWLEDGE_CONTEXTINJECTION_HPP_
-#define NEOSWARM_KNOWLEDGE_CONTEXTINJECTION_HPP_
+#ifndef NEOSWARM_KNOWLEDGE_CONTEXTINJECTION_HPP
+#define NEOSWARM_KNOWLEDGE_CONTEXTINJECTION_HPP
 
 #include "common/types.hpp"
 #include <string>
@@ -50,4 +50,4 @@ namespace sgns::neoswarm::knowledge
 
 } // namespace sgns::neoswarm::knowledge
 
-#endif // NEOSWARM_KNOWLEDGE_CONTEXTINJECTION_HPP_
+#endif // NEOSWARM_KNOWLEDGE_CONTEXTINJECTION_HPP

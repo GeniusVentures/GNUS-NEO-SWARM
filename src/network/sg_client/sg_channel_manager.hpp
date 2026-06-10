@@ -5,8 +5,8 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#ifndef NEOSWARM_NETWORK_SG_CLIENT_SGCHANNELMANAGER_HPP_
-#define NEOSWARM_NETWORK_SG_CLIENT_SGCHANNELMANAGER_HPP_
+#ifndef NEOSWARM_NETWORK_SG_CLIENT_SGCHANNELMANAGER_HPP
+#define NEOSWARM_NETWORK_SG_CLIENT_SGCHANNELMANAGER_HPP
 
 #include "common/error.hpp"
 #include <chrono>
@@ -54,4 +54,4 @@ namespace sgns::neoswarm::network
 
 } // namespace sgns::neoswarm::network
 
-#endif // NEOSWARM_NETWORK_SG_CLIENT_SGCHANNELMANAGER_HPP_
+#endif // NEOSWARM_NETWORK_SG_CLIENT_SGCHANNELMANAGER_HPP

@@ -5,8 +5,8 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#ifndef NEOSWARM_CORE_FP4_FP4CODEC_HPP_
-#define NEOSWARM_CORE_FP4_FP4CODEC_HPP_
+#ifndef NEOSWARM_CORE_FP4_FP4CODEC_HPP
+#define NEOSWARM_CORE_FP4_FP4CODEC_HPP
 
 #include "common/error.hpp"
 #include <cstddef>
@@ -88,4 +88,4 @@ namespace sgns::neoswarm::fp4
 
 } // namespace sgns::neoswarm::fp4
 
-#endif // NEOSWARM_CORE_FP4_FP4CODEC_HPP_
+#endif // NEOSWARM_CORE_FP4_FP4CODEC_HPP

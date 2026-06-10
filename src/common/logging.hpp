@@ -3,8 +3,8 @@
  * @brief      Logging facade — wraps spdlog directly
  */
 
-#ifndef NEOSWARM_COMMON_LOGGING_HPP_
-#define NEOSWARM_COMMON_LOGGING_HPP_
+#ifndef NEOSWARM_COMMON_LOGGING_HPP
+#define NEOSWARM_COMMON_LOGGING_HPP
 
 #include <memory>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -37,4 +37,4 @@ namespace sgns::neoswarm
 
 } // namespace sgns::neoswarm
 
-#endif // NEOSWARM_COMMON_LOGGING_HPP_
+#endif // NEOSWARM_COMMON_LOGGING_HPP

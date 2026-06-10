@@ -5,8 +5,8 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#ifndef NEOSWARM_SECURITY_MESSAGESIGNING_HPP_
-#define NEOSWARM_SECURITY_MESSAGESIGNING_HPP_
+#ifndef NEOSWARM_SECURITY_MESSAGESIGNING_HPP
+#define NEOSWARM_SECURITY_MESSAGESIGNING_HPP
 
 #include "node_identity.hpp"
 #include "common/error.hpp"
@@ -82,4 +82,4 @@ namespace sgns::neoswarm::security
 
 } // namespace sgns::neoswarm::security
 
-#endif // NEOSWARM_SECURITY_MESSAGESIGNING_HPP_
+#endif // NEOSWARM_SECURITY_MESSAGESIGNING_HPP

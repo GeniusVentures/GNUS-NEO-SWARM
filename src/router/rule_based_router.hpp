@@ -5,8 +5,8 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#ifndef NEOSWARM_ROUTER_RULEBASEDROUTER_HPP_
-#define NEOSWARM_ROUTER_RULEBASEDROUTER_HPP_
+#ifndef NEOSWARM_ROUTER_RULEBASEDROUTER_HPP
+#define NEOSWARM_ROUTER_RULEBASEDROUTER_HPP
 
 #include "i_router.hpp"
 #include "prompt_analyzer.hpp"
@@ -57,4 +57,4 @@ namespace sgns::neoswarm::router
 
 } // namespace sgns::neoswarm::router
 
-#endif // NEOSWARM_ROUTER_RULEBASEDROUTER_HPP_
+#endif // NEOSWARM_ROUTER_RULEBASEDROUTER_HPP

@@ -5,8 +5,8 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#ifndef NEOSWARM_SPECIALISTS_GRAMMARSPECIALIST_HPP_
-#define NEOSWARM_SPECIALISTS_GRAMMARSPECIALIST_HPP_
+#ifndef NEOSWARM_SPECIALISTS_GRAMMARSPECIALIST_HPP
+#define NEOSWARM_SPECIALISTS_GRAMMARSPECIALIST_HPP
 
 #include "i_specialist.hpp"
 #include "core/engine/inference_engine.hpp"
@@ -51,4 +51,4 @@ namespace sgns::neoswarm::specialists
 
 } // namespace sgns::neoswarm::specialists
 
-#endif // NEOSWARM_SPECIALISTS_GRAMMARSPECIALIST_HPP_
+#endif // NEOSWARM_SPECIALISTS_GRAMMARSPECIALIST_HPP

@@ -5,8 +5,8 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#ifndef NEOSWARM_SPECIALISTS_ISPECIALIST_HPP_
-#define NEOSWARM_SPECIALISTS_ISPECIALIST_HPP_
+#ifndef NEOSWARM_SPECIALISTS_ISPECIALIST_HPP
+#define NEOSWARM_SPECIALISTS_ISPECIALIST_HPP
 
 #include "common/error.hpp"
 #include <string>
@@ -52,4 +52,4 @@ namespace sgns::neoswarm::specialists
 
 } // namespace sgns::neoswarm::specialists
 
-#endif // NEOSWARM_SPECIALISTS_ISPECIALIST_HPP_
+#endif // NEOSWARM_SPECIALISTS_ISPECIALIST_HPP

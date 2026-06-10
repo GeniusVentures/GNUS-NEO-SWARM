@@ -5,8 +5,8 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#ifndef NEOSWARM_ROUTER_IROUTER_HPP_
-#define NEOSWARM_ROUTER_IROUTER_HPP_
+#ifndef NEOSWARM_ROUTER_IROUTER_HPP
+#define NEOSWARM_ROUTER_IROUTER_HPP
 
 #include "common/error.hpp"
 #include "common/types.hpp"
@@ -31,4 +31,4 @@ namespace sgns::neoswarm::router
 
 } // namespace sgns::neoswarm::router
 
-#endif // NEOSWARM_ROUTER_IROUTER_HPP_
+#endif // NEOSWARM_ROUTER_IROUTER_HPP

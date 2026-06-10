@@ -12,8 +12,8 @@
  *   - All GPU acceleration goes through Vulkan (MoltenVK on macOS/iOS).
  */
 
-#ifndef NEOSWARM_CORE_ENGINE_MNNINFERENCEENGINE_HPP_
-#define NEOSWARM_CORE_ENGINE_MNNINFERENCEENGINE_HPP_
+#ifndef NEOSWARM_CORE_ENGINE_MNNINFERENCEENGINE_HPP
+#define NEOSWARM_CORE_ENGINE_MNNINFERENCEENGINE_HPP
 
 #include "inference_engine.hpp"
 #include "core/fp4/fp4_codec.hpp"
@@ -166,4 +166,4 @@ namespace sgns::neoswarm::core
 
 } // namespace sgns::neoswarm::core
 
-#endif // NEOSWARM_CORE_ENGINE_MNNINFERENCEENGINE_HPP_
+#endif // NEOSWARM_CORE_ENGINE_MNNINFERENCEENGINE_HPP

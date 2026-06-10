@@ -5,8 +5,8 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#ifndef NEOSWARM_NETWORK_P2PNODE_HPP_
-#define NEOSWARM_NETWORK_P2PNODE_HPP_
+#ifndef NEOSWARM_NETWORK_P2PNODE_HPP
+#define NEOSWARM_NETWORK_P2PNODE_HPP
 
 #include "common/error.hpp"
 #include "common/types.hpp"
@@ -114,4 +114,4 @@ namespace sgns::neoswarm::network
 
 } // namespace sgns::neoswarm::network
 
-#endif // NEOSWARM_NETWORK_P2PNODE_HPP_
+#endif // NEOSWARM_NETWORK_P2PNODE_HPP

@@ -5,8 +5,8 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#ifndef NEOSWARM_SPECIALISTS_SYMBOLICFALLBACK_HPP_
-#define NEOSWARM_SPECIALISTS_SYMBOLICFALLBACK_HPP_
+#ifndef NEOSWARM_SPECIALISTS_SYMBOLICFALLBACK_HPP
+#define NEOSWARM_SPECIALISTS_SYMBOLICFALLBACK_HPP
 
 #include "common/error.hpp"
 #include <optional>
@@ -64,4 +64,4 @@ namespace sgns::neoswarm::specialists
 
 } // namespace sgns::neoswarm::specialists
 
-#endif // NEOSWARM_SPECIALISTS_SYMBOLICFALLBACK_HPP_
+#endif // NEOSWARM_SPECIALISTS_SYMBOLICFALLBACK_HPP
