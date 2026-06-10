@@ -7,7 +7,7 @@
 
 #include "api_server.hpp"
 #include "common/logging.hpp"
-#include "core/engine/MNNinference_engine.hpp"
+#include "core/engine/mnn_inference_engine.hpp"
 #include "core/tokenizer/tokenizer.hpp"
 #include "network/sg_client/super_genius_client.hpp"
 
@@ -233,7 +233,7 @@ namespace sgns::neoswarm::api
         }
         else
         {
-            rep.m_identitykey_ = resp.node_id_;
+            rep.m_identityKey = resp.node_id_;
         }
 
         auto updated = m_scoring->Update( rep, resp, median_latency_ms, std::nullopt, m_consensusoutput );
@@ -366,7 +366,7 @@ namespace sgns::neoswarm::api
                             auto rep_res = m_repStorage->Get( from_peer );
                             if ( rep_res.has_value() )
                             {
-                                out.reputation_ = rep_res.value().global_score_;
+                                out.reputation_ = rep_res.value().m_globalScore;
                             }
                         }
                         m_aggregation->Submit( out );
