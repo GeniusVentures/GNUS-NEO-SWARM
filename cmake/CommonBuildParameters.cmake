@@ -335,7 +335,7 @@ message(STATUS "GeniusSDK: ${GENIUS_SDK_LIB}")
 add_subdirectory(${PROJECT_ROOT}/src ${CMAKE_BINARY_DIR}/src)
 
 # Main binary
-add_executable(neo-swarm ${PROJECT_ROOT}/src/genius_chat_cli.cpp)
+add_executable(neo-swarm ${PROJECT_ROOT}/src/main.cpp)
 target_link_libraries(neo-swarm PRIVATE neoswarm_api Threads::Threads)
 if(APPLE)
     target_link_options(neo-swarm PRIVATE "LINKER:-no_warn_duplicate_libraries")
@@ -350,7 +350,7 @@ target_include_directories(Genius-MOS-ELM-FFI PUBLIC ${PROJECT_ROOT}/src)
 target_compile_definitions(Genius-MOS-ELM-FFI PRIVATE NEOSWARM_CHAT_C_EXPORTS)
 target_link_libraries(Genius-MOS-ELM-FFI PRIVATE Threads::Threads)
 # Note: neoswarm_api not linked — stub currently returns hardcoded responses.
-# When wiring to real GeniusAPIServer, add: target_link_libraries(Genius-MOS-ELM-FFI PRIVATE neoswarm_api)
+# When wiring to real ApiServer, add: target_link_libraries(Genius-MOS-ELM-FFI PRIVATE neoswarm_api)
 
 if(BUILD_TESTING)
     enable_testing()
