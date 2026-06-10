@@ -1,5 +1,5 @@
 add_library(genius_api STATIC
-    GeniusAPIServer.cpp
+    api_server.cpp
 )
 
 target_include_directories(genius_api PUBLIC
