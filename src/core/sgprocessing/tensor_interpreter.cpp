@@ -26,7 +26,7 @@ namespace sgns::neoswarm::core
 
     void TensorInterpreter::SetTokenizer( std::shared_ptr<Tokenizer> tok )
     {
-        tokenizer_ = std::move( tok );
+        m_tokenizer = std::move( tok );
     }
 
     // -----------------------------------------------------------------------
@@ -75,7 +75,7 @@ namespace sgns::neoswarm::core
         std::vector<float> values( count );
         std::memcpy( values.data(), bytes.data(), bytes.size() );
 
-        if ( tokenizer_ && !values.empty() )
+        if ( m_tokenizer && !values.empty() )
         {
             return DecodeLogits( values );
         }
@@ -197,7 +197,7 @@ namespace sgns::neoswarm::core
     // -----------------------------------------------------------------------
     outcome::result<std::string> TensorInterpreter::DecodeLogits( const std::vector<float>& logits ) const
     {
-        if ( !tokenizer_ )
+        if ( !m_tokenizer )
         {
             return outcome::failure( Error::InferenceFailed );
         }
@@ -205,7 +205,7 @@ namespace sgns::neoswarm::core
         const auto max_it = std::max_element( logits.begin(), logits.end() );
         const int argmax = static_cast<int>( std::distance( logits.begin(), max_it ) );
 
-        auto dec_res = tokenizer_->Decode( { argmax } );
+        auto dec_res = m_tokenizer->Decode( { argmax } );
         if ( !dec_res.has_value() )
         {
             return outcome::failure( dec_res.error() );

@@ -31,7 +31,7 @@ namespace sgns::neoswarm::network
         public:
         struct Config
         {
-            std::string endpoint_ = "localhost:50051";
+            std::string m_endpoint = "localhost:50051";
             std::string tls_ca_path_;
             std::string tls_cert_path_;
             std::chrono::seconds timeout_{ 30 };

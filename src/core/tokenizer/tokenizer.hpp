@@ -77,23 +77,23 @@ namespace sgns::neoswarm::core
         outcome::result<std::string> Decode( const std::vector<int>& ids ) const override;
         bool IsEOS( int token_id ) const override
         {
-            return token_id == eos_id_;
+            return token_id == m_eosId;
         }
         int EosTokenId() const override
         {
-            return eos_id_;
+            return m_eosId;
         }
         int BosTokenId() const override
         {
-            return bos_id_;
+            return m_bosId;
         }
         size_t VocabSize() const override;
 
         private:
         struct Impl;
         std::unique_ptr<Impl> impl_;
-        int eos_id_;
-        int bos_id_;
+        int m_eosId;
+        int m_bosId;
     };
 
 } // namespace sgns::neoswarm::core

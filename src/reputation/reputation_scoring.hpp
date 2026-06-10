@@ -44,14 +44,14 @@ namespace sgns::neoswarm::reputation
          * @param response          Inference response from this node.
          * @param median_latency_ms Median latency across all responding nodes (ms).
          * @param ground_truth      Correct answer if available.
-         * @param consensus_output  The winning consensus output string.
+         * @param m_consensusoutput  The winning consensus output string.
          * @return                  Updated NodeReputation.
          */
         NodeReputation Update( const NodeReputation& old,
                                const InferenceResponse& response,
                                double median_latency_ms,
                                std::optional<std::string> ground_truth,
-                               const std::string& consensus_output ) const;
+                               const std::string& m_consensusoutput ) const;
 
         /**
          * @brief Compute the accuracy delta component.

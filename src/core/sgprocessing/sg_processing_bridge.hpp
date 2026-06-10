@@ -86,7 +86,7 @@ namespace sgns::neoswarm::core
                                                          std::shared_ptr<boost::asio::io_context> ioc );
 
         private:
-        Config cfg_;
+        Config m_cfg;
         network::SuperGeniusClient* client_ = nullptr;
 
         outcome::result<std::vector<uint8_t>> SubmitDirect( const std::string& jsondata,

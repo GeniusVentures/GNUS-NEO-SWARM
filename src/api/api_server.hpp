@@ -13,7 +13,7 @@
 #include "core/engine/inference_engine.hpp"
 #include "knowledge/context_injection.hpp"
 #include "knowledge/fact_validation.hpp"
-#include "knowledge/knowledge_retrieval.hpp"
+#include "knowledge/m_knowledgeretrieval.hpp"
 #include "network/p2p_node.hpp"
 #include "network/result_aggregation.hpp"
 #include "reputation/reputation_crdt.hpp"
@@ -52,14 +52,14 @@ namespace sgns::neoswarm::api
             std::string grammar_model_path_;
             std::string math_model_path_;
             std::string reputation_db_path_ = "./reputation.db";
-            std::string knowledge_facts_ = "";
+            std::string m_knowledgefacts_ = "";
             bool enable_network_ = false;
-            bool enable_knowledge_ = true;
+            bool enable_m_knowledge = true;
             int grpc_port_ = 50051;
             std::string node_key_file_ = "./node.key";
             bool enable_sg_processing_ = false;
             bool sg_processing_network_mode_ = false;
-            std::string sg_endpoint_ = "localhost:50051";
+            std::string sg_m_endpoint = "localhost:50051";
             std::string sg_tls_ca_;
             std::string sg_tls_cert_;
         };
@@ -103,20 +103,20 @@ namespace sgns::neoswarm::api
         std::atomic<bool> m_running{ false };
 
         std::shared_ptr<security::NodeIdentity> m_identity;
-        std::shared_ptr<core::InferenceEngine> core_engine_;
-        std::shared_ptr<specialists::GrammarSpecialist> grammar_spec_;
-        std::shared_ptr<specialists::MathSpecialist> math_spec_;
-        std::unique_ptr<router::RuleBasedRouter> router_;
-        std::unique_ptr<reputation::WeightedConsensus> consensus_;
-        std::unique_ptr<reputation::ReputationScoring> scoring_;
-        std::unique_ptr<reputation::ReputationStorage> rep_storage_;
-        std::unique_ptr<reputation::ReputationCRDT> rep_crdt_;
-        std::unique_ptr<network::P2PNode> p2p_node_;
-        std::unique_ptr<network::ResultAggregation> aggregation_;
-        std::shared_ptr<knowledge::KnowledgeRetrieval> knowledge_;
-        std::unique_ptr<knowledge::ContextInjection> context_inj_;
-        std::unique_ptr<knowledge::FactValidation> fact_val_;
-        std::unique_ptr<network::SuperGeniusClient> sg_client_;
+        std::shared_ptr<core::InferenceEngine> m_coreEngine;
+        std::shared_ptr<specialists::GrammarSpecialist> m_grammarSpec;
+        std::shared_ptr<specialists::MathSpecialist> m_mathSpec;
+        std::unique_ptr<router::RuleBasedRouter> m_router;
+        std::unique_ptr<reputation::WeightedConsensus> m_consensus;
+        std::unique_ptr<reputation::ReputationScoring> m_scoring;
+        std::unique_ptr<reputation::ReputationStorage> m_repStorage;
+        std::unique_ptr<reputation::ReputationCRDT> m_repCrdt;
+        std::unique_ptr<network::P2PNode> m_p2pNode;
+        std::unique_ptr<network::ResultAggregation> m_aggregation;
+        std::shared_ptr<knowledge::KnowledgeRetrieval> m_knowledge;
+        std::unique_ptr<knowledge::ContextInjection> m_contextInj;
+        std::unique_ptr<knowledge::FactValidation> m_factVal;
+        std::unique_ptr<network::SuperGeniusClient> m_sgClient;
 
         outcome::result<InferenceResponse> RunSingleNode( const Task& task, const RouteDecision& route );
         outcome::result<InferenceResponse> RunSpecialist( const Task& task, const RouteDecision& route );
@@ -126,7 +126,7 @@ namespace sgns::neoswarm::api
 
         void UpdateReputation( const InferenceResponse& resp,
                                double median_latency_ms,
-                               const std::string& consensus_output );
+                               const std::string& m_consensusoutput );
     };
 
 } // namespace sgns::neoswarm::api

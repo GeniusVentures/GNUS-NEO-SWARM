@@ -137,11 +137,11 @@ namespace sgns::neoswarm::core
     } // namespace
 
     SGProcessingBridge::SGProcessingBridge()
-        : cfg_( {} )
+        : m_cfg( {} )
     {
     }
     SGProcessingBridge::SGProcessingBridge( Config cfg )
-        : cfg_( std::move( cfg ) )
+        : m_cfg( std::move( cfg ) )
     {
     }
 
@@ -266,7 +266,7 @@ namespace sgns::neoswarm::core
                                                                          std::shared_ptr<boost::asio::io_context> ioc )
     {
         BridgeLogger()->debug( "SubmitJob model={} format={} networkMode={}", model_uri,
-                               InputFormatToFormatString( input_format ), static_cast<int>( cfg_.network_mode_ ) );
+                               InputFormatToFormatString( input_format ), static_cast<int>( m_cfg.network_mode_ ) );
 
         auto json_res = BuildSchemaJson( model_uri, input_uri, input_format, shape );
         if ( !json_res.has_value() )
@@ -274,7 +274,7 @@ namespace sgns::neoswarm::core
             return outcome::failure( json_res.error() );
         }
 
-        if ( cfg_.network_mode_ )
+        if ( m_cfg.network_mode_ )
         {
             auto result = SubmitNetwork( json_res.value() );
             if ( !result.has_value() )

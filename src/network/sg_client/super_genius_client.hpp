@@ -48,7 +48,7 @@ namespace sgns::neoswarm::network
          */
         struct Config
         {
-            std::string endpoint_ = "localhost:50051";   ///< SuperGenius node address
+            std::string m_endpoint = "localhost:50051";   ///< SuperGenius node address
             std::string tls_ca_path_;                    ///< TLS CA certificate bundle
             std::string tls_cert_path_;                  ///< TLS client certificate
             std::chrono::seconds channel_timeout_{ 30 }; ///< Channel creation timeout

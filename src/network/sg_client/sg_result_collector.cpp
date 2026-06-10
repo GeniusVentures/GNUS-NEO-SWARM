@@ -29,7 +29,7 @@ namespace sgns::neoswarm::network
 
         // Timeout-bounded collection using condition_variable
         // (matches existing ResultAggregation pattern)
-        std::mutex mutex_;
+        std::mutex m_mutex;
         std::condition_variable cv_;
         bool resultReady_ = false;
         std::vector<uint8_t> resultData_;
@@ -61,7 +61,7 @@ namespace sgns::neoswarm::network
 
         // Block until result arrives or timeout expires
         // Pattern matches ResultAggregation::Collect() in src/network/result_aggregation.cpp
-        std::unique_lock<std::mutex> lock( m_impl->mutex_ );
+        std::unique_lock<std::mutex> lock( m_impl->m_mutex );
 
         bool gotResult = m_impl->cv_.wait_for( lock, timeout, [this] { return m_impl->resultReady_; } );
 
