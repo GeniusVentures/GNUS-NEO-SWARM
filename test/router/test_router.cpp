@@ -51,68 +51,68 @@ TEST( RuleBasedRouter, RouteMathByDensity )
 {
     RuleBasedRouter router;
     Task task;
-    task.prompt_ = "Calculate 847 × 963 + 12 / 4 - 100";
-    task.mode_ = ExecutionMode::SingleNode;
+    task.m_prompt = "Calculate 847 × 963 + 12 / 4 - 100";
+    task.m_mode = ExecutionMode::SingleNode;
 
     auto res = router.Route( task );
     ASSERT_TRUE( res.has_value() );
-    EXPECT_EQ( res.value().target_, RouteTarget::CorePlusMath );
+    EXPECT_EQ( res.value().m_target, RouteTarget::CorePlusMath );
 }
 
 TEST( RuleBasedRouter, RouteMathByKeyword )
 {
     RuleBasedRouter router;
     Task task;
-    task.prompt_ = "Solve the integral of x^2 from 0 to 1";
-    task.mode_ = ExecutionMode::SingleNode;
+    task.m_prompt = "Solve the integral of x^2 from 0 to 1";
+    task.m_mode = ExecutionMode::SingleNode;
 
     auto res = router.Route( task );
     ASSERT_TRUE( res.has_value() );
-    EXPECT_EQ( res.value().target_, RouteTarget::CorePlusMath );
+    EXPECT_EQ( res.value().m_target, RouteTarget::CorePlusMath );
 }
 
 TEST( RuleBasedRouter, RouteGrammar )
 {
     RuleBasedRouter router;
     Task task;
-    task.prompt_ = "Please fix my grammar: I goes to the store yesterday.";
-    task.mode_ = ExecutionMode::SingleNode;
+    task.m_prompt = "Please fix my grammar: I goes to the store yesterday.";
+    task.m_mode = ExecutionMode::SingleNode;
 
     auto res = router.Route( task );
     ASSERT_TRUE( res.has_value() );
-    EXPECT_EQ( res.value().target_, RouteTarget::CorePlusGrammar );
+    EXPECT_EQ( res.value().m_target, RouteTarget::CorePlusGrammar );
 }
 
 TEST( RuleBasedRouter, RouteCoreOnly )
 {
     RuleBasedRouter router;
     Task task;
-    task.prompt_ = "Tell me about the history of ancient Rome.";
-    task.mode_ = ExecutionMode::SingleNode;
+    task.m_prompt = "Tell me about the history of ancient Rome.";
+    task.m_mode = ExecutionMode::SingleNode;
 
     auto res = router.Route( task );
     ASSERT_TRUE( res.has_value() );
-    EXPECT_EQ( res.value().target_, RouteTarget::CoreOnly );
+    EXPECT_EQ( res.value().m_target, RouteTarget::CoreOnly );
 }
 
 TEST( RuleBasedRouter, HonourExplicitSwarmMode )
 {
     RuleBasedRouter router;
     Task task;
-    task.prompt_ = "Simple question";
-    task.mode_ = ExecutionMode::Swarm;
+    task.m_prompt = "Simple question";
+    task.m_mode = ExecutionMode::Swarm;
 
     auto res = router.Route( task );
     ASSERT_TRUE( res.has_value() );
-    EXPECT_EQ( res.value().mode_, ExecutionMode::Swarm );
+    EXPECT_EQ( res.value().m_mode, ExecutionMode::Swarm );
 }
 
 TEST( RuleBasedRouter, ConfidenceInRange )
 {
     RuleBasedRouter router;
     Task task;
-    task.prompt_ = "What is 2 + 2?";
-    task.mode_ = ExecutionMode::SingleNode;
+    task.m_prompt = "What is 2 + 2?";
+    task.m_mode = ExecutionMode::SingleNode;
 
     auto res = router.Route( task );
     ASSERT_TRUE( res.has_value() );

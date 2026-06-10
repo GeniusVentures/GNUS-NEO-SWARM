@@ -186,7 +186,7 @@ namespace sgns::neoswarm::api
 #endif // GENIUS_HAS_GRPC
 
         // 7. Knowledge
-        if ( m_cfg.enable_m_knowledge )
+        if ( m_cfg.m_enableKnowledge )
         {
             knowledge::KnowledgeRetrieval::Config k_cfg;
             k_cfg.m_factsPath = m_cfg.m_knowledgefacts_;

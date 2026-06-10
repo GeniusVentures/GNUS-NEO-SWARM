@@ -54,7 +54,7 @@ namespace sgns::neoswarm::api
             std::string m_reputationDbPath = "./reputation.db";
             std::string m_knowledgefacts_ = "";
             bool m_enableNetwork = false;
-            bool enable_m_knowledge = true;
+            bool m_enableKnowledge = true;
             int m_grpcPort = 50051;
             std::string m_nodeKeyFile = "./node.key";
             bool m_enableSgProcessing = false;

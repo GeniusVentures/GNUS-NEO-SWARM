@@ -49,7 +49,7 @@ TEST( P2PNode, StopBeforeStartDoesNotCrash )
 TEST( ResultAggregation, CollectEmptyWithTimeout )
 {
     ResultAggregation::Config cfg;
-    cfg.timeout_ = std::chrono::milliseconds( 50 );
+    cfg.m_timeout = std::chrono::milliseconds( 50 );
     cfg.min_responses_ = 1;
 
     ResultAggregation agg( cfg );
@@ -63,35 +63,35 @@ TEST( ResultAggregation, CollectEmptyWithTimeout )
 TEST( ResultAggregation, SubmitAndCollectSingle )
 {
     ResultAggregation::Config cfg;
-    cfg.timeout_ = std::chrono::milliseconds( 200 );
+    cfg.m_timeout = std::chrono::milliseconds( 200 );
     cfg.min_responses_ = 1;
 
     ResultAggregation agg( cfg );
 
     NodeOutput output;
-    output.node_id_ = "test-node-1";
-    output.output_ = "test output";
-    output.latency_ms_ = 100.0;
+    output.m_nodeId = "test-node-1";
+    output.m_output = "test output";
+    output.m_latencyMs = 100.0;
 
     agg.Submit( output );
 
     auto result = agg.Collect();
     EXPECT_TRUE( result.has_value() );
     EXPECT_FALSE( result.value().empty() );
-    EXPECT_EQ( result.value()[0].node_id_, "test-node-1" );
+    EXPECT_EQ( result.value()[0].m_nodeId, "test-node-1" );
     EXPECT_EQ( agg.ResponseCount(), 1U );
 }
 
 TEST( ResultAggregation, ResetClearsState )
 {
     ResultAggregation::Config cfg;
-    cfg.timeout_ = std::chrono::milliseconds( 50 );
+    cfg.m_timeout = std::chrono::milliseconds( 50 );
     cfg.min_responses_ = 1;
 
     ResultAggregation agg( cfg );
 
     NodeOutput output;
-    output.node_id_ = "test-node";
+    output.m_nodeId = "test-node";
     agg.Submit( output );
 
     agg.Reset();
