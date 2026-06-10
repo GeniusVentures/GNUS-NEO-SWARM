@@ -2,8 +2,8 @@ add_library(neoswarm_network STATIC
     p2p_node.cpp
     result_aggregation.cpp
     sg_client/super_genius_client.cpp
-    sg_client/sg_channel_manager.cpp
-    sg_client/sg_job_submitter.cpp
+    #sg_client/sg_channel_manager.cpp
+    #sg_client/sg_job_submitter.cpp
     sg_client/sg_result_collector.cpp
     sg_client/sg_message_authenticator.cpp
 )
