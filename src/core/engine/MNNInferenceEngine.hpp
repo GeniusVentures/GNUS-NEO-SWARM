@@ -87,11 +87,17 @@ namespace sgns::neoswarm::core
             int num_threads_ = 4;
 
             /// Generation parameters
-            int max_new_tokens_ = 512;
-            float temperature_ = 0.7f;
-            float top_p_ = 0.9f;
-            int top_k_ = 40;
-            float repetition_penalty_ = 1.1f;
+            static constexpr int   kDefaultMaxTokens        = 512;
+            static constexpr float kDefaultTemperature     = 0.7f;
+            static constexpr float kDefaultTopP            = 0.9f;
+            static constexpr int   kDefaultTopK            = 40;
+            static constexpr float kDefaultRepetitionPenalty = 1.1f;
+
+            int   max_new_tokens_     = kDefaultMaxTokens;
+            float temperature_        = kDefaultTemperature;
+            float top_p_              = kDefaultTopP;
+            int   top_k_              = kDefaultTopK;
+            float repetition_penalty_ = kDefaultRepetitionPenalty;
 
             /// SGProcessing network mode (Phase 2: dispatch via gRPC to SuperGenius)
             bool sg_network_mode_ = false;
