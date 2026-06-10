@@ -228,6 +228,7 @@ if(SENTENCEPIECE_LIB)
     set_target_properties(sentencepiece PROPERTIES
         IMPORTED_LOCATION "${SENTENCEPIECE_LIB}"
         INTERFACE_INCLUDE_DIRECTORIES "${SentencePiece_INCLUDE_DIR}"
+        INTERFACE_LINK_LIBRARIES "absl::log"
     )
     include_directories(${SentencePiece_INCLUDE_DIR})
     message(STATUS "SentencePiece: ${SENTENCEPIECE_LIB}")
