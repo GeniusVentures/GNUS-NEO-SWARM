@@ -11,12 +11,10 @@
 #include <atomic>
 #include <nlohmann/json.hpp>
 
-#ifdef GENIUS_HAS_LIBP2P
 #include <libp2p/host/basic_host/basic_host.hpp>
 #include <libp2p/injector/host_injector.hpp>
 #include <libp2p/multi/multiaddress.hpp>
 #include <libp2p/protocol/gossip/gossip.hpp>
-#endif
 
 namespace sgns::neoswarm::network
 {
@@ -38,7 +36,6 @@ namespace sgns::neoswarm::network
         std::vector<std::string> peers_;
         std::atomic<bool> m_running{ false };
 
-#ifdef GENIUS_HAS_LIBP2P
         std::shared_ptr<libp2p::Host> host_;
         std::shared_ptr<libp2p::protocol::gossip::Gossip> gossip_;
         std::shared_ptr<libp2p::peer::IdentityManager> id_mgr_;
@@ -51,7 +48,6 @@ namespace sgns::neoswarm::network
             libp2p::protocol::Subscription crdt_sub;
         };
         std::unique_ptr<GossipSubs> subs_;
-#endif
     };
 
     P2PNode::P2PNode( std::shared_ptr<security::NodeIdentity> identity )
@@ -78,7 +74,6 @@ namespace sgns::neoswarm::network
     // -----------------------------------------------------------------------
     outcome::result<void> P2PNode::Start()
     {
-#ifdef GENIUS_HAS_LIBP2P
         NetworkLogger()->info( "P2PNode starting (libp2p)..." );
 
         try
@@ -158,17 +153,7 @@ namespace sgns::neoswarm::network
         }
 
         return outcome::success();
-#else
-        NetworkLogger()->warn( "libp2p not compiled in — P2PNode running in stub mode" );
 
-        m_impl->peer_id_ = m_identity ? m_identity->PeerId() : "stub-peer";
-        m_impl->listen_addr_ = m_cfg.listen_addr_;
-        m_impl->m_running.store( true );
-        m_running = true;
-
-        NetworkLogger()->info( "P2PNode started: peerId={} addr={}", m_impl->peer_id_, m_impl->listen_addr_ );
-        return outcome::success();
-#endif
     }
 
     // -----------------------------------------------------------------------
@@ -180,7 +165,6 @@ namespace sgns::neoswarm::network
         {
             return;
         }
-#ifdef GENIUS_HAS_LIBP2P
         if ( m_impl->gossip_ )
             m_impl->gossip_->stop();
         if ( m_impl->host_ )
@@ -188,7 +172,6 @@ namespace sgns::neoswarm::network
         m_impl->host_.reset();
         m_impl->gossip_.reset();
         m_impl->id_mgr_.reset();
-#endif
         m_impl->m_running.store( false );
         m_running = false;
         NetworkLogger()->info( "P2PNode stopped" );
@@ -229,21 +212,13 @@ namespace sgns::neoswarm::network
 
         NetworkLogger()->debug( "Broadcasting task {} to {} peers", task.id_, m_impl->peers_.size() );
 
-#ifdef GENIUS_HAS_LIBP2P
         // Publish via GossipSub to all peers
         if ( m_impl->gossip_ )
         {
             std::vector<uint8_t> data( payload.begin(), payload.end() );
             m_impl->gossip_->publish( kTaskTopic, std::move( data ) );
         }
-#else
-        // Stub: call local handler directly for single-process testing
-        if ( task_handler_ )
-        {
-            Task t = task;
-            task_handler_( t, m_impl->peer_id_ );
-        }
-#endif
+
         return outcome::success();
     }
 
@@ -257,18 +232,12 @@ namespace sgns::neoswarm::network
             return outcome::failure( Error::NetworkError );
         }
         NetworkLogger()->debug( "Broadcasting CRDT update ({} bytes)", crdt_data.size() );
-#ifdef GENIUS_HAS_LIBP2P
         if ( m_impl->gossip_ )
         {
             std::vector<uint8_t> data( crdt_data.begin(), crdt_data.end() );
             m_impl->gossip_->publish( kCRDTTopic, std::move( data ) );
         }
-#else
-        if ( crdt_handler_ )
-        {
-            crdt_handler_( crdt_data );
-        }
-#endif
+
         return outcome::success();
     }
 

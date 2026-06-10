@@ -60,7 +60,6 @@ namespace sgns::neoswarm::network
     {
         std::string taskId = GenerateTaskId();
 
-#ifdef GENIUS_HAS_GRPC
         // Sign the payload with nonce + timestamp + secp256k1 signature
         auto signedPayload = m_impl->authenticator_.SignPayload( gnusSchemaJson );
         if ( !signedPayload.has_value() )
@@ -91,10 +90,7 @@ namespace sgns::neoswarm::network
         SubmitLogger()->warn( "gRPC PubSub publish not yet wired — task {} prepared for dispatch", taskId );
 
         return taskId;
-#else
-        SubmitLogger()->warn( "SGJobSubmitter: gRPC not compiled in — returning taskId as stub" );
-        return taskId;
-#endif
+
     }
 
     SGJobSubmitter::~SGJobSubmitter() = default;
