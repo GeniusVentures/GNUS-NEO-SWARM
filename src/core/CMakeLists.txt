@@ -1,9 +1,9 @@
 add_library(genius_core STATIC
-    fp4/FP4Codec.cpp
-    engine/MNNInferenceEngine.cpp
-    tokenizer/SentencePieceTokenizer.cpp
-    sgprocessing/SGProcessingBridge.cpp
-    sgprocessing/TensorInterpreter.cpp
+    fp4/fp4_codec.cpp
+    engine/mnn_inference_engine.cpp
+    tokenizer/sentence_piece_tokenizer.cpp
+    sgprocessing/sg_processing_bridge.cpp
+    sgprocessing/tensor_interpreter.cpp
 )
 
 target_include_directories(genius_core PUBLIC
