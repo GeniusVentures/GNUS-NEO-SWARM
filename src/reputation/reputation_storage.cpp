@@ -13,11 +13,9 @@
 #include <stdexcept>
 #include <unordered_map>
 
-#ifdef GENIUS_HAS_ROCKSDB
 #include <rocksdb/db.h>
 #include <rocksdb/options.h>
 #include <rocksdb/slice.h>
-#endif
 
 namespace sgns::neoswarm::reputation
 {
@@ -74,12 +72,9 @@ namespace sgns::neoswarm::reputation
     // -----------------------------------------------------------------------
     struct ReputationStorage::Impl
     {
-#ifdef GENIUS_HAS_ROCKSDB
         rocksdb::DB* db_ = nullptr;
         rocksdb::Options options_;
-#else
-        std::unordered_map<std::string, std::string> store_;
-#endif
+
     };
 
     ReputationStorage::ReputationStorage( const std::string& db_path )
@@ -98,7 +93,6 @@ namespace sgns::neoswarm::reputation
     // -----------------------------------------------------------------------
     outcome::result<void> ReputationStorage::Open()
     {
-#ifdef GENIUS_HAS_ROCKSDB
         m_impl->options_.create_if_missing = true;
         rocksdb::Status status = rocksdb::DB::Open( m_impl->options_, db_path_, &m_impl->db_ );
         if ( !status.ok() )
@@ -106,9 +100,7 @@ namespace sgns::neoswarm::reputation
             return outcome::failure( Error::StorageError );
         }
         StorageLogger()->info( "ReputationStorage opened: {}", db_path_ );
-#else
-        StorageLogger()->warn( "RocksDB not compiled in — using in-memory reputation store" );
-#endif
+
         open_ = true;
         return outcome::success();
     }
@@ -118,13 +110,11 @@ namespace sgns::neoswarm::reputation
     // -----------------------------------------------------------------------
     void ReputationStorage::Close()
     {
-#ifdef GENIUS_HAS_ROCKSDB
         if ( m_impl && m_impl->db_ )
         {
             delete m_impl->db_;
             m_impl->db_ = nullptr;
         }
-#endif
         open_ = false;
     }
 
@@ -138,15 +128,12 @@ namespace sgns::neoswarm::reputation
             return outcome::failure( Error::StorageError );
         }
         std::string val = Serialize( rep );
-#ifdef GENIUS_HAS_ROCKSDB
         auto status = m_impl->db_->Put( rocksdb::WriteOptions(), rep.identity_key_, val );
         if ( !status.ok() )
         {
             return outcome::failure( Error::StorageError );
         }
-#else
-        m_impl->store_[rep.identity_key_] = val;
-#endif
+
         return outcome::success();
     }
 
@@ -159,7 +146,6 @@ namespace sgns::neoswarm::reputation
         {
             return outcome::failure( Error::StorageError );
         }
-#ifdef GENIUS_HAS_ROCKSDB
         std::string val;
         rocksdb::Status status = m_impl->db_->Get( rocksdb::ReadOptions(), identity_key, &val );
         if ( status.IsNotFound() )
@@ -171,14 +157,7 @@ namespace sgns::neoswarm::reputation
             return outcome::failure( Error::StorageError );
         }
         return outcome::success( Deserialize( val ) );
-#else
-        auto it = m_impl->store_.find( identity_key );
-        if ( it == m_impl->store_.end() )
-        {
-            return outcome::failure( Error::ReputationNotFound );
-        }
-        return outcome::success( Deserialize( it->second ) );
-#endif
+
     }
 
     // -----------------------------------------------------------------------
@@ -190,15 +169,12 @@ namespace sgns::neoswarm::reputation
         {
             return outcome::failure( Error::StorageError );
         }
-#ifdef GENIUS_HAS_ROCKSDB
         auto status = m_impl->db_->Delete( rocksdb::WriteOptions(), identity_key );
         if ( !status.ok() )
         {
             return outcome::failure( Error::StorageError );
         }
-#else
-        m_impl->store_.erase( identity_key );
-#endif
+
         return outcome::success();
     }
 
@@ -212,19 +188,13 @@ namespace sgns::neoswarm::reputation
             return outcome::failure( Error::StorageError );
         }
         std::vector<NodeReputation> result;
-#ifdef GENIUS_HAS_ROCKSDB
         auto* it = m_impl->db_->NewIterator( rocksdb::ReadOptions() );
         for ( it->SeekToFirst(); it->Valid(); it->Next() )
         {
             result.push_back( Deserialize( it->value().ToString() ) );
         }
         delete it;
-#else
-        for ( const auto& [k, v] : m_impl->store_ )
-        {
-            result.push_back( Deserialize( v ) );
-        }
-#endif
+
         return outcome::success( std::move( result ) );
     }
 

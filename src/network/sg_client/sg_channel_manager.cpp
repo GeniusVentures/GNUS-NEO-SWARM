@@ -36,7 +36,6 @@ namespace sgns::neoswarm::network
             return outcome::success();
         }
 
-#ifdef GENIUS_HAS_GRPC
         bool isLocalhost = m_cfg.endpoint_.find( "localhost" ) != std::string::npos ||
                            m_cfg.endpoint_.find( "127.0.0.1" ) != std::string::npos;
 
@@ -75,10 +74,7 @@ namespace sgns::neoswarm::network
 
         ChannelLogger()->info( "Channel created to {}", m_cfg.endpoint_ );
         return outcome::success();
-#else
-        ChannelLogger()->warn( "SGChannelManager: gRPC not compiled in — stub mode" );
-        return outcome::failure( Error::NotImplemented );
-#endif
+
     }
 
     outcome::result<bool> SGChannelManager::HealthCheck() const
@@ -88,7 +84,6 @@ namespace sgns::neoswarm::network
             return false;
         }
 
-#ifdef GENIUS_HAS_GRPC
         auto state = channel_->GetState( false );
         if ( state == GRPC_CHANNEL_READY )
         {
@@ -96,9 +91,7 @@ namespace sgns::neoswarm::network
         }
         ChannelLogger()->debug( "Channel health check: state={}", static_cast<int>( state ) );
         return false;
-#else
-        return false;
-#endif
+
     }
 
     outcome::result<void> SGChannelManager::Reconnect()
