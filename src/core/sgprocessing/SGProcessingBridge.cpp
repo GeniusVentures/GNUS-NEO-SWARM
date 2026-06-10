@@ -196,7 +196,7 @@ namespace sgns::neoswarm::core
 
         // Derive output URI from input URI (replace extension with _output.raw)
         std::string output_uri = abs_input_uri;
-        auto dot_pos = output_uri.rfind( '.' );
+        const auto dotPos = output_uri.rfind( '.' );
         if ( dot_pos != std::string::npos )
         {
             output_uri = output_uri.substr( 0, dot_pos ) + "_output.raw";
@@ -283,7 +283,7 @@ namespace sgns::neoswarm::core
 
         if ( cfg_.network_mode_ )
         {
-            auto result = SubmitNetwork( json_res.value() );
+            const auto result = SubmitNetwork( json_res.value() );
             if ( !result.has_value() )
             {
                 // Auto-fallback to local MNN on network failure

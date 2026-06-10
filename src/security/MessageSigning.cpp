@@ -69,17 +69,17 @@ namespace sgns::neoswarm::security
     // -----------------------------------------------------------------------
     bool MessageSigning::Verify( const std::string& payload,
                                  const std::vector<uint8_t>& signature,
-                                 const std::string& pub_key_hex )
+                                 const std::string& pubKeyHex )
     {
 #ifdef GENIUS_HAS_SECP256K1
         // Validate inputs
-        if ( payload.empty() || signature.empty() || pub_key_hex.empty() )
+        if ( payload.empty() || signature.empty() || pubKeyHex.empty() )
         {
             return false;
         }
 
         // Parse public key from hex
-        auto pubBytes = FromHex( pub_key_hex );
+        auto pubBytes = FromHex( pubKeyHex );
         if ( pubBytes.size() != NodeIdentity::kPubKeySize )
         {
             return false;
@@ -131,7 +131,7 @@ namespace sgns::neoswarm::security
 #else
         (void) payload;
         (void) signature;
-        (void) pub_key_hex;
+        (void) pubKeyHex;
         SigningLogger()->error( "MessageSigning::Verify — secp256k1 not available, REJECTING signature" );
         return false;
 #endif
@@ -200,7 +200,7 @@ namespace sgns::neoswarm::security
     // -----------------------------------------------------------------------
     // VerifyAndStrip
     // -----------------------------------------------------------------------
-    bool MessageSigning::VerifyAndStrip( std::string& payload, const std::string& pub_key_hex )
+    bool MessageSigning::VerifyAndStrip( std::string& payload, const std::string& pubKeyHex )
     {
         // Step 1: Extract sig field (last field appended by AttachSignature)
         auto sigPos = payload.rfind( ",\"sig\":\"" );
@@ -253,7 +253,7 @@ namespace sgns::neoswarm::security
         }
 
         // Step 5: Verify signature on the full payload (includes nonce+ts)
-        if ( !Verify( verifyPayload, sigBytes, pub_key_hex ) )
+        if ( !Verify( verifyPayload, sigBytes, pubKeyHex ) )
         {
             return false;
         }

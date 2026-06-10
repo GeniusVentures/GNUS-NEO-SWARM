@@ -44,7 +44,7 @@ namespace sgns::neoswarm::security
          */
         static bool Verify( const std::string& payload,
                             const std::vector<uint8_t>& signature,
-                            const std::string& pub_key_hex );
+                            const std::string& pubKeyHex );
 
         /// Replay protection window in seconds.
         static constexpr int64_t kReplayWindowSec = 30;
@@ -74,7 +74,7 @@ namespace sgns::neoswarm::security
          * @param         pub_key_hex Hex-encoded public key of the expected signer.
          * @return                    True if the signature is valid.
          */
-        static bool VerifyAndStrip( std::string& payload, const std::string& pub_key_hex );
+        static bool VerifyAndStrip( std::string& payload, const std::string& pubKeyHex );
 
         private:
         const NodeIdentity& identity_;
