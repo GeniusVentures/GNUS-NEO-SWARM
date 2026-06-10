@@ -80,7 +80,7 @@ namespace sgns::neoswarm::core
     {
         if ( m_cfg.engine_m_mode == "sgprocessing" )
         {
-            return m_cfg.sg_network_m_mode ? "SGProcessing/Network" : "SGProcessing/Local";
+            return m_cfg.sg_m_networkMode ? "SGProcessing/Network" : "SGProcessing/Local";
         }
         return ( m_cfg.backend_ == "vulkan" ) ? "MNN/Vulkan" : "MNN/CPU";
 
@@ -99,7 +99,7 @@ namespace sgns::neoswarm::core
             m_modelPath = model_path;
 
             SGProcessingBridge::Config bridge_cfg;
-            bridge_cfg.network_m_mode = m_cfg.sg_network_m_mode;
+            bridge_cfg.m_networkMode = m_cfg.sg_m_networkMode;
             m_bridge = std::make_unique<SGProcessingBridge>( bridge_cfg );
 
             m_tensorInterpreter = std::make_unique<TensorInterpreter>();

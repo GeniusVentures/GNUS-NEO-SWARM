@@ -99,7 +99,7 @@ namespace sgns::neoswarm::core
             float repetition_penalty_ = kDefaultRepetitionPenalty;
 
             /// SGProcessing network mode (Phase 2: dispatch via gRPC to SuperGenius)
-            bool sg_network_m_mode = false;
+            bool sg_m_networkMode = false;
         };
 
         MNNInferenceEngine();

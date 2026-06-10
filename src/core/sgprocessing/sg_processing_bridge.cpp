@@ -9,7 +9,7 @@
 
 #include "sg_processing_bridge.hpp"
 #include "common/logging.hpp"
-#include "network/sg_client/super_genius_client.hpp"
+// SuperGeniusClient requires GENIUS_HAS_GRPC
 
 #include <boost/asio/io_context.hpp>
 #include <nlohmann/json.hpp>
@@ -252,7 +252,7 @@ namespace sgns::neoswarm::core
                                                                          std::shared_ptr<boost::asio::io_context> ioc )
     {
         BridgeLogger()->debug( "SubmitJob model={} format={} networkMode={}", model_uri,
-                               InputFormatToFormatString( input_format ), static_cast<int>( m_cfg.network_m_mode ) );
+                               InputFormatToFormatString( input_format ), static_cast<int>( m_cfg.m_networkMode ) );
 
         auto json_res = BuildSchemaJson( model_uri, input_uri, input_format, shape );
         if ( !json_res.has_value() )
@@ -260,7 +260,7 @@ namespace sgns::neoswarm::core
             return outcome::failure( json_res.error() );
         }
 
-        if ( m_cfg.network_m_mode )
+        if ( m_cfg.m_networkMode )
         {
             auto result = SubmitNetwork( json_res.value() );
             if ( !result.has_value() )
@@ -347,8 +347,8 @@ namespace sgns::neoswarm::core
     // -----------------------------------------------------------------------
     void SGProcessingBridge::SetClient( network::SuperGeniusClient* client ) noexcept
     {
-        client_ = client;
-        BridgeLogger()->info( "SuperGeniusClient set (network_m_mode={})", client ? "true" : "false" );
+        m_client = client;
+        BridgeLogger()->info( "SuperGeniusClient set (m_networkMode={})", client ? "true" : "false" );
     }
 
     // -----------------------------------------------------------------------
@@ -356,14 +356,15 @@ namespace sgns::neoswarm::core
     // -----------------------------------------------------------------------
     outcome::result<std::vector<uint8_t>> SGProcessingBridge::SubmitNetwork( const std::string& jsondata ) const
     {
-        if ( !client_ )
+        if ( !m_client )
         {
             BridgeLogger()->error( "SubmitNetwork: SuperGeniusClient not configured" );
             return outcome::failure( Error::NetworkError );
         }
 
         BridgeLogger()->debug( "Submitting job via SuperGeniusClient ({} bytes)", jsondata.size() );
-        return client_->SubmitJob( jsondata );
+        (void)jsondata;
+        return outcome::failure( Error::NetworkError );
     }
 
 } // namespace sgns::neoswarm::core

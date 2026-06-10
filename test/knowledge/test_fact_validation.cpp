@@ -20,15 +20,15 @@ namespace
     KnowledgeFact MakeFact( const std::string& source, const std::string& content )
     {
         KnowledgeFact f;
-        f.source_ = source;
-        f.content_ = content;
+        f.m_source = source;
+        f.m_content = content;
         return f;
     }
 
     std::shared_ptr<KnowledgeRetrieval> MakeRetrieval()
     {
         KnowledgeRetrieval::Config cfg;
-        cfg.facts_path_ = "";
+        cfg.m_factsPath = "";
         auto ret = std::make_shared<KnowledgeRetrieval>( cfg );
         ret->Load();
         return ret;
@@ -83,7 +83,7 @@ TEST( FactValidation, IsAvailable )
 TEST( KnowledgeRetrieval, LoadEmptyPathDoesNotCrash )
 {
     KnowledgeRetrieval::Config cfg;
-    cfg.facts_path_ = "";
+    cfg.m_factsPath = "";
     KnowledgeRetrieval retriever( cfg );
     retriever.Load();
 
@@ -95,7 +95,7 @@ TEST( KnowledgeRetrieval, LoadEmptyPathDoesNotCrash )
 TEST( KnowledgeRetrieval, NotLoadedReturnsEmpty )
 {
     KnowledgeRetrieval::Config cfg;
-    cfg.facts_path_ = "/nonexistent/path/facts.csv";
+    cfg.m_factsPath = "/nonexistent/path/facts.csv";
     KnowledgeRetrieval retriever( cfg );
     retriever.Load();
 

@@ -288,7 +288,7 @@ int main( int argc, char** argv )
     cfg.m_reputationDbPath = args.db_path_;
     cfg.m_knowledgefacts_ = args.m_knowledgepath_;
     cfg.m_enableNetwork = args.network_;
-    cfg.enable_m_knowledge = true;
+    cfg.m_enableKnowledge = true;
     (void) args.port_;
     cfg.m_nodeKeyFile = args.key_file_;
     cfg.sg_m_endpoint = args.sg_m_endpoint;

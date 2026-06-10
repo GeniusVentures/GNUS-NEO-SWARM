@@ -74,7 +74,7 @@ namespace sgns::neoswarm::api
         core::MNNInferenceEngine::Config engine_cfg;
         engine_cfg.engine_m_mode = m_cfg.m_enableSgProcessing ? "sgprocessing" : "interpreter";
         engine_cfg.backend_ = "vulkan"; // cross-platform; MoltenVK on Apple
-        engine_cfg.sg_network_m_mode = m_cfg.sg_processing_network_m_mode;
+        engine_cfg.sg_m_networkMode = m_cfg.sg_processing_m_networkMode;
         auto engine = std::make_shared<core::MNNInferenceEngine>( engine_cfg );
 
 #ifdef GENIUS_HAS_SENTENCEPIECE
@@ -186,7 +186,7 @@ namespace sgns::neoswarm::api
 #endif // GENIUS_HAS_GRPC
 
         // 7. Knowledge
-        if ( m_cfg.enable_m_knowledge )
+        if ( m_cfg.m_enableKnowledge )
         {
             knowledge::KnowledgeRetrieval::Config k_cfg;
             k_cfg.m_factsPath = m_cfg.m_knowledgefacts_;
@@ -479,8 +479,10 @@ namespace sgns::neoswarm::api
         m_running.store( false );
         if ( m_p2pNode )
             m_p2pNode->Stop();
+#ifdef GENIUS_HAS_GRPC
         if ( m_sgClient )
             m_sgClient->Disconnect();
+#endif
         if ( m_repStorage )
             m_repStorage->Close();
         ServerLogger()->info( "ApiServer stopped" );

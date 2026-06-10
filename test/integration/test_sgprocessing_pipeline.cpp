@@ -140,7 +140,7 @@ TEST( SGProcessingBridge, SubmitJob_StubMode_ReturnsOk )
 TEST( SGProcessingBridge, NetworkMode_ReturnsNotImplemented )
 {
     SGProcessingBridge::Config cfg;
-    cfg.network_mode_ = true;
+    cfg.m_networkMode = true;
     SGProcessingBridge bridge( cfg );
 
     auto ioc = std::make_shared<boost::asio::io_context>();

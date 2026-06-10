@@ -36,7 +36,9 @@ namespace
   "model_loaded": false,
   "mode": "stub",
   "backend": "cpu",
-  "node_id": "stub-node"
+  "node_id": "stub-node",
+  "supergenius_connected": false,
+  "fallback_active": true
 })";
 
     char* AllocCopy( const std::string& src )
