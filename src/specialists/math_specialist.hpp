@@ -1,33 +1,35 @@
 /**
- * @file       GrammarSpecialist.hpp
- * @brief      Grammar correction specialist model (PTDS §5.2)
+ * @file       math_specialist.hpp
+ * @brief      GSM8K-tuned math specialist model (PTDS §5.2)
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#ifndef NEOSWARM_SPECIALISTS_GRAMMARSPECIALIST_HPP_
-#define NEOSWARM_SPECIALISTS_GRAMMARSPECIALIST_HPP_
+#ifndef NEOSWARM_SPECIALISTS_MATHSPECIALIST_HPP_
+#define NEOSWARM_SPECIALISTS_MATHSPECIALIST_HPP_
 
-#include "ISpecialist.hpp"
-#include "core/engine/InferenceEngine.hpp"
+#include "i_specialist.hpp"
+#include "symbolic_fallback.hpp"
+#include "core/engine/inference_engine.hpp"
 #include <memory>
+#include <optional>
 
 namespace sgns::neoswarm::specialists
 {
     /**
-     * @brief 200M–500M parameter grammar correction model (PTDS §5.2).
+     * @brief 1–3B parameter GSM8K-tuned math model (PTDS §5.2).
      *
-     * Post-processes Core LLM output for style, consistency, and linguistic
-     * correctness. Runs as a sequential stage after Core inference.
+     * Activated by the router when numeric density > threshold.
+     * Includes symbolic fallback when model confidence < kConfidenceThreshold.
      */
-    class GrammarSpecialist : public ISpecialist
+    class MathSpecialist : public ISpecialist
     {
         public:
-        explicit GrammarSpecialist( std::shared_ptr<core::InferenceEngine> engine = nullptr );
+        explicit MathSpecialist( std::shared_ptr<core::InferenceEngine> engine = nullptr );
 
         std::string GetName() const override
         {
-            return "GrammarSpecialist";
+            return "MathSpecialist";
         }
         bool IsLoaded() const override
         {
@@ -47,8 +49,9 @@ namespace sgns::neoswarm::specialists
         float last_confidence_ = 0.0f;
 
         std::string BuildPrompt( const std::string& input ) const;
+        std::optional<std::string> TrySymbolicFallback( const std::string& input ) const;
     };
 
 } // namespace sgns::neoswarm::specialists
 
-#endif // NEOSWARM_SPECIALISTS_GRAMMARSPECIALIST_HPP_
+#endif // NEOSWARM_SPECIALISTS_MATHSPECIALIST_HPP_

@@ -1,5 +1,5 @@
 /**
- * @file       ReputationStorage.hpp
+ * @file       reputation_storage.hpp
  * @brief      RocksDB-backed reputation persistence (PTDS §4.2)
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
@@ -8,8 +8,8 @@
 #ifndef NEOSWARM_REPUTATION_REPUTATIONSTORAGE_HPP_
 #define NEOSWARM_REPUTATION_REPUTATIONSTORAGE_HPP_
 
-#include "NodeReputation.hpp"
-#include "common/Error.hpp"
+#include "node_reputation.hpp"
+#include "common/error.hpp"
 #include <memory>
 #include <optional>
 #include <string>
@@ -75,7 +75,7 @@ namespace sgns::neoswarm::reputation
 
         private:
         struct Impl;
-        std::unique_ptr<Impl> impl_;
+        std::unique_ptr<Impl> m_impl;
         std::string db_path_;
         bool open_ = false;
 

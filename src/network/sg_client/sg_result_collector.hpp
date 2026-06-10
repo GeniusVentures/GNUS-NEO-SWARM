@@ -1,5 +1,5 @@
 /**
- * @file       SGResultCollector.hpp
+ * @file       sg_result_collector.hpp
  * @brief      Subscribes to per-job result channels and collects TaskResult messages
  * @date       2026-05-28
  * @author     Subaskar S (ssivakumar@gnus.ai)
@@ -8,7 +8,7 @@
 #ifndef NEOSWARM_NETWORK_SG_CLIENT_SGRESULTCOLLECTOR_HPP_
 #define NEOSWARM_NETWORK_SG_CLIENT_SGRESULTCOLLECTOR_HPP_
 
-#include "common/Error.hpp"
+#include "common/error.hpp"
 #include <chrono>
 #include <cstdint>
 #include <memory>
@@ -57,7 +57,7 @@ namespace sgns::neoswarm::network
 
         private:
         struct Impl;
-        std::unique_ptr<Impl> impl_;
+        std::unique_ptr<Impl> m_impl;
     };
 
 } // namespace sgns::neoswarm::network

@@ -1,15 +1,15 @@
 /**
- * @file       GeniusAPIServer.cpp
+ * @file       api_server.cpp
  * @brief      Inference pipeline orchestration implementation
  * @date       2026-05-08
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include "GeniusAPIServer.hpp"
-#include "common/Logging.hpp"
-#include "core/engine/MNNInferenceEngine.hpp"
-#include "core/tokenizer/Tokenizer.hpp"
-#include "network/sg_client/SuperGeniusClient.hpp"
+#include "api_server.hpp"
+#include "common/logging.hpp"
+#include "core/engine/MNNinference_engine.hpp"
+#include "core/tokenizer/tokenizer.hpp"
+#include "network/sg_client/super_genius_client.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -35,7 +35,7 @@ namespace sgns::neoswarm::api
     } // namespace
 
     GeniusAPIServer::GeniusAPIServer( Config cfg )
-        : cfg_( std::move( cfg ) )
+        : m_cfg( std::move( cfg ) )
     {
     }
     GeniusAPIServer::~GeniusAPIServer()
@@ -51,34 +51,34 @@ namespace sgns::neoswarm::api
         ServerLogger()->info( "Initializing GeniusAPIServer..." );
 
         // 1. Node identity
-        identity_ = std::make_shared<security::NodeIdentity>();
+        m_identity = std::make_shared<security::NodeIdentity>();
         {
-            std::ifstream key_check( cfg_.node_key_file_ );
+            std::ifstream key_check( m_cfg.node_key_file_ );
             if ( key_check.good() )
             {
-                auto res = identity_->LoadFromFile( cfg_.node_key_file_ );
+                auto res = m_identity->LoadFromFile( m_cfg.node_key_file_ );
                 if ( !res.has_value() )
                 {
                     ServerLogger()->warn( "Key load failed, generating new key" );
                 }
             }
-            if ( !identity_->IsLoaded() )
+            if ( !m_identity->IsLoaded() )
             {
-                BOOST_OUTCOME_TRY( identity_->Generate() );
-                (void)identity_->SaveToFile( cfg_.node_key_file_ );
+                BOOST_OUTCOME_TRY( m_identity->Generate() );
+                (void)m_identity->SaveToFile( m_cfg.node_key_file_ );
             }
         }
-        ServerLogger()->info( "Node identity: {}", identity_->PeerId() );
+        ServerLogger()->info( "Node identity: {}", m_identity->PeerId() );
 
         // 2. Core inference engine
         core::MNNInferenceEngine::Config engine_cfg;
-        engine_cfg.engine_mode_ = cfg_.enable_sg_processing_ ? "sgprocessing" : "interpreter";
+        engine_cfg.engine_mode_ = m_cfg.enable_sg_processing_ ? "sgprocessing" : "interpreter";
         engine_cfg.backend_ = "vulkan"; // cross-platform; MoltenVK on Apple
-        engine_cfg.sg_network_mode_ = cfg_.sg_processing_network_mode_;
+        engine_cfg.sg_network_mode_ = m_cfg.sg_processing_network_mode_;
         auto engine = std::make_shared<core::MNNInferenceEngine>( engine_cfg );
 
         auto tokenizer = std::make_shared<core::SentencePieceTokenizer>();
-        std::string tok_path = cfg_.model_path_;
+        std::string tok_path = m_cfg.model_path_;
         auto dot_pos = tok_path.rfind( '.' );
         if ( dot_pos != std::string::npos )
             tok_path = tok_path.substr( 0, dot_pos );
@@ -86,9 +86,9 @@ namespace sgns::neoswarm::api
         (void)tokenizer->Load( tok_path ); // degrades gracefully if not found
         engine->SetTokenizer( tokenizer );
 
-        if ( !cfg_.model_path_.empty() )
+        if ( !m_cfg.model_path_.empty() )
         {
-            auto res = engine->LoadModel( cfg_.model_path_ );
+            auto res = engine->LoadModel( m_cfg.model_path_ );
             if ( !res.has_value() )
             {
                 ServerLogger()->warn( "Core model load failed — continuing in stub mode" );
@@ -102,17 +102,17 @@ namespace sgns::neoswarm::api
 
         // 3. Specialists
         grammar_spec_ = std::make_shared<specialists::GrammarSpecialist>(
-            cfg_.grammar_model_path_.empty() ? nullptr : core_engine_ );
+            m_cfg.grammar_model_path_.empty() ? nullptr : core_engine_ );
         math_spec_ =
-            std::make_shared<specialists::MathSpecialist>( cfg_.math_model_path_.empty() ? nullptr : core_engine_ );
+            std::make_shared<specialists::MathSpecialist>( m_cfg.math_model_path_.empty() ? nullptr : core_engine_ );
 
-        if ( !cfg_.grammar_model_path_.empty() )
+        if ( !m_cfg.grammar_model_path_.empty() )
         {
-            (void)grammar_spec_->Load( cfg_.grammar_model_path_ );
+            (void)grammar_spec_->Load( m_cfg.grammar_model_path_ );
         }
-        if ( !cfg_.math_model_path_.empty() )
+        if ( !m_cfg.math_model_path_.empty() )
         {
-            (void)math_spec_->Load( cfg_.math_model_path_ );
+            (void)math_spec_->Load( m_cfg.math_model_path_ );
         }
 
         // 4. Router
@@ -122,7 +122,7 @@ namespace sgns::neoswarm::api
         scoring_ = std::make_unique<reputation::ReputationScoring>();
         consensus_ = std::make_unique<reputation::WeightedConsensus>();
         rep_crdt_ = std::make_unique<reputation::ReputationCRDT>();
-        rep_storage_ = std::make_unique<reputation::ReputationStorage>( cfg_.reputation_db_path_ );
+        rep_storage_ = std::make_unique<reputation::ReputationStorage>( m_cfg.reputation_db_path_ );
         auto stor_res = rep_storage_->Open();
         if ( !stor_res.has_value() )
         {
@@ -130,10 +130,10 @@ namespace sgns::neoswarm::api
         }
 
         // 6. Network (optional)
-        if ( cfg_.enable_network_ )
+        if ( m_cfg.enable_network_ )
         {
             network::P2PNode::Config net_cfg;
-            p2p_node_ = std::make_unique<network::P2PNode>( identity_, net_cfg );
+            p2p_node_ = std::make_unique<network::P2PNode>( m_identity, net_cfg );
             aggregation_ = std::make_unique<network::ResultAggregation>();
             auto net_res = p2p_node_->Start();
             if ( !net_res.has_value() )
@@ -143,21 +143,21 @@ namespace sgns::neoswarm::api
         }
 
         // 6b. SuperGenius connectivity (optional — Phase 2 network dispatch)
-        if ( !cfg_.sg_endpoint_.empty() )
+        if ( !m_cfg.sg_endpoint_.empty() )
         {
             network::SuperGeniusClient::Config sgCfg;
-            sgCfg.endpoint_ = cfg_.sg_endpoint_;
-            sgCfg.tls_ca_path_ = cfg_.sg_tls_ca_;
-            sgCfg.tls_cert_path_ = cfg_.sg_tls_cert_;
+            sgCfg.endpoint_ = m_cfg.sg_endpoint_;
+            sgCfg.tls_ca_path_ = m_cfg.sg_tls_ca_;
+            sgCfg.tls_cert_path_ = m_cfg.sg_tls_cert_;
 
             sg_client_ = std::make_unique<network::SuperGeniusClient>( std::move( sgCfg ) );
-            auto initRes = sg_client_->Initialize( *identity_ );
+            auto initRes = sg_client_->Initialize( *m_identity );
             if ( initRes.has_value() )
             {
                 auto connRes = sg_client_->Connect();
                 if ( connRes.has_value() )
                 {
-                    ServerLogger()->info( "Connected to SuperGenius at {}", cfg_.sg_endpoint_ );
+                    ServerLogger()->info( "Connected to SuperGenius at {}", m_cfg.sg_endpoint_ );
                 }
                 else
                 {
@@ -181,17 +181,17 @@ namespace sgns::neoswarm::api
         }
 
         // 7. Knowledge
-        if ( cfg_.enable_knowledge_ )
+        if ( m_cfg.enable_knowledge_ )
         {
             knowledge::KnowledgeRetrieval::Config k_cfg;
-            k_cfg.facts_path_ = cfg_.knowledge_facts_;
+            k_cfg.facts_path_ = m_cfg.knowledge_facts_;
             knowledge_ = std::make_shared<knowledge::KnowledgeRetrieval>( k_cfg );
             (void)knowledge_->Load();
             context_inj_ = std::make_unique<knowledge::ContextInjection>();
             fact_val_ = std::make_unique<knowledge::FactValidation>( knowledge_ );
         }
 
-        ServerLogger()->info( "GeniusAPIServer initialized (node={})", identity_->PeerId() );
+        ServerLogger()->info( "GeniusAPIServer initialized (node={})", m_identity->PeerId() );
         return outcome::success();
     }
 
@@ -233,7 +233,7 @@ namespace sgns::neoswarm::api
         }
         else
         {
-            rep.identity_key_ = resp.node_id_;
+            rep.m_identitykey_ = resp.node_id_;
         }
 
         auto updated = scoring_->Update( rep, resp, median_latency_ms, std::nullopt, consensus_output );
@@ -433,7 +433,7 @@ namespace sgns::neoswarm::api
         if ( t.id_.empty() )
             t.id_ = GenerateId();
         if ( t.node_id_.empty() )
-            t.node_id_ = identity_ ? identity_->PeerId() : "local";
+            t.node_id_ = m_identity ? m_identity->PeerId() : "local";
 
         auto route_res = router_->Route( t );
         if ( !route_res.has_value() )
@@ -462,10 +462,10 @@ namespace sgns::neoswarm::api
     // -----------------------------------------------------------------------
     outcome::result<void> GeniusAPIServer::Serve()
     {
-        running_.store( true );
-        ServerLogger()->info( "GeniusAPIServer serving on port {}", cfg_.grpc_port_ );
+        m_running.store( true );
+        ServerLogger()->info( "GeniusAPIServer serving on port {}", m_cfg.grpc_port_ );
 
-        while ( running_.load() )
+        while ( m_running.load() )
         {
             std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
         }
@@ -474,7 +474,7 @@ namespace sgns::neoswarm::api
 
     void GeniusAPIServer::Stop()
     {
-        running_.store( false );
+        m_running.store( false );
         if ( p2p_node_ )
             p2p_node_->Stop();
         if ( sg_client_ )

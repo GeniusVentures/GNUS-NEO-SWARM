@@ -1,5 +1,5 @@
 /**
- * @file       WeightedConsensus.hpp
+ * @file       weighted_consensus.hpp
  * @brief      Weighted consensus selection (PTDS §7.3)
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
@@ -8,7 +8,7 @@
 #ifndef NEOSWARM_REPUTATION_WEIGHTEDCONSENSUS_HPP_
 #define NEOSWARM_REPUTATION_WEIGHTEDCONSENSUS_HPP_
 
-#include "common/Types.hpp"
+#include "common/types.hpp"
 #include <vector>
 
 namespace sgns::neoswarm::reputation
@@ -48,7 +48,7 @@ namespace sgns::neoswarm::reputation
         NodeOutput SelectWinner( const std::vector<NodeOutput>& outputs ) const;
 
         private:
-        Config cfg_;
+        Config m_cfg;
 
         /**
          * @brief Compute per-node weights from reputation and perplexity.

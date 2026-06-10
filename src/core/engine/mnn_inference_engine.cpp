@@ -1,5 +1,5 @@
 /**
- * @file       MNNInferenceEngine.cpp
+ * @file       mnn_inference_engine.cpp
  * @brief      MNN inference engine — cross-platform, config-driven
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
@@ -8,8 +8,8 @@
  * Engine mode selected at runtime via Config::engine_mode_, not compile flags.
  */
 
-#include "MNNInferenceEngine.hpp"
-#include "common/Logging.hpp"
+#include "MNNinference_engine.hpp"
+#include "common/logging.hpp"
 
 #include <algorithm>
 #include <boost/asio/io_context.hpp>

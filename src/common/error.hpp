@@ -1,5 +1,5 @@
 /**
- * @file       Error.hpp
+ * @file       error.hpp
  * @brief      Error codes and outcome::result alias for GNUS NEO SWARM
  */
 

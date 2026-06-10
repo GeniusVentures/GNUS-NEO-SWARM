@@ -1,5 +1,5 @@
 /**
- * @file       ReputationScoring.hpp
+ * @file       reputation_scoring.hpp
  * @brief      Reputation update formulas (PTDS §7.2)
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
@@ -8,8 +8,8 @@
 #ifndef NEOSWARM_REPUTATION_REPUTATIONSCORING_HPP_
 #define NEOSWARM_REPUTATION_REPUTATIONSCORING_HPP_
 
-#include "NodeReputation.hpp"
-#include "common/Types.hpp"
+#include "node_reputation.hpp"
+#include "common/types.hpp"
 #include <optional>
 
 namespace sgns::neoswarm::reputation
@@ -77,7 +77,7 @@ namespace sgns::neoswarm::reputation
         double DeltaConsistency( float perplexity ) const;
 
         private:
-        Config cfg_;
+        Config m_cfg;
     };
 
 } // namespace sgns::neoswarm::reputation

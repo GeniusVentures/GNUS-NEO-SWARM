@@ -1,5 +1,5 @@
 /**
- * @file       KnowledgeRetrieval.hpp
+ * @file       knowledge_retrieval.hpp
  * @brief      Query embedding and ANN search for Grokipedia facts (PTDS §8.2)
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
@@ -8,8 +8,8 @@
 #ifndef NEOSWARM_KNOWLEDGE_KNOWLEDGERETRIEVAL_HPP_
 #define NEOSWARM_KNOWLEDGE_KNOWLEDGERETRIEVAL_HPP_
 
-#include "common/Error.hpp"
-#include "common/Types.hpp"
+#include "common/error.hpp"
+#include "common/types.hpp"
 #include <memory>
 #include <string>
 #include <vector>
@@ -59,8 +59,8 @@ namespace sgns::neoswarm::knowledge
 
         private:
         struct Impl;
-        std::unique_ptr<Impl> impl_;
-        Config cfg_;
+        std::unique_ptr<Impl> m_impl;
+        Config m_cfg;
         bool loaded_ = false;
 
         /**

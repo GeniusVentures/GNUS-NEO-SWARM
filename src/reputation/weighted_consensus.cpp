@@ -1,12 +1,12 @@
 /**
- * @file       WeightedConsensus.cpp
+ * @file       weighted_consensus.cpp
  * @brief      Weighted consensus implementation
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include "WeightedConsensus.hpp"
-#include "common/Logging.hpp"
+#include "weighted_consensus.hpp"
+#include "common/logging.hpp"
 
 #include <algorithm>
 #include <unordered_map>
@@ -22,11 +22,11 @@ namespace sgns::neoswarm::reputation
     } // namespace
 
     WeightedConsensus::WeightedConsensus()
-        : cfg_( {} )
+        : m_cfg( {} )
     {
     }
     WeightedConsensus::WeightedConsensus( Config cfg )
-        : cfg_( std::move( cfg ) )
+        : m_cfg( std::move( cfg ) )
     {
     }
 
@@ -39,7 +39,7 @@ namespace sgns::neoswarm::reputation
         weights.reserve( outputs.size() );
         for ( const auto& o : outputs )
         {
-            double w = o.reputation_ / ( static_cast<double>( o.perplexity_ ) + cfg_.epsilon_ );
+            double w = o.reputation_ / ( static_cast<double>( o.perplexity_ ) + m_cfg.epsilon_ );
             weights.push_back( std::max( w, 0.0 ) );
         }
         return weights;
@@ -54,7 +54,7 @@ namespace sgns::neoswarm::reputation
         std::unordered_map<std::string, double> vote_map;
         for ( size_t i = 0; i < outputs.size(); ++i )
         {
-            if ( weights[i] >= cfg_.min_weight_ )
+            if ( weights[i] >= m_cfg.min_weight_ )
             {
                 vote_map[outputs[i].output_] += weights[i];
             }
@@ -116,7 +116,7 @@ namespace sgns::neoswarm::reputation
 
         auto weights = ComputeWeights( outputs );
 
-        switch ( cfg_.strategy_ )
+        switch ( m_cfg.strategy_ )
         {
             case Strategy::WeightedVoting:
                 return WeightedVoting( outputs, weights );

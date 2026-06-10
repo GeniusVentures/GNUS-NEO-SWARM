@@ -1,5 +1,5 @@
 /**
- * @file       FactValidation.hpp
+ * @file       fact_validation.hpp
  * @brief      Post-generation fact checking against Grokipedia (PTDS §8.3)
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
@@ -8,8 +8,8 @@
 #ifndef NEOSWARM_KNOWLEDGE_FACTVALIDATION_HPP_
 #define NEOSWARM_KNOWLEDGE_FACTVALIDATION_HPP_
 
-#include "KnowledgeRetrieval.hpp"
-#include "common/Types.hpp"
+#include "knowledge_retrieval.hpp"
+#include "common/types.hpp"
 #include <memory>
 #include <string>
 #include <vector>

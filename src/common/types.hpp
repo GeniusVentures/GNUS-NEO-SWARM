@@ -1,5 +1,5 @@
 /**
- * @file       Types.hpp
+ * @file       types.hpp
  * @brief      Shared data types for the GNUS NEO SWARM engine
  */
 

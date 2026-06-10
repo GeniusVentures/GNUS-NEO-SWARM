@@ -1,12 +1,12 @@
 /**
- * @file       P2PNode.cpp
+ * @file       p2p_node.cpp
  * @brief      libp2p swarm node implementation
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include "P2PNode.hpp"
-#include "common/Logging.hpp"
+#include "p2p_node.hpp"
+#include "common/logging.hpp"
 
 #include <atomic>
 #include <nlohmann/json.hpp>
@@ -36,7 +36,7 @@ namespace sgns::neoswarm::network
         std::string listen_addr_;
         std::string peer_id_;
         std::vector<std::string> peers_;
-        std::atomic<bool> running_{ false };
+        std::atomic<bool> m_running{ false };
 
 #ifdef GENIUS_HAS_LIBP2P
         std::shared_ptr<libp2p::Host> host_;
@@ -55,16 +55,16 @@ namespace sgns::neoswarm::network
     };
 
     P2PNode::P2PNode( std::shared_ptr<security::NodeIdentity> identity )
-        : impl_( std::make_unique<Impl>() )
-        , identity_( std::move( identity ) )
-        , cfg_( {} )
+        : m_impl( std::make_unique<Impl>() )
+        , m_identity( std::move( identity ) )
+        , m_cfg( {} )
     {
     }
 
     P2PNode::P2PNode( std::shared_ptr<security::NodeIdentity> identity, Config cfg )
-        : impl_( std::make_unique<Impl>() )
-        , identity_( std::move( identity ) )
-        , cfg_( std::move( cfg ) )
+        : m_impl( std::make_unique<Impl>() )
+        , m_identity( std::move( identity ) )
+        , m_cfg( std::move( cfg ) )
     {
     }
 
@@ -86,20 +86,20 @@ namespace sgns::neoswarm::network
             // 1. Create host with full libp2p stack via Boost.DI injector.
             //    makeNetworkInjector internally generates keys and creates all providers.
             auto injector = libp2p::injector::makeHostInjector();
-            impl_->host_ = injector.template create<std::shared_ptr<libp2p::Host>>();
-            impl_->id_mgr_ = injector.template create<std::shared_ptr<libp2p::peer::IdentityManager>>();
+            m_impl->host_ = injector.template create<std::shared_ptr<libp2p::Host>>();
+            m_impl->id_mgr_ = injector.template create<std::shared_ptr<libp2p::peer::IdentityManager>>();
 
             // 2. Create GossipSub protocol using DI-provided components
             auto scheduler = injector.template create<std::shared_ptr<libp2p::basic::Scheduler>>();
             auto crypto_provider = injector.template create<std::shared_ptr<libp2p::crypto::CryptoProvider>>();
             auto key_marshaller =
                 injector.template create<std::shared_ptr<libp2p::crypto::marshaller::KeyMarshaller>>();
-            impl_->gossip_ = libp2p::protocol::gossip::create( scheduler, impl_->host_, impl_->id_mgr_, crypto_provider,
+            m_impl->gossip_ = libp2p::protocol::gossip::create( scheduler, m_impl->host_, m_impl->id_mgr_, crypto_provider,
                                                                key_marshaller, libp2p::protocol::gossip::Config{} );
 
             // 3. Subscribe to task and CRDT topics
-            impl_->subs_ = std::make_unique<Impl::GossipSubs>();
-            impl_->subs_->task_sub = impl_->gossip_->subscribe(
+            m_impl->subs_ = std::make_unique<Impl::GossipSubs>();
+            m_impl->subs_->task_sub = m_impl->gossip_->subscribe(
                 { kTaskTopic },
                 [this]( libp2p::protocol::gossip::Gossip::SubscriptionData sub_data )
                 {
@@ -116,13 +116,13 @@ namespace sgns::neoswarm::network
                             t.mode_ = static_cast<ExecutionMode>( json.value( "mode", 0 ) );
                             t.max_tokens_ = json.value( "max_tokens", 512U );
                             t.temperature_ = json.value( "temperature", 0.7f );
-                            task_handler_( t, impl_->peer_id_ );
+                            task_handler_( t, m_impl->peer_id_ );
                         }
                     }
                 } );
 
-            impl_->subs_->crdt_sub =
-                impl_->gossip_->subscribe( { kCRDTTopic },
+            m_impl->subs_->crdt_sub =
+                m_impl->gossip_->subscribe( { kCRDTTopic },
                                            [this]( libp2p::protocol::gossip::Gossip::SubscriptionData sub_data )
                                            {
                                                if ( sub_data && crdt_handler_ )
@@ -133,23 +133,23 @@ namespace sgns::neoswarm::network
                                            } );
 
             // 4. Listen on configured address
-            auto listen_ma = libp2p::multi::Multiaddress::create( cfg_.listen_addr_.empty() ? "/ip4/0.0.0.0/tcp/0"
-                                                                                            : cfg_.listen_addr_ );
+            auto listen_ma = libp2p::multi::Multiaddress::create( m_cfg.listen_addr_.empty() ? "/ip4/0.0.0.0/tcp/0"
+                                                                                            : m_cfg.listen_addr_ );
             if ( listen_ma )
             {
-                (void)impl_->host_->listen( listen_ma.value() );
+                (void)m_impl->host_->listen( listen_ma.value() );
             }
 
             // 5. Start the host and gossip
-            impl_->host_->start();
-            impl_->gossip_->start();
+            m_impl->host_->start();
+            m_impl->gossip_->start();
 
-            impl_->peer_id_ = impl_->host_->getId().toBase58();
-            impl_->listen_addr_ = cfg_.listen_addr_;
-            impl_->running_.store( true );
-            running_ = true;
+            m_impl->peer_id_ = m_impl->host_->getId().toBase58();
+            m_impl->listen_addr_ = m_cfg.listen_addr_;
+            m_impl->m_running.store( true );
+            m_running = true;
 
-            NetworkLogger()->info( "P2PNode started (libp2p): peerId={}", impl_->peer_id_ );
+            NetworkLogger()->info( "P2PNode started (libp2p): peerId={}", m_impl->peer_id_ );
         }
         catch ( const std::exception& e )
         {
@@ -161,12 +161,12 @@ namespace sgns::neoswarm::network
 #else
         NetworkLogger()->warn( "libp2p not compiled in — P2PNode running in stub mode" );
 
-        impl_->peer_id_ = identity_ ? identity_->PeerId() : "stub-peer";
-        impl_->listen_addr_ = cfg_.listen_addr_;
-        impl_->running_.store( true );
-        running_ = true;
+        m_impl->peer_id_ = m_identity ? m_identity->PeerId() : "stub-peer";
+        m_impl->listen_addr_ = m_cfg.listen_addr_;
+        m_impl->m_running.store( true );
+        m_running = true;
 
-        NetworkLogger()->info( "P2PNode started: peerId={} addr={}", impl_->peer_id_, impl_->listen_addr_ );
+        NetworkLogger()->info( "P2PNode started: peerId={} addr={}", m_impl->peer_id_, m_impl->listen_addr_ );
         return outcome::success();
 #endif
     }
@@ -176,37 +176,37 @@ namespace sgns::neoswarm::network
     // -----------------------------------------------------------------------
     void P2PNode::Stop()
     {
-        if ( !running_ )
+        if ( !m_running )
         {
             return;
         }
 #ifdef GENIUS_HAS_LIBP2P
-        if ( impl_->gossip_ )
-            impl_->gossip_->stop();
-        if ( impl_->host_ )
-            impl_->host_->stop();
-        impl_->host_.reset();
-        impl_->gossip_.reset();
-        impl_->id_mgr_.reset();
+        if ( m_impl->gossip_ )
+            m_impl->gossip_->stop();
+        if ( m_impl->host_ )
+            m_impl->host_->stop();
+        m_impl->host_.reset();
+        m_impl->gossip_.reset();
+        m_impl->id_mgr_.reset();
 #endif
-        impl_->running_.store( false );
-        running_ = false;
+        m_impl->m_running.store( false );
+        m_running = false;
         NetworkLogger()->info( "P2PNode stopped" );
     }
 
     std::string P2PNode::ListenAddress() const
     {
-        return impl_->listen_addr_;
+        return m_impl->listen_addr_;
     }
 
     std::string P2PNode::PeerId() const
     {
-        return impl_->peer_id_;
+        return m_impl->peer_id_;
     }
 
     std::vector<std::string> P2PNode::ConnectedPeers() const
     {
-        return impl_->peers_;
+        return m_impl->peers_;
     }
 
     // -----------------------------------------------------------------------
@@ -214,7 +214,7 @@ namespace sgns::neoswarm::network
     // -----------------------------------------------------------------------
     outcome::result<void> P2PNode::BroadcastTask( const Task& task )
     {
-        if ( !running_ )
+        if ( !m_running )
         {
             return outcome::failure( Error::NetworkError );
         }
@@ -227,21 +227,21 @@ namespace sgns::neoswarm::network
         j["temperature"] = task.temperature_;
         std::string payload = j.dump();
 
-        NetworkLogger()->debug( "Broadcasting task {} to {} peers", task.id_, impl_->peers_.size() );
+        NetworkLogger()->debug( "Broadcasting task {} to {} peers", task.id_, m_impl->peers_.size() );
 
 #ifdef GENIUS_HAS_LIBP2P
         // Publish via GossipSub to all peers
-        if ( impl_->gossip_ )
+        if ( m_impl->gossip_ )
         {
             std::vector<uint8_t> data( payload.begin(), payload.end() );
-            impl_->gossip_->publish( kTaskTopic, std::move( data ) );
+            m_impl->gossip_->publish( kTaskTopic, std::move( data ) );
         }
 #else
         // Stub: call local handler directly for single-process testing
         if ( task_handler_ )
         {
             Task t = task;
-            task_handler_( t, impl_->peer_id_ );
+            task_handler_( t, m_impl->peer_id_ );
         }
 #endif
         return outcome::success();
@@ -252,16 +252,16 @@ namespace sgns::neoswarm::network
     // -----------------------------------------------------------------------
     outcome::result<void> P2PNode::BroadcastCRDT( const std::string& crdt_data )
     {
-        if ( !running_ )
+        if ( !m_running )
         {
             return outcome::failure( Error::NetworkError );
         }
         NetworkLogger()->debug( "Broadcasting CRDT update ({} bytes)", crdt_data.size() );
 #ifdef GENIUS_HAS_LIBP2P
-        if ( impl_->gossip_ )
+        if ( m_impl->gossip_ )
         {
             std::vector<uint8_t> data( crdt_data.begin(), crdt_data.end() );
-            impl_->gossip_->publish( kCRDTTopic, std::move( data ) );
+            m_impl->gossip_->publish( kCRDTTopic, std::move( data ) );
         }
 #else
         if ( crdt_handler_ )

@@ -25,8 +25,8 @@
  *   --help                  Show this help
  */
 
-#include "api/GeniusAPIServer.hpp"
-#include "common/Logging.hpp"
+#include "api/api_server.hpp"
+#include "common/logging.hpp"
 
 #include <fstream>
 #include <iostream>

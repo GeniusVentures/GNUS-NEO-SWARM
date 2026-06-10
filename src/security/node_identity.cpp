@@ -1,12 +1,12 @@
 /**
- * @file       NodeIdentity.cpp
+ * @file       node_identity.cpp
  * @brief      secp256k1 keypair implementation
  * @date       2026-05-08
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include "NodeIdentity.hpp"
-#include "common/Logging.hpp"
+#include "node_identity.hpp"
+#include "common/logging.hpp"
 
 #include <fstream>
 #include <iomanip>
@@ -59,26 +59,26 @@ namespace sgns::neoswarm::security
     // -----------------------------------------------------------------------
     struct NodeIdentity::Impl
     {
-        PrivKey priv_key_{};
+        PrivKey m_privKey{};
 #ifdef GENIUS_HAS_SECP256K1
         secp256k1_context* ctx_ = nullptr;
 #endif
     };
 
     NodeIdentity::NodeIdentity()
-        : impl_( std::make_unique<Impl>() )
+        : m_impl( std::make_unique<Impl>() )
     {
 #ifdef GENIUS_HAS_SECP256K1
-        impl_->ctx_ = secp256k1_context_create( SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY );
+        m_impl->ctx_ = secp256k1_context_create( SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY );
 #endif
     }
 
     NodeIdentity::~NodeIdentity()
     {
 #ifdef GENIUS_HAS_SECP256K1
-        if ( impl_ && impl_->ctx_ )
+        if ( m_impl && m_impl->ctx_ )
         {
-            secp256k1_context_destroy( impl_->ctx_ );
+            secp256k1_context_destroy( m_impl->ctx_ );
         }
 #endif
     }
@@ -95,18 +95,18 @@ namespace sgns::neoswarm::security
 
         for ( int attempt = 0; attempt < 100; ++attempt )
         {
-            for ( auto& b : impl_->priv_key_ )
+            for ( auto& b : m_impl->m_privKey )
             {
                 b = dist( rng );
             }
-            if ( secp256k1_ec_seckey_verify( impl_->ctx_, impl_->priv_key_.data() ) )
+            if ( secp256k1_ec_seckey_verify( m_impl->ctx_, m_impl->m_privKey.data() ) )
             {
                 secp256k1_pubkey pubkey;
-                (void)secp256k1_ec_pubkey_create( impl_->ctx_, &pubkey, impl_->priv_key_.data() );
+                (void)secp256k1_ec_pubkey_create( m_impl->ctx_, &pubkey, m_impl->m_privKey.data() );
                 size_t pub_len = kPubKeySize;
-                secp256k1_ec_pubkey_serialize( impl_->ctx_, pub_key_.data(), &pub_len, &pubkey,
+                secp256k1_ec_pubkey_serialize( m_impl->ctx_, m_pubKey.data(), &pub_len, &pubkey,
                                                SECP256K1_EC_COMPRESSED );
-                loaded_ = true;
+                m_loaded = true;
                 IdentityLogger()->info( "NodeIdentity generated: peerId={}", PeerId() );
                 return outcome::success();
             }
@@ -116,16 +116,16 @@ namespace sgns::neoswarm::security
         std::random_device rd;
         std::mt19937_64 rng( rd() );
         std::uniform_int_distribution<uint8_t> dist( 0, 255 );
-        for ( auto& b : impl_->priv_key_ )
+        for ( auto& b : m_impl->m_privKey )
         {
             b = dist( rng );
         }
-        for ( auto& b : pub_key_ )
+        for ( auto& b : m_pubKey )
         {
             b = dist( rng );
         }
-        pub_key_[0] = 0x02; // compressed prefix
-        loaded_ = true;
+        m_pubKey[0] = 0x02; // compressed prefix
+        m_loaded = true;
         IdentityLogger()->warn( "secp256k1 not compiled in — using stub identity" );
         return outcome::success();
 #endif
@@ -136,19 +136,19 @@ namespace sgns::neoswarm::security
     // -----------------------------------------------------------------------
     std::string NodeIdentity::PeerId() const
     {
-        if ( !loaded_ )
+        if ( !m_loaded )
         {
             return "";
         }
 #ifdef GENIUS_HAS_OPENSSL
         uint8_t hash[SHA256_DIGEST_LENGTH];
-        SHA256( pub_key_.data(), pub_key_.size(), hash );
+        SHA256( m_pubKey.data(), m_pubKey.size(), hash );
         return ToHex( hash, SHA256_DIGEST_LENGTH );
 #else
         uint8_t hash[32] = {};
-        for ( size_t i = 0; i < pub_key_.size(); ++i )
+        for ( size_t i = 0; i < m_pubKey.size(); ++i )
         {
-            hash[i % 32] ^= pub_key_[i];
+            hash[i % 32] ^= m_pubKey[i];
         }
         return ToHex( hash, 32 );
 #endif
@@ -171,14 +171,14 @@ namespace sgns::neoswarm::security
         {
             return outcome::failure( Error::IdentityError );
         }
-        std::copy( bytes.begin(), bytes.end(), impl_->priv_key_.begin() );
+        std::copy( bytes.begin(), bytes.end(), m_impl->m_privKey.begin() );
 #ifdef GENIUS_HAS_SECP256K1
         secp256k1_pubkey pubkey;
-        (void)secp256k1_ec_pubkey_create( impl_->ctx_, &pubkey, impl_->priv_key_.data() );
+        (void)secp256k1_ec_pubkey_create( m_impl->ctx_, &pubkey, m_impl->m_privKey.data() );
         size_t pub_len = kPubKeySize;
-        secp256k1_ec_pubkey_serialize( impl_->ctx_, pub_key_.data(), &pub_len, &pubkey, SECP256K1_EC_COMPRESSED );
+        secp256k1_ec_pubkey_serialize( m_impl->ctx_, m_pubKey.data(), &pub_len, &pubkey, SECP256K1_EC_COMPRESSED );
 #endif
-        loaded_ = true;
+        m_loaded = true;
         return outcome::success();
     }
 
@@ -187,7 +187,7 @@ namespace sgns::neoswarm::security
     // -----------------------------------------------------------------------
     outcome::result<void> NodeIdentity::SaveToFile( const std::string& path ) const
     {
-        if ( !loaded_ )
+        if ( !m_loaded )
         {
             return outcome::failure( Error::IdentityError );
         }
@@ -196,7 +196,7 @@ namespace sgns::neoswarm::security
         {
             return outcome::failure( Error::IdentityError );
         }
-        f << ToHex( impl_->priv_key_.data(), kPrivKeySize ) << '\n';
+        f << ToHex( m_impl->m_privKey.data(), kPrivKeySize ) << '\n';
         return outcome::success();
     }
 
@@ -205,7 +205,7 @@ namespace sgns::neoswarm::security
     // -----------------------------------------------------------------------
     outcome::result<void> NodeIdentity::SaveEncrypted( const std::string& path, const std::string& passphrase ) const
     {
-        if ( !loaded_ )
+        if ( !m_loaded )
         {
             return outcome::failure( Error::IdentityError );
         }
@@ -262,7 +262,7 @@ namespace sgns::neoswarm::security
         // Encrypt the private key
         std::vector<uint8_t> ciphertext( kPrivKeySize + 16 ); // room for block padding
         int outLen = 0;
-        if ( !EVP_EncryptUpdate( ctx, ciphertext.data(), &outLen, impl_->priv_key_.data(),
+        if ( !EVP_EncryptUpdate( ctx, ciphertext.data(), &outLen, m_impl->m_privKey.data(),
                                  static_cast<int>( kPrivKeySize ) ) )
         {
             EVP_CIPHER_CTX_free( ctx );
@@ -444,17 +444,17 @@ namespace sgns::neoswarm::security
         {
             return outcome::failure( Error::IdentityError );
         }
-        std::memcpy( impl_->priv_key_.data(), plaintext.data(), kPrivKeySize );
+        std::memcpy( m_impl->m_privKey.data(), plaintext.data(), kPrivKeySize );
 
         // 11. Derive public key from private key
 #ifdef GENIUS_HAS_SECP256K1
         secp256k1_pubkey pubkey;
-        (void)secp256k1_ec_pubkey_create( impl_->ctx_, &pubkey, impl_->priv_key_.data() );
+        (void)secp256k1_ec_pubkey_create( m_impl->ctx_, &pubkey, m_impl->m_privKey.data() );
         size_t pubLen = kPubKeySize;
-        secp256k1_ec_pubkey_serialize( impl_->ctx_, pub_key_.data(), &pubLen, &pubkey, SECP256K1_EC_COMPRESSED );
+        secp256k1_ec_pubkey_serialize( m_impl->ctx_, m_pubKey.data(), &pubLen, &pubkey, SECP256K1_EC_COMPRESSED );
 #endif
 
-        loaded_ = true;
+        m_loaded = true;
         IdentityLogger()->info( "NodeIdentity loaded encrypted from {}", path );
         return outcome::success();
 #else
@@ -468,7 +468,7 @@ namespace sgns::neoswarm::security
     // -----------------------------------------------------------------------
     outcome::result<std::vector<uint8_t>> NodeIdentity::Sign( const std::vector<uint8_t>& message ) const
     {
-        if ( !loaded_ )
+        if ( !m_loaded )
         {
             return outcome::failure( Error::IdentityError );
         }
@@ -484,14 +484,14 @@ namespace sgns::neoswarm::security
         }
 #endif
         secp256k1_ecdsa_signature sig;
-        if ( !secp256k1_ecdsa_sign( impl_->ctx_, &sig, hash, impl_->priv_key_.data(), secp256k1_nonce_function_rfc6979,
+        if ( !secp256k1_ecdsa_sign( m_impl->ctx_, &sig, hash, m_impl->m_privKey.data(), secp256k1_nonce_function_rfc6979,
                                     nullptr ) )
         {
             return outcome::failure( Error::IdentityError );
         }
         std::vector<uint8_t> der( 72 );
         size_t der_len = 72;
-        secp256k1_ecdsa_signature_serialize_der( impl_->ctx_, der.data(), &der_len, &sig );
+        secp256k1_ecdsa_signature_serialize_der( m_impl->ctx_, der.data(), &der_len, &sig );
         der.resize( der_len );
         return outcome::success( std::move( der ) );
 #else
@@ -509,7 +509,7 @@ namespace sgns::neoswarm::security
     // -----------------------------------------------------------------------
     bool NodeIdentity::Verify( const std::vector<uint8_t>& message, const std::vector<uint8_t>& signature ) const
     {
-        if ( !loaded_ )
+        if ( !m_loaded )
         {
             return false;
         }
@@ -525,16 +525,16 @@ namespace sgns::neoswarm::security
         }
 #endif
         secp256k1_ecdsa_signature sig;
-        if ( !secp256k1_ecdsa_signature_parse_der( impl_->ctx_, &sig, signature.data(), signature.size() ) )
+        if ( !secp256k1_ecdsa_signature_parse_der( m_impl->ctx_, &sig, signature.data(), signature.size() ) )
         {
             return false;
         }
         secp256k1_pubkey pubkey;
-        if ( !secp256k1_ec_pubkey_parse( impl_->ctx_, &pubkey, pub_key_.data(), kPubKeySize ) )
+        if ( !secp256k1_ec_pubkey_parse( m_impl->ctx_, &pubkey, m_pubKey.data(), kPubKeySize ) )
         {
             return false;
         }
-        return secp256k1_ecdsa_verify( impl_->ctx_, &sig, hash, &pubkey ) == 1;
+        return secp256k1_ecdsa_verify( m_impl->ctx_, &sig, hash, &pubkey ) == 1;
 #else
         (void) message;
         (void) signature;

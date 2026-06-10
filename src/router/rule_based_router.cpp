@@ -1,12 +1,12 @@
 /**
- * @file       RuleBasedRouter.cpp
+ * @file       rule_based_router.cpp
  * @brief      Rule-based router implementation
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include "RuleBasedRouter.hpp"
-#include "common/Logging.hpp"
+#include "rule_based_router.hpp"
+#include "common/logging.hpp"
 
 namespace sgns::neoswarm::router
 {
@@ -19,11 +19,11 @@ namespace sgns::neoswarm::router
     } // namespace
 
     RuleBasedRouter::RuleBasedRouter()
-        : cfg_( {} )
+        : m_cfg( {} )
     {
     }
     RuleBasedRouter::RuleBasedRouter( Config cfg )
-        : cfg_( std::move( cfg ) )
+        : m_cfg( std::move( cfg ) )
     {
     }
 
@@ -43,13 +43,13 @@ namespace sgns::neoswarm::router
         }
 
         // Auto-upgrade to Swarm for complex prompts
-        if ( cfg_.enable_swarm_mode_ && features.complexity_ > cfg_.complexity_swarm_threshold_ )
+        if ( m_cfg.enable_swarm_mode_ && features.complexity_ > m_cfg.complexity_swarm_threshold_ )
         {
             return ExecutionMode::Swarm;
         }
 
         // Specialist mode when a specialist is needed
-        if ( features.numeric_density_ > cfg_.numeric_density_threshold_ || features.has_math_keywords_ ||
+        if ( features.numeric_density_ > m_cfg.numeric_density_threshold_ || features.has_math_keywords_ ||
              features.has_grammar_request_ )
         {
             return ExecutionMode::Specialist;
@@ -68,7 +68,7 @@ namespace sgns::neoswarm::router
         RouteDecision decision;
         decision.mode_ = SelectMode( features, task.mode_ );
 
-        if ( features.numeric_density_ > cfg_.numeric_density_threshold_ || features.has_math_keywords_ )
+        if ( features.numeric_density_ > m_cfg.numeric_density_threshold_ || features.has_math_keywords_ )
         {
             decision.target_ = RouteTarget::CorePlusMath;
             decision.confidence_ = 0.85f + features.numeric_density_ * 0.15f;

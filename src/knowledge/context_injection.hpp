@@ -1,5 +1,5 @@
 /**
- * @file       ContextInjection.hpp
+ * @file       context_injection.hpp
  * @brief      Augments prompts with Grokipedia facts (PTDS §8.2)
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
@@ -8,7 +8,7 @@
 #ifndef NEOSWARM_KNOWLEDGE_CONTEXTINJECTION_HPP_
 #define NEOSWARM_KNOWLEDGE_CONTEXTINJECTION_HPP_
 
-#include "common/Types.hpp"
+#include "common/types.hpp"
 #include <string>
 #include <vector>
 
@@ -38,7 +38,7 @@ namespace sgns::neoswarm::knowledge
         std::string Inject( const std::string& prompt, const std::vector<KnowledgeFact>& facts ) const;
 
         private:
-        Config cfg_;
+        Config m_cfg;
 
         /**
          * @brief Estimate token count (rough: chars / 4).

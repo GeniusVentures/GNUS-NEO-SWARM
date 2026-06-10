@@ -1,7 +1,7 @@
 add_library(genius_specialists STATIC
-    GrammarSpecialist.cpp
-    MathSpecialist.cpp
-    SymbolicFallback.cpp
+    grammar_specialist.cpp
+    math_specialist.cpp
+    symbolic_fallback.cpp
 )
 
 target_include_directories(genius_specialists PUBLIC

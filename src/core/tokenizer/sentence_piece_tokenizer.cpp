@@ -1,12 +1,12 @@
 /**
- * @file       SentencePieceTokenizer.cpp
+ * @file       sentence_piece_tokenizer.cpp
  * @brief      SentencePiece tokenizer implementation
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include "Tokenizer.hpp"
-#include "common/Logging.hpp"
+#include "tokenizer.hpp"
+#include "common/logging.hpp"
 
 #include <algorithm>
 #include <cctype>

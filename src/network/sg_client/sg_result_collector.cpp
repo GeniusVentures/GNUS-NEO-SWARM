@@ -1,13 +1,13 @@
 /**
- * @file       SGResultCollector.cpp
+ * @file       sg_result_collector.cpp
  * @brief      Timeout-bounded result collection from SuperGenius PubSub result channels
  * @date       2026-05-28
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include "SGResultCollector.hpp"
-#include "SGMessageAuthenticator.hpp"
-#include "common/Logging.hpp"
+#include "sg_result_collector.hpp"
+#include "sg_message_authenticator.hpp"
+#include "common/logging.hpp"
 #include <condition_variable>
 #include <mutex>
 
@@ -25,7 +25,7 @@ namespace sgns::neoswarm::network
     {
         std::shared_ptr<grpc::Channel> channel_;
         SGMessageAuthenticator& authenticator_;
-        SGResultCollectorConfig cfg_;
+        SGResultCollectorConfig m_cfg;
 
         // Timeout-bounded collection using condition_variable
         // (matches existing ResultAggregation pattern)
@@ -39,7 +39,7 @@ namespace sgns::neoswarm::network
               SGResultCollectorConfig cfg )
             : channel_( std::move( channel ) )
             , authenticator_( authenticator )
-            , cfg_( std::move( cfg ) )
+            , m_cfg( std::move( cfg ) )
         {
         }
     };
@@ -47,7 +47,7 @@ namespace sgns::neoswarm::network
     SGResultCollector::SGResultCollector( std::shared_ptr<grpc::Channel> channel,
                                           SGMessageAuthenticator& authenticator,
                                           SGResultCollectorConfig cfg )
-        : impl_( std::make_unique<Impl>( std::move( channel ), authenticator, std::move( cfg ) ) )
+        : m_impl( std::make_unique<Impl>( std::move( channel ), authenticator, std::move( cfg ) ) )
     {
     }
 
@@ -60,10 +60,10 @@ namespace sgns::neoswarm::network
         // TODO(Phase 2): implement actual gRPC PubSub subscribe when service stubs linked
 
         // Block until result arrives or timeout expires
-        // Pattern matches ResultAggregation::Collect() in src/network/ResultAggregation.cpp
-        std::unique_lock<std::mutex> lock( impl_->mutex_ );
+        // Pattern matches ResultAggregation::Collect() in src/network/result_aggregation.cpp
+        std::unique_lock<std::mutex> lock( m_impl->mutex_ );
 
-        bool gotResult = impl_->cv_.wait_for( lock, timeout, [this] { return impl_->resultReady_; } );
+        bool gotResult = m_impl->cv_.wait_for( lock, timeout, [this] { return m_impl->resultReady_; } );
 
         if ( !gotResult )
         {
@@ -71,23 +71,23 @@ namespace sgns::neoswarm::network
             return outcome::failure( Error::BroadcastTimeout );
         }
 
-        if ( impl_->resultData_.empty() )
+        if ( m_impl->resultData_.empty() )
         {
             CollectLogger()->warn( "Empty result received for task {}", taskId );
             return outcome::failure( Error::InferenceFailed );
         }
 
-        CollectLogger()->info( "Result collected for task {} ({} bytes)", taskId, impl_->resultData_.size() );
+        CollectLogger()->info( "Result collected for task {} ({} bytes)", taskId, m_impl->resultData_.size() );
 
-        std::vector<uint8_t> result = std::move( impl_->resultData_ );
-        impl_->resultReady_ = false;
+        std::vector<uint8_t> result = std::move( m_impl->resultData_ );
+        m_impl->resultReady_ = false;
 
         return outcome::success( result );
     }
 
     outcome::result<std::vector<uint8_t>> SGResultCollector::WaitForResult( const std::string& taskId )
     {
-        return WaitForResult( taskId, impl_->cfg_.result_timeout_ );
+        return WaitForResult( taskId, m_impl->m_cfg.result_timeout_ );
     }
 
     SGResultCollector::~SGResultCollector() = default;

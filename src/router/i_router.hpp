@@ -1,5 +1,5 @@
 /**
- * @file       IRouter.hpp
+ * @file       i_router.hpp
  * @brief      Abstract router interface for GNUS NEO SWARM
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
@@ -8,8 +8,8 @@
 #ifndef NEOSWARM_ROUTER_IROUTER_HPP_
 #define NEOSWARM_ROUTER_IROUTER_HPP_
 
-#include "common/Error.hpp"
-#include "common/Types.hpp"
+#include "common/error.hpp"
+#include "common/types.hpp"
 
 namespace sgns::neoswarm::router
 {

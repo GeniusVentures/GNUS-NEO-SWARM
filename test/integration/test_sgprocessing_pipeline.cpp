@@ -15,9 +15,9 @@
  * See GNUS-NEO-SWARM/AgentDocs/SGPROCESSING_INTEGRATION.md for full details.
  */
 
-#include "common/Error.hpp"
-#include "core/sgprocessing/SGProcessingBridge.hpp"
-#include "core/sgprocessing/TensorInterpreter.hpp"
+#include "common/error.hpp"
+#include "core/sgprocessing/sg_processing_bridge.hpp"
+#include "core/sgprocessing/tensor_interpreter.hpp"
 #include <boost/asio/io_context.hpp>
 #include <cstring>
 #include <fstream>

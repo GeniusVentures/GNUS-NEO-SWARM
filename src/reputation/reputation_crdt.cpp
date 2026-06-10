@@ -1,12 +1,12 @@
 /**
- * @file       ReputationCRDT.cpp
+ * @file       reputation_crdt.cpp
  * @brief      LWW CRDT reputation synchronisation implementation
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include "ReputationCRDT.hpp"
-#include "common/Logging.hpp"
+#include "reputation_crdt.hpp"
+#include "common/logging.hpp"
 
 #include <sstream>
 #include <stdexcept>
@@ -26,7 +26,7 @@ namespace sgns::neoswarm::reputation
     // -----------------------------------------------------------------------
     void ReputationCRDT::Merge( const NodeReputation& remote )
     {
-        std::lock_guard<std::mutex> lock( mutex_ );
+        std::lock_guard<std::mutex> lock( m_mutex );
         auto it = state_.find( remote.identity_key_ );
         if ( it == state_.end() )
         {
@@ -49,7 +49,7 @@ namespace sgns::neoswarm::reputation
     // -----------------------------------------------------------------------
     std::optional<NodeReputation> ReputationCRDT::Get( const std::string& identity_key ) const
     {
-        std::lock_guard<std::mutex> lock( mutex_ );
+        std::lock_guard<std::mutex> lock( m_mutex );
         auto it = state_.find( identity_key );
         if ( it == state_.end() )
         {
@@ -63,7 +63,7 @@ namespace sgns::neoswarm::reputation
     // -----------------------------------------------------------------------
     std::vector<NodeReputation> ReputationCRDT::GetAll() const
     {
-        std::lock_guard<std::mutex> lock( mutex_ );
+        std::lock_guard<std::mutex> lock( m_mutex );
         std::vector<NodeReputation> result;
         result.reserve( state_.size() );
         for ( const auto& [k, v] : state_ )
@@ -78,7 +78,7 @@ namespace sgns::neoswarm::reputation
     // -----------------------------------------------------------------------
     std::string ReputationCRDT::Serialize() const
     {
-        std::lock_guard<std::mutex> lock( mutex_ );
+        std::lock_guard<std::mutex> lock( m_mutex );
         std::ostringstream oss;
         for ( const auto& [k, r] : state_ )
         {

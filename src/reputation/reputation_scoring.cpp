@@ -1,12 +1,12 @@
 /**
- * @file       ReputationScoring.cpp
+ * @file       reputation_scoring.cpp
  * @brief      Reputation update formula implementation
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include "ReputationScoring.hpp"
-#include "common/Logging.hpp"
+#include "reputation_scoring.hpp"
+#include "common/logging.hpp"
 
 #include <chrono>
 #include <cmath>
@@ -22,11 +22,11 @@ namespace sgns::neoswarm::reputation
     } // namespace
 
     ReputationScoring::ReputationScoring()
-        : cfg_( {} )
+        : m_cfg( {} )
     {
     }
     ReputationScoring::ReputationScoring( Config cfg )
-        : cfg_( std::move( cfg ) )
+        : m_cfg( std::move( cfg ) )
     {
     }
 
@@ -37,10 +37,10 @@ namespace sgns::neoswarm::reputation
     {
         if ( has_ground_truth )
         {
-            return cfg_.alpha_ * ( accuracy - cfg_.baseline_accuracy_ );
+            return m_cfg.alpha_ * ( accuracy - m_cfg.baseline_accuracy_ );
         }
         // Agreement with weighted consensus
-        return cfg_.beta_ * accuracy;
+        return m_cfg.beta_ * accuracy;
     }
 
     // -----------------------------------------------------------------------
@@ -52,7 +52,7 @@ namespace sgns::neoswarm::reputation
         {
             return 0.0;
         }
-        return -cfg_.gamma_ * ( latency_ms / median_latency_ms );
+        return -m_cfg.gamma_ * ( latency_ms / median_latency_ms );
     }
 
     // -----------------------------------------------------------------------
@@ -60,9 +60,9 @@ namespace sgns::neoswarm::reputation
     // -----------------------------------------------------------------------
     double ReputationScoring::DeltaConsistency( float perplexity ) const
     {
-        double inv = 1.0 / ( static_cast<double>( perplexity ) + cfg_.epsilon_ );
+        double inv = 1.0 / ( static_cast<double>( perplexity ) + m_cfg.epsilon_ );
         double normalized = std::min( inv, 1.0 );
-        return cfg_.delta_ * normalized;
+        return m_cfg.delta_ * normalized;
     }
 
     // -----------------------------------------------------------------------

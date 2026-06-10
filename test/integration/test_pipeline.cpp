@@ -5,7 +5,7 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include "api/GeniusAPIServer.hpp"
+#include "api/api_server.hpp"
 #include <gtest/gtest.h>
 
 using namespace sgns::neoswarm;

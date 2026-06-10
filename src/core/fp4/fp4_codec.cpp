@@ -1,12 +1,12 @@
 /**
- * @file       FP4Codec.cpp
+ * @file       fp4_codec.cpp
  * @brief      FP4 v3 quantization codec implementation
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include "FP4Codec.hpp"
-#include "common/Logging.hpp"
+#include "fp4_codec.hpp"
+#include "common/logging.hpp"
 
 #include <algorithm>
 #include <cassert>

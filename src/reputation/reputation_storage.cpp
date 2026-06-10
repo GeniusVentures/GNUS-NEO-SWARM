@@ -1,12 +1,12 @@
 /**
- * @file       ReputationStorage.cpp
+ * @file       reputation_storage.cpp
  * @brief      RocksDB-backed reputation persistence implementation
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include "ReputationStorage.hpp"
-#include "common/Logging.hpp"
+#include "reputation_storage.hpp"
+#include "common/logging.hpp"
 
 #include <nlohmann/json.hpp>
 #include <sstream>
@@ -83,7 +83,7 @@ namespace sgns::neoswarm::reputation
     };
 
     ReputationStorage::ReputationStorage( const std::string& db_path )
-        : impl_( std::make_unique<Impl>() )
+        : m_impl( std::make_unique<Impl>() )
         , db_path_( db_path )
     {
     }
@@ -99,8 +99,8 @@ namespace sgns::neoswarm::reputation
     outcome::result<void> ReputationStorage::Open()
     {
 #ifdef GENIUS_HAS_ROCKSDB
-        impl_->options_.create_if_missing = true;
-        rocksdb::Status status = rocksdb::DB::Open( impl_->options_, db_path_, &impl_->db_ );
+        m_impl->options_.create_if_missing = true;
+        rocksdb::Status status = rocksdb::DB::Open( m_impl->options_, db_path_, &m_impl->db_ );
         if ( !status.ok() )
         {
             return outcome::failure( Error::StorageError );
@@ -119,10 +119,10 @@ namespace sgns::neoswarm::reputation
     void ReputationStorage::Close()
     {
 #ifdef GENIUS_HAS_ROCKSDB
-        if ( impl_ && impl_->db_ )
+        if ( m_impl && m_impl->db_ )
         {
-            delete impl_->db_;
-            impl_->db_ = nullptr;
+            delete m_impl->db_;
+            m_impl->db_ = nullptr;
         }
 #endif
         open_ = false;
@@ -139,13 +139,13 @@ namespace sgns::neoswarm::reputation
         }
         std::string val = Serialize( rep );
 #ifdef GENIUS_HAS_ROCKSDB
-        auto status = impl_->db_->Put( rocksdb::WriteOptions(), rep.identity_key_, val );
+        auto status = m_impl->db_->Put( rocksdb::WriteOptions(), rep.identity_key_, val );
         if ( !status.ok() )
         {
             return outcome::failure( Error::StorageError );
         }
 #else
-        impl_->store_[rep.identity_key_] = val;
+        m_impl->store_[rep.identity_key_] = val;
 #endif
         return outcome::success();
     }
@@ -161,7 +161,7 @@ namespace sgns::neoswarm::reputation
         }
 #ifdef GENIUS_HAS_ROCKSDB
         std::string val;
-        rocksdb::Status status = impl_->db_->Get( rocksdb::ReadOptions(), identity_key, &val );
+        rocksdb::Status status = m_impl->db_->Get( rocksdb::ReadOptions(), identity_key, &val );
         if ( status.IsNotFound() )
         {
             return outcome::failure( Error::ReputationNotFound );
@@ -172,8 +172,8 @@ namespace sgns::neoswarm::reputation
         }
         return outcome::success( Deserialize( val ) );
 #else
-        auto it = impl_->store_.find( identity_key );
-        if ( it == impl_->store_.end() )
+        auto it = m_impl->store_.find( identity_key );
+        if ( it == m_impl->store_.end() )
         {
             return outcome::failure( Error::ReputationNotFound );
         }
@@ -191,13 +191,13 @@ namespace sgns::neoswarm::reputation
             return outcome::failure( Error::StorageError );
         }
 #ifdef GENIUS_HAS_ROCKSDB
-        auto status = impl_->db_->Delete( rocksdb::WriteOptions(), identity_key );
+        auto status = m_impl->db_->Delete( rocksdb::WriteOptions(), identity_key );
         if ( !status.ok() )
         {
             return outcome::failure( Error::StorageError );
         }
 #else
-        impl_->store_.erase( identity_key );
+        m_impl->store_.erase( identity_key );
 #endif
         return outcome::success();
     }
@@ -213,14 +213,14 @@ namespace sgns::neoswarm::reputation
         }
         std::vector<NodeReputation> result;
 #ifdef GENIUS_HAS_ROCKSDB
-        auto* it = impl_->db_->NewIterator( rocksdb::ReadOptions() );
+        auto* it = m_impl->db_->NewIterator( rocksdb::ReadOptions() );
         for ( it->SeekToFirst(); it->Valid(); it->Next() )
         {
             result.push_back( Deserialize( it->value().ToString() ) );
         }
         delete it;
 #else
-        for ( const auto& [k, v] : impl_->store_ )
+        for ( const auto& [k, v] : m_impl->store_ )
         {
             result.push_back( Deserialize( v ) );
         }

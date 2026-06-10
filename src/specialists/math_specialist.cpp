@@ -1,12 +1,12 @@
 /**
- * @file       MathSpecialist.cpp
+ * @file       math_specialist.cpp
  * @brief      Math specialist implementation
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include "MathSpecialist.hpp"
-#include "common/Logging.hpp"
+#include "math_specialist.hpp"
+#include "common/logging.hpp"
 
 #include <functional>
 

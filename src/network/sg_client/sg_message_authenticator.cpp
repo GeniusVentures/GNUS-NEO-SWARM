@@ -1,14 +1,14 @@
 /**
- * @file       SGMessageAuthenticator.cpp
+ * @file       sg_message_authenticator.cpp
  * @brief      Signs and verifies messages via hardened NodeIdentity + MessageSigning
  * @date       2026-05-28
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include "SGMessageAuthenticator.hpp"
-#include "common/Logging.hpp"
-#include "security/MessageSigning.hpp"
-#include "security/NodeIdentity.hpp"
+#include "sg_message_authenticator.hpp"
+#include "common/logging.hpp"
+#include "security/message_signing.hpp"
+#include "security/node_identity.hpp"
 
 namespace sgns::neoswarm::network
 {
@@ -22,31 +22,31 @@ namespace sgns::neoswarm::network
 
     struct SGMessageAuthenticator::Impl
     {
-        const security::NodeIdentity& identity_;
+        const security::NodeIdentity& m_identity;
         std::unique_ptr<security::MessageSigning> signer_;
 
         explicit Impl( const security::NodeIdentity& identity )
-            : identity_( identity )
+            : m_identity( identity )
             , signer_( std::make_unique<security::MessageSigning>( identity ) )
         {
         }
     };
 
     SGMessageAuthenticator::SGMessageAuthenticator( const security::NodeIdentity& identity )
-        : impl_( std::make_unique<Impl>( identity ) )
+        : m_impl( std::make_unique<Impl>( identity ) )
     {
         AuthLogger()->debug( "SGMessageAuthenticator created" );
     }
 
     outcome::result<std::string> SGMessageAuthenticator::SignPayload( const std::string& payload ) const
     {
-        if ( !impl_->identity_.IsLoaded() )
+        if ( !m_impl->m_identity.IsLoaded() )
         {
             AuthLogger()->error( "Cannot sign — NodeIdentity not loaded" );
             return outcome::failure( Error::IdentityError );
         }
 
-        std::string signedPayload = impl_->signer_->AttachSignature( payload );
+        std::string signedPayload = m_impl->signer_->AttachSignature( payload );
 
         AuthLogger()->debug( "Payload signed ({} bytes → {} bytes)", payload.size(), signedPayload.size() );
         return signedPayload;

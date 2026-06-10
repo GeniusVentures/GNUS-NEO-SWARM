@@ -1,5 +1,5 @@
 /**
- * @file       RuleBasedRouter.hpp
+ * @file       rule_based_router.hpp
  * @brief      Rule-based prompt router (PTDS §6.1)
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
@@ -8,8 +8,8 @@
 #ifndef NEOSWARM_ROUTER_RULEBASEDROUTER_HPP_
 #define NEOSWARM_ROUTER_RULEBASEDROUTER_HPP_
 
-#include "IRouter.hpp"
-#include "PromptAnalyzer.hpp"
+#include "i_router.hpp"
+#include "prompt_analyzer.hpp"
 
 namespace sgns::neoswarm::router
 {
@@ -43,7 +43,7 @@ namespace sgns::neoswarm::router
         outcome::result<RouteDecision> Route( const Task& task ) override;
 
         private:
-        Config cfg_;
+        Config m_cfg;
         PromptAnalyzer analyzer_;
 
         /**

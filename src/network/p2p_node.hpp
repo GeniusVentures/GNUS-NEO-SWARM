@@ -1,5 +1,5 @@
 /**
- * @file       P2PNode.hpp
+ * @file       p2p_node.hpp
  * @brief      libp2p swarm node (PTDS §4.2)
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
@@ -8,9 +8,9 @@
 #ifndef NEOSWARM_NETWORK_P2PNODE_HPP_
 #define NEOSWARM_NETWORK_P2PNODE_HPP_
 
-#include "common/Error.hpp"
-#include "common/Types.hpp"
-#include "security/NodeIdentity.hpp"
+#include "common/error.hpp"
+#include "common/types.hpp"
+#include "security/node_identity.hpp"
 #include <functional>
 #include <memory>
 #include <string>
@@ -55,7 +55,7 @@ namespace sgns::neoswarm::network
         /// @return True if the node is currently running.
         bool IsRunning() const
         {
-            return running_;
+            return m_running;
         }
 
         /// @return Our listen multiaddress (available after Start()).
@@ -104,10 +104,10 @@ namespace sgns::neoswarm::network
 
         private:
         struct Impl;
-        std::unique_ptr<Impl> impl_;
-        std::shared_ptr<security::NodeIdentity> identity_;
-        Config cfg_;
-        bool running_ = false;
+        std::unique_ptr<Impl> m_impl;
+        std::shared_ptr<security::NodeIdentity> m_identity;
+        Config m_cfg;
+        bool m_running = false;
         TaskHandler task_handler_;
         CRDTHandler crdt_handler_;
     };

@@ -1,20 +1,20 @@
 /**
- * @file       ContextInjection.cpp
+ * @file       context_injection.cpp
  * @brief      Prompt augmentation with Grokipedia facts
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include "ContextInjection.hpp"
+#include "context_injection.hpp"
 
 namespace sgns::neoswarm::knowledge
 {
     ContextInjection::ContextInjection()
-        : cfg_( {} )
+        : m_cfg( {} )
     {
     }
     ContextInjection::ContextInjection( Config cfg )
-        : cfg_( std::move( cfg ) )
+        : m_cfg( std::move( cfg ) )
     {
     }
 
@@ -36,7 +36,7 @@ namespace sgns::neoswarm::knowledge
         for ( const auto& fact : facts )
         {
             std::string entry;
-            if ( cfg_.add_source_tags_ )
+            if ( m_cfg.add_source_tags_ )
             {
                 entry = "[GROKIPEDIA: " + fact.source_ + "] " + fact.content_ + "\n";
             }
@@ -46,7 +46,7 @@ namespace sgns::neoswarm::knowledge
             }
 
             size_t entry_tokens = EstimateTokens( entry );
-            if ( used_tokens + entry_tokens > cfg_.max_token_budget_ )
+            if ( used_tokens + entry_tokens > m_cfg.max_token_budget_ )
             {
                 break;
             }

@@ -1,5 +1,5 @@
 /**
- * @file       InferenceEngine.hpp
+ * @file       inference_engine.hpp
  * @brief      Abstract inference engine interface
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
@@ -8,8 +8,8 @@
 #ifndef NEOSWARM_CORE_ENGINE_INFERENCEENGINE_HPP_
 #define NEOSWARM_CORE_ENGINE_INFERENCEENGINE_HPP_
 
-#include "common/Error.hpp"
-#include "common/Types.hpp"
+#include "common/error.hpp"
+#include "common/types.hpp"
 #include <functional>
 #include <string>
 

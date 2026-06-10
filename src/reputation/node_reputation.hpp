@@ -1,5 +1,5 @@
 /**
- * @file       NodeReputation.hpp
+ * @file       node_reputation.hpp
  * @brief      Reputation helpers for GNUS NEO SWARM nodes
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
@@ -8,7 +8,7 @@
 #ifndef NEOSWARM_REPUTATION_NODEREPUTATION_HPP_
 #define NEOSWARM_REPUTATION_NODEREPUTATION_HPP_
 
-#include "common/Types.hpp"
+#include "common/types.hpp"
 #include <algorithm>
 
 namespace sgns::neoswarm::reputation

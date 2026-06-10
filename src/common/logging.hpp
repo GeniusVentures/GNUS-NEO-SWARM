@@ -1,5 +1,5 @@
 /**
- * @file       Logging.hpp
+ * @file       logging.hpp
  * @brief      Logging facade — wraps spdlog directly
  */
 

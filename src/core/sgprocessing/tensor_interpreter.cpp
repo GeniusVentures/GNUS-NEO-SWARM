@@ -1,12 +1,12 @@
 /**
- * @file       TensorInterpreter.cpp
+ * @file       tensor_interpreter.cpp
  * @brief      Raw tensor byte to text conversion
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include "TensorInterpreter.hpp"
-#include "common/Logging.hpp"
+#include "tensor_interpreter.hpp"
+#include "common/logging.hpp"
 
 #include <algorithm>
 #include <cstring>

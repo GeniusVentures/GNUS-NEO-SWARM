@@ -1,12 +1,12 @@
 /**
- * @file       KnowledgeRetrieval.cpp
+ * @file       knowledge_retrieval.cpp
  * @brief      Grokipedia knowledge retrieval implementation
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include "KnowledgeRetrieval.hpp"
-#include "common/Logging.hpp"
+#include "knowledge_retrieval.hpp"
+#include "common/logging.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -35,13 +35,13 @@ namespace sgns::neoswarm::knowledge
     };
 
     KnowledgeRetrieval::KnowledgeRetrieval()
-        : impl_( std::make_unique<Impl>() )
+        : m_impl( std::make_unique<Impl>() )
     {
     }
 
     KnowledgeRetrieval::KnowledgeRetrieval( Config cfg )
-        : impl_( std::make_unique<Impl>() )
-        , cfg_( std::move( cfg ) )
+        : m_impl( std::make_unique<Impl>() )
+        , m_cfg( std::move( cfg ) )
     {
     }
 
@@ -52,28 +52,28 @@ namespace sgns::neoswarm::knowledge
     // -----------------------------------------------------------------------
     outcome::result<void> KnowledgeRetrieval::Load()
     {
-        if ( !cfg_.enabled_ )
+        if ( !m_cfg.enabled_ )
         {
             KnowledgeLogger()->info( "KnowledgeRetrieval disabled" );
             return outcome::success();
         }
 
-        if ( cfg_.facts_path_.empty() )
+        if ( m_cfg.facts_path_.empty() )
         {
             KnowledgeLogger()->warn( "KnowledgeRetrieval: no facts path — using stub facts" );
-            impl_->facts_.push_back(
+            m_impl->facts_.push_back(
                 { { "Grokipedia", "The speed of light in vacuum is approximately 299,792,458 m/s.", 0.0f },
                   Embed( "speed of light vacuum" ) } );
-            impl_->facts_.push_back( { { "Grokipedia", "Pi (π) is approximately 3.14159265358979.", 0.0f },
+            m_impl->facts_.push_back( { { "Grokipedia", "Pi (π) is approximately 3.14159265358979.", 0.0f },
                                        Embed( "pi mathematical constant" ) } );
-            impl_->facts_.push_back(
+            m_impl->facts_.push_back(
                 { { "Grokipedia", "Water (H2O) has a molecular weight of approximately 18.015 g/mol.", 0.0f },
                   Embed( "water molecular weight chemistry" ) } );
             loaded_ = true;
             return outcome::success();
         }
 
-        std::ifstream f( cfg_.facts_path_ );
+        std::ifstream f( m_cfg.facts_path_ );
         if ( !f )
         {
             return outcome::failure( Error::KnowledgeUnavailable );
@@ -94,10 +94,10 @@ namespace sgns::neoswarm::knowledge
             KnowledgeFact fact;
             fact.source_ = line.substr( 0, comma );
             fact.content_ = line.substr( comma + 1 );
-            impl_->facts_.push_back( { fact, Embed( fact.content_ ) } );
+            m_impl->facts_.push_back( { fact, Embed( fact.content_ ) } );
         }
 
-        KnowledgeLogger()->info( "KnowledgeRetrieval loaded {} facts", impl_->facts_.size() );
+        KnowledgeLogger()->info( "KnowledgeRetrieval loaded {} facts", m_impl->facts_.size() );
         loaded_ = true;
         return outcome::success();
     }
@@ -158,7 +158,7 @@ namespace sgns::neoswarm::knowledge
     // -----------------------------------------------------------------------
     outcome::result<std::vector<KnowledgeFact>> KnowledgeRetrieval::Retrieve( const std::string& query ) const
     {
-        if ( !loaded_ || impl_->facts_.empty() )
+        if ( !loaded_ || m_impl->facts_.empty() )
         {
             return outcome::failure( Error::KnowledgeUnavailable );
         }
@@ -166,11 +166,11 @@ namespace sgns::neoswarm::knowledge
         auto query_emb = Embed( query );
 
         std::vector<std::pair<float, size_t>> scored;
-        scored.reserve( impl_->facts_.size() );
-        for ( size_t i = 0; i < impl_->facts_.size(); ++i )
+        scored.reserve( m_impl->facts_.size() );
+        for ( size_t i = 0; i < m_impl->facts_.size(); ++i )
         {
-            float score = CosineSimilarity( query_emb, impl_->facts_[i].embedding_ );
-            if ( score >= cfg_.min_score_ )
+            float score = CosineSimilarity( query_emb, m_impl->facts_[i].embedding_ );
+            if ( score >= m_cfg.min_score_ )
             {
                 scored.push_back( { score, i } );
             }
@@ -179,10 +179,10 @@ namespace sgns::neoswarm::knowledge
         std::sort( scored.begin(), scored.end(), []( const auto& a, const auto& b ) { return a.first > b.first; } );
 
         std::vector<KnowledgeFact> results;
-        int k = std::min( cfg_.top_k_, static_cast<int>( scored.size() ) );
+        int k = std::min( m_cfg.top_k_, static_cast<int>( scored.size() ) );
         for ( int i = 0; i < k; ++i )
         {
-            KnowledgeFact f = impl_->facts_[scored[i].second].fact_;
+            KnowledgeFact f = m_impl->facts_[scored[i].second].fact_;
             f.relevance_score_ = scored[i].first;
             results.push_back( std::move( f ) );
         }

@@ -1,12 +1,12 @@
 /**
- * @file       MessageSigning.cpp
+ * @file       message_signing.cpp
  * @brief      Message signing implementation
  * @date       2026-05-08
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include "MessageSigning.hpp"
-#include "common/Logging.hpp"
+#include "message_signing.hpp"
+#include "common/logging.hpp"
 
 #include <chrono>
 #include <iomanip>
@@ -51,7 +51,7 @@ namespace sgns::neoswarm::security
     } // namespace
 
     MessageSigning::MessageSigning( const NodeIdentity& identity )
-        : identity_( identity )
+        : m_identity( identity )
     {
     }
 
@@ -61,7 +61,7 @@ namespace sgns::neoswarm::security
     outcome::result<std::vector<uint8_t>> MessageSigning::Sign( const std::string& payload ) const
     {
         std::vector<uint8_t> bytes( payload.begin(), payload.end() );
-        return identity_.Sign( bytes );
+        return m_identity.Sign( bytes );
     }
 
     // -----------------------------------------------------------------------
@@ -69,17 +69,17 @@ namespace sgns::neoswarm::security
     // -----------------------------------------------------------------------
     bool MessageSigning::Verify( const std::string& payload,
                                  const std::vector<uint8_t>& signature,
-                                 const std::string& pub_key_hex )
+                                 const std::string& m_pubKeyhex )
     {
 #ifdef GENIUS_HAS_SECP256K1
         // Validate inputs
-        if ( payload.empty() || signature.empty() || pub_key_hex.empty() )
+        if ( payload.empty() || signature.empty() || m_pubKeyhex.empty() )
         {
             return false;
         }
 
         // Parse public key from hex
-        auto pubBytes = FromHex( pub_key_hex );
+        auto pubBytes = FromHex( m_pubKeyhex );
         if ( pubBytes.size() != NodeIdentity::kPubKeySize )
         {
             return false;
@@ -131,7 +131,7 @@ namespace sgns::neoswarm::security
 #else
         (void) payload;
         (void) signature;
-        (void) pub_key_hex;
+        (void) m_pubKeyhex;
         SigningLogger()->error( "MessageSigning::Verify — secp256k1 not available, REJECTING signature" );
         return false;
 #endif
@@ -200,7 +200,7 @@ namespace sgns::neoswarm::security
     // -----------------------------------------------------------------------
     // VerifyAndStrip
     // -----------------------------------------------------------------------
-    bool MessageSigning::VerifyAndStrip( std::string& payload, const std::string& pub_key_hex )
+    bool MessageSigning::VerifyAndStrip( std::string& payload, const std::string& m_pubKeyhex )
     {
         // Step 1: Extract sig field (last field appended by AttachSignature)
         auto sigPos = payload.rfind( ",\"sig\":\"" );
@@ -253,7 +253,7 @@ namespace sgns::neoswarm::security
         }
 
         // Step 5: Verify signature on the full payload (includes nonce+ts)
-        if ( !Verify( verifyPayload, sigBytes, pub_key_hex ) )
+        if ( !Verify( verifyPayload, sigBytes, m_pubKeyhex ) )
         {
             return false;
         }

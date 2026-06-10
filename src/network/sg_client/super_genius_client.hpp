@@ -1,5 +1,5 @@
 /**
- * @file       SuperGeniusClient.hpp
+ * @file       super_genius_client.hpp
  * @brief      Client for SuperGenius blockchain compute network dispatch via PubSub gRPC
  * @date       2026-05-28
  * @author     Subaskar S (ssivakumar@gnus.ai)
@@ -12,7 +12,7 @@
 #ifndef NEOSWARM_NETWORK_SG_CLIENT_SUPERGENIUSCLIENT_HPP_
 #define NEOSWARM_NETWORK_SG_CLIENT_SUPERGENIUSCLIENT_HPP_
 
-#include "common/Error.hpp"
+#include "common/error.hpp"
 #include <chrono>
 #include <cstdint>
 #include <memory>
@@ -122,7 +122,7 @@ namespace sgns::neoswarm::network
 
         private:
         struct Impl;
-        std::unique_ptr<Impl> impl_;
+        std::unique_ptr<Impl> m_impl;
     };
 
 } // namespace sgns::neoswarm::network

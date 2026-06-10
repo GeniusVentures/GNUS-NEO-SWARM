@@ -1,5 +1,5 @@
 /**
- * @file       SGJobSubmitter.hpp
+ * @file       sg_job_submitter.hpp
  * @brief      Publishes signed Task messages to the SuperGenius grid channel via PubSub
  * @date       2026-05-28
  * @author     Subaskar S (ssivakumar@gnus.ai)
@@ -8,7 +8,7 @@
 #ifndef NEOSWARM_NETWORK_SG_CLIENT_SGJOBSUBMITTER_HPP_
 #define NEOSWARM_NETWORK_SG_CLIENT_SGJOBSUBMITTER_HPP_
 
-#include "common/Error.hpp"
+#include "common/error.hpp"
 #include <memory>
 #include <string>
 #include <vector>
@@ -43,7 +43,7 @@ namespace sgns::neoswarm::network
 
         private:
         struct Impl;
-        std::unique_ptr<Impl> impl_;
+        std::unique_ptr<Impl> m_impl;
     };
 
 } // namespace sgns::neoswarm::network

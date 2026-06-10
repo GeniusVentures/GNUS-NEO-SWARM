@@ -1,5 +1,5 @@
 /**
- * @file       ISpecialist.hpp
+ * @file       i_specialist.hpp
  * @brief      Abstract interface for all specialist modules (PTDS §5.2)
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
@@ -8,7 +8,7 @@
 #ifndef NEOSWARM_SPECIALISTS_ISPECIALIST_HPP_
 #define NEOSWARM_SPECIALISTS_ISPECIALIST_HPP_
 
-#include "common/Error.hpp"
+#include "common/error.hpp"
 #include <string>
 
 namespace sgns::neoswarm::specialists

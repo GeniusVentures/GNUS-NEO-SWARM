@@ -1,5 +1,5 @@
 /**
- * @file       SGMessageAuthenticator.hpp
+ * @file       sg_message_authenticator.hpp
  * @brief      Signs and verifies messages using the node's secp256k1 identity
  * @date       2026-05-28
  * @author     Subaskar S (ssivakumar@gnus.ai)
@@ -8,7 +8,7 @@
 #ifndef NEOSWARM_NETWORK_SG_CLIENT_SGMESSAGEAUTHENTICATOR_HPP_
 #define NEOSWARM_NETWORK_SG_CLIENT_SGMESSAGEAUTHENTICATOR_HPP_
 
-#include "common/Error.hpp"
+#include "common/error.hpp"
 #include <memory>
 #include <string>
 #include <vector>
@@ -55,7 +55,7 @@ namespace sgns::neoswarm::network
 
         private:
         struct Impl;
-        std::unique_ptr<Impl> impl_;
+        std::unique_ptr<Impl> m_impl;
     };
 
 } // namespace sgns::neoswarm::network

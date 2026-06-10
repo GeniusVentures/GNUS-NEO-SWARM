@@ -1,6 +1,6 @@
 add_library(genius_router STATIC
-    PromptAnalyzer.cpp
-    RuleBasedRouter.cpp
+    prompt_analyzer.cpp
+    rule_based_router.cpp
 )
 
 target_include_directories(genius_router PUBLIC

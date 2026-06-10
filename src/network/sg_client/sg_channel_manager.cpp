@@ -1,12 +1,12 @@
 /**
- * @file       SGChannelManager.cpp
+ * @file       sg_channel_manager.cpp
  * @brief      gRPC channel lifecycle implementation — TLS, keepalive, reconnect
  * @date       2026-05-28
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include "SGChannelManager.hpp"
-#include "common/Logging.hpp"
+#include "sg_channel_manager.hpp"
+#include "common/logging.hpp"
 #include <chrono>
 #include <thread>
 
@@ -24,7 +24,7 @@ namespace sgns::neoswarm::network
     } // namespace
 
     SGChannelManager::SGChannelManager( Config cfg )
-        : cfg_( std::move( cfg ) )
+        : m_cfg( std::move( cfg ) )
     {
     }
 
@@ -37,27 +37,27 @@ namespace sgns::neoswarm::network
         }
 
 #ifdef GENIUS_HAS_GRPC
-        bool isLocalhost = cfg_.endpoint_.find( "localhost" ) != std::string::npos ||
-                           cfg_.endpoint_.find( "127.0.0.1" ) != std::string::npos;
+        bool isLocalhost = m_cfg.endpoint_.find( "localhost" ) != std::string::npos ||
+                           m_cfg.endpoint_.find( "127.0.0.1" ) != std::string::npos;
 
         std::shared_ptr<grpc::ChannelCredentials> creds;
 
-        if ( !cfg_.tls_ca_path_.empty() || !isLocalhost )
+        if ( !m_cfg.tls_ca_path_.empty() || !isLocalhost )
         {
             // TLS required — load CA bundle
             grpc::SslCredentialsOptions sslOpts;
-            if ( !cfg_.tls_ca_path_.empty() )
+            if ( !m_cfg.tls_ca_path_.empty() )
             {
-                sslOpts.pem_root_certs = cfg_.tls_ca_path_;
+                sslOpts.pem_root_certs = m_cfg.tls_ca_path_;
             }
             creds = grpc::SslCredentials( sslOpts );
-            ChannelLogger()->info( "Creating TLS-secured channel to {}", cfg_.endpoint_ );
+            ChannelLogger()->info( "Creating TLS-secured channel to {}", m_cfg.endpoint_ );
         }
         else
         {
             // Localhost without TLS certs — insecure with warning
             creds = grpc::InsecureChannelCredentials();
-            ChannelLogger()->warn( "Creating INSECURE channel to {} — TLS not configured", cfg_.endpoint_ );
+            ChannelLogger()->warn( "Creating INSECURE channel to {} — TLS not configured", m_cfg.endpoint_ );
         }
 
         grpc::ChannelArguments args;
@@ -65,15 +65,15 @@ namespace sgns::neoswarm::network
         args.SetInt( GRPC_ARG_KEEPALIVE_TIMEOUT_MS, 10000 );
         args.SetInt( GRPC_ARG_KEEPALIVE_PERMIT_WITHOUT_CALLS, 1 );
 
-        channel_ = grpc::CreateCustomChannel( cfg_.endpoint_, creds, args );
+        channel_ = grpc::CreateCustomChannel( m_cfg.endpoint_, creds, args );
 
         if ( !channel_ )
         {
-            ChannelLogger()->error( "Failed to create channel to {}", cfg_.endpoint_ );
+            ChannelLogger()->error( "Failed to create channel to {}", m_cfg.endpoint_ );
             return outcome::failure( Error::NetworkError );
         }
 
-        ChannelLogger()->info( "Channel created to {}", cfg_.endpoint_ );
+        ChannelLogger()->info( "Channel created to {}", m_cfg.endpoint_ );
         return outcome::success();
 #else
         ChannelLogger()->warn( "SGChannelManager: gRPC not compiled in — stub mode" );

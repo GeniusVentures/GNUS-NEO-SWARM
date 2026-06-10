@@ -1,12 +1,12 @@
 /**
- * @file       GrammarSpecialist.cpp
+ * @file       grammar_specialist.cpp
  * @brief      Grammar specialist implementation
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include "GrammarSpecialist.hpp"
-#include "common/Logging.hpp"
+#include "grammar_specialist.hpp"
+#include "common/logging.hpp"
 
 #include <functional>
 

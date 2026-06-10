@@ -1,5 +1,5 @@
 /**
- * @file       NodeIdentity.hpp
+ * @file       node_identity.hpp
  * @brief      secp256k1 keypair and PeerId derivation (PTDS §4.3)
  * @date       2026-05-08
  * @author     Subaskar S (ssivakumar@gnus.ai)
@@ -8,7 +8,7 @@
 #ifndef NEOSWARM_SECURITY_NODEIDENTITY_HPP_
 #define NEOSWARM_SECURITY_NODEIDENTITY_HPP_
 
-#include "common/Error.hpp"
+#include "common/error.hpp"
 #include <array>
 #include <memory>
 #include <string>
@@ -93,13 +93,13 @@ namespace sgns::neoswarm::security
         /// @return The compressed public key bytes.
         const PubKey& PublicKey() const
         {
-            return pub_key_;
+            return m_pubKey;
         }
 
         /// @return True if a keypair has been loaded or generated.
         bool IsLoaded() const
         {
-            return loaded_;
+            return m_loaded;
         }
 
         /**
@@ -119,9 +119,9 @@ namespace sgns::neoswarm::security
 
         private:
         struct Impl;
-        std::unique_ptr<Impl> impl_;
-        PubKey pub_key_{};
-        bool loaded_ = false;
+        std::unique_ptr<Impl> m_impl;
+        PubKey m_pubKey{};
+        bool m_loaded = false;
     };
 
 } // namespace sgns::neoswarm::security

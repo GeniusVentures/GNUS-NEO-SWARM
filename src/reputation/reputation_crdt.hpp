@@ -1,5 +1,5 @@
 /**
- * @file       ReputationCRDT.hpp
+ * @file       reputation_crdt.hpp
  * @brief      Last-Write-Wins CRDT for reputation synchronisation (PTDS §4.2)
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
@@ -8,7 +8,7 @@
 #ifndef NEOSWARM_REPUTATION_REPUTATIONCRDT_HPP_
 #define NEOSWARM_REPUTATION_REPUTATIONCRDT_HPP_
 
-#include "NodeReputation.hpp"
+#include "node_reputation.hpp"
 #include <mutex>
 #include <optional>
 #include <string>
@@ -58,7 +58,7 @@ namespace sgns::neoswarm::reputation
         void DeserializeAndMerge( const std::string& data );
 
         private:
-        mutable std::mutex mutex_;
+        mutable std::mutex m_mutex;
         std::unordered_map<std::string, NodeReputation> state_; ///< key = identity_key_
     };
 

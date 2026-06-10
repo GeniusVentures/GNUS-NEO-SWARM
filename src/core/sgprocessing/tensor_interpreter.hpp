@@ -1,5 +1,5 @@
 /**
- * @file       TensorInterpreter.hpp
+ * @file       tensor_interpreter.hpp
  * @brief      Converts raw SGProcessingManager output bytes to text
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
@@ -8,8 +8,8 @@
 #ifndef NEOSWARM_CORE_SGPROCESSING_TENSORINTERPRETER_HPP_
 #define NEOSWARM_CORE_SGPROCESSING_TENSORINTERPRETER_HPP_
 
-#include "common/Error.hpp"
-#include "core/tokenizer/Tokenizer.hpp"
+#include "common/error.hpp"
+#include "core/tokenizer/tokenizer.hpp"
 #include <cstdint>
 #include <memory>
 #include <string>

@@ -1,9 +1,9 @@
 /**
- * @file       Error.cpp
+ * @file       error.cpp
  * @brief      Boost.Outcome error category registration for GNUS NEO SWARM
  */
 
-#include "Error.hpp"
+#include "error.hpp"
 
 OUTCOME_CPP_DEFINE_CATEGORY_3( sgns::neoswarm, Error, e )
 {

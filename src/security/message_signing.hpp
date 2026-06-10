@@ -1,5 +1,5 @@
 /**
- * @file       MessageSigning.hpp
+ * @file       message_signing.hpp
  * @brief      secp256k1 sign/verify for inter-node messages (PTDS §4.3)
  * @date       2026-05-08
  * @author     Subaskar S (ssivakumar@gnus.ai)
@@ -8,8 +8,8 @@
 #ifndef NEOSWARM_SECURITY_MESSAGESIGNING_HPP_
 #define NEOSWARM_SECURITY_MESSAGESIGNING_HPP_
 
-#include "NodeIdentity.hpp"
-#include "common/Error.hpp"
+#include "node_identity.hpp"
+#include "common/error.hpp"
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -39,12 +39,12 @@ namespace sgns::neoswarm::security
          * @brief Verify a signature against a known public key.
          * @param payload     Original payload string.
          * @param signature   DER-encoded signature bytes.
-         * @param pub_key_hex Hex-encoded compressed public key of the signer.
+         * @param m_pubKeyhex Hex-encoded compressed public key of the signer.
          * @return            True if the signature is valid.
          */
         static bool Verify( const std::string& payload,
                             const std::vector<uint8_t>& signature,
-                            const std::string& pub_key_hex );
+                            const std::string& m_pubKeyhex );
 
         /// Replay protection window in seconds.
         static constexpr int64_t kReplayWindowSec = 30;
@@ -71,13 +71,13 @@ namespace sgns::neoswarm::security
         /**
          * @brief Verify and strip the signature field from a signed JSON payload.
          * @param[in,out] payload     On entry: signed JSON. On exit: payload without sig.
-         * @param         pub_key_hex Hex-encoded public key of the expected signer.
+         * @param         m_pubKeyhex Hex-encoded public key of the expected signer.
          * @return                    True if the signature is valid.
          */
-        static bool VerifyAndStrip( std::string& payload, const std::string& pub_key_hex );
+        static bool VerifyAndStrip( std::string& payload, const std::string& m_pubKeyhex );
 
         private:
-        const NodeIdentity& identity_;
+        const NodeIdentity& m_identity;
     };
 
 } // namespace sgns::neoswarm::security

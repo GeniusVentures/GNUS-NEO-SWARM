@@ -1,5 +1,5 @@
 /**
- * @file       ResultAggregation.hpp
+ * @file       result_aggregation.hpp
  * @brief      Timeout-bounded collection of swarm node responses (PTDS §4.2)
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
@@ -8,8 +8,8 @@
 #ifndef NEOSWARM_NETWORK_RESULTAGGREGATION_HPP_
 #define NEOSWARM_NETWORK_RESULTAGGREGATION_HPP_
 
-#include "common/Error.hpp"
-#include "common/Types.hpp"
+#include "common/error.hpp"
+#include "common/types.hpp"
 #include <chrono>
 #include <condition_variable>
 #include <mutex>

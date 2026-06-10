@@ -1,5 +1,5 @@
 /**
- * @file       MNNInferenceEngine.hpp
+ * @file       MNNinference_engine.hpp
  * @brief      MNN-backed inference engine — cross-platform, config-driven
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
@@ -15,11 +15,11 @@
 #ifndef NEOSWARM_CORE_ENGINE_MNNINFERENCEENGINE_HPP_
 #define NEOSWARM_CORE_ENGINE_MNNINFERENCEENGINE_HPP_
 
-#include "InferenceEngine.hpp"
-#include "core/fp4/FP4Codec.hpp"
-#include "core/sgprocessing/SGProcessingBridge.hpp"
-#include "core/sgprocessing/TensorInterpreter.hpp"
-#include "core/tokenizer/Tokenizer.hpp"
+#include "inference_engine.hpp"
+#include "core/fp4/fp4_codec.hpp"
+#include "core/sgprocessing/sg_processing_bridge.hpp"
+#include "core/sgprocessing/tensor_interpreter.hpp"
+#include "core/tokenizer/tokenizer.hpp"
 #include <atomic>
 #include <memory>
 #include <string>

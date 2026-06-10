@@ -1,5 +1,5 @@
 /**
- * @file       GeniusAPIServer.hpp
+ * @file       api_server.hpp
  * @brief      Orchestrates the full inference pipeline (PTDS §9)
  * @date       2026-05-08
  * @author     Subaskar S (ssivakumar@gnus.ai)
@@ -8,22 +8,22 @@
 #ifndef NEOSWARM_API_GENIUSAPISERVER_HPP_
 #define NEOSWARM_API_GENIUSAPISERVER_HPP_
 
-#include "common/Error.hpp"
-#include "common/Types.hpp"
-#include "core/engine/InferenceEngine.hpp"
-#include "knowledge/ContextInjection.hpp"
-#include "knowledge/FactValidation.hpp"
-#include "knowledge/KnowledgeRetrieval.hpp"
-#include "network/P2PNode.hpp"
-#include "network/ResultAggregation.hpp"
-#include "reputation/ReputationCRDT.hpp"
-#include "reputation/ReputationScoring.hpp"
-#include "reputation/ReputationStorage.hpp"
-#include "reputation/WeightedConsensus.hpp"
-#include "router/RuleBasedRouter.hpp"
-#include "security/NodeIdentity.hpp"
-#include "specialists/GrammarSpecialist.hpp"
-#include "specialists/MathSpecialist.hpp"
+#include "common/error.hpp"
+#include "common/types.hpp"
+#include "core/engine/inference_engine.hpp"
+#include "knowledge/context_injection.hpp"
+#include "knowledge/fact_validation.hpp"
+#include "knowledge/knowledge_retrieval.hpp"
+#include "network/p2p_node.hpp"
+#include "network/result_aggregation.hpp"
+#include "reputation/reputation_crdt.hpp"
+#include "reputation/reputation_scoring.hpp"
+#include "reputation/reputation_storage.hpp"
+#include "reputation/weighted_consensus.hpp"
+#include "router/rule_based_router.hpp"
+#include "security/node_identity.hpp"
+#include "specialists/grammar_specialist.hpp"
+#include "specialists/math_specialist.hpp"
 #include <atomic>
 #include <memory>
 #include <string>
@@ -92,17 +92,17 @@ namespace sgns::neoswarm::api
         /// @return True if the server is currently running.
         bool IsRunning() const
         {
-            return running_.load();
+            return m_running.load();
         }
 
         /// @return True if connected to SuperGenius network.
         bool IsSuperGeniusConnected() const noexcept;
 
         private:
-        Config cfg_;
-        std::atomic<bool> running_{ false };
+        Config m_cfg;
+        std::atomic<bool> m_running{ false };
 
-        std::shared_ptr<security::NodeIdentity> identity_;
+        std::shared_ptr<security::NodeIdentity> m_identity;
         std::shared_ptr<core::InferenceEngine> core_engine_;
         std::shared_ptr<specialists::GrammarSpecialist> grammar_spec_;
         std::shared_ptr<specialists::MathSpecialist> math_spec_;

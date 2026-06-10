@@ -1,5 +1,5 @@
 /**
- * @file       Tokenizer.hpp
+ * @file       tokenizer.hpp
  * @brief      Abstract tokenizer interface and SentencePiece implementation
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)
@@ -8,7 +8,7 @@
 #ifndef NEOSWARM_CORE_TOKENIZER_TOKENIZER_HPP_
 #define NEOSWARM_CORE_TOKENIZER_TOKENIZER_HPP_
 
-#include "common/Error.hpp"
+#include "common/error.hpp"
 #include <memory>
 #include <string>
 #include <vector>

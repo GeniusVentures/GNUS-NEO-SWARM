@@ -1,8 +1,8 @@
 add_library(genius_reputation STATIC
-    ReputationScoring.cpp
-    WeightedConsensus.cpp
-    ReputationStorage.cpp
-    ReputationCRDT.cpp
+    reputation_scoring.cpp
+    weighted_consensus.cpp
+    reputation_storage.cpp
+    reputation_crdt.cpp
 )
 
 target_include_directories(genius_reputation PUBLIC

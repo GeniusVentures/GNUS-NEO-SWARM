@@ -1,13 +1,13 @@
 /**
- * @file       SGJobSubmitter.cpp
+ * @file       sg_job_submitter.cpp
  * @brief      Publishes signed Task messages to the SuperGenius grid channel via PubSub
  * @date       2026-05-28
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include "SGJobSubmitter.hpp"
-#include "SGMessageAuthenticator.hpp"
-#include "common/Logging.hpp"
+#include "sg_job_submitter.hpp"
+#include "sg_message_authenticator.hpp"
+#include "common/logging.hpp"
 #include <chrono>
 #include <iomanip>
 #include <random>
@@ -52,7 +52,7 @@ namespace sgns::neoswarm::network
     };
 
     SGJobSubmitter::SGJobSubmitter( std::shared_ptr<grpc::Channel> channel, SGMessageAuthenticator& authenticator )
-        : impl_( std::make_unique<Impl>( std::move( channel ), authenticator ) )
+        : m_impl( std::make_unique<Impl>( std::move( channel ), authenticator ) )
     {
     }
 
@@ -62,7 +62,7 @@ namespace sgns::neoswarm::network
 
 #ifdef GENIUS_HAS_GRPC
         // Sign the payload with nonce + timestamp + secp256k1 signature
-        auto signedPayload = impl_->authenticator_.SignPayload( gnusSchemaJson );
+        auto signedPayload = m_impl->authenticator_.SignPayload( gnusSchemaJson );
         if ( !signedPayload.has_value() )
         {
             SubmitLogger()->error( "Failed to sign payload: {}", signedPayload.error().message() );

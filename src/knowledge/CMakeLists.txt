@@ -1,7 +1,7 @@
 add_library(genius_knowledge STATIC
-    KnowledgeRetrieval.cpp
-    ContextInjection.cpp
-    FactValidation.cpp
+    knowledge_retrieval.cpp
+    context_injection.cpp
+    fact_validation.cpp
 )
 
 target_include_directories(genius_knowledge PUBLIC
