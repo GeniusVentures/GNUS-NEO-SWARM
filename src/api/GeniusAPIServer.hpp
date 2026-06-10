@@ -126,7 +126,7 @@ namespace sgns::neoswarm::api
 
         void UpdateReputation( const InferenceResponse& resp,
                                double median_latency_ms,
-                               const std::string& consensus_output );
+                               const std::string& consensusOutput );
     };
 
 } // namespace sgns::neoswarm::api

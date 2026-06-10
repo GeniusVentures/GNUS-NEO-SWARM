@@ -218,7 +218,7 @@ namespace sgns::neoswarm::api
     // -----------------------------------------------------------------------
     void GeniusAPIServer::UpdateReputation( const InferenceResponse& resp,
                                             double median_latency_ms,
-                                            const std::string& consensus_output )
+                                            const std::string& consensusOutput )
     {
         if ( !rep_storage_ || !rep_storage_->IsOpen() )
         {
@@ -236,7 +236,7 @@ namespace sgns::neoswarm::api
             rep.identity_key_ = resp.node_id_;
         }
 
-        auto updated = scoring_->Update( rep, resp, median_latency_ms, std::nullopt, consensus_output );
+        auto updated = scoring_->Update( rep, resp, median_latency_ms, std::nullopt, consensusOutput );
         (void)rep_storage_->Put( updated );
         rep_crdt_->Merge( updated );
 
