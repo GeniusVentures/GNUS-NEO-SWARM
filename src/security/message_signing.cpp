@@ -10,15 +10,10 @@
 
 #include <chrono>
 #include <iomanip>
-#include <random>
 #include <sstream>
 
-#ifdef GENIUS_HAS_SECP256K1
 #include <secp256k1.h>
-#endif
-#ifdef GENIUS_HAS_OPENSSL
 #include <openssl/sha.h>
-#endif
 
 namespace sgns::neoswarm::security
 {
@@ -71,7 +66,6 @@ namespace sgns::neoswarm::security
                                  const std::vector<uint8_t>& signature,
                                  const std::string& m_pubKeyhex )
     {
-#ifdef GENIUS_HAS_SECP256K1
         // Validate inputs
         if ( payload.empty() || signature.empty() || m_pubKeyhex.empty() )
         {
@@ -114,27 +108,13 @@ namespace sgns::neoswarm::security
 
         // Hash payload with SHA-256
         uint8_t hash[32];
-#ifdef GENIUS_HAS_OPENSSL
         SHA256( reinterpret_cast<const uint8_t*>( payload.data() ), payload.size(), hash );
-#else
-        std::fill( hash, hash + 32, 0 );
-        for ( size_t i = 0; i < payload.size(); ++i )
-        {
-            hash[i % 32] ^= static_cast<uint8_t>( payload[i] );
-        }
-#endif
 
         // Verify
         int result = secp256k1_ecdsa_verify( ctx, &sig, hash, &pubkey );
         secp256k1_context_destroy( ctx );
         return result == 1;
-#else
-        (void) payload;
-        (void) signature;
-        (void) m_pubKeyhex;
-        SigningLogger()->error( "MessageSigning::Verify — secp256k1 not available, REJECTING signature" );
-        return false;
-#endif
+
     }
 
     // -----------------------------------------------------------------------
@@ -142,13 +122,12 @@ namespace sgns::neoswarm::security
     // -----------------------------------------------------------------------
     std::string MessageSigning::GenerateNonce()
     {
-        std::random_device rd;
-        std::mt19937_64 rng( rd() );
-        std::uniform_int_distribution<uint8_t> dist( 0, 255 );
         std::vector<uint8_t> nonceBytes( 32 );
-        for ( auto& b : nonceBytes )
+        if ( !RAND_bytes( nonceBytes.data(), static_cast<int>( nonceBytes.size() ) ) )
         {
-            b = dist( rng );
+            // Fallback: use time-based nonce if RAND_bytes fails
+            auto ts = CurrentTimestampMs();
+            std::memcpy( nonceBytes.data(), &ts, sizeof( ts ) );
         }
         return ToHex( nonceBytes );
     }
