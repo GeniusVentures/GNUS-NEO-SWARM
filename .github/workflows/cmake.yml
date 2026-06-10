@@ -22,7 +22,7 @@ jobs:
         run: |
           mkdir -p build/OSX/${{ matrix.build_type }}
           cd build/OSX/${{ matrix.build_type }}
-          cmake ../.. -G "Ninja" -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTING=ON
+          cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTING=ON
 
       - name: Build
         run: |
@@ -48,7 +48,7 @@ jobs:
         run: |
           mkdir -p build/Linux/${{ matrix.build_type }}
           cd build/Linux/${{ matrix.build_type }}
-          cmake ../.. -G "Ninja" -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTING=ON
+          cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTING=ON
 
       - name: Build
         run: |
