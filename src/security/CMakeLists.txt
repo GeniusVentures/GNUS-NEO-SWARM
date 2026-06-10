@@ -1,6 +1,6 @@
 add_library(genius_security STATIC
-    NodeIdentity.cpp
-    MessageSigning.cpp
+    node_identity.cpp
+    message_signing.cpp
 )
 
 target_include_directories(genius_security PUBLIC
