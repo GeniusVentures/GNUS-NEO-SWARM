@@ -54,6 +54,10 @@ namespace sgns::neoswarm
     struct InferenceResponse
     {
         std::string output_;
+        std::string task_id_;
+        ExecutionMode mode_used_ = ExecutionMode::SingleNode;
+        RouteTarget route_used_ = RouteTarget::CoreOnly;
+        double total_latency_ms_ = 0.0;
         float perplexity_ = 1.0f; ///< model confidence (lower = better)
         double latency_ms_ = 0.0;
         std::string node_id_;
@@ -128,17 +132,7 @@ namespace sgns::neoswarm
     // -----------------------------------------------------------------------
     // Final API response
     // -----------------------------------------------------------------------
-    struct InferenceResponse
-    {
-        std::string output_;
-        std::string task_id_;
-        ExecutionMode mode_used_;
-        RouteTarget route_used_;
-        std::vector<KnowledgeFact> grounding_facts_;
-        double total_latency_ms_ = 0.0;
-        bool success_ = true;
-        std::string error_message_;
-    };
+    
 
 } // namespace sgns::neoswarm
 

@@ -13,6 +13,7 @@
 #include <sstream>
 
 #include <sentencepiece_processor.h>
+#ifdef GENIUS_HAS_SENTENCEPIECE
 
 namespace sgns::neoswarm::core
 {
@@ -106,3 +107,5 @@ namespace sgns::neoswarm::core
     }
 
 } // namespace sgns::neoswarm::core
+
+#endif // GENIUS_HAS_SENTENCEPIECE

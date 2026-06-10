@@ -11,7 +11,7 @@
 # ---------------------------------------------------------------------------
 # Convenience alias (source CMakeLists use THIRDPARTY_BUILD_DIR)
 # ---------------------------------------------------------------------------
-set(THIRDPARTY_BUILD_DIR "${_THIRDPARTY_BUILD_DIR}" CACHE PATH "" FORCE)
+set(THIRDPARTY_BUILD_DIR "${_THIRDPARTY_BUILD_DIR}/Release" CACHE PATH "" FORCE)
 
 # ---------------------------------------------------------------------------
 # Boost version
@@ -24,12 +24,13 @@ set(BOOST_VERSION_2U "${BOOST_MAJOR_VERSION}_${BOOST_MINOR_VERSION}")
 
 # absl
 if(NOT DEFINED absl_DIR)
-    set(absl_DIR "${_THIRDPARTY_BUILD_DIR}/protobuf/lib/cmake/absl")
+    set(absl_DIR "${THIRDPARTY_BUILD_DIR}/protobuf/lib/cmake/absl")
+find_package(absl CONFIG REQUIRED)
 endif()
 
 # utf8_range
 if(NOT DEFINED utf8_range_DIR)
-    set(utf8_range_DIR "${_THIRDPARTY_BUILD_DIR}/protobuf/lib/cmake/utf8_range")
+    set(utf8_range_DIR "${THIRDPARTY_BUILD_DIR}/protobuf/lib/cmake/utf8_range")
 endif()
 
 # --------------------------------------------------------
@@ -227,6 +228,7 @@ if(SENTENCEPIECE_LIB)
     set_target_properties(sentencepiece PROPERTIES
         IMPORTED_LOCATION "${SENTENCEPIECE_LIB}"
         INTERFACE_INCLUDE_DIRECTORIES "${SentencePiece_INCLUDE_DIR}"
+        INTERFACE_LINK_LIBRARIES "absl::log"
     )
     include_directories(${SentencePiece_INCLUDE_DIR})
     message(STATUS "SentencePiece: ${SENTENCEPIECE_LIB}")
@@ -292,7 +294,7 @@ find_package(Vulkan)
 
 if(NOT TARGET Vulkan::Vulkan)
     if(NOT DEFINED $ENV{VULKAN_SDK})
-        set(ENV{VULKAN_SDK} "${_THIRDPARTY_BUILD_DIR}/Vulkan-Loader")
+        set(ENV{VULKAN_SDK} "${THIRDPARTY_BUILD_DIR}/Vulkan-Loader")
     endif()
 
     find_package(Vulkan REQUIRED)
@@ -318,7 +320,7 @@ set(GENIUS_SDK_BUILD_DIR "${GENIUS_SDK_DIR}/build/${BUILD_PLATFORM_NAME}/${CMAKE
 find_library(GENIUS_SDK_LIB GeniusSDK_shared
     PATHS "${GENIUS_SDK_BUILD_DIR}/GeniusSDK/lib"
           "${GENIUS_SDK_BUILD_DIR}/src"
-    NO_DEFAULT_PATH REQUIRED)
+    NO_DEFAULT_PATH)
 
 add_library(GeniusSDK SHARED IMPORTED)
 set_target_properties(GeniusSDK PROPERTIES

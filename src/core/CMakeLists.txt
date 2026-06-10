@@ -9,8 +9,8 @@ add_library(neoswarm_core STATIC
 target_include_directories(neoswarm_core PUBLIC
     $<BUILD_INTERFACE:${PROJECT_ROOT}/src>
     $<INSTALL_INTERFACE:include>
-    "${_THIRDPARTY_BUILD_DIR}/boost/build/include"
-    "${_THIRDPARTY_BUILD_DIR}/json/include"
+    "${THIRDPARTY_BUILD_DIR}/boost/build/include"
+    "${THIRDPARTY_BUILD_DIR}/json/include"
 )
 
 target_link_libraries(neoswarm_core PUBLIC neoswarm_common)
@@ -31,7 +31,7 @@ if(TARGET MNN)
 endif()
 
 # Check early if SGProcessingManager will be linked (used to skip SentencePiece)
-set(_SGPROC_LIB_DIR "${_THIRDPARTY_BUILD_DIR}/SGProcessingManager/lib")
+set(_SGPROC_LIB_DIR "${THIRDPARTY_BUILD_DIR}/SGProcessingManager/lib")
 find_library(_SGPROC_PROCESSING_BASE ProcessingBase PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
 
 # ---------------------------------------------------------------------------
@@ -40,12 +40,12 @@ find_library(_SGPROC_PROCESSING_BASE ProcessingBase PATHS "${_SGPROC_LIB_DIR}" N
 # When skipped, the tokenizer falls back to whitespace mode — MNN's built-in
 # tokenizer (tokenizer.mtok) is used in the LLM path instead.
 # ---------------------------------------------------------------------------
-if(NOT _SGPROC_PROCESSING_BASE AND TARGET sentencepiece)
+if(FALSE AND TARGET sentencepiece)
     target_link_libraries(neoswarm_core PUBLIC sentencepiece)
     target_compile_definitions(neoswarm_core PUBLIC GENIUS_HAS_SENTENCEPIECE)
 
     # Abseil static libs bundled in the SentencePiece build tree
-    set(_SPM_BUILD_DIR "${_THIRDPARTY_BUILD_DIR}/../../../sentencepiece/build")
+    set(_SPM_BUILD_DIR "${THIRDPARTY_BUILD_DIR}/../../../sentencepiece/build")
     file(GLOB_RECURSE _ABSL_LIBS
         "${_SPM_BUILD_DIR}/third_party/abseil-cpp/**/*.a"
     )
@@ -88,7 +88,7 @@ endif()
 # SGProcessingManager headers from SuperGenius sibling repo
 set(_SGPROC_INCLUDE "${PROJECT_ROOT}/../SuperGenius/SGProcessingManager/include")
 set(_SGPROC_GEN_INCLUDE "${PROJECT_ROOT}/../SuperGenius/SGProcessingManager/generated")
-set(_SGPROC_LIB_DIR "${_THIRDPARTY_BUILD_DIR}/SGProcessingManager/lib")
+set(_SGPROC_LIB_DIR "${THIRDPARTY_BUILD_DIR}/SGProcessingManager/lib")
 
 find_library(_SGPROC_PROCESSING_BASE ProcessingBase PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
 find_library(_SGPROC_PROCESSORS SGProcessors PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
@@ -112,27 +112,27 @@ if(_SGPROC_PROCESSING_BASE AND EXISTS "${_SGPROC_INCLUDE}" AND EXISTS "${_SGPROC
     )
     # AsyncIOManager (transitive dependency of ProcessingBase)
     find_library(_ASYNCIO_LIB AsyncIOManager
-        PATHS "${_THIRDPARTY_BUILD_DIR}/AsyncIOManager/lib" NO_DEFAULT_PATH)
+        PATHS "${THIRDPARTY_BUILD_DIR}/AsyncIOManager/lib" NO_DEFAULT_PATH)
     if(_ASYNCIO_LIB)
         target_link_libraries(neoswarm_core PUBLIC "${_ASYNCIO_LIB}")
         target_include_directories(neoswarm_core PUBLIC
-            "${_THIRDPARTY_BUILD_DIR}/AsyncIOManager/include")
+            "${THIRDPARTY_BUILD_DIR}/AsyncIOManager/include")
     endif()
 
     # Transitive dependencies of AsyncIOManager/SGProcessingManager
     # (ipfs-bitswap, ipfs-lite, libp2p, etc.)
-    file(GLOB _IPFS_BITSWAP_LIBS "${_THIRDPARTY_BUILD_DIR}/ipfs-bitswap-cpp/lib/*.a")
-    file(GLOB _IPFS_LITE_LIBS "${_THIRDPARTY_BUILD_DIR}/ipfs-lite-cpp/lib/*.a")
-    file(GLOB _IPFS_PUBSUB_LIBS "${_THIRDPARTY_BUILD_DIR}/ipfs-pubsub/lib/*.a")
-    file(GLOB _LIBP2P_LIBS "${_THIRDPARTY_BUILD_DIR}/libp2p/lib/*.a")
-    find_library(_SORALOG_LIB soralog PATHS "${_THIRDPARTY_BUILD_DIR}/soralog/lib" NO_DEFAULT_PATH)
-    find_library(_CARES_LIB cares PATHS "${_THIRDPARTY_BUILD_DIR}/cares/lib" NO_DEFAULT_PATH)
-    find_library(_ED25519_LIB ed25519 PATHS "${_THIRDPARTY_BUILD_DIR}/ed25519/lib" NO_DEFAULT_PATH)
-    find_library(_XXHASH_LIB xxhash PATHS "${_THIRDPARTY_BUILD_DIR}/xxhash/lib" NO_DEFAULT_PATH)
-    find_library(_TSL_LIB tsl PATHS "${_THIRDPARTY_BUILD_DIR}/tsl_hat_trie/lib" NO_DEFAULT_PATH)
-    find_library(_SQLITE3_LIB sqlite3 PATHS "${_THIRDPARTY_BUILD_DIR}/sqlite3/lib" NO_DEFAULT_PATH)
-    find_library(_ROCKSDB_LIB rocksdb PATHS "${_THIRDPARTY_BUILD_DIR}/rocksdb/lib" NO_DEFAULT_PATH)
-    find_library(_SNAPPY_LIB snappy PATHS "${_THIRDPARTY_BUILD_DIR}/snappy/lib" NO_DEFAULT_PATH)
+    file(GLOB _IPFS_BITSWAP_LIBS "${THIRDPARTY_BUILD_DIR}/ipfs-bitswap-cpp/lib/*.a")
+    file(GLOB _IPFS_LITE_LIBS "${THIRDPARTY_BUILD_DIR}/ipfs-lite-cpp/lib/*.a")
+    file(GLOB _IPFS_PUBSUB_LIBS "${THIRDPARTY_BUILD_DIR}/ipfs-pubsub/lib/*.a")
+    file(GLOB _LIBP2P_LIBS "${THIRDPARTY_BUILD_DIR}/libp2p/lib/*.a")
+    find_library(_SORALOG_LIB soralog PATHS "${THIRDPARTY_BUILD_DIR}/soralog/lib" NO_DEFAULT_PATH)
+    find_library(_CARES_LIB cares PATHS "${THIRDPARTY_BUILD_DIR}/cares/lib" NO_DEFAULT_PATH)
+    find_library(_ED25519_LIB ed25519 PATHS "${THIRDPARTY_BUILD_DIR}/ed25519/lib" NO_DEFAULT_PATH)
+    find_library(_XXHASH_LIB xxhash PATHS "${THIRDPARTY_BUILD_DIR}/xxhash/lib" NO_DEFAULT_PATH)
+    find_library(_TSL_LIB tsl PATHS "${THIRDPARTY_BUILD_DIR}/tsl_hat_trie/lib" NO_DEFAULT_PATH)
+    find_library(_SQLITE3_LIB sqlite3 PATHS "${THIRDPARTY_BUILD_DIR}/sqlite3/lib" NO_DEFAULT_PATH)
+    find_library(_ROCKSDB_LIB rocksdb PATHS "${THIRDPARTY_BUILD_DIR}/rocksdb/lib" NO_DEFAULT_PATH)
+    find_library(_SNAPPY_LIB snappy PATHS "${THIRDPARTY_BUILD_DIR}/snappy/lib" NO_DEFAULT_PATH)
 
     target_link_libraries(neoswarm_core PUBLIC
         ${_IPFS_BITSWAP_LIBS}

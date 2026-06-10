@@ -1,5 +1,5 @@
-#ifndef \1_H
-#define \1_H
+#ifndef GNUS_NEO_SWARM_GENIUS_ELM_CHAT_C_H
+#define GNUS_NEO_SWARM_GENIUS_ELM_CHAT_C_H
 
 #include <stddef.h>
 

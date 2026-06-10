@@ -20,21 +20,7 @@
 #include <InputFormat.hpp>
 #include <SGNSProcMain.hpp>
 #include <processingbase/ProcessingManager.hpp>
-#else
-namespace sgns
-{
-    enum class InputFormat : int
-    {
-        FLOAT16 = 0,
-        FLOAT32 = 1,
-        FP4_ULTRA = 2,
-        INT16 = 3,
-        INT32 = 4,
-        INT8 = 5,
-        RGB8 = 6,
-        RGBA8 = 7
-    };
-} // namespace sgns
+ // namespace sgns
 
 namespace sgns::neoswarm::core
 {
@@ -349,7 +335,7 @@ namespace sgns::neoswarm::core
         BridgeLogger()->debug( "Process() succeeded: {} bytes, {} chunk hashes", process_result.value().size(),
                                chunkhashes.size() );
         return outcome::success( process_result.value() );
-#else
+
         (void) jsondata;
         (void) ioc;
         BridgeLogger()->warn( "SGProcessingBridge: SGProcessingManager not compiled in — stub mode" );
