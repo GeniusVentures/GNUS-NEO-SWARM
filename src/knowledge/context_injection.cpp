@@ -38,11 +38,11 @@ namespace sgns::neoswarm::knowledge
             std::string entry;
             if ( m_cfg.add_source_tags_ )
             {
-                entry = "[GROKIPEDIA: " + fact.source_ + "] " + fact.content_ + "\n";
+                entry = "[GROKIPEDIA: " + fact.m_source + "] " + fact.m_content + "\n";
             }
             else
             {
-                entry = fact.content_ + "\n";
+                entry = fact.m_content + "\n";
             }
 
             size_t entry_tokens = EstimateTokens( entry );

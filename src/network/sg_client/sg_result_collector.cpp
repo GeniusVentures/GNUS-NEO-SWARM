@@ -23,8 +23,8 @@ namespace sgns::neoswarm::network
 
     struct SGResultCollector::Impl
     {
-        std::shared_ptr<grpc::Channel> channel_;
-        SGMessageAuthenticator& authenticator_;
+        std::shared_ptr<grpc::Channel> m_channel;
+        SGMessageAuthenticator& m_authenticator;
         SGResultCollectorConfig m_cfg;
 
         // Timeout-bounded collection using condition_variable
@@ -37,8 +37,8 @@ namespace sgns::neoswarm::network
         Impl( std::shared_ptr<grpc::Channel> channel,
               SGMessageAuthenticator& authenticator,
               SGResultCollectorConfig cfg )
-            : channel_( std::move( channel ) )
-            , authenticator_( authenticator )
+            : m_channel( std::move( channel ) )
+            , m_authenticator( authenticator )
             , m_cfg( std::move( cfg ) )
         {
         }
@@ -87,7 +87,7 @@ namespace sgns::neoswarm::network
 
     outcome::result<std::vector<uint8_t>> SGResultCollector::WaitForResult( const std::string& taskId )
     {
-        return WaitForResult( taskId, m_impl->m_cfg.result_timeout_ );
+        return WaitForResult( taskId, m_impl->m_cfg.result_m_timeout );
     }
 
     SGResultCollector::~SGResultCollector() = default;

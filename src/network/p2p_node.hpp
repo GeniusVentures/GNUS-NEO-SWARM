@@ -70,7 +70,7 @@ namespace sgns::neoswarm::network
          */
         void OnTask( TaskHandler handler )
         {
-            task_handler_ = std::move( handler );
+            m_taskHandler = std::move( handler );
         }
 
         /**
@@ -79,7 +79,7 @@ namespace sgns::neoswarm::network
          */
         void OnCRDT( CRDTHandler handler )
         {
-            crdt_handler_ = std::move( handler );
+            m_crdtHandler = std::move( handler );
         }
 
         /**
@@ -108,8 +108,8 @@ namespace sgns::neoswarm::network
         std::shared_ptr<security::NodeIdentity> m_identity;
         Config m_cfg;
         bool m_running = false;
-        TaskHandler task_handler_;
-        CRDTHandler crdt_handler_;
+        TaskHandler m_taskHandler;
+        CRDTHandler m_crdtHandler;
     };
 
 } // namespace sgns::neoswarm::network

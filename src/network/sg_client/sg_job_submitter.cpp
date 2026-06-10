@@ -40,13 +40,13 @@ namespace sgns::neoswarm::network
 
     struct SGJobSubmitter::Impl
     {
-        std::shared_ptr<grpc::Channel> channel_;
-        SGMessageAuthenticator& authenticator_;
+        std::shared_ptr<grpc::Channel> m_channel;
+        SGMessageAuthenticator& m_authenticator;
         std::string gridChannel_ = "gnus.processing.grid";
 
         Impl( std::shared_ptr<grpc::Channel> channel, SGMessageAuthenticator& authenticator )
-            : channel_( std::move( channel ) )
-            , authenticator_( authenticator )
+            : m_channel( std::move( channel ) )
+            , m_authenticator( authenticator )
         {
         }
     };
@@ -61,7 +61,7 @@ namespace sgns::neoswarm::network
         std::string taskId = GenerateTaskId();
 
         // Sign the payload with nonce + timestamp + secp256k1 signature
-        auto signedPayload = m_impl->authenticator_.SignPayload( gnusSchemaJson );
+        auto signedPayload = m_impl->m_authenticator.SignPayload( gnusSchemaJson );
         if ( !signedPayload.has_value() )
         {
             SubmitLogger()->error( "Failed to sign payload: {}", signedPayload.error().message() );

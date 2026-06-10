@@ -31,7 +31,7 @@ namespace sgns::neoswarm::knowledge
             KnowledgeFact fact_;
             std::vector<float> embedding_;
         };
-        std::vector<FactEntry> facts_;
+        std::vector<FactEntry> m_facts;
     };
 
     KnowledgeRetrieval::KnowledgeRetrieval()
@@ -58,22 +58,22 @@ namespace sgns::neoswarm::knowledge
             return outcome::success();
         }
 
-        if ( m_cfg.facts_path_.empty() )
+        if ( m_cfg.m_factsPath.empty() )
         {
             KnowledgeLogger()->warn( "KnowledgeRetrieval: no facts path — using stub facts" );
-            m_impl->facts_.push_back(
+            m_impl->m_facts.push_back(
                 { { "Grokipedia", "The speed of light in vacuum is approximately 299,792,458 m/s.", 0.0f },
                   Embed( "speed of light vacuum" ) } );
-            m_impl->facts_.push_back( { { "Grokipedia", "Pi (π) is approximately 3.14159265358979.", 0.0f },
+            m_impl->m_facts.push_back( { { "Grokipedia", "Pi (π) is approximately 3.14159265358979.", 0.0f },
                                        Embed( "pi mathematical constant" ) } );
-            m_impl->facts_.push_back(
+            m_impl->m_facts.push_back(
                 { { "Grokipedia", "Water (H2O) has a molecular weight of approximately 18.015 g/mol.", 0.0f },
                   Embed( "water molecular weight chemistry" ) } );
-            loaded_ = true;
+            m_loaded = true;
             return outcome::success();
         }
 
-        std::ifstream f( m_cfg.facts_path_ );
+        std::ifstream f( m_cfg.m_factsPath );
         if ( !f )
         {
             return outcome::failure( Error::KnowledgeUnavailable );
@@ -92,13 +92,13 @@ namespace sgns::neoswarm::knowledge
                 continue;
             }
             KnowledgeFact fact;
-            fact.source_ = line.substr( 0, comma );
-            fact.content_ = line.substr( comma + 1 );
-            m_impl->facts_.push_back( { fact, Embed( fact.content_ ) } );
+            fact.m_source = line.substr( 0, comma );
+            fact.m_content = line.substr( comma + 1 );
+            m_impl->m_facts.push_back( { fact, Embed( fact.m_content ) } );
         }
 
-        KnowledgeLogger()->info( "KnowledgeRetrieval loaded {} facts", m_impl->facts_.size() );
-        loaded_ = true;
+        KnowledgeLogger()->info( "KnowledgeRetrieval loaded {} facts", m_impl->m_facts.size() );
+        m_loaded = true;
         return outcome::success();
     }
 
@@ -158,7 +158,7 @@ namespace sgns::neoswarm::knowledge
     // -----------------------------------------------------------------------
     outcome::result<std::vector<KnowledgeFact>> KnowledgeRetrieval::Retrieve( const std::string& query ) const
     {
-        if ( !loaded_ || m_impl->facts_.empty() )
+        if ( !m_loaded || m_impl->m_facts.empty() )
         {
             return outcome::failure( Error::KnowledgeUnavailable );
         }
@@ -166,10 +166,10 @@ namespace sgns::neoswarm::knowledge
         auto query_emb = Embed( query );
 
         std::vector<std::pair<float, size_t>> scored;
-        scored.reserve( m_impl->facts_.size() );
-        for ( size_t i = 0; i < m_impl->facts_.size(); ++i )
+        scored.reserve( m_impl->m_facts.size() );
+        for ( size_t i = 0; i < m_impl->m_facts.size(); ++i )
         {
-            float score = CosineSimilarity( query_emb, m_impl->facts_[i].embedding_ );
+            float score = CosineSimilarity( query_emb, m_impl->m_facts[i].embedding_ );
             if ( score >= m_cfg.min_score_ )
             {
                 scored.push_back( { score, i } );
@@ -182,8 +182,8 @@ namespace sgns::neoswarm::knowledge
         int k = std::min( m_cfg.top_k_, static_cast<int>( scored.size() ) );
         for ( int i = 0; i < k; ++i )
         {
-            KnowledgeFact f = m_impl->facts_[scored[i].second].fact_;
-            f.relevance_score_ = scored[i].first;
+            KnowledgeFact f = m_impl->m_facts[scored[i].second].fact_;
+            f.m_relevanceScore = scored[i].first;
             results.push_back( std::move( f ) );
         }
 

@@ -32,7 +32,7 @@ namespace sgns::neoswarm::network
     struct P2PNode::Impl
     {
         std::string listen_addr_;
-        std::string peer_id_;
+        std::string peer_m_id;
         std::vector<std::string> peers_;
         std::atomic<bool> m_running{ false };
 
@@ -98,7 +98,7 @@ namespace sgns::neoswarm::network
                 { kTaskTopic },
                 [this]( libp2p::protocol::gossip::Gossip::SubscriptionData sub_data )
                 {
-                    if ( sub_data && task_handler_ )
+                    if ( sub_data && m_taskHandler )
                     {
                         const auto& msg = sub_data.value();
                         auto json =
@@ -106,12 +106,12 @@ namespace sgns::neoswarm::network
                         if ( !json.is_discarded() )
                         {
                             Task t;
-                            t.id_ = json.value( "id", "" );
-                            t.prompt_ = json.value( "prompt", "" );
-                            t.mode_ = static_cast<ExecutionMode>( json.value( "mode", 0 ) );
-                            t.max_tokens_ = json.value( "max_tokens", 512U );
-                            t.temperature_ = json.value( "temperature", 0.7f );
-                            task_handler_( t, m_impl->peer_id_ );
+                            t.m_id = json.value( "id", "" );
+                            t.m_prompt = json.value( "prompt", "" );
+                            t.m_mode = static_cast<ExecutionMode>( json.value( "mode", 0 ) );
+                            t.m_maxTokens = json.value( "max_tokens", 512U );
+                            t.m_temperature = json.value( "temperature", 0.7f );
+                            m_taskHandler( t, m_impl->peer_m_id );
                         }
                     }
                 } );
@@ -120,10 +120,10 @@ namespace sgns::neoswarm::network
                 m_impl->gossip_->subscribe( { kCRDTTopic },
                                            [this]( libp2p::protocol::gossip::Gossip::SubscriptionData sub_data )
                                            {
-                                               if ( sub_data && crdt_handler_ )
+                                               if ( sub_data && m_crdtHandler )
                                                {
                                                    const auto& msg = sub_data.value();
-                                                   crdt_handler_( std::string( msg.data.begin(), msg.data.end() ) );
+                                                   m_crdtHandler( std::string( msg.data.begin(), msg.data.end() ) );
                                                }
                                            } );
 
@@ -139,12 +139,12 @@ namespace sgns::neoswarm::network
             m_impl->host_->start();
             m_impl->gossip_->start();
 
-            m_impl->peer_id_ = m_impl->host_->getId().toBase58();
+            m_impl->peer_m_id = m_impl->host_->getId().toBase58();
             m_impl->listen_addr_ = m_cfg.listen_addr_;
             m_impl->m_running.store( true );
             m_running = true;
 
-            NetworkLogger()->info( "P2PNode started (libp2p): peerId={}", m_impl->peer_id_ );
+            NetworkLogger()->info( "P2PNode started (libp2p): peerId={}", m_impl->peer_m_id );
         }
         catch ( const std::exception& e )
         {
@@ -184,7 +184,7 @@ namespace sgns::neoswarm::network
 
     std::string P2PNode::PeerId() const
     {
-        return m_impl->peer_id_;
+        return m_impl->peer_m_id;
     }
 
     std::vector<std::string> P2PNode::ConnectedPeers() const
@@ -203,14 +203,14 @@ namespace sgns::neoswarm::network
         }
 
         nlohmann::json j;
-        j["id"] = task.id_;
-        j["prompt"] = task.prompt_;
-        j["mode"] = static_cast<int>( task.mode_ );
-        j["max_tokens"] = task.max_tokens_;
-        j["temperature"] = task.temperature_;
+        j["id"] = task.m_id;
+        j["prompt"] = task.m_prompt;
+        j["mode"] = static_cast<int>( task.m_mode );
+        j["max_tokens"] = task.m_maxTokens;
+        j["temperature"] = task.m_temperature;
         std::string payload = j.dump();
 
-        NetworkLogger()->debug( "Broadcasting task {} to {} peers", task.id_, m_impl->peers_.size() );
+        NetworkLogger()->debug( "Broadcasting task {} to {} peers", task.m_id, m_impl->peers_.size() );
 
         // Publish via GossipSub to all peers
         if ( m_impl->gossip_ )

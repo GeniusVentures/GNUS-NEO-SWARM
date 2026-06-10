@@ -27,7 +27,7 @@ namespace sgns::neoswarm::network
     {
         Config m_cfg;
         const security::NodeIdentity* m_identity = nullptr;
-        std::unique_ptr<SGMessageAuthenticator> authenticator_;
+        std::unique_ptr<SGMessageAuthenticator> m_authenticator;
         std::unique_ptr<SGChannelManager> channelMgr_;
         std::unique_ptr<SGJobSubmitter> jobSubmitter_;
         std::unique_ptr<SGResultCollector> resultCollector_;
@@ -50,14 +50,14 @@ namespace sgns::neoswarm::network
         m_impl->m_identity = &identity;
 
         // Create authenticator using the hardened NodeIdentity from Phase 1
-        m_impl->authenticator_ = std::make_unique<SGMessageAuthenticator>( identity );
+        m_impl->m_authenticator = std::make_unique<SGMessageAuthenticator>( identity );
 
         // Create channel manager with configured endpoint and TLS settings
         SGChannelManager::Config chCfg;
         chCfg.m_endpoint = m_impl->m_cfg.m_endpoint;
-        chCfg.tls_ca_path_ = m_impl->m_cfg.tls_ca_path_;
-        chCfg.tls_cert_path_ = m_impl->m_cfg.tls_cert_path_;
-        chCfg.timeout_ = m_impl->m_cfg.channel_timeout_;
+        chCfg.m_tlsCaPath = m_impl->m_cfg.m_tlsCaPath;
+        chCfg.m_tlsCertPath = m_impl->m_cfg.m_tlsCertPath;
+        chCfg.m_timeout = m_impl->m_cfg.channel_m_timeout;
 
         m_impl->channelMgr_ = std::make_unique<SGChannelManager>( std::move( chCfg ) );
 
@@ -81,14 +81,14 @@ namespace sgns::neoswarm::network
         }
 
         auto channel = m_impl->channelMgr_->GetChannel();
-        if ( channel && m_impl->authenticator_ )
+        if ( channel && m_impl->m_authenticator )
         {
             // Create sub-components that depend on the channel
-            m_impl->jobSubmitter_ = std::make_unique<SGJobSubmitter>( channel, *m_impl->authenticator_ );
+            m_impl->jobSubmitter_ = std::make_unique<SGJobSubmitter>( channel, *m_impl->m_authenticator );
 
             SGResultCollectorConfig rcCfg;
-            rcCfg.result_timeout_ = m_impl->m_cfg.result_timeout_;
-            m_impl->resultCollector_ = std::make_unique<SGResultCollector>( channel, *m_impl->authenticator_, rcCfg );
+            rcCfg.result_m_timeout = m_impl->m_cfg.result_m_timeout;
+            m_impl->resultCollector_ = std::make_unique<SGResultCollector>( channel, *m_impl->m_authenticator, rcCfg );
         }
 
         // Verify connectivity
@@ -140,7 +140,7 @@ namespace sgns::neoswarm::network
         ClientLogger()->info( "Job published as task {}", taskId );
 
         // Step 2: Wait for the result with timeout-bounded collection
-        auto result = m_impl->resultCollector_->WaitForResult( taskId, m_impl->m_cfg.result_timeout_ );
+        auto result = m_impl->resultCollector_->WaitForResult( taskId, m_impl->m_cfg.result_m_timeout );
 
         if ( !result.has_value() )
         {

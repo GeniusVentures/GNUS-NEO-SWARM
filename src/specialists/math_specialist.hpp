@@ -33,7 +33,7 @@ namespace sgns::neoswarm::specialists
         }
         bool IsLoaded() const override
         {
-            return loaded_;
+            return m_loaded;
         }
 
         outcome::result<void> Load( const std::string& model_path ) override;
@@ -44,8 +44,8 @@ namespace sgns::neoswarm::specialists
         }
 
         private:
-        std::shared_ptr<core::InferenceEngine> engine_;
-        bool loaded_ = false;
+        std::shared_ptr<core::InferenceEngine> m_engine;
+        bool m_loaded = false;
         float last_confidence_ = 0.0f;
 
         std::string BuildPrompt( const std::string& input ) const;

@@ -40,12 +40,12 @@ namespace sgns::neoswarm
     // -----------------------------------------------------------------------
     struct Task
     {
-        std::string id_;
-        std::string prompt_;
-        ExecutionMode mode_ = ExecutionMode::SingleNode;
-        uint32_t max_tokens_ = 512;
-        float temperature_ = 0.7f;
-        std::string node_id_; ///< originating node
+        std::string m_id;
+        std::string m_prompt;
+        ExecutionMode m_mode = ExecutionMode::SingleNode;
+        uint32_t m_maxTokens = 512;
+        float m_temperature = 0.7f;
+        std::string m_nodeId; ///< originating node
     };
 
     // -----------------------------------------------------------------------
@@ -53,16 +53,16 @@ namespace sgns::neoswarm
     // -----------------------------------------------------------------------
     struct InferenceResponse
     {
-        std::string output_;
-        std::string task_id_;
-        ExecutionMode mode_used_ = ExecutionMode::SingleNode;
-        RouteTarget route_used_ = RouteTarget::CoreOnly;
-        double total_latency_ms_ = 0.0;
-        float perplexity_ = 1.0f; ///< model confidence (lower = better)
-        double latency_ms_ = 0.0;
-        std::string node_id_;
-        bool success_ = true;
-        std::string error_message_;
+        std::string m_output;
+        std::string m_taskId;
+        ExecutionMode m_modeUsed = ExecutionMode::SingleNode;
+        RouteTarget m_routeUsed = RouteTarget::CoreOnly;
+        double m_totalLatencyMs = 0.0;
+        float m_perplexity = 1.0f;
+        double m_latencyMs = 0.0;
+        std::string m_nodeId;
+        bool m_success = true;
+        std::string m_errorMessage;
     };
 
     // -----------------------------------------------------------------------
@@ -70,10 +70,10 @@ namespace sgns::neoswarm
     // -----------------------------------------------------------------------
     struct RouteDecision
     {
-        RouteTarget target_ = RouteTarget::CoreOnly;
+        RouteTarget m_target = RouteTarget::CoreOnly;
         float confidence_ = 1.0f;
-        std::string reasoning_;
-        ExecutionMode mode_ = ExecutionMode::SingleNode;
+        std::string m_reasoning;
+        ExecutionMode m_mode = ExecutionMode::SingleNode;
     };
 
     // -----------------------------------------------------------------------
@@ -94,10 +94,10 @@ namespace sgns::neoswarm
     // -----------------------------------------------------------------------
     struct NodeOutput
     {
-        std::string node_id_;
-        std::string output_;
-        float perplexity_ = 1.0f;
-        double latency_ms_ = 0.0;
+        std::string m_nodeId;
+        std::string m_output;
+        float m_perplexity = 1.0f;
+        double m_latencyMs = 0.0;
         double reputation_ = 0.5;
     };
 
@@ -106,14 +106,14 @@ namespace sgns::neoswarm
     // -----------------------------------------------------------------------
     struct NodeReputation
     {
-        std::string identity_key_;
-        double global_score_ = 0.5;
-        double math_score_ = 0.5;
-        double grammar_score_ = 0.5;
-        double latency_score_ = 0.5;
-        double consistency_score_ = 0.5;
-        uint64_t task_count_ = 0;
-        uint64_t last_updated_ms_ = 0; ///< Unix epoch ms
+        std::string m_identityKey;
+        double m_globalScore = 0.5;
+        double m_mathScore = 0.5;
+        double m_grammarScore = 0.5;
+        double m_latencyScore = 0.5;
+        double m_consistencyScore = 0.5;
+        uint64_t m_taskCount = 0;
+        uint64_t m_lastUpdatedMs = 0; ///< Unix epoch ms
 
         /// Minimum tasks before high-trust (anti-gaming)
         static constexpr uint64_t kMinTasksForHighTrust = 10;
@@ -124,9 +124,9 @@ namespace sgns::neoswarm
     // -----------------------------------------------------------------------
     struct KnowledgeFact
     {
-        std::string source_;
-        std::string content_;
-        float relevance_score_ = 0.0f;
+        std::string m_source;
+        std::string m_content;
+        float m_relevanceScore = 0.0f;
     };
 
     // -----------------------------------------------------------------------

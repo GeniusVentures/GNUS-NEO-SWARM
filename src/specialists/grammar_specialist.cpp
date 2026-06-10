@@ -21,7 +21,7 @@ namespace sgns::neoswarm::specialists
     } // namespace
 
     GrammarSpecialist::GrammarSpecialist( std::shared_ptr<core::InferenceEngine> engine )
-        : engine_( std::move( engine ) )
+        : m_engine( std::move( engine ) )
     {
     }
 
@@ -30,12 +30,12 @@ namespace sgns::neoswarm::specialists
     // -----------------------------------------------------------------------
     outcome::result<void> GrammarSpecialist::Load( const std::string& model_path )
     {
-        if ( !engine_ )
+        if ( !m_engine )
         {
             return outcome::failure( Error::ModelLoadFailed );
         }
-        BOOST_OUTCOME_TRY( engine_->LoadModel( model_path ) );
-        loaded_ = true;
+        BOOST_OUTCOME_TRY( m_engine->LoadModel( model_path ) );
+        m_loaded = true;
         GrammarLogger()->info( "GrammarSpecialist loaded: {}", model_path );
         return outcome::success();
     }
@@ -56,7 +56,7 @@ namespace sgns::neoswarm::specialists
     // -----------------------------------------------------------------------
     outcome::result<std::string> GrammarSpecialist::Process( const std::string& input )
     {
-        if ( !loaded_ || !engine_ )
+        if ( !m_loaded || !m_engine )
         {
             GrammarLogger()->warn( "GrammarSpecialist not loaded — returning input unchanged" );
             last_confidence_ = 0.0f;
@@ -64,12 +64,12 @@ namespace sgns::neoswarm::specialists
         }
 
         Task task;
-        task.id_ = "grammar-" + std::to_string( std::hash<std::string>{}( input ) );
-        task.prompt_ = BuildPrompt( input );
-        task.max_tokens_ = static_cast<uint32_t>( input.size() + 64 );
-        task.temperature_ = 0.1f;
+        task.m_id = "grammar-" + std::to_string( std::hash<std::string>{}( input ) );
+        task.m_prompt = BuildPrompt( input );
+        task.m_maxTokens = static_cast<uint32_t>( input.size() + 64 );
+        task.m_temperature = 0.1f;
 
-        auto res = engine_->Infer( task );
+        auto res = m_engine->Infer( task );
         if ( !res.has_value() )
         {
             GrammarLogger()->warn( "GrammarSpecialist inference failed — returning input unchanged" );
@@ -77,8 +77,8 @@ namespace sgns::neoswarm::specialists
             return outcome::success( input );
         }
 
-        last_confidence_ = 1.0f - std::min( res.value().perplexity_ / 10.0f, 1.0f );
-        return outcome::success( res.value().output_ );
+        last_confidence_ = 1.0f - std::min( res.value().m_perplexity / 10.0f, 1.0f );
+        return outcome::success( res.value().m_output );
     }
 
 } // namespace sgns::neoswarm::specialists

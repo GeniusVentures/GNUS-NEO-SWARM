@@ -28,7 +28,7 @@ namespace sgns::neoswarm::knowledge
         struct Config
         {
             std::string index_path_ = ""; ///< path to HNSW index file (future)
-            std::string facts_path_ = ""; ///< path to facts CSV
+            std::string m_factsPath = ""; ///< path to facts CSV
             int top_k_ = 3;               ///< number of facts to retrieve
             float min_score_ = 0.5f;      ///< minimum relevance score
             bool enabled_ = true;
@@ -47,7 +47,7 @@ namespace sgns::neoswarm::knowledge
         /// @return True if the index has been loaded.
         bool IsLoaded() const
         {
-            return loaded_;
+            return m_loaded;
         }
 
         /**
@@ -61,7 +61,7 @@ namespace sgns::neoswarm::knowledge
         struct Impl;
         std::unique_ptr<Impl> m_impl;
         Config m_cfg;
-        bool loaded_ = false;
+        bool m_loaded = false;
 
         /**
          * @brief Compute a simple bag-of-words TF-IDF embedding.

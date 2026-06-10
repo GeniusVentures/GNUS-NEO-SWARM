@@ -27,19 +27,19 @@ namespace sgns::neoswarm::reputation
     void ReputationCRDT::Merge( const NodeReputation& remote )
     {
         std::lock_guard<std::mutex> lock( m_mutex );
-        auto it = state_.find( remote.identity_key_ );
+        auto it = state_.find( remote.m_identityKey );
         if ( it == state_.end() )
         {
-            state_[remote.identity_key_] = remote;
-            CRDTLogger()->debug( "CRDT: new entry for {}", remote.identity_key_ );
+            state_[remote.m_identityKey] = remote;
+            CRDTLogger()->debug( "CRDT: new entry for {}", remote.m_identityKey );
             return;
         }
 
         NodeReputation& local = it->second;
-        if ( remote.last_updated_ms_ > local.last_updated_ms_ )
+        if ( remote.m_lastUpdatedMs > local.m_lastUpdatedMs )
         {
-            CRDTLogger()->debug( "CRDT: updated {} (remote ts={} > local ts={})", remote.identity_key_,
-                                 remote.last_updated_ms_, local.last_updated_ms_ );
+            CRDTLogger()->debug( "CRDT: updated {} (remote ts={} > local ts={})", remote.m_identityKey,
+                                 remote.m_lastUpdatedMs, local.m_lastUpdatedMs );
             local = remote;
         }
     }
@@ -82,8 +82,8 @@ namespace sgns::neoswarm::reputation
         std::ostringstream oss;
         for ( const auto& [k, r] : state_ )
         {
-            oss << r.identity_key_ << ',' << r.global_score_ << ',' << r.math_score_ << ',' << r.grammar_score_ << ','
-                << r.latency_score_ << ',' << r.consistency_score_ << ',' << r.task_count_ << ',' << r.last_updated_ms_
+            oss << r.m_identityKey << ',' << r.m_globalScore << ',' << r.m_mathScore << ',' << r.m_grammarScore << ','
+                << r.m_latencyScore << ',' << r.m_consistencyScore << ',' << r.m_taskCount << ',' << r.m_lastUpdatedMs
                 << '\n';
         }
         return oss.str();
@@ -112,14 +112,14 @@ namespace sgns::neoswarm::reputation
             try
             {
                 NodeReputation r;
-                r.identity_key_ = next();
-                r.global_score_ = std::stod( next() );
-                r.math_score_ = std::stod( next() );
-                r.grammar_score_ = std::stod( next() );
-                r.latency_score_ = std::stod( next() );
-                r.consistency_score_ = std::stod( next() );
-                r.task_count_ = std::stoull( next() );
-                r.last_updated_ms_ = std::stoull( next() );
+                r.m_identityKey = next();
+                r.m_globalScore = std::stod( next() );
+                r.m_mathScore = std::stod( next() );
+                r.m_grammarScore = std::stod( next() );
+                r.m_latencyScore = std::stod( next() );
+                r.m_consistencyScore = std::stod( next() );
+                r.m_taskCount = std::stoull( next() );
+                r.m_lastUpdatedMs = std::stoull( next() );
                 Merge( r );
             }
             catch ( const std::exception& e )

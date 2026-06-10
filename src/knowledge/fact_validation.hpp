@@ -28,8 +28,8 @@ namespace sgns::neoswarm::knowledge
         struct ValidationResult
         {
             bool passed_ = true;
-            float contradiction_score_ = 0.0f; ///< 0=none, 1=full
-            std::vector<std::string> contradictions_;
+            float m_contradictionScore = 0.0f;
+            std::vector<std::string> m_contradictions;
             std::string suggestion_;
         };
 

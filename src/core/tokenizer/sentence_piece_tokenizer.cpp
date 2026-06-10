@@ -28,8 +28,8 @@ namespace sgns::neoswarm::core
 
     struct SentencePieceTokenizer::Impl
     {
-        sentencepiece::SentencePieceProcessor processor_;
-        bool loaded_ = false;
+        sentencepiece::SentencePieceProcessor m_processor;
+        bool m_loaded = false;
     };
 
     SentencePieceTokenizer::SentencePieceTokenizer( int eos_id, int bos_id )
@@ -46,12 +46,12 @@ namespace sgns::neoswarm::core
     // -----------------------------------------------------------------------
     outcome::result<void> SentencePieceTokenizer::Load( const std::string& model_path )
     {
-        auto status = impl_->processor_.Load( model_path );
+        auto status = impl_->m_processor.Load( model_path );
         if ( !status.ok() )
         {
             return outcome::failure( Error::TokenizerFailed );
         }
-        impl_->loaded_ = true;
+        impl_->m_loaded = true;
         TokenizerLogger()->info( "Tokenizer loaded: {} (vocab={})", model_path, VocabSize() );
         return outcome::success();
 
@@ -62,12 +62,12 @@ namespace sgns::neoswarm::core
     // -----------------------------------------------------------------------
     outcome::result<std::vector<int>> SentencePieceTokenizer::Encode( const std::string& text ) const
     {
-        if ( !impl_->loaded_ )
+        if ( !impl_->m_loaded )
         {
             return outcome::failure( Error::TokenizerFailed );
         }
         std::vector<int> ids;
-        auto status = impl_->processor_.Encode( text, &ids );
+        auto status = impl_->m_processor.Encode( text, &ids );
         if ( !status.ok() )
         {
             return outcome::failure( Error::TokenizerFailed );
@@ -81,12 +81,12 @@ namespace sgns::neoswarm::core
     // -----------------------------------------------------------------------
     outcome::result<std::string> SentencePieceTokenizer::Decode( const std::vector<int>& ids ) const
     {
-        if ( !impl_->loaded_ )
+        if ( !impl_->m_loaded )
         {
             return outcome::failure( Error::TokenizerFailed );
         }
         std::string text;
-        auto status = impl_->processor_.Decode( ids, &text );
+        auto status = impl_->m_processor.Decode( ids, &text );
         if ( !status.ok() )
         {
             return outcome::failure( Error::TokenizerFailed );
@@ -100,9 +100,9 @@ namespace sgns::neoswarm::core
     // -----------------------------------------------------------------------
     size_t SentencePieceTokenizer::VocabSize() const
     {
-        if ( impl_->loaded_ )
+        if ( impl_->m_loaded )
         {
-            return static_cast<size_t>( impl_->processor_.GetPieceSize() );
+            return static_cast<size_t>( impl_->m_processor.GetPieceSize() );
         }
         return 0; // unknown until model is loaded
     }

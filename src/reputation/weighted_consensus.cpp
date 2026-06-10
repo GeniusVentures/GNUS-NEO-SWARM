@@ -39,7 +39,7 @@ namespace sgns::neoswarm::reputation
         weights.reserve( outputs.size() );
         for ( const auto& o : outputs )
         {
-            double w = o.reputation_ / ( static_cast<double>( o.perplexity_ ) + m_cfg.epsilon_ );
+            double w = o.reputation_ / ( static_cast<double>( o.m_perplexity ) + m_cfg.epsilon_ );
             weights.push_back( std::max( w, 0.0 ) );
         }
         return weights;
@@ -56,7 +56,7 @@ namespace sgns::neoswarm::reputation
         {
             if ( weights[i] >= m_cfg.min_weight_ )
             {
-                vote_map[outputs[i].output_] += weights[i];
+                vote_map[outputs[i].m_output] += weights[i];
             }
         }
 
@@ -70,9 +70,9 @@ namespace sgns::neoswarm::reputation
 
         for ( size_t i = 0; i < outputs.size(); ++i )
         {
-            if ( outputs[i].output_ == winner->first )
+            if ( outputs[i].m_output == winner->first )
             {
-                ConsensusLogger()->debug( "Consensus winner: node={} weight={:.3f}", outputs[i].node_id_,
+                ConsensusLogger()->debug( "Consensus winner: node={} weight={:.3f}", outputs[i].m_nodeId,
                                           winner->second );
                 return outputs[i];
             }
@@ -96,7 +96,7 @@ namespace sgns::neoswarm::reputation
                 best_idx = i;
             }
         }
-        ConsensusLogger()->debug( "Best-score winner: node={} weight={:.3f}", outputs[best_idx].node_id_, best_w );
+        ConsensusLogger()->debug( "Best-score winner: node={} weight={:.3f}", outputs[best_idx].m_nodeId, best_w );
         return outputs[best_idx];
     }
 

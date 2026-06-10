@@ -21,7 +21,7 @@ namespace sgns::neoswarm::specialists
     } // namespace
 
     MathSpecialist::MathSpecialist( std::shared_ptr<core::InferenceEngine> engine )
-        : engine_( std::move( engine ) )
+        : m_engine( std::move( engine ) )
     {
     }
 
@@ -30,12 +30,12 @@ namespace sgns::neoswarm::specialists
     // -----------------------------------------------------------------------
     outcome::result<void> MathSpecialist::Load( const std::string& model_path )
     {
-        if ( !engine_ )
+        if ( !m_engine )
         {
             return outcome::failure( Error::ModelLoadFailed );
         }
-        BOOST_OUTCOME_TRY( engine_->LoadModel( model_path ) );
-        loaded_ = true;
+        BOOST_OUTCOME_TRY( m_engine->LoadModel( model_path ) );
+        m_loaded = true;
         MathLogger()->info( "MathSpecialist loaded: {}", model_path );
         return outcome::success();
     }
@@ -78,7 +78,7 @@ namespace sgns::neoswarm::specialists
             return outcome::success( symbolic.value() );
         }
 
-        if ( !loaded_ || !engine_ )
+        if ( !m_loaded || !m_engine )
         {
             MathLogger()->warn( "MathSpecialist not loaded — returning input unchanged" );
             last_confidence_ = 0.0f;
@@ -86,12 +86,12 @@ namespace sgns::neoswarm::specialists
         }
 
         Task task;
-        task.id_ = "math-" + std::to_string( std::hash<std::string>{}( input ) );
-        task.prompt_ = BuildPrompt( input );
-        task.max_tokens_ = 512;
-        task.temperature_ = 0.1f;
+        task.m_id = "math-" + std::to_string( std::hash<std::string>{}( input ) );
+        task.m_prompt = BuildPrompt( input );
+        task.m_maxTokens = 512;
+        task.m_temperature = 0.1f;
 
-        auto res = engine_->Infer( task );
+        auto res = m_engine->Infer( task );
         if ( !res.has_value() )
         {
             MathLogger()->warn( "MathSpecialist inference failed" );
@@ -99,11 +99,11 @@ namespace sgns::neoswarm::specialists
             return outcome::success( input );
         }
 
-        last_confidence_ = 1.0f - std::min( res.value().perplexity_ / 10.0f, 1.0f );
+        last_confidence_ = 1.0f - std::min( res.value().m_perplexity / 10.0f, 1.0f );
 
         if ( last_confidence_ < SymbolicFallback::kConfidenceThreshold )
         {
-            auto fallback = TrySymbolicFallback( res.value().output_ );
+            auto fallback = TrySymbolicFallback( res.value().m_output );
             if ( fallback.has_value() )
             {
                 MathLogger()->debug( "MathSpecialist: low confidence ({:.2f}), using symbolic fallback",
@@ -113,7 +113,7 @@ namespace sgns::neoswarm::specialists
             }
         }
 
-        return outcome::success( res.value().output_ );
+        return outcome::success( res.value().m_output );
     }
 
 } // namespace sgns::neoswarm::specialists

@@ -252,7 +252,7 @@ namespace sgns::neoswarm::core
                                                                          std::shared_ptr<boost::asio::io_context> ioc )
     {
         BridgeLogger()->debug( "SubmitJob model={} format={} networkMode={}", model_uri,
-                               InputFormatToFormatString( input_format ), static_cast<int>( m_cfg.network_mode_ ) );
+                               InputFormatToFormatString( input_format ), static_cast<int>( m_cfg.network_m_mode ) );
 
         auto json_res = BuildSchemaJson( model_uri, input_uri, input_format, shape );
         if ( !json_res.has_value() )
@@ -260,7 +260,7 @@ namespace sgns::neoswarm::core
             return outcome::failure( json_res.error() );
         }
 
-        if ( m_cfg.network_mode_ )
+        if ( m_cfg.network_m_mode )
         {
             auto result = SubmitNetwork( json_res.value() );
             if ( !result.has_value() )
@@ -348,7 +348,7 @@ namespace sgns::neoswarm::core
     void SGProcessingBridge::SetClient( network::SuperGeniusClient* client ) noexcept
     {
         client_ = client;
-        BridgeLogger()->info( "SuperGeniusClient set (network_mode_={})", client ? "true" : "false" );
+        BridgeLogger()->info( "SuperGeniusClient set (network_m_mode={})", client ? "true" : "false" );
     }
 
     // -----------------------------------------------------------------------

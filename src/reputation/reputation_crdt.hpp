@@ -20,7 +20,7 @@ namespace sgns::neoswarm::reputation
     /**
      * @brief Last-Write-Wins Register per node (PTDS §4.2).
      *
-     * Merge rule: keep the entry with the highest last_updated_ms_ timestamp.
+     * Merge rule: keep the entry with the highest m_lastUpdatedMs timestamp.
      * Designed to be replicated across nodes via libp2p GossipSub.
      */
     class ReputationCRDT
@@ -59,7 +59,7 @@ namespace sgns::neoswarm::reputation
 
         private:
         mutable std::mutex m_mutex;
-        std::unordered_map<std::string, NodeReputation> state_; ///< key = identity_key_
+        std::unordered_map<std::string, NodeReputation> state_; ///< key = m_identityKey
     };
 
 } // namespace sgns::neoswarm::reputation

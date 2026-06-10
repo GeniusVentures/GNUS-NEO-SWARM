@@ -116,9 +116,9 @@ namespace sgns::neoswarm::knowledge
         {
             for ( const auto& fact : grounding_facts )
             {
-                if ( Contradicts( claim_val, fact.content_ ) )
+                if ( Contradicts( claim_val, fact.m_content ) )
                 {
-                    result.contradictions_.push_back( "Claim '" + claim_text + "' may contradict: " + fact.content_ );
+                    result.m_contradictions.push_back( "Claim '" + claim_text + "' may contradict: " + fact.m_content );
                     ++contradiction_count;
                 }
             }
@@ -127,7 +127,7 @@ namespace sgns::neoswarm::knowledge
         if ( contradiction_count > 0 )
         {
             result.passed_ = false;
-            result.contradiction_score_ =
+            result.m_contradictionScore =
                 std::min( static_cast<float>( contradiction_count ) / static_cast<float>( claims.size() ), 1.0f );
             result.suggestion_ = "Output contains " + std::to_string( contradiction_count ) +
                                  " potential contradiction(s) with Grokipedia facts.";
