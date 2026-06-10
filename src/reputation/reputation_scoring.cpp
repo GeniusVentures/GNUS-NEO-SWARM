@@ -72,7 +72,7 @@ namespace sgns::neoswarm::reputation
                                               const InferenceResponse& response,
                                               double median_latency_ms,
                                               std::optional<std::string> ground_truth,
-                                              const std::string& consensus_output ) const
+                                              const std::string& m_consensusoutput ) const
     {
         NodeReputation updated = old;
 
@@ -84,7 +84,7 @@ namespace sgns::neoswarm::reputation
         }
         else
         {
-            accuracy = ( response.output_ == consensus_output ) ? 1.0 : 0.0;
+            accuracy = ( response.output_ == m_consensusoutput ) ? 1.0 : 0.0;
         }
 
         double d_acc = DeltaAccuracy( has_gt, accuracy );

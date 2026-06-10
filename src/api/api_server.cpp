@@ -98,32 +98,32 @@ namespace sgns::neoswarm::api
         {
             engine->SetStubMode();
         }
-        core_engine_ = engine;
+        m_coreEngine = engine;
 
         // 3. Specialists
-        grammar_spec_ = std::make_shared<specialists::GrammarSpecialist>(
-            m_cfg.grammar_model_path_.empty() ? nullptr : core_engine_ );
-        math_spec_ =
-            std::make_shared<specialists::MathSpecialist>( m_cfg.math_model_path_.empty() ? nullptr : core_engine_ );
+        m_grammarSpec = std::make_shared<specialists::GrammarSpecialist>(
+            m_cfg.grammar_model_path_.empty() ? nullptr : m_coreEngine );
+        m_mathSpec =
+            std::make_shared<specialists::MathSpecialist>( m_cfg.math_model_path_.empty() ? nullptr : m_coreEngine );
 
         if ( !m_cfg.grammar_model_path_.empty() )
         {
-            (void)grammar_spec_->Load( m_cfg.grammar_model_path_ );
+            (void)m_grammarSpec->Load( m_cfg.grammar_model_path_ );
         }
         if ( !m_cfg.math_model_path_.empty() )
         {
-            (void)math_spec_->Load( m_cfg.math_model_path_ );
+            (void)m_mathSpec->Load( m_cfg.math_model_path_ );
         }
 
         // 4. Router
-        router_ = std::make_unique<router::RuleBasedRouter>();
+        m_router = std::make_unique<router::RuleBasedRouter>();
 
         // 5. Reputation
-        scoring_ = std::make_unique<reputation::ReputationScoring>();
-        consensus_ = std::make_unique<reputation::WeightedConsensus>();
-        rep_crdt_ = std::make_unique<reputation::ReputationCRDT>();
-        rep_storage_ = std::make_unique<reputation::ReputationStorage>( m_cfg.reputation_db_path_ );
-        auto stor_res = rep_storage_->Open();
+        m_scoring = std::make_unique<reputation::ReputationScoring>();
+        m_consensus = std::make_unique<reputation::WeightedConsensus>();
+        m_repCrdt = std::make_unique<reputation::ReputationCRDT>();
+        m_repStorage = std::make_unique<reputation::ReputationStorage>( m_cfg.reputation_db_path_ );
+        auto stor_res = m_repStorage->Open();
         if ( !stor_res.has_value() )
         {
             ServerLogger()->warn( "Reputation storage open failed" );
@@ -133,9 +133,9 @@ namespace sgns::neoswarm::api
         if ( m_cfg.enable_network_ )
         {
             network::P2PNode::Config net_cfg;
-            p2p_node_ = std::make_unique<network::P2PNode>( m_identity, net_cfg );
-            aggregation_ = std::make_unique<network::ResultAggregation>();
-            auto net_res = p2p_node_->Start();
+            m_p2pNode = std::make_unique<network::P2PNode>( m_identity, net_cfg );
+            m_aggregation = std::make_unique<network::ResultAggregation>();
+            auto net_res = m_p2pNode->Start();
             if ( !net_res.has_value() )
             {
                 ServerLogger()->warn( "P2P network start failed" );
@@ -143,21 +143,21 @@ namespace sgns::neoswarm::api
         }
 
         // 6b. SuperGenius connectivity (optional — Phase 2 network dispatch)
-        if ( !m_cfg.sg_endpoint_.empty() )
+        if ( !m_cfg.sg_m_endpoint.empty() )
         {
             network::SuperGeniusClient::Config sgCfg;
-            sgCfg.endpoint_ = m_cfg.sg_endpoint_;
+            sgCfg.m_endpoint = m_cfg.sg_m_endpoint;
             sgCfg.tls_ca_path_ = m_cfg.sg_tls_ca_;
             sgCfg.tls_cert_path_ = m_cfg.sg_tls_cert_;
 
-            sg_client_ = std::make_unique<network::SuperGeniusClient>( std::move( sgCfg ) );
-            auto initRes = sg_client_->Initialize( *m_identity );
+            m_sgClient = std::make_unique<network::SuperGeniusClient>( std::move( sgCfg ) );
+            auto initRes = m_sgClient->Initialize( *m_identity );
             if ( initRes.has_value() )
             {
-                auto connRes = sg_client_->Connect();
+                auto connRes = m_sgClient->Connect();
                 if ( connRes.has_value() )
                 {
-                    ServerLogger()->info( "Connected to SuperGenius at {}", m_cfg.sg_endpoint_ );
+                    ServerLogger()->info( "Connected to SuperGenius at {}", m_cfg.sg_m_endpoint );
                 }
                 else
                 {
@@ -170,25 +170,25 @@ namespace sgns::neoswarm::api
             }
 
             // Wire SuperGeniusClient into the engine's SGProcessingBridge
-            if ( core_engine_ )
+            if ( m_coreEngine )
             {
-                auto* mnnEngine = dynamic_cast<core::MNNInferenceEngine*>( core_engine_.get() );
+                auto* mnnEngine = dynamic_cast<core::MNNInferenceEngine*>( m_coreEngine.get() );
                 if ( mnnEngine )
                 {
-                    mnnEngine->SetSuperGeniusClient( sg_client_.get() );
+                    mnnEngine->SetSuperGeniusClient( m_sgClient.get() );
                 }
             }
         }
 
         // 7. Knowledge
-        if ( m_cfg.enable_knowledge_ )
+        if ( m_cfg.enable_m_knowledge )
         {
             knowledge::KnowledgeRetrieval::Config k_cfg;
-            k_cfg.facts_path_ = m_cfg.knowledge_facts_;
-            knowledge_ = std::make_shared<knowledge::KnowledgeRetrieval>( k_cfg );
-            (void)knowledge_->Load();
-            context_inj_ = std::make_unique<knowledge::ContextInjection>();
-            fact_val_ = std::make_unique<knowledge::FactValidation>( knowledge_ );
+            k_cfg.facts_path_ = m_cfg.m_knowledgefacts_;
+            m_knowledge = std::make_shared<knowledge::KnowledgeRetrieval>( k_cfg );
+            (void)m_knowledge->Load();
+            m_contextInj = std::make_unique<knowledge::ContextInjection>();
+            m_factVal = std::make_unique<knowledge::FactValidation>( m_knowledge );
         }
 
         ServerLogger()->info( "ApiServer initialized (node={})", m_identity->PeerId() );
@@ -200,17 +200,17 @@ namespace sgns::neoswarm::api
     // -----------------------------------------------------------------------
     std::string ApiServer::AugmentPrompt( const std::string& prompt, std::vector<KnowledgeFact>& out_facts ) const
     {
-        if ( !knowledge_ || !knowledge_->IsLoaded() || !context_inj_ )
+        if ( !m_knowledge || !m_knowledge->IsLoaded() || !m_contextInj )
         {
             return prompt;
         }
-        auto facts_res = knowledge_->Retrieve( prompt );
+        auto facts_res = m_knowledge->Retrieve( prompt );
         if ( !facts_res.has_value() || facts_res.value().empty() )
         {
             return prompt;
         }
         out_facts = facts_res.value();
-        return context_inj_->Inject( prompt, out_facts );
+        return m_contextInj->Inject( prompt, out_facts );
     }
 
     // -----------------------------------------------------------------------
@@ -218,14 +218,14 @@ namespace sgns::neoswarm::api
     // -----------------------------------------------------------------------
     void ApiServer::UpdateReputation( const InferenceResponse& resp,
                                             double median_latency_ms,
-                                            const std::string& consensus_output )
+                                            const std::string& m_consensusoutput )
     {
-        if ( !rep_storage_ || !rep_storage_->IsOpen() )
+        if ( !m_repStorage || !m_repStorage->IsOpen() )
         {
             return;
         }
 
-        auto get_res = rep_storage_->Get( resp.node_id_ );
+        auto get_res = m_repStorage->Get( resp.node_id_ );
         NodeReputation rep;
         if ( get_res.has_value() )
         {
@@ -236,13 +236,13 @@ namespace sgns::neoswarm::api
             rep.m_identitykey_ = resp.node_id_;
         }
 
-        auto updated = scoring_->Update( rep, resp, median_latency_ms, std::nullopt, consensus_output );
-        (void)rep_storage_->Put( updated );
-        rep_crdt_->Merge( updated );
+        auto updated = m_scoring->Update( rep, resp, median_latency_ms, std::nullopt, m_consensusoutput );
+        (void)m_repStorage->Put( updated );
+        m_repCrdt->Merge( updated );
 
-        if ( p2p_node_ && p2p_node_->IsRunning() )
+        if ( m_p2pNode && m_p2pNode->IsRunning() )
         {
-            (void)p2p_node_->BroadcastCRDT( rep_crdt_->Serialize() );
+            (void)m_p2pNode->BroadcastCRDT( m_repCrdt->Serialize() );
         }
     }
 
@@ -255,7 +255,7 @@ namespace sgns::neoswarm::api
         Task aug_task = task;
         aug_task.prompt_ = AugmentPrompt( task.prompt_, facts );
 
-        auto res = core_engine_->Infer( aug_task );
+        auto res = m_coreEngine->Infer( aug_task );
         if ( !res.has_value() )
         {
             return outcome::failure( res.error() );
@@ -285,7 +285,7 @@ namespace sgns::neoswarm::api
         Task aug_task = task;
         aug_task.prompt_ = AugmentPrompt( task.prompt_, facts );
 
-        auto core_res = core_engine_->Infer( aug_task );
+        auto core_res = m_coreEngine->Infer( aug_task );
         if ( !core_res.has_value() )
         {
             return outcome::failure( core_res.error() );
@@ -293,15 +293,15 @@ namespace sgns::neoswarm::api
 
         std::string output = core_res.value().output_;
 
-        if ( route.target_ == RouteTarget::CorePlusMath && math_spec_ )
+        if ( route.target_ == RouteTarget::CorePlusMath && m_mathSpec )
         {
-            auto spec_res = math_spec_->Process( output );
+            auto spec_res = m_mathSpec->Process( output );
             if ( spec_res.has_value() )
                 output = spec_res.value();
         }
-        else if ( route.target_ == RouteTarget::CorePlusGrammar && grammar_spec_ )
+        else if ( route.target_ == RouteTarget::CorePlusGrammar && m_grammarSpec )
         {
-            auto spec_res = grammar_spec_->Process( output );
+            auto spec_res = m_grammarSpec->Process( output );
             if ( spec_res.has_value() )
                 output = spec_res.value();
         }
@@ -309,9 +309,9 @@ namespace sgns::neoswarm::api
         auto t1 = std::chrono::steady_clock::now();
         double total_ms = std::chrono::duration<double, std::milli>( t1 - t0 ).count();
 
-        if ( fact_val_ && fact_val_->IsAvailable() )
+        if ( m_factVal && m_factVal->IsAvailable() )
         {
-            auto val_result = fact_val_->Validate( output, facts );
+            auto val_result = m_factVal->Validate( output, facts );
             if ( !val_result.passed_ )
             {
                 ServerLogger()->warn( "Fact validation failed: {}", val_result.suggestion_ );
@@ -346,14 +346,14 @@ namespace sgns::neoswarm::api
         Task aug_task = task;
         aug_task.prompt_ = AugmentPrompt( task.prompt_, facts );
 
-        if ( p2p_node_ && p2p_node_->IsRunning() && aggregation_ )
+        if ( m_p2pNode && m_p2pNode->IsRunning() && m_aggregation )
         {
-            aggregation_->Reset();
+            m_aggregation->Reset();
 
-            p2p_node_->OnTask(
+            m_p2pNode->OnTask(
                 [this, aug_task]( const Task& t, const std::string& from_peer )
                 {
-                    auto res = core_engine_->Infer( t );
+                    auto res = m_coreEngine->Infer( t );
                     if ( res.has_value() )
                     {
                         NodeOutput out;
@@ -361,27 +361,27 @@ namespace sgns::neoswarm::api
                         out.output_ = res.value().output_;
                         out.perplexity_ = res.value().perplexity_;
                         out.latency_ms_ = res.value().latency_ms_;
-                        if ( rep_storage_ && rep_storage_->IsOpen() )
+                        if ( m_repStorage && m_repStorage->IsOpen() )
                         {
-                            auto rep_res = rep_storage_->Get( from_peer );
+                            auto rep_res = m_repStorage->Get( from_peer );
                             if ( rep_res.has_value() )
                             {
                                 out.reputation_ = rep_res.value().global_score_;
                             }
                         }
-                        aggregation_->Submit( out );
+                        m_aggregation->Submit( out );
                     }
                 } );
 
-            (void)p2p_node_->BroadcastTask( aug_task );
-            auto collect_res = aggregation_->Collect();
+            (void)m_p2pNode->BroadcastTask( aug_task );
+            auto collect_res = m_aggregation->Collect();
             if ( !collect_res.has_value() )
             {
                 ServerLogger()->warn( "Swarm collection failed — falling back to single node" );
                 return RunSingleNode( task, route );
             }
 
-            auto winner = consensus_->SelectWinner( collect_res.value() );
+            auto winner = m_consensus->SelectWinner( collect_res.value() );
 
             double median_latency = 0.0;
             auto& outputs = collect_res.value();
@@ -424,7 +424,7 @@ namespace sgns::neoswarm::api
     // -----------------------------------------------------------------------
     outcome::result<InferenceResponse> ApiServer::Process( const Task& task )
     {
-        if ( !core_engine_ )
+        if ( !m_coreEngine )
         {
             return outcome::failure( Error::InternalError );
         }
@@ -435,7 +435,7 @@ namespace sgns::neoswarm::api
         if ( t.node_id_.empty() )
             t.node_id_ = m_identity ? m_identity->PeerId() : "local";
 
-        auto route_res = router_->Route( t );
+        auto route_res = m_router->Route( t );
         if ( !route_res.has_value() )
         {
             return outcome::failure( route_res.error() );
@@ -475,18 +475,18 @@ namespace sgns::neoswarm::api
     void ApiServer::Stop()
     {
         m_running.store( false );
-        if ( p2p_node_ )
-            p2p_node_->Stop();
-        if ( sg_client_ )
-            sg_client_->Disconnect();
-        if ( rep_storage_ )
-            rep_storage_->Close();
+        if ( m_p2pNode )
+            m_p2pNode->Stop();
+        if ( m_sgClient )
+            m_sgClient->Disconnect();
+        if ( m_repStorage )
+            m_repStorage->Close();
         ServerLogger()->info( "ApiServer stopped" );
     }
 
     bool ApiServer::IsSuperGeniusConnected() const noexcept
     {
-        return sg_client_ != nullptr && sg_client_->IsConnected();
+        return m_sgClient != nullptr && m_sgClient->IsConnected();
     }
 
 } // namespace sgns::neoswarm::api

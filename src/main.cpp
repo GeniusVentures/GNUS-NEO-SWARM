@@ -49,10 +49,10 @@ struct Args
     int port_ = 50051;
     std::string db_path_ = "./reputation.db";
     std::string key_file_ = "./node.key";
-    std::string knowledge_path_;
+    std::string m_knowledgepath_;
     int max_tokens_ = 512;
     float temperature_ = 0.7f;
-    std::string sg_endpoint_ = "localhost:50051";
+    std::string sg_m_endpoint = "localhost:50051";
     std::string sg_tls_ca_;
     std::string sg_tls_cert_;
     std::string config_path_;
@@ -125,14 +125,14 @@ static void LoadConfigFile( const std::string& path, Args& args )
         args.db_path_ = j["db"].get<std::string>();
     if ( j.contains( "key" ) && args.key_file_ == "./node.key" )
         args.key_file_ = j["key"].get<std::string>();
-    if ( j.contains( "knowledge" ) && args.knowledge_path_.empty() )
-        args.knowledge_path_ = j["knowledge"].get<std::string>();
+    if ( j.contains( "knowledge" ) && args.m_knowledgepath_.empty() )
+        args.m_knowledgepath_ = j["knowledge"].get<std::string>();
     if ( j.contains( "max_tokens" ) && args.max_tokens_ == 512 )
         args.max_tokens_ = j["max_tokens"].get<int>();
     if ( j.contains( "temperature" ) && args.temperature_ == 0.7f )
         args.temperature_ = j["temperature"].get<float>();
-    if ( j.contains( "sg_endpoint" ) && args.sg_endpoint_ == "localhost:50051" )
-        args.sg_endpoint_ = j["sg_endpoint"].get<std::string>();
+    if ( j.contains( "sg_endpoint" ) && args.sg_m_endpoint == "localhost:50051" )
+        args.sg_m_endpoint = j["sg_endpoint"].get<std::string>();
     if ( j.contains( "network" ) && !args.network_ )
         args.network_ = j["network"].get<bool>();
     if ( j.contains( "verbose" ) && !args.verbose_ )
@@ -170,7 +170,7 @@ static Args ParseArgs( int argc, char** argv )
         else if ( a == "--key" )
             args.key_file_ = next();
         else if ( a == "--knowledge" )
-            args.knowledge_path_ = next();
+            args.m_knowledgepath_ = next();
         else if ( a == "--max-tokens" )
             args.max_tokens_ = std::stoi( next() );
         else if ( a == "--temperature" )
@@ -178,7 +178,7 @@ static Args ParseArgs( int argc, char** argv )
         else if ( a == "--config" )
             args.config_path_ = next();
         else if ( a == "--sg-endpoint" )
-            args.sg_endpoint_ = next();
+            args.sg_m_endpoint = next();
         else if ( a == "--sg-tls-ca" )
             args.sg_tls_ca_ = next();
         else if ( a == "--sg-tls-cert" )
@@ -286,12 +286,12 @@ int main( int argc, char** argv )
     cfg.grammar_model_path_ = args.grammar_model_path_;
     cfg.math_model_path_ = args.math_model_path_;
     cfg.reputation_db_path_ = args.db_path_;
-    cfg.knowledge_facts_ = args.knowledge_path_;
+    cfg.m_knowledgefacts_ = args.m_knowledgepath_;
     cfg.enable_network_ = args.network_;
-    cfg.enable_knowledge_ = true;
+    cfg.enable_m_knowledge = true;
     (void) args.port_;
     cfg.node_key_file_ = args.key_file_;
-    cfg.sg_endpoint_ = args.sg_endpoint_;
+    cfg.sg_m_endpoint = args.sg_m_endpoint;
     cfg.sg_tls_ca_ = args.sg_tls_ca_;
     cfg.sg_tls_cert_ = args.sg_tls_cert_;
 

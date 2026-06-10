@@ -36,8 +36,8 @@ namespace sgns::neoswarm::network
             return outcome::success();
         }
 
-        bool isLocalhost = m_cfg.endpoint_.find( "localhost" ) != std::string::npos ||
-                           m_cfg.endpoint_.find( "127.0.0.1" ) != std::string::npos;
+        bool isLocalhost = m_cfg.m_endpoint.find( "localhost" ) != std::string::npos ||
+                           m_cfg.m_endpoint.find( "127.0.0.1" ) != std::string::npos;
 
         std::shared_ptr<grpc::ChannelCredentials> creds;
 
@@ -50,13 +50,13 @@ namespace sgns::neoswarm::network
                 sslOpts.pem_root_certs = m_cfg.tls_ca_path_;
             }
             creds = grpc::SslCredentials( sslOpts );
-            ChannelLogger()->info( "Creating TLS-secured channel to {}", m_cfg.endpoint_ );
+            ChannelLogger()->info( "Creating TLS-secured channel to {}", m_cfg.m_endpoint );
         }
         else
         {
             // Localhost without TLS certs — insecure with warning
             creds = grpc::InsecureChannelCredentials();
-            ChannelLogger()->warn( "Creating INSECURE channel to {} — TLS not configured", m_cfg.endpoint_ );
+            ChannelLogger()->warn( "Creating INSECURE channel to {} — TLS not configured", m_cfg.m_endpoint );
         }
 
         grpc::ChannelArguments args;
@@ -64,15 +64,15 @@ namespace sgns::neoswarm::network
         args.SetInt( GRPC_ARG_KEEPALIVE_TIMEOUT_MS, 10000 );
         args.SetInt( GRPC_ARG_KEEPALIVE_PERMIT_WITHOUT_CALLS, 1 );
 
-        channel_ = grpc::CreateCustomChannel( m_cfg.endpoint_, creds, args );
+        channel_ = grpc::CreateCustomChannel( m_cfg.m_endpoint, creds, args );
 
         if ( !channel_ )
         {
-            ChannelLogger()->error( "Failed to create channel to {}", m_cfg.endpoint_ );
+            ChannelLogger()->error( "Failed to create channel to {}", m_cfg.m_endpoint );
             return outcome::failure( Error::NetworkError );
         }
 
-        ChannelLogger()->info( "Channel created to {}", m_cfg.endpoint_ );
+        ChannelLogger()->info( "Channel created to {}", m_cfg.m_endpoint );
         return outcome::success();
 
     }

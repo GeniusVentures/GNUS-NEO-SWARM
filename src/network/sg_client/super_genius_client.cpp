@@ -31,7 +31,7 @@ namespace sgns::neoswarm::network
         std::unique_ptr<SGChannelManager> channelMgr_;
         std::unique_ptr<SGJobSubmitter> jobSubmitter_;
         std::unique_ptr<SGResultCollector> resultCollector_;
-        bool connected_ = false;
+        bool m_connected = false;
     };
 
     SuperGeniusClient::SuperGeniusClient( Config cfg )
@@ -54,14 +54,14 @@ namespace sgns::neoswarm::network
 
         // Create channel manager with configured endpoint and TLS settings
         SGChannelManager::Config chCfg;
-        chCfg.endpoint_ = m_impl->m_cfg.endpoint_;
+        chCfg.m_endpoint = m_impl->m_cfg.m_endpoint;
         chCfg.tls_ca_path_ = m_impl->m_cfg.tls_ca_path_;
         chCfg.tls_cert_path_ = m_impl->m_cfg.tls_cert_path_;
         chCfg.timeout_ = m_impl->m_cfg.channel_timeout_;
 
         m_impl->channelMgr_ = std::make_unique<SGChannelManager>( std::move( chCfg ) );
 
-        ClientLogger()->info( "SuperGeniusClient initialized — endpoint={}", m_impl->m_cfg.endpoint_ );
+        ClientLogger()->info( "SuperGeniusClient initialized — endpoint={}", m_impl->m_cfg.m_endpoint );
         return outcome::success();
     }
 
@@ -76,7 +76,7 @@ namespace sgns::neoswarm::network
         auto result = m_impl->channelMgr_->CreateChannel();
         if ( !result.has_value() )
         {
-            ClientLogger()->warn( "Failed to create channel to {} — SuperGenius unavailable", m_impl->m_cfg.endpoint_ );
+            ClientLogger()->warn( "Failed to create channel to {} — SuperGenius unavailable", m_impl->m_cfg.m_endpoint );
             return result;
         }
 
@@ -95,13 +95,13 @@ namespace sgns::neoswarm::network
         auto health = m_impl->channelMgr_->HealthCheck();
         if ( health.has_value() && health.value() )
         {
-            m_impl->connected_ = true;
-            ClientLogger()->info( "Connected to SuperGenius at {}", m_impl->m_cfg.endpoint_ );
+            m_impl->m_connected = true;
+            ClientLogger()->info( "Connected to SuperGenius at {}", m_impl->m_cfg.m_endpoint );
         }
         else
         {
             ClientLogger()->warn( "Channel created but health check failed — may be starting up" );
-            m_impl->connected_ = true;
+            m_impl->m_connected = true;
         }
 
         return outcome::success();
@@ -110,7 +110,7 @@ namespace sgns::neoswarm::network
     outcome::result<std::vector<uint8_t>> SuperGeniusClient::SubmitJob( const std::string& gnusSchemaJson )
     {
         // Verify we are connected — attempt reconnect if channel is dead
-        if ( !m_impl->connected_ || !m_impl->channelMgr_->IsConnected() )
+        if ( !m_impl->m_connected || !m_impl->channelMgr_->IsConnected() )
         {
             ClientLogger()->warn( "Channel not connected, attempting reconnect" );
             auto reconnectResult = m_impl->channelMgr_->Reconnect();
@@ -119,7 +119,7 @@ namespace sgns::neoswarm::network
                 ClientLogger()->error( "Reconnect failed — cannot submit job" );
                 return outcome::failure( Error::NetworkError );
             }
-            m_impl->connected_ = true;
+            m_impl->m_connected = true;
         }
 
         if ( !m_impl->jobSubmitter_ || !m_impl->resultCollector_ )
@@ -155,13 +155,13 @@ namespace sgns::neoswarm::network
         m_impl->jobSubmitter_.reset();
         m_impl->resultCollector_.reset();
         m_impl->channelMgr_.reset();
-        m_impl->connected_ = false;
+        m_impl->m_connected = false;
         ClientLogger()->info( "SuperGeniusClient disconnected" );
     }
 
     bool SuperGeniusClient::IsConnected() const noexcept
     {
-        return m_impl->connected_ && m_impl->channelMgr_ && m_impl->channelMgr_->IsConnected();
+        return m_impl->m_connected && m_impl->channelMgr_ && m_impl->channelMgr_->IsConnected();
     }
 
 } // namespace sgns::neoswarm::network

@@ -32,8 +32,8 @@ namespace sgns::neoswarm::core
 
     SentencePieceTokenizer::SentencePieceTokenizer( int eos_id, int bos_id )
         : impl_( std::make_unique<Impl>() )
-        , eos_id_( eos_id )
-        , bos_id_( bos_id )
+        , m_eosId( eos_id )
+        , m_bosId( bos_id )
     {
     }
 

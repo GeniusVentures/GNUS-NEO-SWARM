@@ -58,7 +58,7 @@ namespace sgns::neoswarm::network
         private:
         Config cfg_;
         std::vector<NodeOutput> results_;
-        mutable std::mutex mutex_;
+        mutable std::mutex m_mutex;
         std::condition_variable cv_;
         bool done_ = false;
     };

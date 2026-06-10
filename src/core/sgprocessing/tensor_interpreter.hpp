@@ -50,7 +50,7 @@ namespace sgns::neoswarm::core
         outcome::result<std::string> Interpret( const std::vector<uint8_t>& bytes, sgns::InputFormat format ) const;
 
         private:
-        std::shared_ptr<Tokenizer> tokenizer_;
+        std::shared_ptr<Tokenizer> m_tokenizer;
 
         outcome::result<std::string> InterpretFloat32( const std::vector<uint8_t>& bytes ) const;
         outcome::result<std::string> InterpretFloat16( const std::vector<uint8_t>& bytes ) const;

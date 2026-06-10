@@ -1,5 +1,5 @@
 /**
- * @file       knowledge_retrieval.hpp
+ * @file       m_knowledgeretrieval.hpp
  * @brief      Query embedding and ANN search for Grokipedia facts (PTDS §8.2)
  * @date       2026-05-06
  * @author     Subaskar S (ssivakumar@gnus.ai)

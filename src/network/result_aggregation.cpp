@@ -32,7 +32,7 @@ namespace sgns::neoswarm::network
     // -----------------------------------------------------------------------
     void ResultAggregation::Submit( const NodeOutput& output )
     {
-        std::lock_guard<std::mutex> lock( mutex_ );
+        std::lock_guard<std::mutex> lock( m_mutex );
         if ( results_.size() >= cfg_.max_responses_ )
         {
             return;
@@ -51,7 +51,7 @@ namespace sgns::neoswarm::network
     // -----------------------------------------------------------------------
     outcome::result<std::vector<NodeOutput>> ResultAggregation::Collect()
     {
-        std::unique_lock<std::mutex> lock( mutex_ );
+        std::unique_lock<std::mutex> lock( m_mutex );
         bool timed_out =
             !cv_.wait_for( lock, cfg_.timeout_, [this] { return done_ || results_.size() >= cfg_.max_responses_; } );
 
@@ -69,7 +69,7 @@ namespace sgns::neoswarm::network
     // -----------------------------------------------------------------------
     void ResultAggregation::Reset()
     {
-        std::lock_guard<std::mutex> lock( mutex_ );
+        std::lock_guard<std::mutex> lock( m_mutex );
         results_.clear();
         done_ = false;
     }
@@ -79,7 +79,7 @@ namespace sgns::neoswarm::network
     // -----------------------------------------------------------------------
     size_t ResultAggregation::ResponseCount() const
     {
-        std::lock_guard<std::mutex> lock( mutex_ );
+        std::lock_guard<std::mutex> lock( m_mutex );
         return results_.size();
     }
 
