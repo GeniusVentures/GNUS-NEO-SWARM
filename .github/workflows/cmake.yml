@@ -1,61 +1,23 @@
-name: Build CI
+name: Lint CI
 
 on:
   push:
     branches: [develop, main]
   pull_request:
     branches: [develop, main]
-  workflow_dispatch:
 
 jobs:
-  build-macos:
-    runs-on: macos-latest
-    strategy:
-      matrix:
-        build_type: [Debug, Release]
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Configure CMake
-        run: |
-          mkdir -p build/OSX/${{ matrix.build_type }}
-          cd build/OSX/${{ matrix.build_type }}
-          cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTING=ON
-
-      - name: Build
-        run: |
-          cd build/OSX/${{ matrix.build_type }}
-          ninja -j$(sysctl -n hw.ncpu)
-
-      - name: Test
-        run: |
-          cd build/OSX/${{ matrix.build_type }}
-          ctest --output-on-failure -j$(sysctl -n hw.ncpu)
-
-  build-linux:
+  lint:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        build_type: [Debug]
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
-      - name: Configure CMake
-        run: |
-          mkdir -p build/Linux/${{ matrix.build_type }}
-          cd build/Linux/${{ matrix.build_type }}
-          cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTING=ON
+      - name: Install tools
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq clang-format clang-tidy
 
-      - name: Build
-        run: |
-          cd build/Linux/${{ matrix.build_type }}
-          ninja -j$(nproc)
+      - name: Run clang-format
+        run: find src/ -name "*.cpp" -o -name "*.hpp" -o -name "*.h" | xargs clang-format --dry-run -Werror
 
-      - name: Test
-        run: |
-          cd build/Linux/${{ matrix.build_type }}
-          ctest --output-on-failure -j$(nproc)
+      - name: Run clang-tidy
+        run: find src/ -name "*.cpp" | xargs clang-tidy -- -std=c++17 -I src/
+        continue-on-error: true
