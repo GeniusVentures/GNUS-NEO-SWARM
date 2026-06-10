@@ -1,7 +1,7 @@
 # common — shared types, error codes, logging
-# Error.cpp registers the Boost.Outcome error category so it must be compiled.
+# error.cpp registers the Boost.Outcome error category so it must be compiled.
 add_library(genius_common STATIC
-    Error.cpp
+    error.cpp
 )
 
 target_include_directories(genius_common PUBLIC
