@@ -12,24 +12,7 @@
 #include <cstring>
 #include <sstream>
 
-#ifdef GENIUS_HAS_SGPROCESSING
 #include <InputFormat.hpp>
-#else
-namespace sgns
-{
-    enum class InputFormat : int
-    {
-        FLOAT16 = 0,
-        FLOAT32 = 1,
-        FP4_ULTRA = 2,
-        INT16 = 3,
-        INT32 = 4,
-        INT8 = 5,
-        RGB8 = 6,
-        RGBA8 = 7
-    };
-} // namespace sgns
-#endif
 
 namespace sgns::neoswarm::core
 {

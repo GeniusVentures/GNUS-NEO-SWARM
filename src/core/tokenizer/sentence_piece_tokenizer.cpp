@@ -12,9 +12,7 @@
 #include <cctype>
 #include <sstream>
 
-#ifdef GENIUS_HAS_SENTENCEPIECE
 #include <sentencepiece_processor.h>
-#endif
 
 namespace sgns::neoswarm::core
 {
@@ -28,9 +26,7 @@ namespace sgns::neoswarm::core
 
     struct SentencePieceTokenizer::Impl
     {
-#ifdef GENIUS_HAS_SENTENCEPIECE
         sentencepiece::SentencePieceProcessor processor_;
-#endif
         bool loaded_ = false;
     };
 
@@ -48,7 +44,6 @@ namespace sgns::neoswarm::core
     // -----------------------------------------------------------------------
     outcome::result<void> SentencePieceTokenizer::Load( const std::string& model_path )
     {
-#ifdef GENIUS_HAS_SENTENCEPIECE
         auto status = impl_->processor_.Load( model_path );
         if ( !status.ok() )
         {
@@ -57,12 +52,7 @@ namespace sgns::neoswarm::core
         impl_->loaded_ = true;
         TokenizerLogger()->info( "Tokenizer loaded: {} (vocab={})", model_path, VocabSize() );
         return outcome::success();
-#else
-        (void) model_path;
-        TokenizerLogger()->warn( "SentencePiece not compiled in — using whitespace tokenizer stub" );
-        impl_->loaded_ = true;
-        return outcome::success();
-#endif
+
     }
 
     // -----------------------------------------------------------------------
@@ -70,7 +60,6 @@ namespace sgns::neoswarm::core
     // -----------------------------------------------------------------------
     outcome::result<std::vector<int>> SentencePieceTokenizer::Encode( const std::string& text ) const
     {
-#ifdef GENIUS_HAS_SENTENCEPIECE
         if ( !impl_->loaded_ )
         {
             return outcome::failure( Error::TokenizerFailed );
@@ -82,18 +71,7 @@ namespace sgns::neoswarm::core
             return outcome::failure( Error::TokenizerFailed );
         }
         return outcome::success( std::move( ids ) );
-#else
-        std::vector<int> ids;
-        ids.push_back( bos_id_ );
-        std::istringstream iss( text );
-        std::string word;
-        while ( iss >> word )
-        {
-            int id = 3 + static_cast<int>( std::hash<std::string>{}( word ) % 31997 );
-            ids.push_back( id );
-        }
-        return outcome::success( std::move( ids ) );
-#endif
+
     }
 
     // -----------------------------------------------------------------------
@@ -101,7 +79,6 @@ namespace sgns::neoswarm::core
     // -----------------------------------------------------------------------
     outcome::result<std::string> SentencePieceTokenizer::Decode( const std::vector<int>& ids ) const
     {
-#ifdef GENIUS_HAS_SENTENCEPIECE
         if ( !impl_->loaded_ )
         {
             return outcome::failure( Error::TokenizerFailed );
@@ -113,16 +90,7 @@ namespace sgns::neoswarm::core
             return outcome::failure( Error::TokenizerFailed );
         }
         return outcome::success( std::move( text ) );
-#else
-        std::string out;
-        for ( int id : ids )
-        {
-            if ( !out.empty() )
-                out += ' ';
-            out += std::to_string( id );
-        }
-        return outcome::success( out );
-#endif
+
     }
 
     // -----------------------------------------------------------------------
@@ -130,12 +98,10 @@ namespace sgns::neoswarm::core
     // -----------------------------------------------------------------------
     size_t SentencePieceTokenizer::VocabSize() const
     {
-#ifdef GENIUS_HAS_SENTENCEPIECE
         if ( impl_->loaded_ )
         {
             return static_cast<size_t>( impl_->processor_.GetPieceSize() );
         }
-#endif
         return 0; // unknown until model is loaded
     }
 

@@ -14,34 +14,11 @@
 #include <boost/asio/io_context.hpp>
 #include <nlohmann/json.hpp>
 
-#ifdef __unix__
-#include <unistd.h> // getcwd
-#elif defined( _WIN32 )
-#include <direct.h>
-#define getcwd _getcwd
-#endif
-
-#ifdef GENIUS_HAS_SGPROCESSING
+#include <filesystem>
 #include <Generators.hpp>
 #include <InputFormat.hpp>
 #include <SGNSProcMain.hpp>
 #include <processingbase/ProcessingManager.hpp>
-#else
-namespace sgns
-{
-    enum class InputFormat : int
-    {
-        FLOAT16 = 0,
-        FLOAT32 = 1,
-        FP4_ULTRA = 2,
-        INT16 = 3,
-        INT32 = 4,
-        INT8 = 5,
-        RGB8 = 6,
-        RGBA8 = 7
-    };
-} // namespace sgns
-#endif
 
 namespace sgns::neoswarm::core
 {
@@ -133,8 +110,8 @@ namespace sgns::neoswarm::core
                     return uri;
                 }
                 // Prepend current working directory
-                char cwd[4096] = {};
-                if ( getcwd( cwd, sizeof( cwd ) ) != nullptr )
+                std::string cwd = std::filesystem::current_path().string();
+                if ( !cwd.empty() )
                 {
                     return std::string( "file://" ) + cwd + "/" + rel;
                 }
@@ -314,7 +291,6 @@ namespace sgns::neoswarm::core
         const std::string& jsondata,
         std::shared_ptr<boost::asio::io_context> ioc ) const
     {
-#ifdef GENIUS_HAS_SGPROCESSING
         // Step 1: Create ProcessingManager from JSON
         auto pm_result = sgns::sgprocessing::ProcessingManager::Create( jsondata );
         if ( !pm_result )
@@ -357,12 +333,7 @@ namespace sgns::neoswarm::core
         BridgeLogger()->debug( "Process() succeeded: {} bytes, {} chunk hashes", process_result.value().size(),
                                chunkhashes.size() );
         return outcome::success( process_result.value() );
-#else
-        (void) jsondata;
-        (void) ioc;
-        BridgeLogger()->warn( "SGProcessingBridge: SGProcessingManager not compiled in — stub mode" );
-        return outcome::success( std::vector<uint8_t>{} );
-#endif
+
     }
 
     // -----------------------------------------------------------------------
