@@ -57,7 +57,7 @@ namespace sgns::neoswarm::network
 
         if ( timed_out && results_.empty() )
         {
-            return outcome::failure( Error::BroadcastTimeout );
+            return outcome::failure( Error::BROADCAST_TIMEOUT );
         }
 
         AggregationLogger()->info( "Collected {} responses (timeout={})", results_.size(), timed_out ? "yes" : "no" );

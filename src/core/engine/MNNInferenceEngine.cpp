@@ -189,14 +189,14 @@ namespace sgns::neoswarm::core
                 if ( !mnn_llm_ )
                 {
                     EngineLogger()->error( "Llm::createLLM failed for {}", llm_dir );
-                    return outcome::failure( Error::ModelLoadFailed );
+                    return outcome::failure( Error::MODEL_LOAD_FAILED );
                 }
                 if ( !mnn_llm_->load() )
                 {
                     EngineLogger()->error( "Llm::load() failed" );
                     MNN::Transformer::Llm::destroy( mnn_llm_ );
                     mnn_llm_ = nullptr;
-                    return outcome::failure( Error::ModelLoadFailed );
+                    return outcome::failure( Error::MODEL_LOAD_FAILED );
                 }
                 model_path_ = model_path;
                 loaded_.store( true );
@@ -208,7 +208,7 @@ namespace sgns::neoswarm::core
             interpreter_.reset( MNN::Interpreter::createFromFile( model_path.c_str() ) );
             if ( !interpreter_ )
             {
-                return outcome::failure( Error::ModelLoadFailed );
+                return outcome::failure( Error::MODEL_LOAD_FAILED );
             }
             MNN::ScheduleConfig sched_cfg;
             sched_cfg.type = static_cast<MNNForwardType>( SelectBackend() );
@@ -216,7 +216,7 @@ namespace sgns::neoswarm::core
             session_ = interpreter_->createSession( sched_cfg );
             if ( !session_ )
             {
-                return outcome::failure( Error::ModelLoadFailed );
+                return outcome::failure( Error::MODEL_LOAD_FAILED );
             }
             model_path_ = model_path;
             loaded_.store( true );
@@ -239,7 +239,7 @@ namespace sgns::neoswarm::core
     {
         if ( !loaded_.load() )
         {
-            return outcome::failure( Error::InferenceFailed );
+            return outcome::failure( Error::INFERENCE_FAILED );
         }
 
         // ---- Stub mode (no model loaded) ----
@@ -258,7 +258,7 @@ namespace sgns::neoswarm::core
         {
             if ( !bridge_ || !tensor_interpreter_ )
             {
-                return outcome::failure( Error::InferenceFailed );
+                return outcome::failure( Error::INFERENCE_FAILED );
             }
 
             auto t0 = std::chrono::steady_clock::now();
@@ -319,7 +319,7 @@ namespace sgns::neoswarm::core
             // --- Standard Interpreter path (non-LLM models) ---
             if ( !tokenizer_ )
             {
-                return outcome::failure( Error::InferenceFailed );
+                return outcome::failure( Error::INFERENCE_FAILED );
             }
 
             auto t0 = std::chrono::steady_clock::now();
@@ -402,7 +402,7 @@ namespace sgns::neoswarm::core
     {
         if ( !loaded_.load() )
         {
-            return outcome::failure( Error::InferenceFailed );
+            return outcome::failure( Error::INFERENCE_FAILED );
         }
 
         // SGProcessing does not support streaming yet — fall through to batch.
@@ -455,7 +455,7 @@ namespace sgns::neoswarm::core
 
             if ( !tokenizer_ )
             {
-                return outcome::failure( Error::InferenceFailed );
+                return outcome::failure( Error::INFERENCE_FAILED );
             }
 
             auto enc_res = tokenizer_->Encode( task.prompt_ );
@@ -529,7 +529,7 @@ namespace sgns::neoswarm::core
         auto* input_tensor = interpreter_->getSessionInput( session_, "input_ids" );
         if ( !input_tensor )
         {
-            return outcome::failure( Error::InferenceFailed );
+            return outcome::failure( Error::INFERENCE_FAILED );
         }
         interpreter_->resizeTensor( input_tensor, { 1, static_cast<int>( input_ids.size() ) } );
         interpreter_->resizeSession( session_ );
@@ -547,7 +547,7 @@ namespace sgns::neoswarm::core
         auto* logits_tensor = interpreter_->getSessionOutput( session_, "logits" );
         if ( !logits_tensor )
         {
-            return outcome::failure( Error::InferenceFailed );
+            return outcome::failure( Error::INFERENCE_FAILED );
         }
         auto* host_logits = new MNN::Tensor( logits_tensor, MNN::Tensor::CAFFE );
         logits_tensor->copyToHostTensor( host_logits );

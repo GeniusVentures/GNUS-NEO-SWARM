@@ -76,7 +76,7 @@ namespace sgns::neoswarm::knowledge
         std::ifstream f( cfg_.facts_path_ );
         if ( !f )
         {
-            return outcome::failure( Error::KnowledgeUnavailable );
+            return outcome::failure( Error::KNOWLEDGE_UNAVAILABLE );
         }
 
         std::string line;
@@ -160,7 +160,7 @@ namespace sgns::neoswarm::knowledge
     {
         if ( !loaded_ || impl_->facts_.empty() )
         {
-            return outcome::failure( Error::KnowledgeUnavailable );
+            return outcome::failure( Error::KNOWLEDGE_UNAVAILABLE );
         }
 
         auto query_emb = Embed( query );

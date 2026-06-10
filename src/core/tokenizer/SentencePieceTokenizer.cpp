@@ -52,7 +52,7 @@ namespace sgns::neoswarm::core
         auto status = impl_->processor_.Load( model_path );
         if ( !status.ok() )
         {
-            return outcome::failure( Error::TokenizerFailed );
+            return outcome::failure( Error::TOKENIZER_FAILED );
         }
         impl_->loaded_ = true;
         TokenizerLogger()->info( "Tokenizer loaded: {} (vocab={})", model_path, VocabSize() );
@@ -73,13 +73,13 @@ namespace sgns::neoswarm::core
 #ifdef GENIUS_HAS_SENTENCEPIECE
         if ( !impl_->loaded_ )
         {
-            return outcome::failure( Error::TokenizerFailed );
+            return outcome::failure( Error::TOKENIZER_FAILED );
         }
         std::vector<int> ids;
         auto status = impl_->processor_.Encode( text, &ids );
         if ( !status.ok() )
         {
-            return outcome::failure( Error::TokenizerFailed );
+            return outcome::failure( Error::TOKENIZER_FAILED );
         }
         return outcome::success( std::move( ids ) );
 #else
@@ -104,13 +104,13 @@ namespace sgns::neoswarm::core
 #ifdef GENIUS_HAS_SENTENCEPIECE
         if ( !impl_->loaded_ )
         {
-            return outcome::failure( Error::TokenizerFailed );
+            return outcome::failure( Error::TOKENIZER_FAILED );
         }
         std::string text;
         auto status = impl_->processor_.Decode( ids, &text );
         if ( !status.ok() )
         {
-            return outcome::failure( Error::TokenizerFailed );
+            return outcome::failure( Error::TOKENIZER_FAILED );
         }
         return outcome::success( std::move( text ) );
 #else

@@ -56,7 +56,7 @@ namespace sgns::neoswarm::core
 
         if ( bytes.empty() )
         {
-            return outcome::failure( Error::InvalidArgument );
+            return outcome::failure( Error::INVALID_ARGUMENT );
         }
 
         switch ( format )
@@ -85,7 +85,7 @@ namespace sgns::neoswarm::core
         constexpr size_t kElemSize = sizeof( float );
         if ( bytes.size() % kElemSize != 0 )
         {
-            return outcome::failure( Error::InferenceFailed );
+            return outcome::failure( Error::INFERENCE_FAILED );
         }
 
         const size_t count = bytes.size() / kElemSize;
@@ -115,7 +115,7 @@ namespace sgns::neoswarm::core
         constexpr size_t kElemSize = 2U;
         if ( bytes.size() % kElemSize != 0 )
         {
-            return outcome::failure( Error::InferenceFailed );
+            return outcome::failure( Error::INFERENCE_FAILED );
         }
 
         const size_t count = bytes.size() / kElemSize;
@@ -178,7 +178,7 @@ namespace sgns::neoswarm::core
         constexpr size_t kElemSize = sizeof( int32_t );
         if ( bytes.size() % kElemSize != 0 )
         {
-            return outcome::failure( Error::InferenceFailed );
+            return outcome::failure( Error::INFERENCE_FAILED );
         }
 
         const size_t count = bytes.size() / kElemSize;
@@ -216,7 +216,7 @@ namespace sgns::neoswarm::core
     {
         if ( !tokenizer_ )
         {
-            return outcome::failure( Error::InferenceFailed );
+            return outcome::failure( Error::INFERENCE_FAILED );
         }
 
         const auto max_it = std::max_element( logits.begin(), logits.end() );

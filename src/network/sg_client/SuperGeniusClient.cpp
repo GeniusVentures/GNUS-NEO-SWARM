@@ -70,7 +70,7 @@ namespace sgns::neoswarm::network
         if ( !impl_->channelMgr_ )
         {
             ClientLogger()->error( "Connect called before Initialize" );
-            return outcome::failure( Error::InternalError );
+            return outcome::failure( Error::INTERNAL_ERROR );
         }
 
         auto result = impl_->channelMgr_->CreateChannel();
@@ -117,7 +117,7 @@ namespace sgns::neoswarm::network
             if ( !reconnectResult.has_value() )
             {
                 ClientLogger()->error( "Reconnect failed — cannot submit job" );
-                return outcome::failure( Error::NetworkError );
+                return outcome::failure( Error::NETWORK_ERROR );
             }
             impl_->connected_ = true;
         }
@@ -125,7 +125,7 @@ namespace sgns::neoswarm::network
         if ( !impl_->jobSubmitter_ || !impl_->resultCollector_ )
         {
             ClientLogger()->error( "SubmitJob: sub-components not initialized" );
-            return outcome::failure( Error::InternalError );
+            return outcome::failure( Error::INTERNAL_ERROR );
         }
 
         // Step 1: Publish the signed job to the grid channel

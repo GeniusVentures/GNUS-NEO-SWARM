@@ -70,14 +70,14 @@ namespace sgns::neoswarm::network
         if ( !channel_ )
         {
             ChannelLogger()->error( "Failed to create channel to {}", cfg_.endpoint_ );
-            return outcome::failure( Error::NetworkError );
+            return outcome::failure( Error::NETWORK_ERROR );
         }
 
         ChannelLogger()->info( "Channel created to {}", cfg_.endpoint_ );
         return outcome::success();
 #else
         ChannelLogger()->warn( "SGChannelManager: gRPC not compiled in — stub mode" );
-        return outcome::failure( Error::NotImplemented );
+        return outcome::failure( Error::NOT_IMPLEMENTED );
 #endif
     }
 
@@ -131,7 +131,7 @@ namespace sgns::neoswarm::network
         }
 
         ChannelLogger()->error( "Reconnect failed after {} attempts", kMaxReconnectAttempts );
-        return outcome::failure( Error::NetworkError );
+        return outcome::failure( Error::NETWORK_ERROR );
     }
 
     std::shared_ptr<grpc::Channel> SGChannelManager::GetChannel() const

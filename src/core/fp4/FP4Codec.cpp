@@ -110,7 +110,7 @@ namespace sgns::neoswarm::fp4
     {
         if ( !weights || rows == 0 || cols == 0 )
         {
-            return outcome::failure( Error::InvalidArgument );
+            return outcome::failure( Error::INVALID_ARGUMENT );
         }
 
         FP4Tensor tensor;
@@ -181,7 +181,7 @@ namespace sgns::neoswarm::fp4
     {
         if ( !output )
         {
-            return outcome::failure( Error::InvalidArgument );
+            return outcome::failure( Error::INVALID_ARGUMENT );
         }
 
         const size_t rows = tensor.rows_;

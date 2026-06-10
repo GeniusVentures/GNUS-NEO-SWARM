@@ -114,7 +114,7 @@ TEST( NodeIdentity, LoadEncryptedWrongPassphrase )
     auto result = ident2.LoadEncrypted( kTestKeyPath, kWrongPass );
 
     EXPECT_FALSE( result.has_value() );
-    EXPECT_EQ( result.error(), Error::IdentityError );
+    EXPECT_EQ( result.error(), Error::IDENTITY_ERROR );
 
     RemoveTestFile();
 }
@@ -142,7 +142,7 @@ TEST( NodeIdentity, LoadEncryptedTamperedFile )
     auto result = ident2.LoadEncrypted( kTestKeyPath, kTestPass );
 
     EXPECT_FALSE( result.has_value() );
-    EXPECT_EQ( result.error(), Error::IdentityError );
+    EXPECT_EQ( result.error(), Error::IDENTITY_ERROR );
 
     RemoveTestFile();
 }
@@ -157,7 +157,7 @@ TEST( NodeIdentity, SaveEncryptedWithoutKey )
     auto result = ident.SaveEncrypted( kTestKeyPath, kTestPass );
 
     EXPECT_FALSE( result.has_value() );
-    EXPECT_EQ( result.error(), Error::IdentityError );
+    EXPECT_EQ( result.error(), Error::IDENTITY_ERROR );
 
     RemoveTestFile();
 }
@@ -170,7 +170,7 @@ TEST( NodeIdentity, LoadEncryptedNonexistentFile )
     auto result = ident.LoadEncrypted( kTestKeyPath, kTestPass );
 
     EXPECT_FALSE( result.has_value() );
-    EXPECT_EQ( result.error(), Error::IdentityError );
+    EXPECT_EQ( result.error(), Error::IDENTITY_ERROR );
 }
 
 TEST( NodeIdentity, SaveEncryptedOverwrite )

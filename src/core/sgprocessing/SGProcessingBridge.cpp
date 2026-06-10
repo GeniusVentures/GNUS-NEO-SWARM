@@ -165,7 +165,7 @@ namespace sgns::neoswarm::core
     {
         if ( model_uri.empty() || input_uri.empty() )
         {
-            return outcome::failure( Error::InvalidArgument );
+            return outcome::failure( Error::INVALID_ARGUMENT );
         }
 
         const std::string type_str = InputFormatToTypeString( input_format );
@@ -288,7 +288,7 @@ namespace sgns::neoswarm::core
             {
                 // Auto-fallback to local MNN on network failure
                 // Auth failures (SignatureInvalid) are NOT silently swallowed
-                if ( result.error() == Error::SignatureInvalid || result.error() == Error::IdentityError )
+                if ( result.error() == Error::SIGNATURE_INVALID || result.error() == Error::IDENTITY_ERROR )
                 {
                     BridgeLogger()->error( "Network dispatch auth failed — NOT falling back to local mode" );
                     return result;
@@ -320,7 +320,7 @@ namespace sgns::neoswarm::core
         if ( !pm_result )
         {
             BridgeLogger()->error( "ProcessingManager::Create failed (error={})", pm_result.error().message() );
-            return outcome::failure( Error::InferenceFailed );
+            return outcome::failure( Error::INFERENCE_FAILED );
         }
 
         auto pm = pm_result.value();
@@ -331,17 +331,17 @@ namespace sgns::neoswarm::core
         const auto& passes = processing.get_passes();
         if ( passes.empty() )
         {
-            return outcome::failure( Error::InferenceFailed );
+            return outcome::failure( Error::INFERENCE_FAILED );
         }
         if ( !passes[0].get_model().has_value() )
         {
-            return outcome::failure( Error::InferenceFailed );
+            return outcome::failure( Error::INFERENCE_FAILED );
         }
         const auto model_config = passes[0].get_model().value();
         const auto input_nodes = model_config.get_input_nodes();
         if ( input_nodes.empty() )
         {
-            return outcome::failure( Error::InferenceFailed );
+            return outcome::failure( Error::INFERENCE_FAILED );
         }
         sgns::ModelNode model_node = input_nodes[0];
 
@@ -351,7 +351,7 @@ namespace sgns::neoswarm::core
         if ( !process_result )
         {
             BridgeLogger()->error( "ProcessingManager::Process failed (error={})", process_result.error().message() );
-            return outcome::failure( Error::InferenceFailed );
+            return outcome::failure( Error::INFERENCE_FAILED );
         }
 
         BridgeLogger()->debug( "Process() succeeded: {} bytes, {} chunk hashes", process_result.value().size(),
@@ -382,7 +382,7 @@ namespace sgns::neoswarm::core
         if ( !client_ )
         {
             BridgeLogger()->error( "SubmitNetwork: SuperGeniusClient not configured" );
-            return outcome::failure( Error::NetworkError );
+            return outcome::failure( Error::NETWORK_ERROR );
         }
 
         BridgeLogger()->debug( "Submitting job via SuperGeniusClient ({} bytes)", jsondata.size() );

@@ -103,7 +103,7 @@ namespace sgns::neoswarm::reputation
         rocksdb::Status status = rocksdb::DB::Open( impl_->options_, db_path_, &impl_->db_ );
         if ( !status.ok() )
         {
-            return outcome::failure( Error::StorageError );
+            return outcome::failure( Error::STORAGE_ERROR );
         }
         StorageLogger()->info( "ReputationStorage opened: {}", db_path_ );
 #else
@@ -135,14 +135,14 @@ namespace sgns::neoswarm::reputation
     {
         if ( !open_ )
         {
-            return outcome::failure( Error::StorageError );
+            return outcome::failure( Error::STORAGE_ERROR );
         }
         std::string val = Serialize( rep );
 #ifdef GENIUS_HAS_ROCKSDB
         auto status = impl_->db_->Put( rocksdb::WriteOptions(), rep.identity_key_, val );
         if ( !status.ok() )
         {
-            return outcome::failure( Error::StorageError );
+            return outcome::failure( Error::STORAGE_ERROR );
         }
 #else
         impl_->store_[rep.identity_key_] = val;
@@ -157,25 +157,25 @@ namespace sgns::neoswarm::reputation
     {
         if ( !open_ )
         {
-            return outcome::failure( Error::StorageError );
+            return outcome::failure( Error::STORAGE_ERROR );
         }
 #ifdef GENIUS_HAS_ROCKSDB
         std::string val;
         rocksdb::Status status = impl_->db_->Get( rocksdb::ReadOptions(), identity_key, &val );
         if ( status.IsNotFound() )
         {
-            return outcome::failure( Error::ReputationNotFound );
+            return outcome::failure( Error::REPUTATION_NOT_FOUND );
         }
         if ( !status.ok() )
         {
-            return outcome::failure( Error::StorageError );
+            return outcome::failure( Error::STORAGE_ERROR );
         }
         return outcome::success( Deserialize( val ) );
 #else
         auto it = impl_->store_.find( identity_key );
         if ( it == impl_->store_.end() )
         {
-            return outcome::failure( Error::ReputationNotFound );
+            return outcome::failure( Error::REPUTATION_NOT_FOUND );
         }
         return outcome::success( Deserialize( it->second ) );
 #endif
@@ -188,13 +188,13 @@ namespace sgns::neoswarm::reputation
     {
         if ( !open_ )
         {
-            return outcome::failure( Error::StorageError );
+            return outcome::failure( Error::STORAGE_ERROR );
         }
 #ifdef GENIUS_HAS_ROCKSDB
         auto status = impl_->db_->Delete( rocksdb::WriteOptions(), identity_key );
         if ( !status.ok() )
         {
-            return outcome::failure( Error::StorageError );
+            return outcome::failure( Error::STORAGE_ERROR );
         }
 #else
         impl_->store_.erase( identity_key );
@@ -209,7 +209,7 @@ namespace sgns::neoswarm::reputation
     {
         if ( !open_ )
         {
-            return outcome::failure( Error::StorageError );
+            return outcome::failure( Error::STORAGE_ERROR );
         }
         std::vector<NodeReputation> result;
 #ifdef GENIUS_HAS_ROCKSDB

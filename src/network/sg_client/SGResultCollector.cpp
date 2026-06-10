@@ -68,13 +68,13 @@ namespace sgns::neoswarm::network
         if ( !gotResult )
         {
             CollectLogger()->warn( "Result collection timed out for task {}", taskId );
-            return outcome::failure( Error::BroadcastTimeout );
+            return outcome::failure( Error::BROADCAST_TIMEOUT );
         }
 
         if ( impl_->resultData_.empty() )
         {
             CollectLogger()->warn( "Empty result received for task {}", taskId );
-            return outcome::failure( Error::InferenceFailed );
+            return outcome::failure( Error::INFERENCE_FAILED );
         }
 
         CollectLogger()->info( "Result collected for task {} ({} bytes)", taskId, impl_->resultData_.size() );

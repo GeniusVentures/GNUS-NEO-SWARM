@@ -154,7 +154,7 @@ namespace sgns::neoswarm::network
         catch ( const std::exception& e )
         {
             NetworkLogger()->error( "P2PNode start failed: {}", e.what() );
-            return outcome::failure( Error::NetworkError );
+            return outcome::failure( Error::NETWORK_ERROR );
         }
 
         return outcome::success();
@@ -216,7 +216,7 @@ namespace sgns::neoswarm::network
     {
         if ( !running_ )
         {
-            return outcome::failure( Error::NetworkError );
+            return outcome::failure( Error::NETWORK_ERROR );
         }
 
         nlohmann::json j;
@@ -254,7 +254,7 @@ namespace sgns::neoswarm::network
     {
         if ( !running_ )
         {
-            return outcome::failure( Error::NetworkError );
+            return outcome::failure( Error::NETWORK_ERROR );
         }
         NetworkLogger()->debug( "Broadcasting CRDT update ({} bytes)", crdt_data.size() );
 #ifdef GENIUS_HAS_LIBP2P

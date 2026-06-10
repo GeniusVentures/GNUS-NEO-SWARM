@@ -426,7 +426,7 @@ namespace sgns::neoswarm::api
     {
         if ( !core_engine_ )
         {
-            return outcome::failure( Error::InternalError );
+            return outcome::failure( Error::INTERNAL_ERROR );
         }
 
         Task t = task;
@@ -454,7 +454,7 @@ namespace sgns::neoswarm::api
             case ExecutionMode::Swarm:
                 return RunSwarm( t, route );
         }
-        return outcome::failure( Error::InternalError );
+        return outcome::failure( Error::INTERNAL_ERROR );
     }
 
     // -----------------------------------------------------------------------

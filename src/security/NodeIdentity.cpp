@@ -111,7 +111,7 @@ namespace sgns::neoswarm::security
                 return outcome::success();
             }
         }
-        return outcome::failure( Error::IdentityError );
+        return outcome::failure( Error::IDENTITY_ERROR );
 #else
         std::random_device rd;
         std::mt19937_64 rng( rd() );
@@ -162,14 +162,14 @@ namespace sgns::neoswarm::security
         std::ifstream f( path );
         if ( !f )
         {
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
         std::string hex_priv;
         f >> hex_priv;
         auto bytes = FromHex( hex_priv );
         if ( bytes.size() != kPrivKeySize )
         {
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
         std::copy( bytes.begin(), bytes.end(), impl_->priv_key_.begin() );
 #ifdef GENIUS_HAS_SECP256K1
@@ -189,12 +189,12 @@ namespace sgns::neoswarm::security
     {
         if ( !loaded_ )
         {
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
         std::ofstream f( path );
         if ( !f )
         {
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
         f << ToHex( impl_->priv_key_.data(), kPrivKeySize ) << '\n';
         return outcome::success();
@@ -207,7 +207,7 @@ namespace sgns::neoswarm::security
     {
         if ( !loaded_ )
         {
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
 
 #ifdef GENIUS_HAS_OPENSSL
@@ -215,7 +215,7 @@ namespace sgns::neoswarm::security
         uint8_t salt[32];
         if ( !RAND_bytes( salt, sizeof( salt ) ) )
         {
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
 
         // 2. Derive 256-bit encryption key via PBKDF2
@@ -224,39 +224,39 @@ namespace sgns::neoswarm::security
                                  600000, // iterations
                                  EVP_sha256(), sizeof( key ), key ) )
         {
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
 
         // 3. Generate 12-byte random IV for GCM
         uint8_t iv[12];
         if ( !RAND_bytes( iv, sizeof( iv ) ) )
         {
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
 
         // 4. Encrypt with AES-256-GCM
         EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
         if ( !ctx )
         {
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
 
         if ( !EVP_EncryptInit_ex( ctx, EVP_aes_256_gcm(), nullptr, nullptr, nullptr ) )
         {
             EVP_CIPHER_CTX_free( ctx );
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
 
         if ( !EVP_CIPHER_CTX_ctrl( ctx, EVP_CTRL_GCM_SET_IVLEN, sizeof( iv ), nullptr ) )
         {
             EVP_CIPHER_CTX_free( ctx );
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
 
         if ( !EVP_EncryptInit_ex( ctx, nullptr, nullptr, key, iv ) )
         {
             EVP_CIPHER_CTX_free( ctx );
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
 
         // Encrypt the private key
@@ -266,14 +266,14 @@ namespace sgns::neoswarm::security
                                  static_cast<int>( kPrivKeySize ) ) )
         {
             EVP_CIPHER_CTX_free( ctx );
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
         int totalLen = outLen;
 
         if ( !EVP_EncryptFinal_ex( ctx, ciphertext.data() + totalLen, &outLen ) )
         {
             EVP_CIPHER_CTX_free( ctx );
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
         totalLen += outLen;
         ciphertext.resize( totalLen );
@@ -283,7 +283,7 @@ namespace sgns::neoswarm::security
         if ( !EVP_CIPHER_CTX_ctrl( ctx, EVP_CTRL_GCM_GET_TAG, sizeof( tag ), tag ) )
         {
             EVP_CIPHER_CTX_free( ctx );
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
 
         EVP_CIPHER_CTX_free( ctx );
@@ -292,7 +292,7 @@ namespace sgns::neoswarm::security
         std::ofstream f( path, std::ios::binary );
         if ( !f )
         {
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
 
         uint32_t saltLen = static_cast<uint32_t>( sizeof( salt ) );
@@ -305,14 +305,14 @@ namespace sgns::neoswarm::security
 
         if ( !f.good() )
         {
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
 
         IdentityLogger()->info( "NodeIdentity saved encrypted to {}", path );
         return outcome::success();
 #else
         IdentityLogger()->error( "SaveEncrypted: OpenSSL not available" );
-        return outcome::failure( Error::IdentityError );
+        return outcome::failure( Error::IDENTITY_ERROR );
 #endif
     }
 
@@ -325,7 +325,7 @@ namespace sgns::neoswarm::security
         std::ifstream f( path, std::ios::binary );
         if ( !f )
         {
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
 
         // 1. Read salt length
@@ -333,7 +333,7 @@ namespace sgns::neoswarm::security
         f.read( reinterpret_cast<char*>( &saltLen ), sizeof( saltLen ) );
         if ( !f.good() || saltLen == 0 || saltLen > 1024 )
         {
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
 
         // 2. Read salt
@@ -341,7 +341,7 @@ namespace sgns::neoswarm::security
         f.read( reinterpret_cast<char*>( salt.data() ), static_cast<std::streamsize>( saltLen ) );
         if ( !f.good() )
         {
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
 
         // 3. Read IV
@@ -349,7 +349,7 @@ namespace sgns::neoswarm::security
         f.read( reinterpret_cast<char*>( iv ), sizeof( iv ) );
         if ( !f.good() )
         {
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
 
         // 4. Read ciphertext (remaining bytes minus 16-byte tag)
@@ -359,13 +359,13 @@ namespace sgns::neoswarm::security
         auto ciphertextSize = static_cast<size_t>( fileSize - f.tellg() ) - 16; // minus tag
         if ( ciphertextSize > 1024 || ciphertextSize < kPrivKeySize )
         {
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
         std::vector<uint8_t> ciphertext( ciphertextSize );
         f.read( reinterpret_cast<char*>( ciphertext.data() ), static_cast<std::streamsize>( ciphertextSize ) );
         if ( !f.good() )
         {
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
 
         // 5. Read GCM tag
@@ -373,7 +373,7 @@ namespace sgns::neoswarm::security
         f.read( reinterpret_cast<char*>( tag ), sizeof( tag ) );
         if ( !f.good() )
         {
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
 
         // 6. Derive key via PBKDF2
@@ -381,32 +381,32 @@ namespace sgns::neoswarm::security
         if ( !PKCS5_PBKDF2_HMAC( passphrase.c_str(), static_cast<int>( passphrase.size() ), salt.data(),
                                  static_cast<int>( salt.size() ), 600000, EVP_sha256(), sizeof( key ), key ) )
         {
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
 
         // 7. Decrypt with AES-256-GCM
         EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
         if ( !ctx )
         {
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
 
         if ( !EVP_DecryptInit_ex( ctx, EVP_aes_256_gcm(), nullptr, nullptr, nullptr ) )
         {
             EVP_CIPHER_CTX_free( ctx );
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
 
         if ( !EVP_CIPHER_CTX_ctrl( ctx, EVP_CTRL_GCM_SET_IVLEN, sizeof( iv ), nullptr ) )
         {
             EVP_CIPHER_CTX_free( ctx );
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
 
         if ( !EVP_DecryptInit_ex( ctx, nullptr, nullptr, key, iv ) )
         {
             EVP_CIPHER_CTX_free( ctx );
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
 
         std::vector<uint8_t> plaintext( ciphertextSize );
@@ -415,7 +415,7 @@ namespace sgns::neoswarm::security
                                  static_cast<int>( ciphertextSize ) ) )
         {
             EVP_CIPHER_CTX_free( ctx );
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
         int totalLen = outLen;
 
@@ -423,7 +423,7 @@ namespace sgns::neoswarm::security
         if ( !EVP_CIPHER_CTX_ctrl( ctx, EVP_CTRL_GCM_SET_TAG, sizeof( tag ), const_cast<uint8_t*>( tag ) ) )
         {
             EVP_CIPHER_CTX_free( ctx );
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
 
         // 9. Finalize — this validates the GCM tag
@@ -434,7 +434,7 @@ namespace sgns::neoswarm::security
         {
             // Tag verification failed — wrong passphrase or tampered file
             IdentityLogger()->error( "LoadEncrypted: decryption failed — wrong passphrase or corrupt file" );
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
         totalLen += outLen;
         plaintext.resize( totalLen );
@@ -442,7 +442,7 @@ namespace sgns::neoswarm::security
         // 10. Copy decrypted key
         if ( plaintext.size() != kPrivKeySize )
         {
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
         std::memcpy( impl_->priv_key_.data(), plaintext.data(), kPrivKeySize );
 
@@ -459,7 +459,7 @@ namespace sgns::neoswarm::security
         return outcome::success();
 #else
         IdentityLogger()->error( "LoadEncrypted: OpenSSL not available" );
-        return outcome::failure( Error::IdentityError );
+        return outcome::failure( Error::IDENTITY_ERROR );
 #endif
     }
 
@@ -470,7 +470,7 @@ namespace sgns::neoswarm::security
     {
         if ( !loaded_ )
         {
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
 #ifdef GENIUS_HAS_SECP256K1
         uint8_t hash[32];
@@ -487,7 +487,7 @@ namespace sgns::neoswarm::security
         if ( !secp256k1_ecdsa_sign( impl_->ctx_, &sig, hash, impl_->priv_key_.data(), secp256k1_nonce_function_rfc6979,
                                     nullptr ) )
         {
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
         std::vector<uint8_t> der( 72 );
         size_t der_len = 72;

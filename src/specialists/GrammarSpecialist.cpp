@@ -32,7 +32,7 @@ namespace sgns::neoswarm::specialists
     {
         if ( !engine_ )
         {
-            return outcome::failure( Error::ModelLoadFailed );
+            return outcome::failure( Error::MODEL_LOAD_FAILED );
         }
         BOOST_OUTCOME_TRY( engine_->LoadModel( model_path ) );
         loaded_ = true;

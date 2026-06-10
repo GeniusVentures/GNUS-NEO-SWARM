@@ -43,7 +43,7 @@ namespace sgns::neoswarm::network
         if ( !impl_->identity_.IsLoaded() )
         {
             AuthLogger()->error( "Cannot sign — NodeIdentity not loaded" );
-            return outcome::failure( Error::IdentityError );
+            return outcome::failure( Error::IDENTITY_ERROR );
         }
 
         std::string signedPayload = impl_->signer_->AttachSignature( payload );
