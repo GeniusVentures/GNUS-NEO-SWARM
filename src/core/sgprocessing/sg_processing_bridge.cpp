@@ -16,7 +16,6 @@
 
 #include <filesystem>
 
-#ifdef GENIUS_HAS_SGPROCESSING
 #include <Generators.hpp>
 #include <InputFormat.hpp>
 #include <SGNSProcMain.hpp>
@@ -308,7 +307,6 @@ namespace sgns::neoswarm::core
         const std::string& jsondata,
         std::shared_ptr<boost::asio::io_context> ioc ) const
     {
-#ifdef GENIUS_HAS_SGPROCESSING
         // Step 1: Create ProcessingManager from JSON
         auto pm_result = sgns::sgprocessing::ProcessingManager::Create( jsondata );
         if ( !pm_result )

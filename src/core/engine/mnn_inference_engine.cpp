@@ -20,33 +20,14 @@ namespace { constexpr size_t kDefaultVocabSize = 32000U; }
 #include <random>
 #include <stdexcept>
 
-#ifdef GENIUS_HAS_SGPROCESSING
 #include <InputFormat.hpp>
-#else
-namespace sgns
-{
-    enum class InputFormat : int
-    {
-        FLOAT16 = 0,
-        FLOAT32 = 1,
-        FP4_ULTRA = 2,
-        INT16 = 3,
-        INT32 = 4,
-        INT8 = 5,
-        RGB8 = 6,
-        RGBA8 = 7
-    };
-} // namespace sgns
-#endif
 
-#ifdef GENIUS_HAS_MNN
 #include <MNN/Interpreter.hpp>
 #include <MNN/MNNDefine.h>
 #include <MNN/MNNForwardType.h>
 #include <MNN/Tensor.hpp>
 #include <MNN/expr/Executor.hpp>
 #include <MNN/llm/llm.hpp>
-#endif
 
 namespace sgns::neoswarm::core
 {
@@ -73,7 +54,6 @@ namespace sgns::neoswarm::core
 
     MNNInferenceEngine::~MNNInferenceEngine()
     {
-#ifdef GENIUS_HAS_MNN
         if ( mnn_llm_ )
         {
             MNN::Transformer::Llm::destroy( mnn_llm_ );
@@ -91,12 +71,9 @@ namespace sgns::neoswarm::core
     // -----------------------------------------------------------------------
     int MNNInferenceEngine::SelectBackend() const
     {
-#ifdef GENIUS_HAS_MNN
         // MNN_FORWARD_VULKAN = 7, MNN_FORWARD_CPU = 0
         return ( cfg_.backend_ == "vulkan" ) ? 7 : 0;
-#else
-        return 0;
-#endif
+
     }
 
     std::string MNNInferenceEngine::BackendName() const
@@ -105,11 +82,8 @@ namespace sgns::neoswarm::core
         {
             return cfg_.sg_network_mode_ ? "SGProcessing/Network" : "SGProcessing/Local";
         }
-#ifdef GENIUS_HAS_MNN
         return ( cfg_.backend_ == "vulkan" ) ? "MNN/Vulkan" : "MNN/CPU";
-#else
-        return "Stub/NoMNN";
-#endif
+
     }
 
     // -----------------------------------------------------------------------
@@ -145,7 +119,6 @@ namespace sgns::neoswarm::core
         }
 
         // ---- MNN Interpreter path (fallback) ----
-#ifdef GENIUS_HAS_MNN
         if ( cfg_.engine_mode_ == "interpreter" )
         {
             // Check if this is an MNN LLM model directory (has llm_config.json or llm.mnn.json)
@@ -224,7 +197,6 @@ namespace sgns::neoswarm::core
             EngineLogger()->info( "Model loaded (Interpreter, backend={})", BackendName() );
             return outcome::success();
         }
-#endif
 
         // ---- Stub mode (no engine configured or MNN not compiled) ----
         EngineLogger()->warn( "Engine mode '{}' — running in stub mode", cfg_.engine_mode_ );
@@ -289,7 +261,6 @@ namespace sgns::neoswarm::core
         }
 
         // ---- MNN Interpreter path (fallback) ----
-#ifdef GENIUS_HAS_MNN
         if ( cfg_.engine_mode_ == "interpreter" )
         {
             // --- MNN native LLM path (autoregressive) ---
@@ -384,7 +355,6 @@ namespace sgns::neoswarm::core
                                    latency_ms, perplexity );
             return outcome::success( std::move( resp ) );
         }
-#endif
 
         // ---- Stub path ----
         InferenceResponse resp;
@@ -409,7 +379,6 @@ namespace sgns::neoswarm::core
         // SGProcessing does not support streaming yet — fall through to batch.
         // Interpreter path supports token-by-token streaming.
 
-#ifdef GENIUS_HAS_MNN
         if ( cfg_.engine_mode_ == "interpreter" )
         {
             // --- MNN native LLM streaming ---
@@ -494,7 +463,6 @@ namespace sgns::neoswarm::core
             }
             return outcome::success();
         }
-#endif
 
         // Fallback: run batch inference and emit the full result as one token.
         auto result = Infer( task );
@@ -514,7 +482,6 @@ namespace sgns::neoswarm::core
     // -----------------------------------------------------------------------
     outcome::result<std::vector<float>> MNNInferenceEngine::RunForward( const std::vector<int>& input_ids )
     {
-#ifdef GENIUS_HAS_MNN
         if ( !session_ )
         {
             // Stub: return random logits using dynamic vocab size
@@ -556,16 +523,7 @@ namespace sgns::neoswarm::core
         std::vector<float> logits( host_logits->host<float>(), host_logits->host<float>() + vocab_size );
         delete host_logits;
         return outcome::success( std::move( logits ) );
-#else
-        (void) input_ids;
-        const size_t kVocabSize = tokenizer_ ? tokenizer_->VocabSize() : kDefaultVocabSize;
-        std::vector<float> logits( kVocabSize, 0.0f );
-        static std::mt19937 rng( 42 );
-        std::normal_distribution<float> dist( 0.0f, 1.0f );
-        for ( auto& v : logits )
-            v = dist( rng );
-        return outcome::success( std::move( logits ) );
-#endif
+
     }
 
     // -----------------------------------------------------------------------
