@@ -13,7 +13,7 @@
 #include "core/engine/inference_engine.hpp"
 #include "knowledge/context_injection.hpp"
 #include "knowledge/fact_validation.hpp"
-#include "knowledge/m_knowledgeretrieval.hpp"
+#include "knowledge/knowledge_retrieval.hpp"
 #include "network/p2p_node.hpp"
 #include "network/result_aggregation.hpp"
 #include "reputation/reputation_crdt.hpp"

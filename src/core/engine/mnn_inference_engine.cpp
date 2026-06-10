@@ -8,7 +8,7 @@
  * Engine mode selected at runtime via Config::engine_mode_, not compile flags.
  */
 
-#include "MNNinference_engine.hpp"
+#include "mnn_inference_engine.hpp"
 #include "common/logging.hpp"
 
 #include <algorithm>
@@ -63,7 +63,6 @@ namespace sgns::neoswarm::core
         {
             interpreter_->releaseSession( session_ );
         }
-#endif
     }
 
     // -----------------------------------------------------------------------
