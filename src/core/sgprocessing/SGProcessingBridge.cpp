@@ -13,13 +13,7 @@
 
 #include <boost/asio/io_context.hpp>
 #include <nlohmann/json.hpp>
-
-#ifdef __unix__
-#include <unistd.h> // getcwd
-#elif defined( _WIN32 )
-#include <direct.h>
-#define getcwd _getcwd
-#endif
+#include <filesystem>
 
 #ifdef GENIUS_HAS_SGPROCESSING
 #include <Generators.hpp>
@@ -133,11 +127,8 @@ namespace sgns::neoswarm::core
                     return uri;
                 }
                 // Prepend current working directory
-                char cwd[4096] = {};
-                if ( getcwd( cwd, sizeof( cwd ) ) != nullptr )
-                {
-                    return std::string( "file://" ) + cwd + "/" + rel;
-                }
+                std::string cwd = std::filesystem::current_path().string();
+                return std::string( "file://" ) + cwd + "/" + rel;
             }
             return uri;
         }
