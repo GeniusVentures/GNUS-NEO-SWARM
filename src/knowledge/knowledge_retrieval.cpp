@@ -5,7 +5,7 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include "m_knowledgeretrieval.hpp"
+#include "knowledge_retrieval.hpp"
 #include "common/logging.hpp"
 
 #include <algorithm>

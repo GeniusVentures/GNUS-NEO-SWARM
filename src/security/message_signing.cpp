@@ -13,6 +13,7 @@
 #include <sstream>
 
 #include <secp256k1.h>
+#include <openssl/rand.h>
 #include <openssl/sha.h>
 
 namespace sgns::neoswarm::security

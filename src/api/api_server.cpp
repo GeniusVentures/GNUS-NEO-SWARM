@@ -7,7 +7,7 @@
 
 #include "api_server.hpp"
 #include "common/logging.hpp"
-#include "core/engine/MNNinference_engine.hpp"
+#include "core/engine/mnn_inference_engine.hpp"
 #include "core/tokenizer/tokenizer.hpp"
 #include "network/sg_client/super_genius_client.hpp"
 
@@ -233,7 +233,7 @@ namespace sgns::neoswarm::api
         }
         else
         {
-            rep.m_identitykey_ = resp.node_id_;
+            rep.identity_key_ = resp.node_id_;
         }
 
         auto updated = m_scoring->Update( rep, resp, median_latency_ms, std::nullopt, m_consensusoutput );
@@ -266,7 +266,6 @@ namespace sgns::neoswarm::api
         resp.task_id_ = task.id_;
         resp.mode_used_ = ExecutionMode::SingleNode;
         resp.route_used_ = route.target_;
-        resp.grounding_facts_ = facts;
         resp.total_latency_ms_ = res.value().latency_ms_;
         resp.success_ = true;
 
@@ -327,7 +326,6 @@ namespace sgns::neoswarm::api
         resp.task_id_ = task.id_;
         resp.mode_used_ = ExecutionMode::Specialist;
         resp.route_used_ = route.target_;
-        resp.grounding_facts_ = facts;
         resp.total_latency_ms_ = total_ms;
         resp.success_ = true;
 
@@ -409,7 +407,6 @@ namespace sgns::neoswarm::api
             resp.task_id_ = task.id_;
             resp.mode_used_ = ExecutionMode::Swarm;
             resp.route_used_ = route.target_;
-            resp.grounding_facts_ = facts;
             resp.total_latency_ms_ = std::chrono::duration<double, std::milli>( t1 - t0 ).count();
             resp.success_ = true;
             return outcome::success( std::move( resp ) );

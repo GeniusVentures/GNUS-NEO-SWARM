@@ -38,6 +38,7 @@ namespace sgns::neoswarm::network
 
         bool isLocalhost = m_cfg.m_endpoint.find( "localhost" ) != std::string::npos ||
                            m_cfg.m_endpoint.find( "127.0.0.1" ) != std::string::npos;
+#ifdef GENIUS_HAS_GRPC
 
         std::shared_ptr<grpc::ChannelCredentials> creds;
 
@@ -71,6 +72,7 @@ namespace sgns::neoswarm::network
             ChannelLogger()->error( "Failed to create channel to {}", m_cfg.m_endpoint );
             return outcome::failure( Error::NetworkError );
         }
+#endif  // GENIUS_HAS_GRPC
 
         ChannelLogger()->info( "Channel created to {}", m_cfg.m_endpoint );
         return outcome::success();
