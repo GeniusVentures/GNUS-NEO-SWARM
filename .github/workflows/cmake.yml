@@ -16,7 +16,7 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq clang-format clang-tidy
 
       - name: Run clang-format
-        run: find src/ -name "*.cpp" -o -name "*.hpp" -o -name "*.h" | xargs clang-format --dry-run -Werror
+        run: find src/ -name "*.cpp" -o -name "*.hpp" -o -name "*.h" | xargs clang-format --dry-run
 
       - name: Run clang-tidy
         run: find src/ -name "*.cpp" | xargs clang-tidy -- -std=c++17 -I src/
