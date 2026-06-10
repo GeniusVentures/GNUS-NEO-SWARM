@@ -58,7 +58,7 @@ namespace sgns::neoswarm::api
             int m_grpcPort = 50051;
             std::string m_nodeKeyFile = "./node.key";
             bool m_enableSgProcessing = false;
-            bool sg_processing_network_m_mode = false;
+            bool sg_processing_m_networkMode = false;
             std::string sg_m_endpoint = "localhost:50051";
             std::string m_sgTlsCa;
             std::string m_sgTlsCert;
@@ -116,7 +116,9 @@ namespace sgns::neoswarm::api
         std::shared_ptr<knowledge::KnowledgeRetrieval> m_knowledge;
         std::unique_ptr<knowledge::ContextInjection> m_contextInj;
         std::unique_ptr<knowledge::FactValidation> m_factVal;
+#ifdef GENIUS_HAS_GRPC
         std::unique_ptr<network::SuperGeniusClient> m_sgClient;
+#endif
 
         outcome::result<InferenceResponse> RunSingleNode( const Task& task, const RouteDecision& route );
         outcome::result<InferenceResponse> RunSpecialist( const Task& task, const RouteDecision& route );

@@ -40,7 +40,7 @@ namespace sgns::neoswarm::core
         public:
         struct Config
         {
-            bool network_m_mode = false; ///< Phase 2: dispatch via gRPCForSuperGenius
+            bool m_networkMode = false; ///< Phase 2: dispatch via gRPCForSuperGenius
         };
 
         SGProcessingBridge();
@@ -69,8 +69,8 @@ namespace sgns::neoswarm::core
         /**
          * @brief Submit a job and return raw tensor output bytes.
          *
-         * Phase 1 (network_m_mode=false): calls ProcessingManager::Create + Process.
-         * Phase 2 (network_m_mode=true):  dispatches via gRPCForSuperGenius (stub).
+         * Phase 1 (m_networkMode=false): calls ProcessingManager::Create + Process.
+         * Phase 2 (m_networkMode=true):  dispatches via gRPCForSuperGenius (stub).
          *
          * @param model_uri    IPFS URI or path to the MNN model.
          * @param input_uri    IPFS URI or path to the input data.
@@ -87,7 +87,7 @@ namespace sgns::neoswarm::core
 
         private:
         Config m_cfg;
-        network::SuperGeniusClient* client_ = nullptr;
+        network::SuperGeniusClient* m_client = nullptr;
 
         outcome::result<std::vector<uint8_t>> SubmitDirect( const std::string& jsondata,
                                                             std::shared_ptr<boost::asio::io_context> ioc ) const;
