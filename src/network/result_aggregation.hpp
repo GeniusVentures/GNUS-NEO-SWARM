@@ -28,8 +28,8 @@ namespace sgns::neoswarm::network
         struct Config
         {
             std::chrono::milliseconds m_timeout{ 5000 }; ///< max wait for responses
-            size_t min_responses_ = 1;                  ///< minimum before returning
-            size_t max_responses_ = 10;                 ///< stop collecting after this many
+            size_t min_responses_ = 1;                   ///< minimum before returning
+            size_t max_responses_ = 10;                  ///< stop collecting after this many
         };
 
         ResultAggregation();

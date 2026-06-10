@@ -5,8 +5,8 @@
  * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
-#include "tokenizer.hpp"
 #include "common/logging.hpp"
+#include "tokenizer.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -54,7 +54,6 @@ namespace sgns::neoswarm::core
         impl_->m_loaded = true;
         TokenizerLogger()->info( "Tokenizer loaded: {} (vocab={})", model_path, VocabSize() );
         return outcome::success();
-
     }
 
     // -----------------------------------------------------------------------
@@ -73,7 +72,6 @@ namespace sgns::neoswarm::core
             return outcome::failure( Error::TokenizerFailed );
         }
         return outcome::success( std::move( ids ) );
-
     }
 
     // -----------------------------------------------------------------------
@@ -92,7 +90,6 @@ namespace sgns::neoswarm::core
             return outcome::failure( Error::TokenizerFailed );
         }
         return outcome::success( std::move( text ) );
-
     }
 
     // -----------------------------------------------------------------------

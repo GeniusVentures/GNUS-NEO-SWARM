@@ -74,7 +74,6 @@ namespace sgns::neoswarm::reputation
     {
         rocksdb::DB* m_db = nullptr;
         rocksdb::Options options_;
-
     };
 
     ReputationStorage::ReputationStorage( const std::string& db_path )
@@ -157,7 +156,6 @@ namespace sgns::neoswarm::reputation
             return outcome::failure( Error::StorageError );
         }
         return outcome::success( Deserialize( val ) );
-
     }
 
     // -----------------------------------------------------------------------

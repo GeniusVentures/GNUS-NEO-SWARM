@@ -44,11 +44,11 @@ namespace
     char* AllocCopy( const std::string& src )
     {
         const auto len = src.size();
-        auto*      dst = static_cast<char*>( std::malloc( len + 1 ) );
+        auto* dst = static_cast<char*>( std::malloc( len + 1 ) );
         if ( dst != nullptr )
         {
             std::memcpy( dst, src.data(), len );
-            dst[ len ] = '\0';
+            dst[len] = '\0';
         }
         return dst;
     }
@@ -62,8 +62,7 @@ extern "C"
         return 0;
     }
 
-    GENIUS_ELM_CHAT_C_API char*
-        GeniusElmChatCompletionsCreate( const char* /*requestJson*/ ) GENIUS_ELM_CHAT_C_NOEXCEPT
+    GENIUS_ELM_CHAT_C_API char* GeniusElmChatCompletionsCreate( const char* /*requestJson*/ ) GENIUS_ELM_CHAT_C_NOEXCEPT
     {
         return AllocCopy( kStubResponseJson );
     }

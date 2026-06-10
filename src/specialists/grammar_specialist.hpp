@@ -8,8 +8,8 @@
 #ifndef NEOSWARM_SPECIALISTS_GRAMMARSPECIALIST_HPP
 #define NEOSWARM_SPECIALISTS_GRAMMARSPECIALIST_HPP
 
-#include "i_specialist.hpp"
 #include "core/engine/inference_engine.hpp"
+#include "i_specialist.hpp"
 #include <memory>
 
 namespace sgns::neoswarm::specialists

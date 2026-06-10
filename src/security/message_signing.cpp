@@ -12,9 +12,9 @@
 #include <iomanip>
 #include <sstream>
 
-#include <secp256k1.h>
 #include <openssl/rand.h>
 #include <openssl/sha.h>
+#include <secp256k1.h>
 
 namespace sgns::neoswarm::security
 {
@@ -115,7 +115,6 @@ namespace sgns::neoswarm::security
         int result = secp256k1_ecdsa_verify( ctx, &sig, hash, &pubkey );
         secp256k1_context_destroy( ctx );
         return result == 1;
-
     }
 
     // -----------------------------------------------------------------------

@@ -14,7 +14,10 @@
 #include <algorithm>
 #include <boost/asio/io_context.hpp>
 #include <chrono>
-namespace { constexpr size_t kDefaultVocabSize = 32000U; }
+namespace
+{
+    constexpr size_t kDefaultVocabSize = 32000U;
+}
 #include <cmath>
 #include <numeric>
 #include <random>
@@ -63,7 +66,6 @@ namespace sgns::neoswarm::core
         {
             m_interpreter->releaseSession( m_session );
         }
-
     }
 
     // -----------------------------------------------------------------------
@@ -73,7 +75,6 @@ namespace sgns::neoswarm::core
     {
         // MNN_FORWARD_VULKAN = 7, MNN_FORWARD_CPU = 0
         return ( m_cfg.backend_ == "vulkan" ) ? 7 : 0;
-
     }
 
     std::string MNNInferenceEngine::BackendName() const
@@ -83,7 +84,6 @@ namespace sgns::neoswarm::core
             return m_cfg.sg_m_networkMode ? "SGProcessing/Network" : "SGProcessing/Local";
         }
         return ( m_cfg.backend_ == "vulkan" ) ? "MNN/Vulkan" : "MNN/CPU";
-
     }
 
     // -----------------------------------------------------------------------
@@ -91,7 +91,8 @@ namespace sgns::neoswarm::core
     // -----------------------------------------------------------------------
     outcome::result<void> MNNInferenceEngine::LoadModel( const std::string& model_path )
     {
-        EngineLogger()->info( "Loading model: {} (mode={}, backend={})", model_path, m_cfg.engine_m_mode, BackendName() );
+        EngineLogger()->info( "Loading model: {} (mode={}, backend={})", model_path, m_cfg.engine_m_mode,
+                              BackendName() );
 
         // ---- SGProcessing path (primary) ----
         if ( m_cfg.engine_m_mode == "sgprocessing" )
@@ -523,7 +524,6 @@ namespace sgns::neoswarm::core
         std::vector<float> logits( host_logits->host<float>(), host_logits->host<float>() + vocab_size );
         delete host_logits;
         return outcome::success( std::move( logits ) );
-
     }
 
     // -----------------------------------------------------------------------

@@ -6,8 +6,8 @@
  */
 
 #include "sg_job_submitter.hpp"
-#include "sg_message_authenticator.hpp"
 #include "common/logging.hpp"
+#include "sg_message_authenticator.hpp"
 #include <chrono>
 #include <iomanip>
 #include <random>
@@ -90,7 +90,6 @@ namespace sgns::neoswarm::network
         SubmitLogger()->warn( "gRPC PubSub publish not yet wired — task {} prepared for dispatch", taskId );
 
         return taskId;
-
     }
 
     SGJobSubmitter::~SGJobSubmitter() = default;

@@ -8,8 +8,8 @@
 #ifndef NEOSWARM_REPUTATION_REPUTATIONSCORING_HPP
 #define NEOSWARM_REPUTATION_REPUTATIONSCORING_HPP
 
-#include "node_reputation.hpp"
 #include "common/types.hpp"
+#include "node_reputation.hpp"
 #include <optional>
 
 namespace sgns::neoswarm::reputation

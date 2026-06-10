@@ -20,7 +20,7 @@
 #include <InputFormat.hpp>
 #include <SGNSProcMain.hpp>
 #include <processingbase/ProcessingManager.hpp>
- // namespace sgns
+// namespace sgns
 
 namespace sgns::neoswarm::core
 {
@@ -363,7 +363,7 @@ namespace sgns::neoswarm::core
         }
 
         BridgeLogger()->debug( "Submitting job via SuperGeniusClient ({} bytes)", jsondata.size() );
-        (void)jsondata;
+        (void) jsondata;
         return outcome::failure( Error::NetworkError );
     }
 

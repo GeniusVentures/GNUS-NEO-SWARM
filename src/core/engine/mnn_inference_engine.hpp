@@ -15,11 +15,11 @@
 #ifndef NEOSWARM_CORE_ENGINE_MNNINFERENCEENGINE_HPP
 #define NEOSWARM_CORE_ENGINE_MNNINFERENCEENGINE_HPP
 
-#include "inference_engine.hpp"
 #include "core/fp4/fp4_codec.hpp"
 #include "core/sgprocessing/sg_processing_bridge.hpp"
 #include "core/sgprocessing/tensor_interpreter.hpp"
 #include "core/tokenizer/tokenizer.hpp"
+#include "inference_engine.hpp"
 #include <atomic>
 #include <memory>
 #include <string>
@@ -87,14 +87,14 @@ namespace sgns::neoswarm::core
             int num_threads_ = 4;
 
             /// Generation parameters
-            static constexpr int   kDefaultMaxTokens         = 512;
-            int   max_new_tokens_     = kDefaultMaxTokens;
-            static constexpr float kDefaultTemperature       = 0.7f;
-            float m_temperature        = kDefaultTemperature;
-            static constexpr float kDefaultTopP              = 0.9f;
-            float top_p_              = kDefaultTopP;
-            static constexpr int   kDefaultTopK              = 40;
-            int   top_k_              = kDefaultTopK;
+            static constexpr int kDefaultMaxTokens = 512;
+            int max_new_tokens_ = kDefaultMaxTokens;
+            static constexpr float kDefaultTemperature = 0.7f;
+            float m_temperature = kDefaultTemperature;
+            static constexpr float kDefaultTopP = 0.9f;
+            float top_p_ = kDefaultTopP;
+            static constexpr int kDefaultTopK = 40;
+            int top_k_ = kDefaultTopK;
             static constexpr float kDefaultRepetitionPenalty = 1.1f;
             float repetition_penalty_ = kDefaultRepetitionPenalty;
 

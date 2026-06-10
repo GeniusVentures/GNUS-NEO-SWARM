@@ -8,8 +8,8 @@
 #ifndef NEOSWARM_KNOWLEDGE_FACTVALIDATION_HPP
 #define NEOSWARM_KNOWLEDGE_FACTVALIDATION_HPP
 
-#include "knowledge_retrieval.hpp"
 #include "common/types.hpp"
+#include "knowledge_retrieval.hpp"
 #include <memory>
 #include <string>
 #include <vector>

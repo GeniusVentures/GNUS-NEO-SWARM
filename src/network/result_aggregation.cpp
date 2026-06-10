@@ -38,7 +38,8 @@ namespace sgns::neoswarm::network
             return;
         }
         results_.push_back( output );
-        AggregationLogger()->debug( "Received from {} ({}/{})", output.m_nodeId, results_.size(), m_cfg.max_responses_ );
+        AggregationLogger()->debug( "Received from {} ({}/{})", output.m_nodeId, results_.size(),
+                                    m_cfg.max_responses_ );
         if ( results_.size() >= m_cfg.min_responses_ )
         {
             done_ = true;

@@ -65,7 +65,7 @@ namespace sgns::neoswarm::api
             if ( !m_identity->IsLoaded() )
             {
                 BOOST_OUTCOME_TRY( m_identity->Generate() );
-                (void)m_identity->SaveToFile( m_cfg.m_nodeKeyFile );
+                (void) m_identity->SaveToFile( m_cfg.m_nodeKeyFile );
             }
         }
         ServerLogger()->info( "Node identity: {}", m_identity->PeerId() );
@@ -84,7 +84,7 @@ namespace sgns::neoswarm::api
         if ( dot_pos != std::string::npos )
             tok_path = tok_path.substr( 0, dot_pos );
         tok_path += ".tokenizer.model";
-        (void)tokenizer->Load( tok_path ); // degrades gracefully if not found
+        (void) tokenizer->Load( tok_path ); // degrades gracefully if not found
         engine->SetTokenizer( tokenizer );
 #endif
 
@@ -110,11 +110,11 @@ namespace sgns::neoswarm::api
 
         if ( !m_cfg.grammar_m_modelPath.empty() )
         {
-            (void)m_grammarSpec->Load( m_cfg.grammar_m_modelPath );
+            (void) m_grammarSpec->Load( m_cfg.grammar_m_modelPath );
         }
         if ( !m_cfg.math_m_modelPath.empty() )
         {
-            (void)m_mathSpec->Load( m_cfg.math_m_modelPath );
+            (void) m_mathSpec->Load( m_cfg.math_m_modelPath );
         }
 
         // 4. Router
@@ -191,7 +191,7 @@ namespace sgns::neoswarm::api
             knowledge::KnowledgeRetrieval::Config k_cfg;
             k_cfg.m_factsPath = m_cfg.m_knowledgefacts_;
             m_knowledge = std::make_shared<knowledge::KnowledgeRetrieval>( k_cfg );
-            (void)m_knowledge->Load();
+            (void) m_knowledge->Load();
             m_contextInj = std::make_unique<knowledge::ContextInjection>();
             m_factVal = std::make_unique<knowledge::FactValidation>( m_knowledge );
         }
@@ -222,8 +222,8 @@ namespace sgns::neoswarm::api
     // UpdateReputation
     // -----------------------------------------------------------------------
     void ApiServer::UpdateReputation( const InferenceResponse& resp,
-                                            double median_latency_ms,
-                                            const std::string& m_consensusoutput )
+                                      double median_latency_ms,
+                                      const std::string& m_consensusoutput )
     {
         if ( !m_repStorage || !m_repStorage->IsOpen() )
         {
@@ -242,12 +242,12 @@ namespace sgns::neoswarm::api
         }
 
         auto updated = m_scoring->Update( rep, resp, median_latency_ms, std::nullopt, m_consensusoutput );
-        (void)m_repStorage->Put( updated );
+        (void) m_repStorage->Put( updated );
         m_repCrdt->Merge( updated );
 
         if ( m_p2pNode && m_p2pNode->IsRunning() )
         {
-            (void)m_p2pNode->BroadcastCRDT( m_repCrdt->Serialize() );
+            (void) m_p2pNode->BroadcastCRDT( m_repCrdt->Serialize() );
         }
     }
 
@@ -376,7 +376,7 @@ namespace sgns::neoswarm::api
                     }
                 } );
 
-            (void)m_p2pNode->BroadcastTask( aug_task );
+            (void) m_p2pNode->BroadcastTask( aug_task );
             auto collect_res = m_aggregation->Collect();
             if ( !collect_res.has_value() )
             {

@@ -6,12 +6,12 @@
  */
 
 #include "super_genius_client.hpp"
+#include "common/logging.hpp"
+#include "security/node_identity.hpp"
 #include "sg_channel_manager.hpp"
 #include "sg_job_submitter.hpp"
 #include "sg_message_authenticator.hpp"
 #include "sg_result_collector.hpp"
-#include "common/logging.hpp"
-#include "security/node_identity.hpp"
 
 namespace sgns::neoswarm::network
 {
@@ -76,7 +76,8 @@ namespace sgns::neoswarm::network
         auto result = m_impl->channelMgr_->CreateChannel();
         if ( !result.has_value() )
         {
-            ClientLogger()->warn( "Failed to create channel to {} — SuperGenius unavailable", m_impl->m_cfg.m_endpoint );
+            ClientLogger()->warn( "Failed to create channel to {} — SuperGenius unavailable",
+                                  m_impl->m_cfg.m_endpoint );
             return result;
         }
 

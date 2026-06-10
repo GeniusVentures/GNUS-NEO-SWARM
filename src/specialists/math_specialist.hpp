@@ -8,9 +8,9 @@
 #ifndef NEOSWARM_SPECIALISTS_MATHSPECIALIST_HPP
 #define NEOSWARM_SPECIALISTS_MATHSPECIALIST_HPP
 
+#include "core/engine/inference_engine.hpp"
 #include "i_specialist.hpp"
 #include "symbolic_fallback.hpp"
-#include "core/engine/inference_engine.hpp"
 #include <memory>
 #include <optional>
 

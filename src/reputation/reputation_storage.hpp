@@ -8,8 +8,8 @@
 #ifndef NEOSWARM_REPUTATION_REPUTATIONSTORAGE_HPP
 #define NEOSWARM_REPUTATION_REPUTATIONSTORAGE_HPP
 
-#include "node_reputation.hpp"
 #include "common/error.hpp"
+#include "node_reputation.hpp"
 #include <memory>
 #include <optional>
 #include <string>

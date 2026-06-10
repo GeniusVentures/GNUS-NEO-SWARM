@@ -89,8 +89,9 @@ namespace sgns::neoswarm::network
             auto crypto_provider = injector.template create<std::shared_ptr<libp2p::crypto::CryptoProvider>>();
             auto key_marshaller =
                 injector.template create<std::shared_ptr<libp2p::crypto::marshaller::KeyMarshaller>>();
-            m_impl->gossip_ = libp2p::protocol::gossip::create( scheduler, m_impl->host_, m_impl->id_mgr_, crypto_provider,
-                                                               key_marshaller, libp2p::protocol::gossip::Config{} );
+            m_impl->gossip_ =
+                libp2p::protocol::gossip::create( scheduler, m_impl->host_, m_impl->id_mgr_, crypto_provider,
+                                                  key_marshaller, libp2p::protocol::gossip::Config{} );
 
             // 3. Subscribe to task and CRDT topics
             m_impl->subs_ = std::make_unique<Impl::GossipSubs>();
@@ -118,21 +119,21 @@ namespace sgns::neoswarm::network
 
             m_impl->subs_->crdt_sub =
                 m_impl->gossip_->subscribe( { kCRDTTopic },
-                                           [this]( libp2p::protocol::gossip::Gossip::SubscriptionData sub_data )
-                                           {
-                                               if ( sub_data && m_crdtHandler )
-                                               {
-                                                   const auto& msg = sub_data.value();
-                                                   m_crdtHandler( std::string( msg.data.begin(), msg.data.end() ) );
-                                               }
-                                           } );
+                                            [this]( libp2p::protocol::gossip::Gossip::SubscriptionData sub_data )
+                                            {
+                                                if ( sub_data && m_crdtHandler )
+                                                {
+                                                    const auto& msg = sub_data.value();
+                                                    m_crdtHandler( std::string( msg.data.begin(), msg.data.end() ) );
+                                                }
+                                            } );
 
             // 4. Listen on configured address
             auto listen_ma = libp2p::multi::Multiaddress::create( m_cfg.listen_addr_.empty() ? "/ip4/0.0.0.0/tcp/0"
-                                                                                            : m_cfg.listen_addr_ );
+                                                                                             : m_cfg.listen_addr_ );
             if ( listen_ma )
             {
-                (void)m_impl->host_->listen( listen_ma.value() );
+                (void) m_impl->host_->listen( listen_ma.value() );
             }
 
             // 5. Start the host and gossip
@@ -153,7 +154,6 @@ namespace sgns::neoswarm::network
         }
 
         return outcome::success();
-
     }
 
     // -----------------------------------------------------------------------

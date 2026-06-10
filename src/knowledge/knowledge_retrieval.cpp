@@ -65,7 +65,7 @@ namespace sgns::neoswarm::knowledge
                 { { "Grokipedia", "The speed of light in vacuum is approximately 299,792,458 m/s.", 0.0f },
                   Embed( "speed of light vacuum" ) } );
             m_impl->m_facts.push_back( { { "Grokipedia", "Pi (π) is approximately 3.14159265358979.", 0.0f },
-                                       Embed( "pi mathematical constant" ) } );
+                                         Embed( "pi mathematical constant" ) } );
             m_impl->m_facts.push_back(
                 { { "Grokipedia", "Water (H2O) has a molecular weight of approximately 18.015 g/mol.", 0.0f },
                   Embed( "water molecular weight chemistry" ) } );

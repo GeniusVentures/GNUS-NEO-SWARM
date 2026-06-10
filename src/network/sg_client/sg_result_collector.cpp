@@ -6,8 +6,8 @@
  */
 
 #include "sg_result_collector.hpp"
-#include "sg_message_authenticator.hpp"
 #include "common/logging.hpp"
+#include "sg_message_authenticator.hpp"
 #include <condition_variable>
 #include <mutex>
 

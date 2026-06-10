@@ -8,8 +8,8 @@
 #ifndef NEOSWARM_SECURITY_MESSAGESIGNING_HPP
 #define NEOSWARM_SECURITY_MESSAGESIGNING_HPP
 
-#include "node_identity.hpp"
 #include "common/error.hpp"
+#include "node_identity.hpp"
 #include <cstdint>
 #include <string>
 #include <vector>

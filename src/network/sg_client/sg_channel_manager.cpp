@@ -72,11 +72,10 @@ namespace sgns::neoswarm::network
             ChannelLogger()->error( "Failed to create channel to {}", m_cfg.m_endpoint );
             return outcome::failure( Error::NetworkError );
         }
-#endif  // GENIUS_HAS_GRPC
+#endif // GENIUS_HAS_GRPC
 
         ChannelLogger()->info( "Channel created to {}", m_cfg.m_endpoint );
         return outcome::success();
-
     }
 
     outcome::result<bool> SGChannelManager::HealthCheck() const
@@ -93,7 +92,6 @@ namespace sgns::neoswarm::network
         }
         ChannelLogger()->debug( "Channel health check: state={}", static_cast<int>( state ) );
         return false;
-
     }
 
     outcome::result<void> SGChannelManager::Reconnect()
