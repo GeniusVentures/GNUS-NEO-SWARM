@@ -39,7 +39,7 @@ extern "C"
      * \brief Creates an OpenAI v1-style chat completion response.
      *
      * Parses the last user message from \p requestJson, routes it through the
-     * GeniusAPIServer pipeline (router → inference → optional specialist), and
+     * ApiServer pipeline (router → inference → optional specialist), and
      * returns a JSON string matching the /v1/chat/completions response schema.
      *
      * If \c GeniusElmInit has not been called, the engine initialises in stub

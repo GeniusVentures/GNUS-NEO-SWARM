@@ -49,7 +49,7 @@ namespace sgns::neoswarm::core
 
         /**
          * @brief Set the SuperGeniusClient for Phase 2 network dispatch.
-         * @param client  The SuperGeniusClient instance (owned by GeniusAPIServer).
+         * @param client  The SuperGeniusClient instance (owned by ApiServer).
          */
         void SetClient( network::SuperGeniusClient* client ) noexcept;
 

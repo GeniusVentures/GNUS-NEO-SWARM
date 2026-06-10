@@ -211,7 +211,7 @@ static ExecutionMode ParseMode( const std::string& mode )
 // ---------------------------------------------------------------------------
 // Interactive REPL
 // ---------------------------------------------------------------------------
-static void RunInteractive( api::GeniusAPIServer& server, ExecutionMode mode, int max_tokens, float temperature )
+static void RunInteractive( api::ApiServer& server, ExecutionMode mode, int max_tokens, float temperature )
 {
     std::cout << "\nNEO SWARM v1 — Interactive Mode\n"
               << "Type your prompt and press Enter. Type 'quit' to exit.\n\n";
@@ -281,7 +281,7 @@ int main( int argc, char** argv )
     }
 
     // Build server config
-    api::GeniusAPIServer::Config cfg;
+    api::ApiServer::Config cfg;
     cfg.model_path_ = args.model_path_;
     cfg.grammar_model_path_ = args.grammar_model_path_;
     cfg.math_model_path_ = args.math_model_path_;
@@ -295,7 +295,7 @@ int main( int argc, char** argv )
     cfg.sg_tls_ca_ = args.sg_tls_ca_;
     cfg.sg_tls_cert_ = args.sg_tls_cert_;
 
-    api::GeniusAPIServer server( cfg );
+    api::ApiServer server( cfg );
 
     auto init_res = server.Initialize();
     if ( !init_res.has_value() )

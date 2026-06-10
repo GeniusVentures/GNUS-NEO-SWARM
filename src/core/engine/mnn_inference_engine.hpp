@@ -131,7 +131,7 @@ namespace sgns::neoswarm::core
          * SuperGeniusClient are created. The client pointer is passed through
          * to the internal SGProcessingBridge.
          *
-         * @param client  The SuperGeniusClient instance (owned by GeniusAPIServer).
+         * @param client  The SuperGeniusClient instance (owned by ApiServer).
          */
         void SetSuperGeniusClient( network::SuperGeniusClient* client ) noexcept;
 

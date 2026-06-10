@@ -43,7 +43,7 @@ namespace sgns::neoswarm::api
      * Mode 3 (Swarm):      API → Router → Broadcast → [Nodes] → Consensus
      *                           → Grokipedia Validation → Response
      */
-    class GeniusAPIServer
+    class ApiServer
     {
         public:
         struct Config
@@ -64,8 +64,8 @@ namespace sgns::neoswarm::api
             std::string sg_tls_cert_;
         };
 
-        explicit GeniusAPIServer( Config cfg );
-        ~GeniusAPIServer();
+        explicit ApiServer( Config cfg );
+        ~ApiServer();
 
         /**
          * @brief Initialise all subsystems.
@@ -76,9 +76,9 @@ namespace sgns::neoswarm::api
         /**
          * @brief Process a single inference request (all modes).
          * @param task  Incoming task.
-         * @return      GeniusResponse or InferenceFailed.
+         * @return      InferenceResponse or InferenceFailed.
          */
-        outcome::result<GeniusResponse> Process( const Task& task );
+        outcome::result<InferenceResponse> Process( const Task& task );
 
         /**
          * @brief Start the gRPC server (blocks until Stop() is called).
@@ -118,9 +118,9 @@ namespace sgns::neoswarm::api
         std::unique_ptr<knowledge::FactValidation> fact_val_;
         std::unique_ptr<network::SuperGeniusClient> sg_client_;
 
-        outcome::result<GeniusResponse> RunSingleNode( const Task& task, const RouteDecision& route );
-        outcome::result<GeniusResponse> RunSpecialist( const Task& task, const RouteDecision& route );
-        outcome::result<GeniusResponse> RunSwarm( const Task& task, const RouteDecision& route );
+        outcome::result<InferenceResponse> RunSingleNode( const Task& task, const RouteDecision& route );
+        outcome::result<InferenceResponse> RunSpecialist( const Task& task, const RouteDecision& route );
+        outcome::result<InferenceResponse> RunSwarm( const Task& task, const RouteDecision& route );
 
         std::string AugmentPrompt( const std::string& prompt, std::vector<KnowledgeFact>& out_facts ) const;
 

@@ -128,7 +128,7 @@ namespace sgns::neoswarm
     // -----------------------------------------------------------------------
     // Final API response
     // -----------------------------------------------------------------------
-    struct GeniusResponse
+    struct InferenceResponse
     {
         std::string output_;
         std::string task_id_;
