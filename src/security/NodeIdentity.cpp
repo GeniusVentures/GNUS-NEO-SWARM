@@ -14,6 +14,7 @@
 #include <sstream>
 
 #ifdef GENIUS_HAS_SECP256K1
+namespace { constexpr int kPbkdf2Iterations = 600000; }
 #include <secp256k1.h>
 #endif
 
@@ -221,7 +222,7 @@ namespace sgns::neoswarm::security
         // 2. Derive 256-bit encryption key via PBKDF2
         uint8_t key[32]; // AES-256
         if ( !PKCS5_PBKDF2_HMAC( passphrase.c_str(), static_cast<int>( passphrase.size() ), salt, sizeof( salt ),
-                                 600000, // iterations
+                                 kPbkdf2Iterations, // iterations
                                  EVP_sha256(), sizeof( key ), key ) )
         {
             return outcome::failure( Error::IdentityError );
@@ -379,7 +380,7 @@ namespace sgns::neoswarm::security
         // 6. Derive key via PBKDF2
         uint8_t key[32];
         if ( !PKCS5_PBKDF2_HMAC( passphrase.c_str(), static_cast<int>( passphrase.size() ), salt.data(),
-                                 static_cast<int>( salt.size() ), 600000, EVP_sha256(), sizeof( key ), key ) )
+                                 static_cast<int>( salt.size() ), kPbkdf2Iterations, EVP_sha256(), sizeof( key ), key ) )
         {
             return outcome::failure( Error::IdentityError );
         }

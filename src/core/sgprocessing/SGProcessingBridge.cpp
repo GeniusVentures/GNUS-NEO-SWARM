@@ -12,14 +12,8 @@
 #include "network/sg_client/SuperGeniusClient.hpp"
 
 #include <boost/asio/io_context.hpp>
+#include <filesystem>
 #include <nlohmann/json.hpp>
-
-#ifdef __unix__
-#include <unistd.h> // getcwd
-#elif defined( _WIN32 )
-#include <direct.h>
-#define getcwd _getcwd
-#endif
 
 #ifdef GENIUS_HAS_SGPROCESSING
 #include <Generators.hpp>
@@ -133,8 +127,8 @@ namespace sgns::neoswarm::core
                     return uri;
                 }
                 // Prepend current working directory
-                char cwd[4096] = {};
-                if ( getcwd( cwd, sizeof( cwd ) ) != nullptr )
+                std::string cwd = std::filesystem::current_path().string();
+                if ( !cwd.empty() )
                 {
                     return std::string( "file://" ) + cwd + "/" + rel;
                 }
