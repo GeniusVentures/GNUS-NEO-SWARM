@@ -77,4 +77,4 @@ extern "C"
 }
 #endif
 
-#endif // \1_H
+#endif // GNUS_NEO_SWARM_GENIUS_ELM_CHAT_C_H
