@@ -13,7 +13,6 @@
 #include <algorithm>
 #include <boost/asio/io_context.hpp>
 #include <chrono>
-namespace { constexpr size_t kDefaultVocabSize = 32000U; }
 #include <cmath>
 #include <numeric>
 #include <random>
@@ -483,8 +482,12 @@ namespace sgns::neoswarm::core
     {
         if ( !m_session )
         {
-            // Stub: return random logits using dynamic vocab size
-            const size_t kVocabSize = m_tokenizer ? m_tokenizer->VocabSize() : kDefaultVocabSize;
+            // No model loaded — cannot infer without tokenizer vocab size
+            if ( !m_tokenizer )
+            {
+                return outcome::failure( Error::TokenizerFailed );
+            }
+            const size_t kVocabSize = m_tokenizer->VocabSize();
             std::vector<float> logits( kVocabSize, 0.0f );
             static std::mt19937 rng( 42 );
             std::normal_distribution<float> dist( 0.0f, 1.0f );
