@@ -76,7 +76,6 @@ namespace sgns::neoswarm::api
         engine_cfg.sg_m_networkMode = m_cfg.sg_processing_m_networkMode;
         auto engine = std::make_shared<core::MNNInferenceEngine>( engine_cfg );
 
-#ifdef GENIUS_HAS_SENTENCEPIECE
         auto tokenizer = std::make_shared<core::SentencePieceTokenizer>();
         std::string tok_path = m_cfg.m_modelPath;
         auto dot_pos = tok_path.rfind( '.' );
@@ -85,7 +84,6 @@ namespace sgns::neoswarm::api
         tok_path += ".tokenizer.model";
         (void)tokenizer->Load( tok_path ); // degrades gracefully if not found
         engine->SetTokenizer( tokenizer );
-#endif
 
         if ( !m_cfg.m_modelPath.empty() )
         {
@@ -143,7 +141,6 @@ namespace sgns::neoswarm::api
             }
         }
 
-#ifdef GENIUS_HAS_GRPC
         // 6b. SuperGenius connectivity (optional — Phase 2 network dispatch)
         if ( !m_cfg.sg_m_endpoint.empty() )
         {
@@ -181,8 +178,6 @@ namespace sgns::neoswarm::api
                 }
             }
         }
-
-#endif // GENIUS_HAS_GRPC
 
         // 7. Knowledge
         if ( m_cfg.m_enableKnowledge )
@@ -478,10 +473,8 @@ namespace sgns::neoswarm::api
         m_running.store( false );
         if ( m_p2pNode )
             m_p2pNode->Stop();
-#ifdef GENIUS_HAS_GRPC
         if ( m_sgClient )
             m_sgClient->Disconnect();
-#endif
         if ( m_repStorage )
             m_repStorage->Close();
         ServerLogger()->info( "ApiServer stopped" );
@@ -489,11 +482,7 @@ namespace sgns::neoswarm::api
 
     bool ApiServer::IsSuperGeniusConnected() const noexcept
     {
-#ifdef GENIUS_HAS_GRPC
         return m_sgClient != nullptr && m_sgClient->IsConnected();
-#else
-        return false;
-#endif
     }
 
 } // namespace sgns::neoswarm::api

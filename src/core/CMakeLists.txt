@@ -27,7 +27,6 @@ endif()
 # ---------------------------------------------------------------------------
 if(TARGET MNN)
     target_link_libraries(neoswarm_core PUBLIC MNN)
-    target_compile_definitions(neoswarm_core PUBLIC GENIUS_HAS_MNN)
 endif()
 
 # Check early if SGProcessingManager will be linked (used to skip SentencePiece)
@@ -42,7 +41,6 @@ find_library(_SGPROC_PROCESSING_BASE ProcessingBase PATHS "${_SGPROC_LIB_DIR}" N
 # ---------------------------------------------------------------------------
 if(FALSE AND TARGET sentencepiece)
     target_link_libraries(neoswarm_core PUBLIC sentencepiece)
-    target_compile_definitions(neoswarm_core PUBLIC GENIUS_HAS_SENTENCEPIECE)
 
     # Abseil static libs bundled in the SentencePiece build tree
     set(_SPM_BUILD_DIR "${THIRDPARTY_BUILD_DIR}/../../../sentencepiece/build")
@@ -62,7 +60,6 @@ endif()
 find_package(Vulkan QUIET)
 if(Vulkan_FOUND)
     target_link_libraries(neoswarm_core PUBLIC Vulkan::Vulkan)
-    target_compile_definitions(neoswarm_core PUBLIC GENIUS_HAS_VULKAN)
 endif()
 
 # MoltenVK — Vulkan-to-Metal translation layer (macOS/iOS only, but still Vulkan API)
@@ -146,7 +143,6 @@ if(_SGPROC_PROCESSING_BASE AND EXISTS "${_SGPROC_INCLUDE}" AND EXISTS "${_SGPROC
         endif()
     endforeach()
 
-    target_compile_definitions(neoswarm_core PUBLIC GENIUS_HAS_SGPROCESSING)
     set(GENIUS_HAS_SGPROCESSING TRUE)
     # Static libs in the SGProcessing chain share protobuf symbols.
     # Allow the linker to pick one copy without erroring on duplicates.

@@ -4,8 +4,8 @@
  * @date       2026-05-08
  */
 
-#ifndef NEOSWARM_API_GENIUSAPISERVER_HPP
-#define NEOSWARM_API_GENIUSAPISERVER_HPP
+#ifndef NEOSWARM_API_API_SERVER_HPP
+#define NEOSWARM_API_API_SERVER_HPP
 
 #include "common/error.hpp"
 #include "common/types.hpp"
@@ -115,9 +115,7 @@ namespace sgns::neoswarm::api
         std::shared_ptr<knowledge::KnowledgeRetrieval> m_knowledge;
         std::unique_ptr<knowledge::ContextInjection> m_contextInj;
         std::unique_ptr<knowledge::FactValidation> m_factVal;
-#ifdef GENIUS_HAS_GRPC
         std::unique_ptr<network::SuperGeniusClient> m_sgClient;
-#endif
 
         outcome::result<InferenceResponse> RunSingleNode( const Task& task, const RouteDecision& route );
         outcome::result<InferenceResponse> RunSpecialist( const Task& task, const RouteDecision& route );
@@ -132,4 +130,4 @@ namespace sgns::neoswarm::api
 
 } // namespace sgns::neoswarm::api
 
-#endif // NEOSWARM_API_GENIUSAPISERVER_HPP
+#endif // NEOSWARM_API_API_SERVER_HPP
