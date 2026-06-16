@@ -350,9 +350,7 @@ endif()
 add_library(Genius-MOS-ELM-FFI SHARED ${PROJECT_ROOT}/src/genius_elm_chat_completions.cpp)
 target_include_directories(Genius-MOS-ELM-FFI PUBLIC ${PROJECT_ROOT}/src)
 target_compile_definitions(Genius-MOS-ELM-FFI PRIVATE NEOSWARM_CHAT_C_EXPORTS)
-target_link_libraries(Genius-MOS-ELM-FFI PRIVATE Threads::Threads)
-# Note: neoswarm_api not linked — stub currently returns hardcoded responses.
-# When wiring to real ApiServer, add: target_link_libraries(Genius-MOS-ELM-FFI PRIVATE neoswarm_api)
+target_link_libraries(Genius-MOS-ELM-FFI PRIVATE Threads::Threads neoswarm_api)
 
 if(BUILD_TESTING)
     enable_testing()
