@@ -2,7 +2,6 @@
  * @file       genius_elm_chat_c.cpp
  * @brief      C FFI entry points for Genius ELM chat completions API
  * @date       2026-06-15
- * @author     Subaskar S (ssivakumar@gnus.ai)
  *
  * Wires the FFI surface to the real ApiServer pipeline.
  * Thread-safe: all FFI calls are protected by a global mutex.
