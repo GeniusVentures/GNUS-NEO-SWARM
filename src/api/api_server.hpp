@@ -57,6 +57,7 @@ namespace sgns::neoswarm::api
             bool m_enableKnowledge = true;
             int m_grpcPort = 50051;
             std::string m_nodeKeyFile = "./node.key";
+            std::string m_nodeKeyPassphrase = "gnus-neo-swarm-default";
             bool m_enableSgProcessing = false;
             bool sg_processing_m_networkMode = false;
             std::string sg_m_endpoint = "localhost:50051";
