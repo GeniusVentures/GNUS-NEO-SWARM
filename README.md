@@ -1,150 +1,137 @@
-# GNUS NEO SWARM - Globally Networked Ultra-Smart AI * Nano Expert Orchestrated * Specialist Wisdom Arising via Routed Micro-nodes
- - The fully decentralized swarm where a Micro LLM router orchestrates specialist Nano Language Models into emergent ultra-smart intelligence.
-
-
-This is the GNUS-NEO-SWARM Expert Language Model and application code for the parent GeniusCognitiveSystem.
+<!-- GSD: generated 2026-06-17 -->
 # GNUS NEO SWARM
 
-**GNUS NEO SWARM** is the decentralized peer-to-peer swarm architecture powering **GNUS** — the Globally Networked Ultra-Smart Artificial Intelligence ecosystem.
+**GNUS NEO SWARM** — **G**lobally **N**etworked **U**ltra-**S**mart AI · **N**ano **E**xpert **O**rchestrated · **S**pecialist **W**isdom **A**rising via **R**outed **M**icro-nodes
 
-### Acronym Breakdown
-- **GNUS** — **G**lobally **N**etworked **U**ltra-**S**mart Artificial Intelligence  
-- **NEO** — **N**ano **E**xpert **O**rchestrated  
-- **SWARM** — **S**pecialist **W**isdom **A**rising via **R**outed **M**icro-nodes  
+A fully decentralized peer-to-peer swarm where a micro LLM router orchestrates specialist nano language models into emergent ultra-smart intelligence. Runs real MNN inference on consumer hardware, connected to the SuperGenius blockchain compute network for distributed AI.
 
-### What is GNUS NEO SWARM?
+## Architecture
 
-**GNUS NEO SWARM** is a fully decentralized peer-to-peer swarm where a **Micro LLM router** intelligently orchestrates a mixture of specialist **Nano Language Models (NLMs)**. 
+The engine is a C++17 application with these core modules:
 
-Together, these tiny, efficient expert models produce emergent ultra-smart intelligence through local interactions and routed collaboration — with no central point of control, no single point of failure, and full scalability.
+| Module | Purpose |
+|--------|---------|
+| `api` | REST/gRPC API server — the composition root |
+| `router` | Intelligent task routing to specialist models |
+| `specialists` | Domain-specific nano language models (grammar, math, etc.) |
+| `core` | MNN inference engine, FP4 codec, tokenizer, SGProcessing bridge |
+| `network` | P2P networking via libp2p |
+| `security` | secp256k1 node identity, message signing, key encryption |
+| `reputation` | Peer reputation tracking and scoring |
+| `knowledge` | Knowledge base integration (Grokipedia facts) |
 
-### Core Concepts
+Three execution modes:
+- **single** — one model handles everything
+- **specialist** — route to domain-specific models
+- **swarm** — full P2P swarm with distributed inference
 
-- **Nano Language Models (NLMs)**: Ultra-small, highly specialized micro/nano-scale language models optimized for narrow domains. They are lightweight, efficient, and ideal for edge or decentralized deployment.
-- **Micro LLM Router**: The intelligent orchestration layer that dynamically routes tasks to the most appropriate specialist NLM in real time.
-- **Specialist Mixture**: Instead of one giant model, many narrow experts work together. Their combined "wisdom" emerges from decentralized, peer-to-peer coordination.
-- **Decentralized Swarm Architecture**: Built on resilient mesh networking principles. Nodes join and leave freely while the swarm maintains robustness and performance.
+## Quick Start
 
-### Key Features
+```bash
+# Build
+cd build/OSX/Debug
+cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Debug
+ninja
 
-- Full decentralization with peer-to-peer communication
-- Emergent collective intelligence from routed specialist NLMs
-- Extremely efficient resource usage (runs on consumer hardware and decentralized compute networks)
-- Fault-tolerant and highly scalable
-- Designed to integrate with the broader **GNUS** decentralized compute ecosystem
+# Run
+./neo-swarm --model /path/to/model.mnn --prompt "Hello, world!"
+```
 
-### How It Works (High-Level)
+## CLI Usage
 
-1. A task arrives at the swarm.
-2. The **Micro LLM router** analyzes the request and routes it to the best-suited specialist **Nano Language Models**.
-3. The selected NLMs process their narrow expertise in parallel or sequence.
-4. Results are combined through peer-to-peer interactions, producing a coherent, high-quality output that feels "ultra-smart".
-5. The system self-organizes: wisdom **arises** from the routed micro-nodes rather than being dictated from above.
+```
+neo-swarm --model <path> [options]
 
-### Why GNUS NEO SWARM?
+Options:
+  --model <path>           Core MNN model file (required)
+  --grammar-model <path>   Grammar specialist model
+  --math-model <path>      Math specialist model
+  --mode single|specialist|swarm   Execution mode (default: auto)
+  --prompt <text>          Prompt to process (interactive if omitted)
+  --port <n>               gRPC port (default: 50051)
+  --db <path>              Reputation DB (default: ./reputation.db)
+  --key <path>             Node key file (default: ./node.key)
+  --config <path>          JSON config file (CLI flags override file values)
+  --sg-endpoint <host:port>  SuperGenius node address
+  --sg-tls-ca <path>       TLS CA certificate for SuperGenius
+  --sg-tls-cert <path>     TLS client certificate for SuperGenius
+  --network                Enable P2P networking
+  --knowledge <path>       Path to Grokipedia facts CSV
+  --max-tokens <n>         Max tokens to generate (default: 512)
+  --temperature <f>        Sampling temperature (default: 0.7)
+  --serve                  Start gRPC server (blocking)
+  --verbose                Enable debug logging
+  --help                   Show help
+```
 
-Traditional large language models are centralized, expensive, and brittle.  
-**GNUS NEO SWARM** flips the paradigm — delivering powerful intelligence through a decentralized mixture of lightweight, specialist Nano Language Models orchestrated via a smart router.
+## Building
 
-This approach offers:
-- Dramatically lower cost and energy usage
-- Greater privacy and resilience
-- True global scalability using the **GNUS** networked compute layer
-
-## General
-
-- **Product Technical Design Specification** inside GENIUS_LLM_PTDS.md
-- **Type Safety**: Uses C++17 SFINAE and templates to ensure correct type handling.
-- **Cross-Platform**: Build instructions provided for multiple platforms using Ninja and CMake.
-
-## Dependencies
-
-- **C++17**: Required for template features and type traits.
-- **Boost.Outcome**: Used for error handling (`BOOST_OUTCOME_TRY`).
-- **Google Test**: For unit tests (`gtest`).
-- **intx**: Extended precision integer library for `uint256` support.
-
-## Project Structure
-
-- `src/`: Source files (`rlp_encoder.cpp`, `rlp_decoder.cpp`, etc.).
-- `include/`: Header files (`rlp_encoder.hpp`, `rlp_decoder.hpp`, etc.).
-- `test/`: Unit tests (`rlp_test.cpp`).
-- `build/`: Platform-specific build directories (e.g., `build/OSX/`, `build/Linux/`).
-
-## Building the Project
-
-This project uses Ninja as the build system, with CMake for configuration. Builds are organized in platform-specific directories under `build/`, such as `build/OSX/` for macOS, `build/Linux/` for Linux, etc. Each platform directory contains subdirectories for build configurations (`Debug`, `Release`, `RelWithDebInfo`).
+Builds use Ninja + CMake from platform-specific directories under `build/`.
 
 ### Prerequisites
 
-- Install CMake (`cmake`).
-- Install Ninja (`ninja`).
-- Ensure C++17-compatible compiler (e.g., `g++`, `clang++`).
-- Install dependencies:
-    - Boost (`boost-outcome` or full Boost suite).
-    - Google Test (`libgtest-dev` on Ubuntu, or build from source).
-    - intx (include as a submodule or install separately).
+- CMake 3.16+
+- Ninja
+- C++17 compiler (clang++ or g++)
+- Thirdparty dependencies (managed separately in `thirdparty/`)
 
-### Build Instructions
+### Build Pattern
 
-Builds are always run from inside the `build/<Platform>/<BuildType>/` directory.
-`cmake ..` points to `build/<Platform>/` which contains the platform CMakeLists.
-**Never run cmake from the repo root or `build/<Platform>/` directly.**
+```bash
+cd build/<Platform>/<BuildType>   # e.g. build/OSX/Debug
+cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=<BuildType>
+ninja
+```
 
-#### Debug Build
+Platforms: `OSX`, `Linux`, `Windows`, `Android`, `iOS`
+Build types: `Debug`, `Release`, `RelWithDebInfo`
+
+### Stale Build Directory
+
+If `CMakeCache.txt` goes stale, delete and recreate:
+
 ```bash
 cd build/OSX
-mkdir -p Debug && cd Debug
+rm -rf Debug
+mkdir Debug && cd Debug
 cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Debug
 ninja
 ```
 
-#### Release Build
-```bash
-cd build/OSX
-mkdir -p Release && cd Release
-cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release
-ninja
-```
+## Testing
 
-#### Release with Debug Info
-```bash
-cd build/OSX
-mkdir -p RelWithDebInfo && cd RelWithDebInfo
-cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=RelWithDebInfo
-ninja
-```
-
-The optional `-DSANITIZE_ADDRESS=code` flag enables AddressSanitizer for memory leak detection.
-
-> **If the build directory is ever deleted or CMakeCache.txt goes stale:**
-> ```bash
-> cd build/OSX
-> rm -rf Debug          # or Release / RelWithDebInfo
-> mkdir Debug && cd Debug
-> cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Debug
-> ninja
-> ```
-> Do **not** delete the cache and re-run cmake in-place with a different source path —
-> always recreate the directory and let `cmake ..` resolve everything from `build/<Platform>/`.
-
-- **Output**: Built files are in `build/OSX/Debug/`, `build/OSX/Release/`, etc.
-- **Platforms**: Replace `OSX` with `Linux`, `Windows`, `Android`, or `iOS` as needed.
-
-### Running Tests
-After building, run the test executable:
 ```bash
 cd build/OSX/Debug
-./rlp_test
+ninja test
+```
+
+Tests are in `test/` organized by module: `security/`, `router/`, `knowledge/`, `network/`, `reputation/`, `ffi/`, `integration/`, `benchmark/`.
+
+## Project Structure
+
+```
+├── src/
+│   ├── main.cpp              # CLI entry point
+│   ├── api/                  # API server (composition root)
+│   ├── router/               # Task routing logic
+│   ├── specialists/          # Domain-specific NL models
+│   ├── core/                 # MNN engine, FP4, tokenizer, SGProcessing
+│   ├── network/              # P2P networking
+│   ├── security/             # Crypto identity & signing
+│   ├── reputation/           # Peer reputation
+│   ├── knowledge/            # Knowledge base
+│   └── common/               # Shared utilities, logging, error types
+├── test/                     # Unit and integration tests
+├── build/                    # Platform-specific build dirs
+├── cmake/                    # CMake configuration
+└── docs/                     # Documentation
 ```
 
 ## License
 
-This project is licensed under the MIT License. See [LICENSE.txt](LICENSE.txt) for details.
+MIT License. See [build/LICENSE](build/LICENSE).
 
 ---
 
-**Status**: Early development / Prototype  
-**Built on**: GNUS decentralized compute infrastructure  
-
-For technical details, architecture diagrams, or how to contribute, see the [docs](./docs) folder or join the community.
+**Status**: Active development
+**Built on**: GNUS decentralized compute infrastructure

@@ -49,13 +49,18 @@ namespace sgns::neoswarm::api
     {
         ServerLogger()->info( "Initializing ApiServer..." );
 
-        // 1. Node identity
+        // 1. Node identity — encrypted at rest (AES-256-GCM + PBKDF2)
         m_identity = std::make_shared<security::NodeIdentity>();
         {
             std::ifstream key_check( m_cfg.m_nodeKeyFile );
             if ( key_check.good() )
             {
-                auto res = m_identity->LoadFromFile( m_cfg.m_nodeKeyFile );
+                // Try encrypted load first, fall back to plaintext for backward compat
+                auto res = m_identity->LoadEncrypted( m_cfg.m_nodeKeyFile, m_cfg.m_nodeKeyPassphrase );
+                if ( !res.has_value() )
+                {
+                    res = m_identity->LoadFromFile( m_cfg.m_nodeKeyFile );
+                }
                 if ( !res.has_value() )
                 {
                     ServerLogger()->warn( "Key load failed, generating new key" );
@@ -64,7 +69,7 @@ namespace sgns::neoswarm::api
             if ( !m_identity->IsLoaded() )
             {
                 BOOST_OUTCOME_TRY( m_identity->Generate() );
-                (void)m_identity->SaveToFile( m_cfg.m_nodeKeyFile );
+                (void)m_identity->SaveEncrypted( m_cfg.m_nodeKeyFile, m_cfg.m_nodeKeyPassphrase );
             }
         }
         ServerLogger()->info( "Node identity: {}", m_identity->PeerId() );
