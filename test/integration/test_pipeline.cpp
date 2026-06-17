@@ -2,7 +2,6 @@
  * @file       test_pipeline.cpp
  * @brief      Integration tests — full pipeline in stub mode
  * @date       2026-05-08
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #include "api/api_server.hpp"

@@ -2,7 +2,6 @@
  * @file       node_identity.cpp
  * @brief      secp256k1 keypair implementation
  * @date       2026-05-08
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #include "node_identity.hpp"

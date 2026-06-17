@@ -2,7 +2,6 @@
  * @file       context_injection.hpp
  * @brief      Augments prompts with Grokipedia facts (PTDS §8.2)
  * @date       2026-05-06
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #ifndef NEOSWARM_KNOWLEDGE_CONTEXTINJECTION_HPP

@@ -2,7 +2,6 @@
  * @file       math_specialist.hpp
  * @brief      GSM8K-tuned math specialist model (PTDS §5.2)
  * @date       2026-05-06
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #ifndef NEOSWARM_SPECIALISTS_MATHSPECIALIST_HPP

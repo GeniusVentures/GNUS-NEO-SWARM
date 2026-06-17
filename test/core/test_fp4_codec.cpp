@@ -2,7 +2,6 @@
  * @file       test_fp4_codec.cpp
  * @brief      Unit tests for FP4Codec
  * @date       2026-05-08
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #include "core/fp4/fp4_codec.hpp"

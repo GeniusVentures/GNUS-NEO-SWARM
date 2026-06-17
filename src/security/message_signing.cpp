@@ -2,7 +2,6 @@
  * @file       message_signing.cpp
  * @brief      Message signing implementation
  * @date       2026-05-08
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #include "message_signing.hpp"

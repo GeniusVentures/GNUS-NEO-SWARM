@@ -2,7 +2,6 @@
  * @file       sg_channel_manager.hpp
  * @brief      Manages gRPC channel lifecycle — create, keepalive, reconnect, health check
  * @date       2026-05-28
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #ifndef NEOSWARM_NETWORK_SG_CLIENT_SGCHANNELMANAGER_HPP

@@ -2,7 +2,6 @@
  * @file       weighted_consensus.cpp
  * @brief      Weighted consensus implementation
  * @date       2026-05-06
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #include "weighted_consensus.hpp"

@@ -2,7 +2,6 @@
  * @file       fact_validation.hpp
  * @brief      Post-generation fact checking against Grokipedia (PTDS §8.3)
  * @date       2026-05-06
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #ifndef NEOSWARM_KNOWLEDGE_FACTVALIDATION_HPP

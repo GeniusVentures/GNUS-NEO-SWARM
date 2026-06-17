@@ -2,7 +2,6 @@
  * @file       test_elm_ffi.cpp
  * @brief      Unit tests for C FFI layer — init, chat completions, status, string free
  * @date       2026-06-10
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #include "genius_elm_chat_completions.h"

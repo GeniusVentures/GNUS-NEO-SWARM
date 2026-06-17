@@ -2,7 +2,6 @@
  * @file       grammar_specialist.hpp
  * @brief      Grammar correction specialist model (PTDS §5.2)
  * @date       2026-05-06
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #ifndef NEOSWARM_SPECIALISTS_GRAMMARSPECIALIST_HPP

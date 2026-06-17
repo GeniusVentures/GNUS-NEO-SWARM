@@ -2,7 +2,6 @@
  * @file       sg_channel_manager.cpp
  * @brief      gRPC channel lifecycle implementation — TLS, keepalive, reconnect
  * @date       2026-05-28
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #include "sg_channel_manager.hpp"

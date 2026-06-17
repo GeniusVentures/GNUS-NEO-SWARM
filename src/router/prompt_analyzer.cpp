@@ -2,7 +2,6 @@
  * @file       prompt_analyzer.cpp
  * @brief      Prompt feature extraction implementation
  * @date       2026-05-06
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #include "prompt_analyzer.hpp"

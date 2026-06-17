@@ -2,7 +2,6 @@
  * @file       m_knowledgeretrieval.cpp
  * @brief      Grokipedia knowledge retrieval implementation
  * @date       2026-05-06
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #include "knowledge_retrieval.hpp"

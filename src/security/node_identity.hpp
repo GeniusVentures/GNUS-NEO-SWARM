@@ -2,7 +2,6 @@
  * @file       node_identity.hpp
  * @brief      secp256k1 keypair and PeerId derivation (PTDS §4.3)
  * @date       2026-05-08
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #ifndef NEOSWARM_SECURITY_NODEIDENTITY_HPP

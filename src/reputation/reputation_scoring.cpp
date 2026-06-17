@@ -2,7 +2,6 @@
  * @file       reputation_scoring.cpp
  * @brief      Reputation update formula implementation
  * @date       2026-05-06
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #include "reputation_scoring.hpp"

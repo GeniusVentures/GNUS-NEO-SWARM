@@ -2,7 +2,6 @@
  * @file       symbolic_fallback.cpp
  * @brief      Recursive-descent expression evaluator
  * @date       2026-05-06
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #include "symbolic_fallback.hpp"

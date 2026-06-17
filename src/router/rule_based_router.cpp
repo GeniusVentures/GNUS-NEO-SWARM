@@ -2,7 +2,6 @@
  * @file       rule_based_router.cpp
  * @brief      Rule-based router implementation
  * @date       2026-05-06
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #include "rule_based_router.hpp"

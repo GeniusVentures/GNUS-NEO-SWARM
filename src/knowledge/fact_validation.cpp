@@ -2,7 +2,6 @@
  * @file       fact_validation.cpp
  * @brief      Post-generation fact checking implementation
  * @date       2026-05-06
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #include "fact_validation.hpp"

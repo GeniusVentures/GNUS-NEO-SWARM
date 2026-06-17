@@ -2,7 +2,6 @@
  * @file       sg_result_collector.hpp
  * @brief      Subscribes to per-job result channels and collects TaskResult messages
  * @date       2026-05-28
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #ifndef NEOSWARM_NETWORK_SG_CLIENT_SGRESULTCOLLECTOR_HPP

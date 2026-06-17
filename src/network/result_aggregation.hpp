@@ -2,7 +2,6 @@
  * @file       result_aggregation.hpp
  * @brief      Timeout-bounded collection of swarm node responses (PTDS §4.2)
  * @date       2026-05-06
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #ifndef NEOSWARM_NETWORK_RESULTAGGREGATION_HPP

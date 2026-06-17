@@ -2,7 +2,6 @@
  * @file       MNNinference_engine.hpp
  * @brief      MNN-backed inference engine — cross-platform, config-driven
  * @date       2026-05-06
- * @author     Subaskar S (ssivakumar@gnus.ai)
  *
  * Design:
  *   - Backend selection (Vulkan/CPU) is runtime config, not compile-time.

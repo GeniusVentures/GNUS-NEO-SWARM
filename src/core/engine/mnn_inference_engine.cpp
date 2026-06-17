@@ -2,7 +2,6 @@
  * @file       mnn_inference_engine.cpp
  * @brief      MNN inference engine — cross-platform, config-driven
  * @date       2026-05-06
- * @author     Subaskar S (ssivakumar@gnus.ai)
  *
  * No platform-specific code. GPU = Vulkan only (MoltenVK on Apple).
  * Engine mode selected at runtime via Config::engine_m_mode, not compile flags.

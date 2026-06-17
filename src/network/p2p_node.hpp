@@ -2,7 +2,6 @@
  * @file       p2p_node.hpp
  * @brief      libp2p swarm node (PTDS §4.2)
  * @date       2026-05-06
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #ifndef NEOSWARM_NETWORK_P2PNODE_HPP

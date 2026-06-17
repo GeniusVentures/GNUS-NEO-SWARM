@@ -2,7 +2,6 @@
  * @file       message_signing.hpp
  * @brief      secp256k1 sign/verify for inter-node messages (PTDS §4.3)
  * @date       2026-05-08
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #ifndef NEOSWARM_SECURITY_MESSAGESIGNING_HPP

@@ -2,7 +2,6 @@
  * @file       sg_message_authenticator.cpp
  * @brief      Signs and verifies messages via hardened NodeIdentity + MessageSigning
  * @date       2026-05-28
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #include "sg_message_authenticator.hpp"

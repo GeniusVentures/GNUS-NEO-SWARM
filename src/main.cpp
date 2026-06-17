@@ -2,7 +2,6 @@
  * @file       genius_chat.cpp
  * @brief      CLI entry point for GNUS NEO SWARM
  * @date       2026-05-08
- * @author     Subaskar S (ssivakumar@gnus.ai)
  *
  * Usage:
  *   neo-swarm --model <path> [options]

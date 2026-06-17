@@ -2,7 +2,6 @@
  * @file       prompt_analyzer.hpp
  * @brief      Extracts routing features from a raw prompt string (PTDS §6.1)
  * @date       2026-05-06
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #ifndef NEOSWARM_ROUTER_PROMPTANALYZER_HPP

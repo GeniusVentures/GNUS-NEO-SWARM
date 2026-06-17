@@ -2,7 +2,6 @@
  * @file       api_server.cpp
  * @brief      Inference pipeline orchestration implementation
  * @date       2026-05-08
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #include "api_server.hpp"

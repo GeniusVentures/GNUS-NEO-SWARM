@@ -2,7 +2,6 @@
  * @file       reputation_scoring.hpp
  * @brief      Reputation update formulas (PTDS §7.2)
  * @date       2026-05-06
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #ifndef NEOSWARM_REPUTATION_REPUTATIONSCORING_HPP

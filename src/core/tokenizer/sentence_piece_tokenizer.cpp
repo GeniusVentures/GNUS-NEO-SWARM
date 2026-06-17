@@ -2,7 +2,6 @@
  * @file       sentence_piece_tokenizer.cpp
  * @brief      SentencePiece tokenizer implementation
  * @date       2026-05-06
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #include "tokenizer.hpp"

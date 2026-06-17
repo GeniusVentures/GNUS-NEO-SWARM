@@ -2,7 +2,6 @@
  * @file       rule_based_router.hpp
  * @brief      Rule-based prompt router (PTDS §6.1)
  * @date       2026-05-06
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #ifndef NEOSWARM_ROUTER_RULEBASEDROUTER_HPP

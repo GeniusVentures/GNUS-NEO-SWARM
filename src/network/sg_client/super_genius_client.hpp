@@ -2,7 +2,6 @@
  * @file       super_genius_client.hpp
  * @brief      Client for SuperGenius blockchain compute network dispatch via PubSub gRPC
  * @date       2026-05-28
- * @author     Subaskar S (ssivakumar@gnus.ai)
  *
  * Encapsulates all communication with the SuperGenius processing network.
  * Manages a persistent gRPC channel, publishes signed Task messages to the

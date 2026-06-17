@@ -2,7 +2,6 @@
  * @file       fp4_codec.hpp
  * @brief      FP4 v3 4-bit floating-point quantization codec (PTDS §4.1)
  * @date       2026-05-06
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #ifndef NEOSWARM_CORE_FP4_FP4CODEC_HPP

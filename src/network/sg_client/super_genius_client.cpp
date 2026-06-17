@@ -2,7 +2,6 @@
  * @file       super_genius_client.cpp
  * @brief      Bridges GNUS NEO SWARM to SuperGenius via PubSub gRPC dispatch
  * @date       2026-05-28
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #include "super_genius_client.hpp"

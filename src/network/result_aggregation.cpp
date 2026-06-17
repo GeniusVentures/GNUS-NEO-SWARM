@@ -2,7 +2,6 @@
  * @file       result_aggregation.cpp
  * @brief      Swarm response aggregation implementation
  * @date       2026-05-06
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #include "result_aggregation.hpp"

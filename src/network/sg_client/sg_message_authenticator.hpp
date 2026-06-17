@@ -2,7 +2,6 @@
  * @file       sg_message_authenticator.hpp
  * @brief      Signs and verifies messages using the node's secp256k1 identity
  * @date       2026-05-28
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #ifndef NEOSWARM_NETWORK_SG_CLIENT_SGMESSAGEAUTHENTICATOR_HPP

@@ -2,7 +2,6 @@
  * @file       sg_processing_bridge.hpp
  * @brief      Bridge to SuperGenius SGProcessingManager for GNUS network dispatch
  * @date       2026-05-06
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #ifndef NEOSWARM_CORE_SGPROCESSING_SGPROCESSINGBRIDGE_HPP

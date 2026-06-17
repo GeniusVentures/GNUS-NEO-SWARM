@@ -2,7 +2,6 @@
  * @file       sg_result_collector.cpp
  * @brief      Timeout-bounded result collection from SuperGenius PubSub result channels
  * @date       2026-05-28
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #include "sg_result_collector.hpp"

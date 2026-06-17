@@ -2,7 +2,6 @@
  * @file       test_reputation.cpp
  * @brief      Unit tests for reputation subsystem
  * @date       2026-05-08
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #include "reputation/reputation_crdt.hpp"

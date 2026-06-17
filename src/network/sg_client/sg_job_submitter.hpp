@@ -2,7 +2,6 @@
  * @file       sg_job_submitter.hpp
  * @brief      Publishes signed Task messages to the SuperGenius grid channel via PubSub
  * @date       2026-05-28
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #ifndef NEOSWARM_NETWORK_SG_CLIENT_SGJOBSUBMITTER_HPP

@@ -2,7 +2,6 @@
  * @file       test_router.cpp
  * @brief      Unit tests for PromptAnalyzer and RuleBasedRouter
  * @date       2026-05-08
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #include "router/prompt_analyzer.hpp"

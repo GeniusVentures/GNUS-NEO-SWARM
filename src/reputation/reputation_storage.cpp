@@ -2,7 +2,6 @@
  * @file       reputation_storage.cpp
  * @brief      RocksDB-backed reputation persistence implementation
  * @date       2026-05-06
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #include "reputation_storage.hpp"

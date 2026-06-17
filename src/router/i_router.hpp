@@ -2,7 +2,6 @@
  * @file       i_router.hpp
  * @brief      Abstract router interface for GNUS NEO SWARM
  * @date       2026-05-06
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #ifndef NEOSWARM_ROUTER_IROUTER_HPP

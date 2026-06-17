@@ -2,7 +2,6 @@
  * @file       api_server.hpp
  * @brief      Orchestrates the full inference pipeline (PTDS §9)
  * @date       2026-05-08
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #ifndef NEOSWARM_API_GENIUSAPISERVER_HPP

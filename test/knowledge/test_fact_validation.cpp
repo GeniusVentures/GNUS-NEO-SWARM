@@ -2,7 +2,6 @@
  * @file       test_fact_validation.cpp
  * @brief      Unit tests for FactValidation — claim verification against grounding facts
  * @date       2026-05-28
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #include "common/types.hpp"

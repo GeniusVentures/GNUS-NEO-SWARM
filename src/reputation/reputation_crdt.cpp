@@ -2,7 +2,6 @@
  * @file       reputation_crdt.cpp
  * @brief      LWW CRDT reputation synchronisation implementation
  * @date       2026-05-06
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #include "reputation_crdt.hpp"

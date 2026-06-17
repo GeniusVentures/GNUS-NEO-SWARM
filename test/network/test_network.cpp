@@ -2,7 +2,6 @@
  * @file       test_network.cpp
  * @brief      Unit tests for P2PNode and ResultAggregation
  * @date       2026-05-28
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #include "common/types.hpp"

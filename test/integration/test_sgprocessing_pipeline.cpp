@@ -2,7 +2,6 @@
  * @file       test_sgprocessing_pipeline.cpp
  * @brief      Integration tests: NeoSwarm → SGProcessingManager → TensorInterpreter
  * @date       2026-05-08
- * @author     Subaskar S (ssivakumar@gnus.ai)
  *
  * Phase 1 flow (direct, no network):
  *   NeoSwarm (SGProcessingBridge) → input data + .mnn

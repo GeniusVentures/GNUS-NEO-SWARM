@@ -2,7 +2,6 @@
  * @file       sg_processing_bridge.cpp
  * @brief      SGProcessingManager bridge — Phase 1 direct inference
  * @date       2026-05-06
- * @author     Subaskar S (ssivakumar@gnus.ai)
  *
  * JSON schema matches SuperGenius/test/src/processing_datatypes/ examples exactly.
  */

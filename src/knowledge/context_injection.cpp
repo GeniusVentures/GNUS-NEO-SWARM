@@ -2,7 +2,6 @@
  * @file       context_injection.cpp
  * @brief      Prompt augmentation with Grokipedia facts
  * @date       2026-05-06
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #include "context_injection.hpp"

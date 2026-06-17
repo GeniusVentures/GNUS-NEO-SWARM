@@ -2,7 +2,6 @@
  * @file       reputation_crdt.hpp
  * @brief      Last-Write-Wins CRDT for reputation synchronisation (PTDS §4.2)
  * @date       2026-05-06
- * @author     Subaskar S (ssivakumar@gnus.ai)
  */
 
 #ifndef NEOSWARM_REPUTATION_REPUTATIONCRDT_HPP
