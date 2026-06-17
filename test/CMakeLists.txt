@@ -64,5 +64,10 @@ target_sources(test_genius_slm_ffi PRIVATE "${PROJECT_ROOT}/src/genius_elm_chat_
 neoswarm_test(test_fact_validation   knowledge/test_fact_validation.cpp      "neoswarm_knowledge;neoswarm_common")
 neoswarm_test(test_network           network/test_network.cpp                "neoswarm_network;neoswarm_security;neoswarm_common")
 
+# P0 — Specialists
+neoswarm_test(test_math_specialist    specialists/test_math_specialist.cpp    "neoswarm_specialists;neoswarm_core;neoswarm_common")
+neoswarm_test(test_grammar_specialist specialists/test_grammar_specialist.cpp "neoswarm_specialists;neoswarm_core;neoswarm_common")
+
+
 # Benchmarks (not part of CTest — run manually)
 add_subdirectory(benchmark)

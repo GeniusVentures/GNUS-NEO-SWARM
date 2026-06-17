@@ -11,7 +11,7 @@
 # ---------------------------------------------------------------------------
 # Convenience alias (source CMakeLists use THIRDPARTY_BUILD_DIR)
 # ---------------------------------------------------------------------------
-set(THIRDPARTY_BUILD_DIR "${_THIRDPARTY_BUILD_DIR}/Release" CACHE PATH "" FORCE)
+set(THIRDPARTY_BUILD_DIR "${_THIRDPARTY_BUILD_DIR}" CACHE PATH "" FORCE)
 
 # ---------------------------------------------------------------------------
 # Boost version
@@ -25,8 +25,8 @@ set(BOOST_VERSION_2U "${BOOST_MAJOR_VERSION}_${BOOST_MINOR_VERSION}")
 # absl
 if(NOT DEFINED absl_DIR)
     set(absl_DIR "${THIRDPARTY_BUILD_DIR}/protobuf/lib/cmake/absl")
-find_package(absl CONFIG REQUIRED)
 endif()
+find_package(absl CONFIG REQUIRED)
 
 # utf8_range
 if(NOT DEFINED utf8_range_DIR)
@@ -216,26 +216,6 @@ set_target_properties(MNN PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES "${MNN_INCLUDE_DIR}"
 )
 message(STATUS "MNN: ${MNN_LIBRARY}")
-
-# ---------------------------------------------------------------------------
-# SentencePiece (optional — not yet built in all thirdparty configs)
-# ---------------------------------------------------------------------------
-set(SentencePiece_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/sentencepiece/include")
-find_library(SENTENCEPIECE_LIB sentencepiece
-    PATHS "${THIRDPARTY_BUILD_DIR}/sentencepiece/lib" NO_DEFAULT_PATH)
-if(SENTENCEPIECE_LIB)
-    add_library(sentencepiece UNKNOWN IMPORTED)
-    set_target_properties(sentencepiece PROPERTIES
-        IMPORTED_LOCATION "${SENTENCEPIECE_LIB}"
-        INTERFACE_INCLUDE_DIRECTORIES "${SentencePiece_INCLUDE_DIR}"
-        INTERFACE_LINK_LIBRARIES "absl::log"
-    )
-    include_directories(${SentencePiece_INCLUDE_DIR})
-    message(STATUS "SentencePiece: ${SENTENCEPIECE_LIB}")
-else()
-    include_directories(${PROJECT_ROOT}/src/core/tokenizer/stub)
-    message(STATUS "SentencePiece not found — tokenizer runs in whitespace stub mode")
-endif()
 
 # ---------------------------------------------------------------------------
 # SGProcessingManager (from SuperGenius submodule)
