@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  lint:
+    name: Lint (clang-format + clang-tidy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq clang-format clang-tidy
+
+      - name: clang-format check
+        run: |
+          find src/ test/ -name "*.cpp" -o -name "*.hpp" -o -name "*.h" \
+            | grep -v -e "genius_elm_chat_c.cpp" -e "sg_job_submitter" \
+            | xargs clang-format --dry-run --Werror
+
+      - name: clang-tidy
+        run: |
+          find src/ -name "*.cpp" -o -name "*.hpp" \
+            | head -50 \
+            | xargs clang-tidy --quiet -- -std=c++17 -I src/
+        continue-on-error: true
+
+  build:
+    name: Build + Test (${{ matrix.target }} ${{ matrix.build-type }})
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [OSX, Linux]
+        build-type: [Release, Debug]
+        include:
+          - target: Linux
+            os: ubuntu-latest
+            abi: "x86_64"
+          - target: OSX
+            os: macos-latest
+            abi: ""
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Clone SuperGenius (SGProcessingManager headers)
+        shell: bash
+        run: git clone --depth 1 https://github.com/GeniusVentures/SuperGenius.git SuperGenius
+
+      - name: Install ninja
+        uses: seanmiddleditch/gha-setup-ninja@master
+
+      - name: Resolve thirdparty branch
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            TARGET_BRANCH="${{ github.base_ref }}"
+          else
+            TARGET_BRANCH="${{ github.ref_name }}"
+          fi
+          if [ "$TARGET_BRANCH" = "main" ]; then
+            echo "THIRDPARTY_BRANCH=main" >> $GITHUB_ENV
+          else
+            echo "THIRDPARTY_BRANCH=develop" >> $GITHUB_ENV
+          fi
+
+      - name: Set platform identifiers
+        shell: bash
+        run: |
+          if [ -n "${{ matrix.abi }}" ]; then
+            TARGET_NAME="${{ matrix.target }}-${{ matrix.abi }}"
+          else
+            TARGET_NAME="${{ matrix.target }}"
+          fi
+          echo "ARCHIVE_FILE=${TARGET_NAME}-${{ matrix.build-type }}.tar.gz" >> $GITHUB_ENV
+          echo "RELEASE_TAG=${TARGET_NAME}-${THIRDPARTY_BRANCH}-${{ matrix.build-type }}" >> $GITHUB_ENV
+
+      - name: Download thirdparty
+        shell: bash
+        run: |
+          mkdir thirdparty && cd thirdparty
+          gh release download "${RELEASE_TAG}" \
+            --repo GeniusVentures/thirdparty \
+            -p "${ARCHIVE_FILE}"
+          tar -zxf "${ARCHIVE_FILE}"
+          git init
+          git remote add origin https://github.com/GeniusVentures/thirdparty
+
+      - name: Configure CMake
+        shell: bash
+        env:
+          BUILD_DIR: build/${{ matrix.target }}/${{ matrix.build-type }}
+        run: |
+          mkdir -p "${BUILD_DIR}" && cd "${BUILD_DIR}"
+          cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=${{ matrix.build-type }}
+
+      - name: Build
+        shell: bash
+        working-directory: build/${{ matrix.target }}/${{ matrix.build-type }}
+        run: ninja
+
+      - name: Test
+        shell: bash
+        working-directory: build/${{ matrix.target }}/${{ matrix.build-type }}
+        run: ctest --output-on-failure

@@ -8,10 +8,8 @@
 #   - ZKLLVM_BUILD_DIR (if applicable)
 #   - C++17, GNUInstallDirs, CompilationFlags, etc.
 
-# ---------------------------------------------------------------------------
-# Convenience alias (source CMakeLists use THIRDPARTY_BUILD_DIR)
-# ---------------------------------------------------------------------------
-set(THIRDPARTY_BUILD_DIR "${_THIRDPARTY_BUILD_DIR}/Release" CACHE PATH "" FORCE)
+# THIRDPARTY_BUILD_DIR and _THIRDPARTY_BUILD_DIR are already set by
+# build/CommonCompilerOptions.cmake (the build submodule). No override needed.
 
 # ---------------------------------------------------------------------------
 # Boost version
