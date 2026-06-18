@@ -17,6 +17,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <nlohmann/json.hpp>
 
 namespace
@@ -36,7 +37,7 @@ namespace
         return dst;
     }
 
-    const char* kStubChatJson = R"({
+    constexpr std::string_view kStubChatJson = R"({
   "id": "chatcmpl-stub",
   "object": "chat.completion",
   "created": 0,
@@ -58,7 +59,7 @@ namespace
   }
 })";
 
-    const char* kStatusJsonStub = R"({
+    constexpr std::string_view kStatusJsonStub = R"({
   "model_loaded": false,
   "mode": "stub",
   "backend": "none",
@@ -85,6 +86,7 @@ namespace
 
     std::string BuildStatusJson()
     {
+        std::lock_guard<std::mutex> lock( g_mutex );
         if ( !g_server )
         {
             return kStatusJsonStub;
@@ -211,7 +213,6 @@ extern "C"
 
     GENIUS_ELM_CHAT_C_API char* GeniusElmGetStatus( void ) GENIUS_ELM_CHAT_C_NOEXCEPT
     {
-        std::lock_guard<std::mutex> lock( g_mutex );
         return AllocCopy( BuildStatusJson() );
     }
 } // extern "C"

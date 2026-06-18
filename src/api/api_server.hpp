@@ -4,8 +4,8 @@
  * @date       2026-05-08
  */
 
-#ifndef NEOSWARM_API_API_SERVER_HPP
-#define NEOSWARM_API_API_SERVER_HPP
+#ifndef NEOSWARM_API_SERVER_HPP
+#define NEOSWARM_API_SERVER_HPP
 
 #include "common/error.hpp"
 #include "common/types.hpp"
@@ -131,4 +131,4 @@ namespace sgns::neoswarm::api
 
 } // namespace sgns::neoswarm::api
 
-#endif // NEOSWARM_API_API_SERVER_HPP
+#endif // NEOSWARM_API_SERVER_HPP
