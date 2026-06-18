@@ -8,7 +8,6 @@
 
 #include "sg_processing_bridge.hpp"
 #include "common/logging.hpp"
-// SuperGeniusClient requires GENIUS_HAS_GRPC
 
 #include <boost/asio/io_context.hpp>
 #include <nlohmann/json.hpp>

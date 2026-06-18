@@ -23,24 +23,7 @@
 #include <gtest/gtest.h>
 #include <memory>
 
-#ifdef GENIUS_HAS_SGPROCESSING
 #include <InputFormat.hpp>
-#else
-namespace sgns
-{
-    enum class InputFormat : int
-    {
-        FLOAT16 = 0,
-        FLOAT32 = 1,
-        FP4_ULTRA = 2,
-        INT16 = 3,
-        INT32 = 4,
-        INT8 = 5,
-        RGB8 = 6,
-        RGBA8 = 7
-    };
-} // namespace sgns
-#endif
 
 using namespace sgns::neoswarm;
 using namespace sgns::neoswarm::core;
@@ -121,21 +104,6 @@ TEST( SGProcessingBridge, BuildSchemaJson_FlatWidthFromShape )
     EXPECT_NE( res.value().find( "128" ), std::string::npos );
 }
 
-TEST( SGProcessingBridge, SubmitJob_StubMode_ReturnsOk )
-{
-    SGProcessingBridge bridge;
-    auto ioc = std::make_shared<boost::asio::io_context>();
-    auto res = bridge.SubmitJob( "file:///models/model.mnn", "file:///data/input.raw", sgns::InputFormat::FLOAT32,
-                                 { 1, 64 }, ioc );
-
-#ifdef GENIUS_HAS_SGPROCESSING
-    (void) res; // result depends on whether model file exists
-#else
-    ASSERT_TRUE( res.has_value() );
-    EXPECT_TRUE( res.value().empty() ); // stub returns empty bytes
-#endif
-}
-
 TEST( SGProcessingBridge, NetworkMode_ReturnsNotImplemented )
 {
     SGProcessingBridge::Config cfg;
@@ -155,7 +123,6 @@ TEST( SGProcessingBridge, NetworkMode_ReturnsNotImplemented )
 // Uses real test data from SuperGenius/test/src/processing_datatypes/.
 // Skipped automatically if the test data directory is not present.
 // ---------------------------------------------------------------------------
-#ifdef GENIUS_HAS_SGPROCESSING
 
 TEST( SGProcessingPipeline, FloatModel_EndToEnd )
 {
@@ -242,8 +209,6 @@ TEST( SGProcessingPipeline, TensorModel_EndToEnd )
 
     std::cout << "Tensor model output (first 80 chars): " << text_res.value().substr( 0, 80 ) << "...\n";
 }
-
-#endif // GENIUS_HAS_SGPROCESSING
 
 // ---------------------------------------------------------------------------
 // TensorInterpreter unit tests (no SGProcessingManager needed)
