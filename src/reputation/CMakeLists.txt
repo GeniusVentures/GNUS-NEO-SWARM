@@ -17,6 +17,5 @@ if(TARGET RocksDB::rocksdb)
     target_compile_definitions(neoswarm_reputation PUBLIC GENIUS_HAS_ROCKSDB)
 elseif(TARGET rocksdb)
     target_link_libraries(neoswarm_reputation PUBLIC rocksdb)
-    target_compile_definitions(neoswarm_reputation PUBLIC GENIUS_HAS_ROCKSDB)
 endif()
 
