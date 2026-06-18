@@ -54,43 +54,23 @@ before merging. The `.clang-tidy` and `.clang-format` configs encode the CLAUDE.
 
 ---
 
-## Phase 1: Remove Feature-Gate #ifdefs ⚠️ ~90% DONE
+## Phase 1: Remove Feature-Gate #ifdefs ✅ DONE
 
 **Goal**: Delete all `#ifdef GENIUS_HAS_*` / `#ifndef GENIUS_HAS_*` from source files.
 **Rule**: If the library exists in thirdparty (it does), link it. If missing, CMake fails with a clear error. No runtime stubs.
 
-**Note:** The bulk of this phase shipped via PR #65 (`fix/zero-guards-cleanup`, merged to `develop`),
-then merged into this branch. Only the items below remain.
+**History:** The bulk shipped via PR #65 (`fix/zero-guards-cleanup`, merged to `develop`).
+This branch removed the remaining tail (dead `SECP256K1`/`OPENSSL`/`ROCKSDB` compile defs,
+the unused `set(GENIUS_HAS_SGPROCESSING)` var, the final `SGPROCESSING` test gate, and a
+stale comment). Zero `GENIUS_HAS_*` references now remain anywhere in `src/` or `test/`.
 
-### 1.1 — Remove #ifdefs from source files
+### 1.1 — #ifdefs from source files ✅
+All macros removed (`SECP256K1`, `OPENSSL`, `MNN`, `ROCKSDB`, `LIBP2P`, `SENTENCEPIECE`, `GRPC`, `VULKAN`, `SGPROCESSING`).
 
-| Macro | Source Files | Status |
-|-------|-------------|--------|
-| `GENIUS_HAS_SECP256K1` | (none) | ✅ Removed |
-| `GENIUS_HAS_OPENSSL` | (none) | ✅ Removed |
-| `GENIUS_HAS_MNN` | (none) | ✅ Removed |
-| `GENIUS_HAS_ROCKSDB` | (none) | ✅ Removed |
-| `GENIUS_HAS_LIBP2P` | (none) | ✅ Removed |
-| `GENIUS_HAS_SENTENCEPIECE` | (none — duplicated-guard bug also fixed) | ✅ Removed |
-| `GENIUS_HAS_GRPC` | (none — was api_server.cpp/hpp, sg_channel_manager.cpp) | ✅ Removed |
-| `GENIUS_HAS_VULKAN` | (none) | ✅ Removed |
-| `GENIUS_HAS_SGPROCESSING` | `test/integration/test_sgprocessing_pipeline.cpp:26,131,158,246` | ❌ Still present (4 guards in one test) |
-
-### 1.2 — Remove target_compile_definitions from CMakeLists
-
-| CMake File | Macro | Status |
-|------------|-------|--------|
-| `src/core/CMakeLists.txt` | `GENIUS_HAS_MNN` / `_SENTENCEPIECE` / `_VULKAN` / `_SGPROCESSING` | ✅ Removed |
-| `src/api/CMakeLists.txt` | `GENIUS_HAS_GRPC` | ✅ Removed |
-| `src/network/CMakeLists.txt` | `GENIUS_HAS_LIBP2P` | ✅ Removed |
-| `src/security/CMakeLists.txt:24` | `GENIUS_HAS_SECP256K1` | ❌ Still present |
-| `src/security/CMakeLists.txt:30` | `GENIUS_HAS_OPENSSL` | ❌ Still present |
-| `src/reputation/CMakeLists.txt:17` | `GENIUS_HAS_ROCKSDB` | ❌ Still present |
-
-**CMake internal var (not a compile def):** `src/core/CMakeLists.txt:146` still does `set(GENIUS_HAS_SGPROCESSING TRUE)`.
-Verify nothing reads this variable before removing; if unused, delete the line.
-
-**Done when:** Zero `GENIUS_HAS_*` ifdefs in any `.hpp`/`.cpp`/test file, zero `target_compile_definitions` for them in CMake.
+### 1.2 — target_compile_definitions from CMakeLists ✅
+All removed. Note: `GENIUS_HAS_SGPROCESSING` had been a dead test gate (macro never defined
+after PR #65), so the real SGProcessing end-to-end tests were silently uncompiled — now fixed;
+`FloatModel_EndToEnd` / `TensorModel_EndToEnd` are live again (self-skip when test data absent).
 
 ---
 
@@ -388,7 +368,7 @@ No `#ifdef __unix__` / `#ifdef _WIN32` found in `src/`. ✅
 | 2 | 2 | File Renames (PascalCase → snake_case) | ✅ DONE | Phase 0 |
 | 3 | 4 | Library Name Renames (CMake) | ✅ DONE | Phase 2 |
 | 4 | 3 | Header Guard Fixes | ✅ DONE | Phase 2 |
-| 5 | 1 | Remove Feature-Gate #ifdefs | ⚠️ IN PROGRESS | Phase 0 |
+| 5 | 1 | Remove Feature-Gate #ifdefs | ✅ DONE | Phase 0 |
 | 6 | 2a | Member Variable Naming | ⚠️ IN PROGRESS | Phase 2 |
 | 7 | 2b | Class/Type Name Renames | ⚠️ IN PROGRESS | Phase 2a |
 | 8 | 7 | Cleanup & Debt | ✅ DONE | — |
