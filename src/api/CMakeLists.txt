@@ -21,7 +21,6 @@ target_link_libraries(neoswarm_api PUBLIC
 # gRPC (optional)
 if(TARGET gRPC::grpc++)
     target_link_libraries(neoswarm_api PUBLIC gRPC::grpc++)
-    target_compile_definitions(neoswarm_api PUBLIC GENIUS_HAS_GRPC)
 endif()
 
 # UUID (POSIX — Linux only, macOS uses its own API)

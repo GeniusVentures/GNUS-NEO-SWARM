@@ -2,8 +2,10 @@ add_library(neoswarm_network STATIC
     p2p_node.cpp
     result_aggregation.cpp
     sg_client/super_genius_client.cpp
+
     sg_client/sg_channel_manager.cpp
     sg_client/sg_job_submitter.cpp
+
     sg_client/sg_result_collector.cpp
     sg_client/sg_message_authenticator.cpp
 )
@@ -74,7 +76,6 @@ if(TARGET p2p::p2p)
     )
     # Use external fmt so spdlog's bundled fmt doesn't conflict
     target_compile_definitions(neoswarm_network PUBLIC
-        GENIUS_HAS_LIBP2P
         SPDLOG_FMT_EXTERNAL
     )
     message(STATUS "libp2p enabled for neoswarm_network")
