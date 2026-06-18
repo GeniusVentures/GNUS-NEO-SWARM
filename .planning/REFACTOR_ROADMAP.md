@@ -198,49 +198,56 @@ These files post-date the original roadmap and use the ELM (Edge Language Model)
 
 ---
 
-## Phase 2a: Member Variable Naming ⚠️ IN PROGRESS
+## Phase 2a: Member Variable Naming ✅ DONE (enumerated items)
 
 Fix all member variables to `m_` prefix + camelCase convention.
 
-### 2a.1 Security Module ⚠️
+### 2a.1 Security Module ✅
 | Class | Current | Target | Status |
 |-------|---------|--------|--------|
-| `NodeIdentity` | `pub_key_` | `m_pubKey` | ⚠️ |
-| `NodeIdentity` | `loaded_` | `m_loaded` | ⚠️ |
-| `NodeIdentity` | `impl_` | `m_impl` | ⚠️ |
+| `NodeIdentity` | `pub_key_` | `m_pubKey` | ✅ |
+| `NodeIdentity` | `loaded_` | `m_loaded` | ✅ |
+| `NodeIdentity` | `impl_` | `m_impl` | ✅ |
 
-### 2a.2 Core Engine ⚠️
+### 2a.2 Core Engine ✅
 | Class | Current | Target | Status |
 |-------|---------|--------|--------|
-| `MNNInferenceEngine` | `cfg_` | `m_cfg` | ⚠️ |
-| `MNNInferenceEngine` | `loaded_` | `m_loaded` | ⚠️ |
-| `MNNInferenceEngine` | `model_path_` | `m_modelPath` | ⚠️ |
+| `MNNInferenceEngine` | `cfg_` | `m_cfg` | ✅ |
+| `MNNInferenceEngine` | `loaded_` | `m_loaded` | ✅ |
+| `MNNInferenceEngine` | `model_path_` | `m_modelPath` | ✅ |
+| `MNNInferenceEngine::Config` | `sg_m_networkMode` | `m_sgNetworkMode` | ✅ |
 
-### 2a.3 API Server — Config struct naming bugs ❌
-| Member | Problem | Should be |
-|--------|---------|-----------|
-| `grammar_m_modelPath` | `m_` in middle of name | `m_grammarModelPath` |
-| `math_m_modelPath` | `m_` in middle of name | `m_mathModelPath` |
-| `m_knowledgefacts_` | trailing `_` after `m_` | `m_knowledgeFacts` |
-| `sg_processing_m_networkMode` | mixed conventions | `m_sgProcessingNetworkMode` |
-| `sg_m_endpoint` | mixed conventions | `m_sgEndpoint` |
+### 2a.3 API Server — Config struct naming bugs ✅
+| Member | Was | Now |
+|--------|------|-----|
+| `m_grammarModelPath` | `grammar_m_modelPath` | ✅ |
+| `m_mathModelPath` | `math_m_modelPath` | ✅ |
+| `m_knowledgeFacts` | `m_knowledgefacts_` | ✅ |
+| `m_sgProcessingNetworkMode` | `sg_processing_m_networkMode` | ✅ |
+| `m_sgEndpoint` | `sg_m_endpoint` | ✅ |
 
-### 2a.4 API Server — other members ⚠️
-| Current | Target |
-|---------|--------|
-| `cfg_` | `m_cfg` |
-| `running_` | `m_running` |
-| `identity_` | `m_identity` |
+### 2a.4 API Server — other members ✅
+| Current | Target | Status |
+|---------|--------|--------|
+| `m_cfg` | (was `cfg_`) | ✅ |
+| `m_running` | (was `running_`) | ✅ |
+| `m_identity` | (was `identity_`) | ✅ |
 
 ### 2a.5 Function Argument Renames
-All `snake_case` arguments → `camelCase` throughout. Spot-check and fix incrementally.
+All `snake_case` arguments → `camelCase` throughout. DEFERRED — broad, non-enumerated; spot-fix incrementally as files are touched.
 
-### 2a.6 Accessor Method Renames ⚠️
-| Class | Current | Target |
-|-------|---------|--------|
-| `NodeIdentity` | `PeerId()` | `GetPeerId()` |
-| `NodeIdentity` | `PublicKey()` | `GetPublicKey()` |
-| `NodeIdentity` | `IsLoaded()` | ✅ OK |
+### 2a.6 Accessor Method Renames ✅
+| Class | Current | Target | Status |
+|-------|---------|--------|--------|
+| `NodeIdentity` | `PeerId()` | `GetPeerId()` | ✅ |
+| `NodeIdentity` | `PublicKey()` | `GetPublicKey()` | ✅ |
+| `NodeIdentity` | `IsLoaded()` | ✅ OK | ✅ |
+
+### 2a.7 Findings outside roadmap scope (DECISION PENDING)
+These malformed names share the bug class but weren't enumerated in the roadmap:
+- **`MNNInferenceEngine::Config`** still has: `engine_m_mode`, `backend_`, `use_fp4_`, `num_threads_`,
+  `max_new_tokens_`, `top_p_`, `top_k_`, `repetition_penalty_` (→ `m_engineMode`, `m_backend`, etc.)
+- **`P2PNode::PeerId()`** — separate class, same accessor convention as `NodeIdentity`; rename to `GetPeerId()` for consistency?
 
 ---
 
@@ -369,8 +376,8 @@ No `#ifdef __unix__` / `#ifdef _WIN32` found in `src/`. ✅
 | 3 | 4 | Library Name Renames (CMake) | ✅ DONE | Phase 2 |
 | 4 | 3 | Header Guard Fixes | ✅ DONE | Phase 2 |
 | 5 | 1 | Remove Feature-Gate #ifdefs | ✅ DONE | Phase 0 |
-| 6 | 2a | Member Variable Naming | ⚠️ IN PROGRESS | Phase 2 |
-| 7 | 2b | Class/Type Name Renames | ⚠️ IN PROGRESS | Phase 2a |
+| 6 | 2a | Member Variable Naming | ✅ DONE (enumerated items) | Phase 2 |
+| 7 | 2b | Class/Type Name Renames | ❌ | Phase 2a |
 | 8 | 7 | Cleanup & Debt | ✅ DONE | — |
 | 9 | 5 | Function Size Refactors | ❌ | Phases 1–2b |
 | 10 | 6 | Remove Platform Ifdefs & Busy-Waits | ❌ | Phase 5 |
