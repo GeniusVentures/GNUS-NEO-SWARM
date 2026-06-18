@@ -78,7 +78,7 @@ namespace sgns::neoswarm::api
         core::MNNInferenceEngine::Config engine_cfg;
         engine_cfg.engine_m_mode = m_cfg.m_enableSgProcessing ? "sgprocessing" : "interpreter";
         engine_cfg.backend_ = "vulkan"; // cross-platform; MoltenVK on Apple
-        engine_cfg.sg_m_networkMode = m_cfg.sg_processing_m_networkMode;
+        engine_cfg.m_sgNetworkMode = m_cfg.m_sgProcessingNetworkMode;
         auto engine = std::make_shared<core::MNNInferenceEngine>( engine_cfg );
 
         auto tokenizer = std::make_shared<core::SentencePieceTokenizer>();
@@ -106,17 +106,17 @@ namespace sgns::neoswarm::api
 
         // 3. Specialists
         m_grammarSpec = std::make_shared<specialists::GrammarSpecialist>(
-            m_cfg.grammar_m_modelPath.empty() ? nullptr : m_coreEngine );
+            m_cfg.m_grammarModelPath.empty() ? nullptr : m_coreEngine );
         m_mathSpec =
-            std::make_shared<specialists::MathSpecialist>( m_cfg.math_m_modelPath.empty() ? nullptr : m_coreEngine );
+            std::make_shared<specialists::MathSpecialist>( m_cfg.m_mathModelPath.empty() ? nullptr : m_coreEngine );
 
-        if ( !m_cfg.grammar_m_modelPath.empty() )
+        if ( !m_cfg.m_grammarModelPath.empty() )
         {
-            (void)m_grammarSpec->Load( m_cfg.grammar_m_modelPath );
+            (void)m_grammarSpec->Load( m_cfg.m_grammarModelPath );
         }
-        if ( !m_cfg.math_m_modelPath.empty() )
+        if ( !m_cfg.m_mathModelPath.empty() )
         {
-            (void)m_mathSpec->Load( m_cfg.math_m_modelPath );
+            (void)m_mathSpec->Load( m_cfg.m_mathModelPath );
         }
 
         // 4. Router
@@ -147,10 +147,10 @@ namespace sgns::neoswarm::api
         }
 
         // 6b. SuperGenius connectivity (optional — Phase 2 network dispatch)
-        if ( !m_cfg.sg_m_endpoint.empty() )
+        if ( !m_cfg.m_sgEndpoint.empty() )
         {
             network::SuperGeniusClient::Config sgCfg;
-            sgCfg.m_endpoint = m_cfg.sg_m_endpoint;
+            sgCfg.m_endpoint = m_cfg.m_sgEndpoint;
             sgCfg.m_tlsCaPath = m_cfg.m_sgTlsCa;
             sgCfg.m_tlsCertPath = m_cfg.m_sgTlsCert;
 
@@ -161,7 +161,7 @@ namespace sgns::neoswarm::api
                 auto connRes = m_sgClient->Connect();
                 if ( connRes.has_value() )
                 {
-                    ServerLogger()->info( "Connected to SuperGenius at {}", m_cfg.sg_m_endpoint );
+                    ServerLogger()->info( "Connected to SuperGenius at {}", m_cfg.m_sgEndpoint );
                 }
                 else
                 {
@@ -188,7 +188,7 @@ namespace sgns::neoswarm::api
         if ( m_cfg.m_enableKnowledge )
         {
             knowledge::KnowledgeRetrieval::Config k_cfg;
-            k_cfg.m_factsPath = m_cfg.m_knowledgefacts_;
+            k_cfg.m_factsPath = m_cfg.m_knowledgeFacts;
             m_knowledge = std::make_shared<knowledge::KnowledgeRetrieval>( k_cfg );
             (void)m_knowledge->Load();
             m_contextInj = std::make_unique<knowledge::ContextInjection>();

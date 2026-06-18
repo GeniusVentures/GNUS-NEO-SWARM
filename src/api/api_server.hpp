@@ -48,18 +48,18 @@ namespace sgns::neoswarm::api
         struct Config
         {
             std::string m_modelPath;
-            std::string grammar_m_modelPath;
-            std::string math_m_modelPath;
+            std::string m_grammarModelPath;
+            std::string m_mathModelPath;
             std::string m_reputationDbPath = "./reputation.db";
-            std::string m_knowledgefacts_ = "";
+            std::string m_knowledgeFacts = "";
             bool m_enableNetwork = false;
             bool m_enableKnowledge = true;
             int m_grpcPort = 50051;
             std::string m_nodeKeyFile = "./node.key";
             std::string m_nodeKeyPassphrase = "gnus-neo-swarm-default";
             bool m_enableSgProcessing = false;
-            bool sg_processing_m_networkMode = false;
-            std::string sg_m_endpoint = "localhost:50051";
+            bool m_sgProcessingNetworkMode = false;
+            std::string m_sgEndpoint = "localhost:50051";
             std::string m_sgTlsCa;
             std::string m_sgTlsCert;
         };

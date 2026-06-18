@@ -41,17 +41,17 @@ using namespace sgns::neoswarm;
 struct Args
 {
     std::string m_modelPath;
-    std::string grammar_m_modelPath;
-    std::string math_m_modelPath;
+    std::string m_grammarModelPath;
+    std::string m_mathModelPath;
     std::string m_mode = "auto";
     std::string m_prompt;
     int port_ = 50051;
     std::string db_path_ = "./reputation.db";
     std::string key_file_ = "./node.key";
-    std::string m_knowledgepath_;
+    std::string m_knowledgePath;
     int m_maxTokens = 512;
     float m_temperature = 0.7f;
-    std::string sg_m_endpoint = "localhost:50051";
+    std::string m_sgEndpoint = "localhost:50051";
     std::string m_sgTlsCa;
     std::string m_sgTlsCert;
     std::string config_path_;
@@ -112,10 +112,10 @@ static void LoadConfigFile( const std::string& path, Args& args )
     // Only set defaults — CLI args will override
     if ( j.contains( "model" ) && args.m_modelPath.empty() )
         args.m_modelPath = j["model"].get<std::string>();
-    if ( j.contains( "grammar_model" ) && args.grammar_m_modelPath.empty() )
-        args.grammar_m_modelPath = j["grammar_model"].get<std::string>();
-    if ( j.contains( "math_model" ) && args.math_m_modelPath.empty() )
-        args.math_m_modelPath = j["math_model"].get<std::string>();
+    if ( j.contains( "grammar_model" ) && args.m_grammarModelPath.empty() )
+        args.m_grammarModelPath = j["grammar_model"].get<std::string>();
+    if ( j.contains( "math_model" ) && args.m_mathModelPath.empty() )
+        args.m_mathModelPath = j["math_model"].get<std::string>();
     if ( j.contains( "mode" ) && args.m_mode == "auto" )
         args.m_mode = j["mode"].get<std::string>();
     if ( j.contains( "port" ) && args.port_ == 50051 )
@@ -124,14 +124,14 @@ static void LoadConfigFile( const std::string& path, Args& args )
         args.db_path_ = j["db"].get<std::string>();
     if ( j.contains( "key" ) && args.key_file_ == "./node.key" )
         args.key_file_ = j["key"].get<std::string>();
-    if ( j.contains( "knowledge" ) && args.m_knowledgepath_.empty() )
-        args.m_knowledgepath_ = j["knowledge"].get<std::string>();
+    if ( j.contains( "knowledge" ) && args.m_knowledgePath.empty() )
+        args.m_knowledgePath = j["knowledge"].get<std::string>();
     if ( j.contains( "max_tokens" ) && args.m_maxTokens == 512 )
         args.m_maxTokens = j["max_tokens"].get<int>();
     if ( j.contains( "temperature" ) && args.m_temperature == 0.7f )
         args.m_temperature = j["temperature"].get<float>();
-    if ( j.contains( "sg_endpoint" ) && args.sg_m_endpoint == "localhost:50051" )
-        args.sg_m_endpoint = j["sg_endpoint"].get<std::string>();
+    if ( j.contains( "sg_endpoint" ) && args.m_sgEndpoint == "localhost:50051" )
+        args.m_sgEndpoint = j["sg_endpoint"].get<std::string>();
     if ( j.contains( "network" ) && !args.network_ )
         args.network_ = j["network"].get<bool>();
     if ( j.contains( "verbose" ) && !args.verbose_ )
@@ -155,9 +155,9 @@ static Args ParseArgs( int argc, char** argv )
         if ( a == "--model" )
             args.m_modelPath = next();
         else if ( a == "--grammar-model" )
-            args.grammar_m_modelPath = next();
+            args.m_grammarModelPath = next();
         else if ( a == "--math-model" )
-            args.math_m_modelPath = next();
+            args.m_mathModelPath = next();
         else if ( a == "--mode" )
             args.m_mode = next();
         else if ( a == "--prompt" )
@@ -169,7 +169,7 @@ static Args ParseArgs( int argc, char** argv )
         else if ( a == "--key" )
             args.key_file_ = next();
         else if ( a == "--knowledge" )
-            args.m_knowledgepath_ = next();
+            args.m_knowledgePath = next();
         else if ( a == "--max-tokens" )
             args.m_maxTokens = std::stoi( next() );
         else if ( a == "--temperature" )
@@ -177,7 +177,7 @@ static Args ParseArgs( int argc, char** argv )
         else if ( a == "--config" )
             args.config_path_ = next();
         else if ( a == "--sg-endpoint" )
-            args.sg_m_endpoint = next();
+            args.m_sgEndpoint = next();
         else if ( a == "--sg-tls-ca" )
             args.m_sgTlsCa = next();
         else if ( a == "--sg-tls-cert" )
@@ -282,15 +282,15 @@ int main( int argc, char** argv )
     // Build server config
     api::ApiServer::Config cfg;
     cfg.m_modelPath = args.m_modelPath;
-    cfg.grammar_m_modelPath = args.grammar_m_modelPath;
-    cfg.math_m_modelPath = args.math_m_modelPath;
+    cfg.m_grammarModelPath = args.m_grammarModelPath;
+    cfg.m_mathModelPath = args.m_mathModelPath;
     cfg.m_reputationDbPath = args.db_path_;
-    cfg.m_knowledgefacts_ = args.m_knowledgepath_;
+    cfg.m_knowledgeFacts = args.m_knowledgePath;
     cfg.m_enableNetwork = args.network_;
     cfg.m_enableKnowledge = true;
     (void) args.port_;
     cfg.m_nodeKeyFile = args.key_file_;
-    cfg.sg_m_endpoint = args.sg_m_endpoint;
+    cfg.m_sgEndpoint = args.m_sgEndpoint;
     cfg.m_sgTlsCa = args.m_sgTlsCa;
     cfg.m_sgTlsCert = args.m_sgTlsCert;
 

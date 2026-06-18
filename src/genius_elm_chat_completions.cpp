@@ -156,7 +156,7 @@ extern "C"
         }
         if ( knowledgePath != nullptr && knowledgePath[ 0 ] != '\0' )
         {
-            cfg.m_knowledgefacts_ = knowledgePath;
+            cfg.m_knowledgeFacts = knowledgePath;
         }
         cfg.m_enableNetwork = false;
 
