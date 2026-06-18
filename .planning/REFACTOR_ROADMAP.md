@@ -54,42 +54,43 @@ before merging. The `.clang-tidy` and `.clang-format` configs encode the CLAUDE.
 
 ---
 
-## Phase 1: Remove Feature-Gate #ifdefs ⚠️ IN PROGRESS
+## Phase 1: Remove Feature-Gate #ifdefs ⚠️ ~90% DONE
 
 **Goal**: Delete all `#ifdef GENIUS_HAS_*` / `#ifndef GENIUS_HAS_*` from source files.
 **Rule**: If the library exists in thirdparty (it does), link it. If missing, CMake fails with a clear error. No runtime stubs.
+
+**Note:** The bulk of this phase shipped via PR #65 (`fix/zero-guards-cleanup`, merged to `develop`),
+then merged into this branch. Only the items below remain.
 
 ### 1.1 — Remove #ifdefs from source files
 
 | Macro | Source Files | Status |
 |-------|-------------|--------|
-| `GENIUS_HAS_SECP256K1` | (none found in source) | ✅ Already removed |
-| `GENIUS_HAS_OPENSSL` | (none found in source) | ✅ Already removed |
-| `GENIUS_HAS_MNN` | (none found in source) | ✅ Already removed |
-| `GENIUS_HAS_ROCKSDB` | (none found in source) | ✅ Already removed |
-| `GENIUS_HAS_LIBP2P` | (none found in source) | ✅ Already removed |
-| `GENIUS_HAS_SENTENCEPIECE` | `src/api/api_server.cpp:84`, `src/core/tokenizer/sentence_piece_tokenizer.cpp:15-16` | ❌ Still present |
-| `GENIUS_HAS_SGPROCESSING` | `test/integration/test_sgprocessing_pipeline.cpp:26,131,158,246` | ❌ Still present |
-| `GENIUS_HAS_GRPC` | `src/api/api_server.cpp:151,190,486,497`, `src/api/api_server.hpp:119`, `src/network/sg_client/sg_channel_manager.cpp:40,74` | ❌ Still present |
-| `GENIUS_HAS_VULKAN` | (none in source, only in CMake) | ⚠️ CMake define only |
-
-**BUG**: `src/core/tokenizer/sentence_piece_tokenizer.cpp` lines 15-16 contain a **duplicated** `#ifdef GENIUS_HAS_SENTENCEPIECE` guard (same guard on consecutive lines).
+| `GENIUS_HAS_SECP256K1` | (none) | ✅ Removed |
+| `GENIUS_HAS_OPENSSL` | (none) | ✅ Removed |
+| `GENIUS_HAS_MNN` | (none) | ✅ Removed |
+| `GENIUS_HAS_ROCKSDB` | (none) | ✅ Removed |
+| `GENIUS_HAS_LIBP2P` | (none) | ✅ Removed |
+| `GENIUS_HAS_SENTENCEPIECE` | (none — duplicated-guard bug also fixed) | ✅ Removed |
+| `GENIUS_HAS_GRPC` | (none — was api_server.cpp/hpp, sg_channel_manager.cpp) | ✅ Removed |
+| `GENIUS_HAS_VULKAN` | (none) | ✅ Removed |
+| `GENIUS_HAS_SGPROCESSING` | `test/integration/test_sgprocessing_pipeline.cpp:26,131,158,246` | ❌ Still present (4 guards in one test) |
 
 ### 1.2 — Remove target_compile_definitions from CMakeLists
 
 | CMake File | Macro | Status |
 |------------|-------|--------|
+| `src/core/CMakeLists.txt` | `GENIUS_HAS_MNN` / `_SENTENCEPIECE` / `_VULKAN` / `_SGPROCESSING` | ✅ Removed |
+| `src/api/CMakeLists.txt` | `GENIUS_HAS_GRPC` | ✅ Removed |
+| `src/network/CMakeLists.txt` | `GENIUS_HAS_LIBP2P` | ✅ Removed |
 | `src/security/CMakeLists.txt:24` | `GENIUS_HAS_SECP256K1` | ❌ Still present |
 | `src/security/CMakeLists.txt:30` | `GENIUS_HAS_OPENSSL` | ❌ Still present |
-| `src/core/CMakeLists.txt:30` | `GENIUS_HAS_MNN` | ❌ Still present |
-| `src/core/CMakeLists.txt:45` | `GENIUS_HAS_SENTENCEPIECE` | ❌ Still present |
-| `src/core/CMakeLists.txt:65` | `GENIUS_HAS_VULKAN` | ❌ Still present |
-| `src/core/CMakeLists.txt:149` | `GENIUS_HAS_SGPROCESSING` | ❌ Still present |
-| `src/api/CMakeLists.txt:24` | `GENIUS_HAS_GRPC` | ❌ Still present |
-| `src/reputation/CMakeLists.txt:17,20` | `GENIUS_HAS_ROCKSDB` | ❌ Still present (defined TWICE) |
-| `src/network/CMakeLists.txt:77` | `GENIUS_HAS_LIBP2P` | ❌ Still present |
+| `src/reputation/CMakeLists.txt:17` | `GENIUS_HAS_ROCKSDB` | ❌ Still present |
 
-**Done when:** Zero `GENIUS_HAS_*` ifdefs in any `.hpp`/`.cpp` file, zero `target_compile_definitions` for them in CMake.
+**CMake internal var (not a compile def):** `src/core/CMakeLists.txt:146` still does `set(GENIUS_HAS_SGPROCESSING TRUE)`.
+Verify nothing reads this variable before removing; if unused, delete the line.
+
+**Done when:** Zero `GENIUS_HAS_*` ifdefs in any `.hpp`/`.cpp`/test file, zero `target_compile_definitions` for them in CMake.
 
 ---
 
