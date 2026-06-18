@@ -97,7 +97,7 @@ TEST( NodeIdentity, SaveEncryptedLoadEncryptedRoundtrip )
     ASSERT_TRUE( loadResult.has_value() );
     ASSERT_TRUE( ident2.IsLoaded() );
 
-    EXPECT_EQ( ident1.PeerId(), ident2.PeerId() );
+    EXPECT_EQ( ident1.GetPeerId(), ident2.GetPeerId() );
 
     RemoveTestFile();
 }
@@ -184,7 +184,7 @@ TEST( NodeIdentity, SaveEncryptedOverwrite )
 
     NodeIdentity ident2;
     ASSERT_TRUE( ident2.LoadEncrypted( kTestKeyPath, kTestPass ).has_value() );
-    EXPECT_EQ( ident1.PeerId(), ident2.PeerId() );
+    EXPECT_EQ( ident1.GetPeerId(), ident2.GetPeerId() );
 
     RemoveTestFile();
 }

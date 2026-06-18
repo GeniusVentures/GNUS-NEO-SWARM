@@ -39,7 +39,7 @@ TEST( MessageSigning, VerifyValidSignature )
     NodeIdentity ident;
     ASSERT_TRUE( ident.Generate().has_value() );
 
-    const std::string pubKeyHex = PubKeyToHex( ident.PublicKey() );
+    const std::string pubKeyHex = PubKeyToHex( ident.GetPublicKey() );
     MessageSigning signer( ident );
 
     const std::string payload = R"({"msg":"hello"})";
@@ -55,7 +55,7 @@ TEST( MessageSigning, VerifyTamperedPayload )
     NodeIdentity ident;
     ASSERT_TRUE( ident.Generate().has_value() );
 
-    const std::string pubKeyHex = PubKeyToHex( ident.PublicKey() );
+    const std::string pubKeyHex = PubKeyToHex( ident.GetPublicKey() );
     MessageSigning signer( ident );
 
     const std::string payload = R"({"msg":"hello"})";
@@ -73,7 +73,7 @@ TEST( MessageSigning, VerifyWrongKey )
     ASSERT_TRUE( identA.Generate().has_value() );
     ASSERT_TRUE( identB.Generate().has_value() );
 
-    const std::string pubKeyB = PubKeyToHex( identB.PublicKey() );
+    const std::string pubKeyB = PubKeyToHex( identB.GetPublicKey() );
     MessageSigning signerA( identA );
 
     const std::string payload = R"({"msg":"hello"})";
@@ -88,7 +88,7 @@ TEST( MessageSigning, VerifyEmptySignature )
     NodeIdentity ident;
     ASSERT_TRUE( ident.Generate().has_value() );
 
-    const std::string pubKeyHex = PubKeyToHex( ident.PublicKey() );
+    const std::string pubKeyHex = PubKeyToHex( ident.GetPublicKey() );
 
     EXPECT_FALSE( MessageSigning::Verify( "payload", {}, pubKeyHex ) );
 }
@@ -98,7 +98,7 @@ TEST( MessageSigning, VerifyTruncatedSignature )
     NodeIdentity ident;
     ASSERT_TRUE( ident.Generate().has_value() );
 
-    const std::string pubKeyHex = PubKeyToHex( ident.PublicKey() );
+    const std::string pubKeyHex = PubKeyToHex( ident.GetPublicKey() );
 
     std::vector<uint8_t> truncated = { 0x30, 0x06, 0x02, 0x01, 0x01, 0x02, 0x01, 0x01 };
     EXPECT_FALSE( MessageSigning::Verify( "payload", truncated, pubKeyHex ) );
@@ -113,7 +113,7 @@ TEST( MessageSigning, VerifyAndStripValid )
     NodeIdentity ident;
     ASSERT_TRUE( ident.Generate().has_value() );
 
-    const std::string pubKeyHex = PubKeyToHex( ident.PublicKey() );
+    const std::string pubKeyHex = PubKeyToHex( ident.GetPublicKey() );
     MessageSigning signer( ident );
 
     const std::string original = R"({"msg":"hello"})";
@@ -129,7 +129,7 @@ TEST( MessageSigning, VerifyAndStripExpiredTimestamp )
     NodeIdentity ident;
     ASSERT_TRUE( ident.Generate().has_value() );
 
-    const std::string pubKeyHex = PubKeyToHex( ident.PublicKey() );
+    const std::string pubKeyHex = PubKeyToHex( ident.GetPublicKey() );
     MessageSigning signer( ident );
 
     std::string payload = signer.AttachSignature( R"({"msg":"test"})" );

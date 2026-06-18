@@ -91,7 +91,7 @@ namespace sgns::neoswarm::security
                 secp256k1_ec_pubkey_serialize( m_impl->m_ctx, m_pubKey.data(), &pub_len, &pubkey,
                                                SECP256K1_EC_COMPRESSED );
                 m_loaded = true;
-                IdentityLogger()->info( "NodeIdentity generated: peerId={}", PeerId() );
+                IdentityLogger()->info( "NodeIdentity generated: peerId={}", GetPeerId() );
                 return outcome::success();
             }
         }
@@ -102,7 +102,7 @@ namespace sgns::neoswarm::security
     // -----------------------------------------------------------------------
     // PeerId
     // -----------------------------------------------------------------------
-    std::string NodeIdentity::PeerId() const
+    std::string NodeIdentity::GetPeerId() const
     {
         if ( !m_loaded )
         {

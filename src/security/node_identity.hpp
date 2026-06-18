@@ -87,10 +87,10 @@ namespace sgns::neoswarm::security
          * @brief Derive the PeerId string from the public key.
          * @return  Hex-encoded SHA-256 of the compressed public key.
          */
-        std::string PeerId() const;
+        std::string GetPeerId() const;
 
         /// @return The compressed public key bytes.
-        const PubKey& PublicKey() const
+        const PubKey& GetPublicKey() const
         {
             return m_pubKey;
         }

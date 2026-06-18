@@ -72,7 +72,7 @@ namespace sgns::neoswarm::api
                 (void)m_identity->SaveEncrypted( m_cfg.m_nodeKeyFile, m_cfg.m_nodeKeyPassphrase );
             }
         }
-        ServerLogger()->info( "Node identity: {}", m_identity->PeerId() );
+        ServerLogger()->info( "Node identity: {}", m_identity->GetPeerId() );
 
         // 2. Core inference engine
         core::MNNInferenceEngine::Config engine_cfg;
@@ -195,7 +195,7 @@ namespace sgns::neoswarm::api
             m_factVal = std::make_unique<knowledge::FactValidation>( m_knowledge );
         }
 
-        ServerLogger()->info( "ApiServer initialized (node={})", m_identity->PeerId() );
+        ServerLogger()->info( "ApiServer initialized (node={})", m_identity->GetPeerId() );
         return outcome::success();
     }
 
@@ -434,7 +434,7 @@ namespace sgns::neoswarm::api
         if ( t.m_id.empty() )
             t.m_id = GenerateId();
         if ( t.m_nodeId.empty() )
-            t.m_nodeId = m_identity ? m_identity->PeerId() : "local";
+            t.m_nodeId = m_identity ? m_identity->GetPeerId() : "local";
 
         auto route_res = m_router->Route( t );
         if ( !route_res.has_value() )
