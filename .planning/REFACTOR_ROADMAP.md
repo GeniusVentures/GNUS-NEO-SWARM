@@ -360,22 +360,22 @@ No `#ifdef __unix__` / `#ifdef _WIN32` found in `src/`. ✅
 
 ---
 
-## Phase 7: Cleanup & Debt
+## Phase 7: Cleanup & Debt ✅ DONE
 
-### 7.1 — Delete orphaned files
-- `test/ffi/test_genius_slm_ffi.cpp` — orphaned, not built, superseded by `test_genius_elm_ffi.cpp`
+### 7.1 — Delete orphaned files ✅
+- `test/ffi/test_genius_slm_ffi.cpp` — deleted (was orphaned, not built, superseded by `test_genius_elm_ffi.cpp`)
 
-### 7.2 — Fix CMake target name mismatch
-- `test/CMakeLists.txt:62` — target `test_genius_slm_ffi` sources from `ffi/test_genius_elm_ffi.cpp`
-- Rename target to `test_genius_elm_ffi` or rename source file
+### 7.2 — Fix CMake target name mismatch ✅
+- `test/CMakeLists.txt:62` — target already renamed to `test_genius_elm_ffi`
 
-### 7.3 — Fix `GENIUS_HAS_ROCKSDB` double definition
-- `src/reputation/CMakeLists.txt:17` and `:20` — defined twice; remove one
+### 7.3 — Fix `GENIUS_HAS_ROCKSDB` double definition ✅
+- Only one `target_compile_definitions` for `GENIUS_HAS_ROCKSDB` exists (line 17)
+- The `elseif(TARGET rocksdb)` block (line 18-19) links but intentionally does not define the macro
 
-### 7.4 — Test names still using old conventions
-| Test CMake Target | Should Be |
-|-------------------|-----------|
-| `test_genius_slm_ffi` | `test_genius_elm_ffi` |
+### 7.4 — Test names still using old conventions ✅
+| Test CMake Target | Status |
+|-------------------|--------|
+| `test_genius_elm_ffi` | Matches source file `test_genius_elm_ffi.cpp` |
 
 ---
 
@@ -390,7 +390,7 @@ No `#ifdef __unix__` / `#ifdef _WIN32` found in `src/`. ✅
 | 5 | 1 | Remove Feature-Gate #ifdefs | ⚠️ IN PROGRESS | Phase 0 |
 | 6 | 2a | Member Variable Naming | ⚠️ IN PROGRESS | Phase 2 |
 | 7 | 2b | Class/Type Name Renames | ⚠️ IN PROGRESS | Phase 2a |
-| 8 | 7 | Cleanup & Debt | ❌ | Phases 1–2b |
+| 8 | 7 | Cleanup & Debt | ✅ DONE | — |
 | 9 | 5 | Function Size Refactors | ❌ | Phases 1–2b |
 | 10 | 6 | Remove Platform Ifdefs & Busy-Waits | ❌ | Phase 5 |
 
