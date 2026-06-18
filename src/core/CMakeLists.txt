@@ -143,7 +143,6 @@ if(_SGPROC_PROCESSING_BASE AND EXISTS "${_SGPROC_INCLUDE}" AND EXISTS "${_SGPROC
         endif()
     endforeach()
 
-    set(GENIUS_HAS_SGPROCESSING TRUE)
     # Static libs in the SGProcessing chain share protobuf symbols.
     # Allow the linker to pick one copy without erroring on duplicates.
     if(APPLE)

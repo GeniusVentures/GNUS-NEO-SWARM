@@ -21,11 +21,9 @@ endif()
 
 if(TARGET secp256k1)
     target_link_libraries(neoswarm_security PUBLIC secp256k1)
-    target_compile_definitions(neoswarm_security PUBLIC GENIUS_HAS_SECP256K1)
 endif()
 
 find_package(OpenSSL QUIET)
 if(OpenSSL_FOUND)
     target_link_libraries(neoswarm_security PUBLIC OpenSSL::SSL OpenSSL::Crypto)
-    target_compile_definitions(neoswarm_security PUBLIC GENIUS_HAS_OPENSSL)
 endif()
