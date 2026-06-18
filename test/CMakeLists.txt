@@ -67,6 +67,14 @@ neoswarm_test(test_network           network/test_network.cpp                "ne
 # P0 — Specialists
 neoswarm_test(test_math_specialist    specialists/test_math_specialist.cpp    "neoswarm_specialists;neoswarm_core;neoswarm_common")
 neoswarm_test(test_grammar_specialist specialists/test_grammar_specialist.cpp "neoswarm_specialists;neoswarm_core;neoswarm_common")
+neoswarm_test(test_symbolic_fallback  specialists/test_symbolic_fallback.cpp  "neoswarm_specialists;neoswarm_common")
+
+# P1 — Core + Knowledge
+neoswarm_test(test_context_injection   knowledge/test_context_injection.cpp    "neoswarm_knowledge;neoswarm_common")
+neoswarm_test(test_knowledge_retrieval knowledge/test_knowledge_retrieval.cpp  "neoswarm_knowledge;neoswarm_common")
+
+# P3 — Common types
+neoswarm_test(test_common_types        common/test_types.cpp                   "neoswarm_common")
 
 
 # Benchmarks (not part of CTest — run manually)

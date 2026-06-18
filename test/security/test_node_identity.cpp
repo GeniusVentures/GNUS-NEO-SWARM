@@ -188,3 +188,63 @@ TEST( NodeIdentity, SaveEncryptedOverwrite )
 
     RemoveTestFile();
 }
+
+TEST( NodeIdentity, PeerId_ConsistentForSameKey )
+{
+    RemoveTestFile();
+
+    NodeIdentity ident1;
+    ASSERT_TRUE( ident1.Generate().has_value() );
+    ASSERT_TRUE( ident1.SaveToFile( kTestKeyPath ).has_value() );
+    std::string peerId1 = ident1.PeerId();
+
+    NodeIdentity ident2;
+    ASSERT_TRUE( ident2.LoadFromFile( kTestKeyPath ).has_value() );
+    std::string peerId2 = ident2.PeerId();
+
+    EXPECT_EQ( peerId1, peerId2 );
+    EXPECT_FALSE( peerId1.empty() );
+    RemoveTestFile();
+}
+
+TEST( NodeIdentity, LoadEncrypted_TruncatedFile_ReturnsError )
+{
+    RemoveTestFile();
+
+    NodeIdentity ident;
+    ASSERT_TRUE( ident.Generate().has_value() );
+    ASSERT_TRUE( ident.SaveEncrypted( kTestKeyPath, kTestPass ).has_value() );
+
+    {
+        std::ofstream f( kTestKeyPath, std::ios::trunc | std::ios::binary );
+        ASSERT_TRUE( f.is_open() );
+        f.write( "short", 5 );
+        f.close();
+    }
+
+    NodeIdentity ident2;
+    auto result = ident2.LoadEncrypted( kTestKeyPath, kTestPass );
+    EXPECT_FALSE( result.has_value() );
+
+    RemoveTestFile();
+}
+
+TEST( NodeIdentity, PeerId_WithoutKey_ReturnsEmpty )
+{
+    NodeIdentity ident;
+    EXPECT_TRUE( ident.PeerId().empty() );
+}
+
+TEST( NodeIdentity, LoadFromFile_EmptyPath_ReturnsError )
+{
+    NodeIdentity ident;
+    auto result = ident.LoadFromFile( "" );
+    EXPECT_FALSE( result.has_value() );
+}
+
+TEST( NodeIdentity, SaveToFile_WithoutKey_ReturnsError )
+{
+    NodeIdentity ident;
+    auto result = ident.SaveToFile( kTestKeyPath );
+    EXPECT_FALSE( result.has_value() );
+}
