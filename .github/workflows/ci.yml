@@ -34,7 +34,6 @@ jobs:
   build:
     name: Build + Test (${{ matrix.target }} ${{ matrix.build-type }})
     runs-on: ${{ matrix.os }}
-    continue-on-error: true
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     strategy:
@@ -54,14 +53,10 @@ jobs:
         with:
           submodules: true
 
-      - name: Clone SuperGenius (SGProcessingManager headers)
-        shell: bash
-        run: git clone --depth 1 https://github.com/GeniusVentures/SuperGenius.git SuperGenius
-
       - name: Install ninja
         uses: seanmiddleditch/gha-setup-ninja@master
 
-      - name: Resolve thirdparty branch
+      - name: Resolve dependency branch
         shell: bash
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
@@ -70,9 +65,9 @@ jobs:
             TARGET_BRANCH="${{ github.ref_name }}"
           fi
           if [ "$TARGET_BRANCH" = "main" ]; then
-            echo "THIRDPARTY_BRANCH=main" >> $GITHUB_ENV
+            echo "DEP_BRANCH=main" >> $GITHUB_ENV
           else
-            echo "THIRDPARTY_BRANCH=develop" >> $GITHUB_ENV
+            echo "DEP_BRANCH=develop" >> $GITHUB_ENV
           fi
 
       - name: Set platform identifiers
@@ -83,19 +78,33 @@ jobs:
           else
             TARGET_NAME="${{ matrix.target }}"
           fi
-          echo "ARCHIVE_FILE=${TARGET_NAME}-${{ matrix.build-type }}.tar.gz" >> $GITHUB_ENV
-          echo "RELEASE_TAG=${TARGET_NAME}-${THIRDPARTY_BRANCH}-${{ matrix.build-type }}" >> $GITHUB_ENV
+          echo "TARGET_NAME=${TARGET_NAME}" >> $GITHUB_ENV
+          echo "TP_FILE=${TARGET_NAME}-${{ matrix.build-type }}.tar.gz" >> $GITHUB_ENV
+          echo "TP_TAG=${TARGET_NAME}-${DEP_BRANCH}-${{ matrix.build-type }}" >> $GITHUB_ENV
 
       - name: Download thirdparty
         shell: bash
         run: |
           mkdir thirdparty && cd thirdparty
-          gh release download "${RELEASE_TAG}" \
+          gh release download "${TP_TAG}" \
             --repo GeniusVentures/thirdparty \
-            -p "${ARCHIVE_FILE}"
-          tar -zxf "${ARCHIVE_FILE}"
+            -p "${TP_FILE}"
+          tar -zxf "${TP_FILE}"
           git init
           git remote add origin https://github.com/GeniusVentures/thirdparty
+
+      - name: Download SuperGenius (SGProcessingManager)
+        shell: bash
+        run: |
+          mkdir SuperGenius && cd SuperGenius
+          SGN_TAG="${TARGET_NAME}-${DEP_BRANCH}-Release"
+          if [ "${{ matrix.build-type }}" = "Debug" ]; then
+            SGN_TAG="${TARGET_NAME}-${DEP_BRANCH}-Debug"
+          fi
+          gh release download "${SGN_TAG}" \
+            --repo GeniusVentures/SuperGenius \
+            -p "${TP_FILE}"
+          tar -zxf "${TP_FILE}"
 
       - name: Configure CMake
         shell: bash
