@@ -126,6 +126,9 @@ namespace sgns::neoswarm::api
         outcome::result<InferenceResponse> RunSpecialist( const Task& task, const RouteDecision& route );
         outcome::result<InferenceResponse> RunSwarm( const Task& task, const RouteDecision& route );
 
+        void InitializeEngine();
+        void InitializeNetwork();
+
         std::string AugmentPrompt( const std::string& prompt, std::vector<KnowledgeFact>& out_facts ) const;
 
         void UpdateReputation( const InferenceResponse& resp,

@@ -35,6 +35,38 @@ namespace sgns::neoswarm::core
         {
             return neoswarm::CreateLogger( "MNNInferenceEngine" );
         }
+
+        // Custom streambuf that forwards writes to a callback (used by StreamInfer)
+        class CallbackStreambuf : public std::streambuf
+        {
+            public:
+            explicit CallbackStreambuf( std::function<void( const std::string& )> cb )
+                : m_cb( std::move( cb ) )
+            {
+            }
+
+            protected:
+            std::streamsize xsputn( const char* s, std::streamsize n ) override
+            {
+                if ( m_cb && n > 0 )
+                {
+                    m_cb( std::string( s, static_cast<size_t>( n ) ) );
+                }
+                return n;
+            }
+            int overflow( int c ) override
+            {
+                if ( c != EOF && m_cb )
+                {
+                    char ch = static_cast<char>( c );
+                    m_cb( std::string( 1, ch ) );
+                }
+                return c;
+            }
+
+            private:
+            std::function<void( const std::string& )> m_cb;
+        };
     } // namespace
 
     // -----------------------------------------------------------------------
@@ -213,7 +245,7 @@ namespace sgns::neoswarm::core
             return outcome::failure( Error::InferenceFailed );
         }
 
-        // ---- Stub mode (no model loaded) ----
+        // Stub mode (no model loaded)
         if ( m_modelPath.empty() )
         {
             InferenceResponse resp;
@@ -224,142 +256,163 @@ namespace sgns::neoswarm::core
             return outcome::success( std::move( resp ) );
         }
 
-        // ---- SGProcessing path (primary) ----
+        // SGProcessing path (primary)
         if ( m_cfg.m_engineMode == "sgprocessing" )
         {
-            if ( !m_bridge || !m_tensorInterpreter )
-            {
-                return outcome::failure( Error::InferenceFailed );
-            }
-
-            auto t0 = std::chrono::steady_clock::now();
-
-            const sgns::InputFormat input_fmt =
-                m_cfg.m_useFp4 ? sgns::InputFormat::FP4_ULTRA : sgns::InputFormat::FLOAT32;
-            const std::vector<int64_t> shape = { 1, static_cast<int64_t>( task.m_prompt.size() ) };
-
-            auto bytes_res = m_bridge->SubmitJob( m_modelPath, task.m_prompt, input_fmt, shape, m_ioc );
-            if ( !bytes_res.has_value() )
-            {
-                return outcome::failure( bytes_res.error() );
-            }
-            auto text_res = m_tensorInterpreter->Interpret( bytes_res.value(), sgns::InputFormat::FLOAT32 );
-            if ( !text_res.has_value() )
-            {
-                return outcome::failure( text_res.error() );
-            }
-
-            auto t1 = std::chrono::steady_clock::now();
-            InferenceResponse resp;
-            resp.m_output = text_res.value();
-            resp.m_latencyMs = std::chrono::duration<double, std::milli>( t1 - t0 ).count();
-            resp.m_nodeId = task.m_nodeId;
-            resp.m_success = true;
-            return outcome::success( std::move( resp ) );
+            return InferViaSGProcessing( task );
         }
 
-        // ---- MNN Interpreter path (fallback) ----
+        // MNN Interpreter path (fallback)
         if ( m_cfg.m_engineMode == "interpreter" )
         {
-            // --- MNN native LLM path (autoregressive) ---
             if ( mnn_llm_ )
             {
-                auto t0 = std::chrono::steady_clock::now();
-
-                std::ostringstream oss;
-                mnn_llm_->response( task.m_prompt, &oss, nullptr, static_cast<int>( task.m_maxTokens ) );
-
-                auto t1 = std::chrono::steady_clock::now();
-                double latency_ms = std::chrono::duration<double, std::milli>( t1 - t0 ).count();
-
-                const auto* ctx = mnn_llm_->getContext();
-                int gen_tokens = ctx ? static_cast<int>( ctx->output_tokens.size() ) : 0;
-
-                InferenceResponse resp;
-                resp.m_output = oss.str();
-                resp.m_perplexity = 1.0f;
-                resp.m_latencyMs = latency_ms;
-                resp.m_nodeId = task.m_nodeId;
-                resp.m_success = true;
-
-                EngineLogger()->info( "MNN LLM inference: {} tokens, {:.1f} ms", gen_tokens, latency_ms );
-                return outcome::success( std::move( resp ) );
+                return InferViaMnnLlm( task );
             }
-
-            // --- Standard Interpreter path (non-LLM models) ---
-            if ( !m_tokenizer )
-            {
-                return outcome::failure( Error::InferenceFailed );
-            }
-
-            auto t0 = std::chrono::steady_clock::now();
-
-            auto enc_res = m_tokenizer->Encode( task.m_prompt );
-            if ( !enc_res.has_value() )
-            {
-                return outcome::failure( enc_res.error() );
-            }
-            std::vector<int> input_ids = enc_res.value();
-            std::vector<int> generated;
-            generated.reserve( task.m_maxTokens );
-
-            std::string output_text;
-            float total_log_prob = 0.0f;
-            int token_count = 0;
-
-            for ( uint32_t step = 0; step < task.m_maxTokens; ++step )
-            {
-                std::vector<int> context_ids = input_ids;
-                context_ids.insert( context_ids.end(), generated.begin(), generated.end() );
-
-                auto logits_res = RunForward( context_ids );
-                if ( !logits_res.has_value() )
-                {
-                    return outcome::failure( logits_res.error() );
-                }
-
-                auto& logits = logits_res.value();
-                ApplyRepetitionPenalty( logits, generated, m_cfg.m_repetitionPenalty );
-                int next_token = SampleToken( logits, task.m_temperature, m_cfg.m_topP, m_cfg.m_topK );
-
-                float max_l = *std::max_element( logits.begin(), logits.end() );
-                float sum_exp = 0.0f;
-                for ( auto v : logits )
-                    sum_exp += std::exp( v - max_l );
-                total_log_prob += logits[next_token] - max_l - std::log( sum_exp );
-                ++token_count;
-
-                if ( m_tokenizer->IsEOS( next_token ) )
-                    break;
-                generated.push_back( next_token );
-
-                auto dec_res = m_tokenizer->Decode( { next_token } );
-                if ( dec_res.has_value() )
-                    output_text += dec_res.value();
-            }
-
-            auto t1 = std::chrono::steady_clock::now();
-            double latency_ms = std::chrono::duration<double, std::milli>( t1 - t0 ).count();
-            float perplexity = token_count > 0 ? std::exp( -total_log_prob / static_cast<float>( token_count ) ) : 1.0f;
-
-            InferenceResponse resp;
-            resp.m_output = output_text;
-            resp.m_perplexity = perplexity;
-            resp.m_latencyMs = latency_ms;
-            resp.m_nodeId = task.m_nodeId;
-            resp.m_success = true;
-
-            EngineLogger()->debug( "Inference done: {} tokens, {:.1f} ms, perplexity={:.2f}", generated.size(),
-                                   latency_ms, perplexity );
-            return outcome::success( std::move( resp ) );
+            return InferViaStandardInterpreter( task );
         }
 
-        // ---- Stub path ----
+        // Unconfigured — stub response
         InferenceResponse resp;
         resp.m_output = "[stub response — engine not configured]";
         resp.m_latencyMs = 1.0;
         resp.m_nodeId = task.m_nodeId;
         resp.m_success = true;
+        return outcome::success( std::move( resp ) );
+    }
+
+    // -----------------------------------------------------------------------
+    // InferViaSGProcessing — Phase 1: direct SGProcessingManager pipeline
+    // -----------------------------------------------------------------------
+    outcome::result<InferenceResponse> MNNInferenceEngine::InferViaSGProcessing( const Task& task )
+    {
+        if ( !m_bridge || !m_tensorInterpreter )
+        {
+            return outcome::failure( Error::InferenceFailed );
+        }
+
+        auto t0 = std::chrono::steady_clock::now();
+
+        const sgns::InputFormat input_fmt =
+            m_cfg.m_useFp4 ? sgns::InputFormat::FP4_ULTRA : sgns::InputFormat::FLOAT32;
+        const std::vector<int64_t> shape = { 1, static_cast<int64_t>( task.m_prompt.size() ) };
+
+        auto bytes_res = m_bridge->SubmitJob( m_modelPath, task.m_prompt, input_fmt, shape, m_ioc );
+        if ( !bytes_res.has_value() )
+        {
+            return outcome::failure( bytes_res.error() );
+        }
+        auto text_res = m_tensorInterpreter->Interpret( bytes_res.value(), sgns::InputFormat::FLOAT32 );
+        if ( !text_res.has_value() )
+        {
+            return outcome::failure( text_res.error() );
+        }
+
+        auto t1 = std::chrono::steady_clock::now();
+        InferenceResponse resp;
+        resp.m_output = text_res.value();
+        resp.m_latencyMs = std::chrono::duration<double, std::milli>( t1 - t0 ).count();
+        resp.m_nodeId = task.m_nodeId;
+        resp.m_success = true;
+        return outcome::success( std::move( resp ) );
+    }
+
+    // -----------------------------------------------------------------------
+    // InferViaMnnLlm — MNN native LLM autoregressive path
+    // -----------------------------------------------------------------------
+    outcome::result<InferenceResponse> MNNInferenceEngine::InferViaMnnLlm( const Task& task )
+    {
+        auto t0 = std::chrono::steady_clock::now();
+
+        std::ostringstream oss;
+        mnn_llm_->response( task.m_prompt, &oss, nullptr, static_cast<int>( task.m_maxTokens ) );
+
+        auto t1 = std::chrono::steady_clock::now();
+        double latency_ms = std::chrono::duration<double, std::milli>( t1 - t0 ).count();
+
+        const auto* ctx = mnn_llm_->getContext();
+        int gen_tokens = ctx ? static_cast<int>( ctx->output_tokens.size() ) : 0;
+
+        InferenceResponse resp;
+        resp.m_output = oss.str();
+        resp.m_perplexity = 1.0f;
+        resp.m_latencyMs = latency_ms;
+        resp.m_nodeId = task.m_nodeId;
+        resp.m_success = true;
+
+        EngineLogger()->info( "MNN LLM inference: {} tokens, {:.1f} ms", gen_tokens, latency_ms );
+        return outcome::success( std::move( resp ) );
+    }
+
+    // -----------------------------------------------------------------------
+    // InferViaStandardInterpreter — MNN Interpreter with token generation loop
+    // -----------------------------------------------------------------------
+    outcome::result<InferenceResponse> MNNInferenceEngine::InferViaStandardInterpreter( const Task& task )
+    {
+        if ( !m_tokenizer )
+        {
+            return outcome::failure( Error::InferenceFailed );
+        }
+
+        auto t0 = std::chrono::steady_clock::now();
+
+        auto enc_res = m_tokenizer->Encode( task.m_prompt );
+        if ( !enc_res.has_value() )
+        {
+            return outcome::failure( enc_res.error() );
+        }
+        std::vector<int> input_ids = enc_res.value();
+        std::vector<int> generated;
+        generated.reserve( task.m_maxTokens );
+
+        std::string output_text;
+        float total_log_prob = 0.0f;
+        int token_count = 0;
+
+        for ( uint32_t step = 0; step < task.m_maxTokens; ++step )
+        {
+            std::vector<int> context_ids = input_ids;
+            context_ids.insert( context_ids.end(), generated.begin(), generated.end() );
+
+            auto logits_res = RunForward( context_ids );
+            if ( !logits_res.has_value() )
+            {
+                return outcome::failure( logits_res.error() );
+            }
+
+            auto& logits = logits_res.value();
+            ApplyRepetitionPenalty( logits, generated, m_cfg.m_repetitionPenalty );
+            int next_token = SampleToken( logits, task.m_temperature, m_cfg.m_topP, m_cfg.m_topK );
+
+            float max_l = *std::max_element( logits.begin(), logits.end() );
+            float sum_exp = 0.0f;
+            for ( auto v : logits )
+                sum_exp += std::exp( v - max_l );
+            total_log_prob += logits[next_token] - max_l - std::log( sum_exp );
+            ++token_count;
+
+            if ( m_tokenizer->IsEOS( next_token ) )
+                break;
+            generated.push_back( next_token );
+
+            auto dec_res = m_tokenizer->Decode( { next_token } );
+            if ( dec_res.has_value() )
+                output_text += dec_res.value();
+        }
+
+        auto t1 = std::chrono::steady_clock::now();
+        double latency_ms = std::chrono::duration<double, std::milli>( t1 - t0 ).count();
+        float perplexity = token_count > 0 ? std::exp( -total_log_prob / static_cast<float>( token_count ) ) : 1.0f;
+
+        InferenceResponse resp;
+        resp.m_output = output_text;
+        resp.m_perplexity = perplexity;
+        resp.m_latencyMs = latency_ms;
+        resp.m_nodeId = task.m_nodeId;
+        resp.m_success = true;
+
+        EngineLogger()->debug( "Inference done: {} tokens, {:.1f} ms, perplexity={:.2f}", generated.size(),
+                               latency_ms, perplexity );
         return outcome::success( std::move( resp ) );
     }
 
@@ -382,39 +435,6 @@ namespace sgns::neoswarm::core
             // --- MNN native LLM streaming ---
             if ( mnn_llm_ )
             {
-                // MNN's response() writes tokens to the ostream as they're generated
-                // We use a custom streambuf to intercept each write and call the callback
-                class CallbackStreambuf : public std::streambuf
-                {
-                    public:
-                    explicit CallbackStreambuf( std::function<void( const std::string& )> cb )
-                        : cb_( std::move( cb ) )
-                    {
-                    }
-
-                    protected:
-                    std::streamsize xsputn( const char* s, std::streamsize n ) override
-                    {
-                        if ( cb_ && n > 0 )
-                        {
-                            cb_( std::string( s, static_cast<size_t>( n ) ) );
-                        }
-                        return n;
-                    }
-                    int overflow( int c ) override
-                    {
-                        if ( c != EOF && cb_ )
-                        {
-                            char ch = static_cast<char>( c );
-                            cb_( std::string( 1, ch ) );
-                        }
-                        return c;
-                    }
-
-                    private:
-                    std::function<void( const std::string& )> cb_;
-                };
-
                 CallbackStreambuf buf( callback );
                 std::ostream os( &buf );
                 mnn_llm_->response( task.m_prompt, &os, nullptr, static_cast<int>( task.m_maxTokens ) );

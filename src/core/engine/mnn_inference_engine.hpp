@@ -159,6 +159,11 @@ namespace sgns::neoswarm::core
         std::shared_ptr<Tokenizer> m_tokenizer;
         fp4::FP4Codec m_fp4Codec;
 
+        // Inference-path helpers (extracted from Infer for size/complexity)
+        outcome::result<InferenceResponse> InferViaSGProcessing( const Task& task );
+        outcome::result<InferenceResponse> InferViaMnnLlm( const Task& task );
+        outcome::result<InferenceResponse> InferViaStandardInterpreter( const Task& task );
+
         // Interpreter-path helpers
         int SelectBackend() const;
         outcome::result<std::vector<float>> RunForward( const std::vector<int>& input_ids );

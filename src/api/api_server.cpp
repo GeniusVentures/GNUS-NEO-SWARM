@@ -75,34 +75,7 @@ namespace sgns::neoswarm::api
         ServerLogger()->info( "Node identity: {}", m_identity->GetPeerId() );
 
         // 2. Core inference engine
-        core::MNNInferenceEngine::Config engine_cfg;
-        engine_cfg.m_engineMode = m_cfg.m_enableSgProcessing ? "sgprocessing" : "interpreter";
-        engine_cfg.m_backend = "vulkan"; // cross-platform; MoltenVK on Apple
-        engine_cfg.m_sgNetworkMode = m_cfg.m_sgProcessingNetworkMode;
-        auto engine = std::make_shared<core::MNNInferenceEngine>( engine_cfg );
-
-        auto tokenizer = std::make_shared<core::SentencePieceTokenizer>();
-        std::string tok_path = m_cfg.m_modelPath;
-        auto dot_pos = tok_path.rfind( '.' );
-        if ( dot_pos != std::string::npos )
-            tok_path = tok_path.substr( 0, dot_pos );
-        tok_path += ".tokenizer.model";
-        (void)tokenizer->Load( tok_path ); // degrades gracefully if not found
-        engine->SetTokenizer( tokenizer );
-
-        if ( !m_cfg.m_modelPath.empty() )
-        {
-            auto res = engine->LoadModel( m_cfg.m_modelPath );
-            if ( !res.has_value() )
-            {
-                ServerLogger()->warn( "Core model load failed — continuing in stub mode" );
-            }
-        }
-        else
-        {
-            engine->SetStubMode();
-        }
-        m_coreEngine = engine;
+        InitializeEngine();
 
         // 3. Specialists
         m_grammarSpec = std::make_shared<specialists::GrammarSpecialist>(
@@ -133,7 +106,65 @@ namespace sgns::neoswarm::api
             ServerLogger()->warn( "Reputation storage open failed" );
         }
 
-        // 6. Network (optional)
+        // 6. Network (optional) + SuperGenius connectivity
+        InitializeNetwork();
+
+        // 7. Knowledge
+        if ( m_cfg.m_enableKnowledge )
+        {
+            knowledge::KnowledgeRetrieval::Config k_cfg;
+            k_cfg.m_factsPath = m_cfg.m_knowledgeFacts;
+            m_knowledge = std::make_shared<knowledge::KnowledgeRetrieval>( k_cfg );
+            (void)m_knowledge->Load();
+            m_contextInj = std::make_unique<knowledge::ContextInjection>();
+            m_factVal = std::make_unique<knowledge::FactValidation>( m_knowledge );
+        }
+
+        ServerLogger()->info( "ApiServer initialized (node={})", m_identity->GetPeerId() );
+        return outcome::success();
+    }
+
+    // -----------------------------------------------------------------------
+    // InitializeEngine — extracted from Initialize for size/complexity
+    // -----------------------------------------------------------------------
+    void ApiServer::InitializeEngine()
+    {
+        core::MNNInferenceEngine::Config engine_cfg;
+        engine_cfg.m_engineMode = m_cfg.m_enableSgProcessing ? "sgprocessing" : "interpreter";
+        engine_cfg.m_backend = "vulkan"; // cross-platform; MoltenVK on Apple
+        engine_cfg.m_sgNetworkMode = m_cfg.m_sgProcessingNetworkMode;
+        auto engine = std::make_shared<core::MNNInferenceEngine>( engine_cfg );
+
+        auto tokenizer = std::make_shared<core::SentencePieceTokenizer>();
+        std::string tok_path = m_cfg.m_modelPath;
+        auto dot_pos = tok_path.rfind( '.' );
+        if ( dot_pos != std::string::npos )
+            tok_path = tok_path.substr( 0, dot_pos );
+        tok_path += ".tokenizer.model";
+        (void)tokenizer->Load( tok_path ); // degrades gracefully if not found
+        engine->SetTokenizer( tokenizer );
+
+        if ( !m_cfg.m_modelPath.empty() )
+        {
+            auto res = engine->LoadModel( m_cfg.m_modelPath );
+            if ( !res.has_value() )
+            {
+                ServerLogger()->warn( "Core model load failed — continuing in stub mode" );
+            }
+        }
+        else
+        {
+            engine->SetStubMode();
+        }
+        m_coreEngine = engine;
+    }
+
+    // -----------------------------------------------------------------------
+    // InitializeNetwork — P2P + SuperGenius connectivity
+    // -----------------------------------------------------------------------
+    void ApiServer::InitializeNetwork()
+    {
+        // P2P network (optional)
         if ( m_cfg.m_enableNetwork )
         {
             network::P2PNode::Config net_cfg;
@@ -146,7 +177,7 @@ namespace sgns::neoswarm::api
             }
         }
 
-        // 6b. SuperGenius connectivity (optional — Phase 2 network dispatch)
+        // SuperGenius connectivity (optional — Phase 2 network dispatch)
         if ( !m_cfg.m_sgEndpoint.empty() )
         {
             network::SGClient::Config sgCfg;
@@ -183,20 +214,6 @@ namespace sgns::neoswarm::api
                 }
             }
         }
-
-        // 7. Knowledge
-        if ( m_cfg.m_enableKnowledge )
-        {
-            knowledge::KnowledgeRetrieval::Config k_cfg;
-            k_cfg.m_factsPath = m_cfg.m_knowledgeFacts;
-            m_knowledge = std::make_shared<knowledge::KnowledgeRetrieval>( k_cfg );
-            (void)m_knowledge->Load();
-            m_contextInj = std::make_unique<knowledge::ContextInjection>();
-            m_factVal = std::make_unique<knowledge::FactValidation>( m_knowledge );
-        }
-
-        ServerLogger()->info( "ApiServer initialized (node={})", m_identity->GetPeerId() );
-        return outcome::success();
     }
 
     // -----------------------------------------------------------------------
