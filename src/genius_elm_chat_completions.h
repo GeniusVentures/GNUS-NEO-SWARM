@@ -5,20 +5,20 @@
 
 #if defined( _WIN32 )
 #if defined( NEOSWARM_CHAT_C_EXPORTS )
-#define GENIUS_ELM_CHAT_C_API __declspec( dllexport )
+#define NEOSWARM_ELM_CHAT_C_API __declspec( dllexport )
 #else
-#define GENIUS_ELM_CHAT_C_API __declspec( dllimport )
+#define NEOSWARM_ELM_CHAT_C_API __declspec( dllimport )
 #endif
 #else
-#define GENIUS_ELM_CHAT_C_API
+#define NEOSWARM_ELM_CHAT_C_API
 #endif
 
 #if defined( __cplusplus )
-#define GENIUS_ELM_CHAT_C_NOEXCEPT noexcept
+#define NEOSWARM_ELM_CHAT_C_NOEXCEPT noexcept
 extern "C"
 {
 #else
-#define GENIUS_ELM_CHAT_C_NOEXCEPT
+#define NEOSWARM_ELM_CHAT_C_NOEXCEPT
 #endif
 
     /**
@@ -34,8 +34,8 @@ extern "C"
  * \param knowledgePath  Path to a Grokipedia facts CSV, or NULL to disable.
  * \return 0 on success, -1 if ApiServer initialization fails.
  */
-    GENIUS_ELM_CHAT_C_API int GeniusElmInit( const char* modelPath,
-                                             const char* knowledgePath ) GENIUS_ELM_CHAT_C_NOEXCEPT;
+    NEOSWARM_ELM_CHAT_C_API int GeniusElmInit( const char* modelPath,
+                                             const char* knowledgePath ) NEOSWARM_ELM_CHAT_C_NOEXCEPT;
 
     /**
      * \brief Creates an OpenAI v1-style chat completion response.
@@ -53,7 +53,7 @@ extern "C"
      * \return Heap-allocated UTF-8 JSON string. Caller must release with
      *         \c GeniusElmStringFree. Returns NULL only on allocation failure.
      */
-    GENIUS_ELM_CHAT_C_API char* GeniusElmChatCompletionsCreate( const char* requestJson ) GENIUS_ELM_CHAT_C_NOEXCEPT;
+    NEOSWARM_ELM_CHAT_C_API char* GeniusElmChatCompletionsCreate( const char* requestJson ) NEOSWARM_ELM_CHAT_C_NOEXCEPT;
 
     /**
      * \brief Releases a string buffer returned by the chat FFI API.
@@ -61,7 +61,7 @@ extern "C"
      * \param value  Heap-allocated string returned by
      *               \c GeniusElmChatCompletionsCreate. NULL is allowed.
      */
-    GENIUS_ELM_CHAT_C_API void GeniusElmStringFree( char* value ) GENIUS_ELM_CHAT_C_NOEXCEPT;
+    NEOSWARM_ELM_CHAT_C_API void GeniusElmStringFree( char* value ) NEOSWARM_ELM_CHAT_C_NOEXCEPT;
 
     /**
      * \brief Returns the current engine status as a JSON string.
@@ -79,7 +79,7 @@ extern "C"
      * \return Heap-allocated UTF-8 JSON string. Caller must release with
      *         \c GeniusElmStringFree. Returns NULL only on allocation failure.
      */
-    GENIUS_ELM_CHAT_C_API char* GeniusElmGetStatus( void ) GENIUS_ELM_CHAT_C_NOEXCEPT;
+    NEOSWARM_ELM_CHAT_C_API char* GeniusElmGetStatus( void ) NEOSWARM_ELM_CHAT_C_NOEXCEPT;
 
 #if defined( __cplusplus )
 }

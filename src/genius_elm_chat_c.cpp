@@ -44,25 +44,25 @@ namespace
     static bool g_initialized = false;
 } // namespace
 
-GENIUS_ELM_CHAT_C_API int GeniusElmInit( const char* /* modelPath */, const char* /* knowledgePath */ )
-    GENIUS_ELM_CHAT_C_NOEXCEPT
+NEOSWARM_ELM_CHAT_C_API int GeniusElmInit( const char* /* modelPath */, const char* /* knowledgePath */ )
+    NEOSWARM_ELM_CHAT_C_NOEXCEPT
 {
     g_initialized = true;
     return 0;
 }
 
-GENIUS_ELM_CHAT_C_API char* GeniusElmChatCompletionsCreate( const char* /* requestJson */ )
-    GENIUS_ELM_CHAT_C_NOEXCEPT
+NEOSWARM_ELM_CHAT_C_API char* GeniusElmChatCompletionsCreate( const char* /* requestJson */ )
+    NEOSWARM_ELM_CHAT_C_NOEXCEPT
 {
     return DuplicateString( kStubChatJson );
 }
 
-GENIUS_ELM_CHAT_C_API void GeniusElmStringFree( char* value ) GENIUS_ELM_CHAT_C_NOEXCEPT
+NEOSWARM_ELM_CHAT_C_API void GeniusElmStringFree( char* value ) NEOSWARM_ELM_CHAT_C_NOEXCEPT
 {
     std::free( value );
 }
 
-GENIUS_ELM_CHAT_C_API char* GeniusElmGetStatus( void ) GENIUS_ELM_CHAT_C_NOEXCEPT
+NEOSWARM_ELM_CHAT_C_API char* GeniusElmGetStatus( void ) NEOSWARM_ELM_CHAT_C_NOEXCEPT
 {
     return DuplicateString( kStubStatusJson );
 }
