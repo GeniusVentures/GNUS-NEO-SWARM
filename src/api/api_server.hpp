@@ -24,7 +24,9 @@
 #include "specialists/grammar_specialist.hpp"
 #include "specialists/math_specialist.hpp"
 #include <atomic>
+#include <condition_variable>
 #include <memory>
+#include <mutex>
 #include <string>
 
 namespace sgns::neoswarm::network
@@ -101,6 +103,8 @@ namespace sgns::neoswarm::api
         private:
         Config m_cfg;
         std::atomic<bool> m_running{ false };
+        std::condition_variable m_stopCondition;
+        std::mutex m_stopMutex;
 
         std::shared_ptr<security::NodeIdentity> m_identity;
         std::shared_ptr<core::InferenceEngine> m_coreEngine;

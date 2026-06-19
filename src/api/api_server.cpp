@@ -466,16 +466,15 @@ namespace sgns::neoswarm::api
         m_running.store( true );
         ServerLogger()->info( "ApiServer serving on port {}", m_cfg.m_grpcPort );
 
-        while ( m_running.load() )
-        {
-            std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
-        }
+        std::unique_lock<std::mutex> lock( m_stopMutex );
+        m_stopCondition.wait( lock, [this] { return !m_running.load(); } );
         return outcome::success();
     }
 
     void ApiServer::Stop()
     {
         m_running.store( false );
+        m_stopCondition.notify_all();
         if ( m_p2pNode )
             m_p2pNode->Stop();
         if ( m_sgClient )

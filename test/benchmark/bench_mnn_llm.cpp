@@ -27,9 +27,7 @@
 #include <string>
 #include <vector>
 
-#ifdef __APPLE__
-#include <mach/mach.h>
-#endif
+#include "os_memory.hpp"
 
 #include <MNN/llm/llm.hpp>
 
@@ -47,19 +45,7 @@ namespace
         size_t peak_memory_mb   = 0;
     };
 
-    size_t GetCurrentMemoryMB()
-    {
-#ifdef __APPLE__
-        struct mach_task_basic_info info;
-        mach_msg_type_number_t count = MACH_TASK_BASIC_INFO_COUNT;
-        if ( task_info( mach_task_self(), MACH_TASK_BASIC_INFO,
-                        reinterpret_cast<task_info_t>( &info ), &count ) == KERN_SUCCESS )
-        {
-            return info.resident_size / ( 1024 * 1024 );
-        }
-#endif
-        return 0;
-    }
+    // GetCurrentMemoryMB() defined in os_memory.hpp (platform abstraction)
 
     BenchResult RunBenchmark( const std::string &model_dir,
                               const std::string &prompt,
