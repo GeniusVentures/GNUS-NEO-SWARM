@@ -377,7 +377,7 @@ No `#ifdef __unix__` / `#ifdef _WIN32` found in `src/`. ✅
 | 6 | 2a | Member Variable Naming | ✅ DONE (enumerated items) | Phase 2 |
 | 7 | 2b | Class/Type Name Renames | ✅ DONE | Phase 2a |
 | 8 | 7 | Cleanup & Debt | ✅ DONE | — |
-| 9 | 5 | Function Size Refactors | ❌ | Phases 1–2b |
-| 10 | 6 | Remove Platform Ifdefs & Busy-Waits | ❌ | Phase 5 |
+| 9 | 5 | Function Size Refactors | ✅ DONE | Phases 1–2b |
+| 10 | 6 | Remove Platform Ifdefs & Busy-Waits | ✅ DONE | Phase 5 |
 
 **Each PR**: rename 2-3 files + fix internal naming → build → test → lint → commit.
