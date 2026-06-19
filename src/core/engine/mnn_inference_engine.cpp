@@ -613,9 +613,9 @@ namespace sgns::neoswarm::core
     }
 
     // -----------------------------------------------------------------------
-    // SetSuperGeniusClient
+    // SetSGClient
     // -----------------------------------------------------------------------
-    void MNNInferenceEngine::SetSuperGeniusClient( network::SuperGeniusClient* client ) noexcept
+    void MNNInferenceEngine::SetSGClient( network::SGClient* client ) noexcept
     {
         if ( m_bridge )
         {

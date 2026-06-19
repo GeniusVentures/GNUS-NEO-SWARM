@@ -29,7 +29,7 @@
 
 namespace sgns::neoswarm::network
 {
-    class SuperGeniusClient;
+    class SGClient;
 }
 
 namespace sgns::neoswarm::api
@@ -116,7 +116,7 @@ namespace sgns::neoswarm::api
         std::shared_ptr<knowledge::KnowledgeRetrieval> m_knowledge;
         std::unique_ptr<knowledge::ContextInjection> m_contextInj;
         std::unique_ptr<knowledge::FactValidation> m_factVal;
-        std::unique_ptr<network::SuperGeniusClient> m_sgClient;
+        std::unique_ptr<network::SGClient> m_sgClient;
 
         outcome::result<InferenceResponse> RunSingleNode( const Task& task, const RouteDecision& route );
         outcome::result<InferenceResponse> RunSpecialist( const Task& task, const RouteDecision& route );

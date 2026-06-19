@@ -149,12 +149,12 @@ namespace sgns::neoswarm::api
         // 6b. SuperGenius connectivity (optional — Phase 2 network dispatch)
         if ( !m_cfg.m_sgEndpoint.empty() )
         {
-            network::SuperGeniusClient::Config sgCfg;
+            network::SGClient::Config sgCfg;
             sgCfg.m_endpoint = m_cfg.m_sgEndpoint;
             sgCfg.m_tlsCaPath = m_cfg.m_sgTlsCa;
             sgCfg.m_tlsCertPath = m_cfg.m_sgTlsCert;
 
-            m_sgClient = std::make_unique<network::SuperGeniusClient>( std::move( sgCfg ) );
+            m_sgClient = std::make_unique<network::SGClient>( std::move( sgCfg ) );
             auto initRes = m_sgClient->Initialize( *m_identity );
             if ( initRes.has_value() )
             {
@@ -170,16 +170,16 @@ namespace sgns::neoswarm::api
             }
             else
             {
-                ServerLogger()->warn( "SuperGeniusClient initialization failed" );
+                ServerLogger()->warn( "SGClient initialization failed" );
             }
 
-            // Wire SuperGeniusClient into the engine's SGProcessingBridge
+            // Wire SGClient into the engine's SGProcessingBridge
             if ( m_coreEngine )
             {
                 auto* mnnEngine = dynamic_cast<core::MNNInferenceEngine*>( m_coreEngine.get() );
                 if ( mnnEngine )
                 {
-                    mnnEngine->SetSuperGeniusClient( m_sgClient.get() );
+                    mnnEngine->SetSGClient( m_sgClient.get() );
                 }
             }
         }

@@ -39,7 +39,7 @@ namespace sgns::neoswarm::network
      * four internal sub-components: channel manager, job submitter, result
      * collector, and message authenticator.
      */
-    class SuperGeniusClient
+    class SGClient
     {
         public:
         /**
@@ -58,15 +58,15 @@ namespace sgns::neoswarm::network
          * @brief Construct with configuration.
          * @param cfg Network and timeout settings.
          */
-        explicit SuperGeniusClient( Config cfg );
+        explicit SGClient( Config cfg );
 
-        ~SuperGeniusClient();
+        ~SGClient();
 
         // Non-copyable, movable
-        SuperGeniusClient( const SuperGeniusClient& ) = delete;
-        SuperGeniusClient& operator=( const SuperGeniusClient& ) = delete;
-        SuperGeniusClient( SuperGeniusClient&& ) noexcept;
-        SuperGeniusClient& operator=( SuperGeniusClient&& ) noexcept;
+        SGClient( const SGClient& ) = delete;
+        SGClient& operator=( const SGClient& ) = delete;
+        SGClient( SGClient&& ) noexcept;
+        SGClient& operator=( SGClient&& ) noexcept;
 
         /**
          * @brief Initialize with the node's cryptographic identity.

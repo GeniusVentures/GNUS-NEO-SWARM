@@ -22,7 +22,7 @@ namespace sgns::neoswarm::network
         }
     } // namespace
 
-    struct SuperGeniusClient::Impl
+    struct SGClient::Impl
     {
         Config m_cfg;
         const security::NodeIdentity* m_identity = nullptr;
@@ -33,18 +33,18 @@ namespace sgns::neoswarm::network
         bool m_connected = false;
     };
 
-    SuperGeniusClient::SuperGeniusClient( Config cfg )
+    SGClient::SGClient( Config cfg )
         : m_impl( std::make_unique<Impl>() )
     {
         m_impl->m_cfg = std::move( cfg );
     }
 
-    SuperGeniusClient::~SuperGeniusClient() = default;
+    SGClient::~SGClient() = default;
 
-    SuperGeniusClient::SuperGeniusClient( SuperGeniusClient&& ) noexcept = default;
-    SuperGeniusClient& SuperGeniusClient::operator=( SuperGeniusClient&& ) noexcept = default;
+    SGClient::SGClient( SGClient&& ) noexcept = default;
+    SGClient& SGClient::operator=( SGClient&& ) noexcept = default;
 
-    outcome::result<void> SuperGeniusClient::Initialize( const security::NodeIdentity& identity )
+    outcome::result<void> SGClient::Initialize( const security::NodeIdentity& identity )
     {
         m_impl->m_identity = &identity;
 
@@ -60,11 +60,11 @@ namespace sgns::neoswarm::network
 
         m_impl->channelMgr_ = std::make_unique<SGChannelManager>( std::move( chCfg ) );
 
-        ClientLogger()->info( "SuperGeniusClient initialized — endpoint={}", m_impl->m_cfg.m_endpoint );
+        ClientLogger()->info( "SGClient initialized — endpoint={}", m_impl->m_cfg.m_endpoint );
         return outcome::success();
     }
 
-    outcome::result<void> SuperGeniusClient::Connect()
+    outcome::result<void> SGClient::Connect()
     {
         if ( !m_impl->channelMgr_ )
         {
@@ -106,7 +106,7 @@ namespace sgns::neoswarm::network
         return outcome::success();
     }
 
-    outcome::result<std::vector<uint8_t>> SuperGeniusClient::SubmitJob( const std::string& gnusSchemaJson )
+    outcome::result<std::vector<uint8_t>> SGClient::SubmitJob( const std::string& gnusSchemaJson )
     {
         // Verify we are connected — attempt reconnect if channel is dead
         if ( !m_impl->m_connected || !m_impl->channelMgr_->IsConnected() )
@@ -149,16 +149,16 @@ namespace sgns::neoswarm::network
         return result;
     }
 
-    void SuperGeniusClient::Disconnect()
+    void SGClient::Disconnect()
     {
         m_impl->jobSubmitter_.reset();
         m_impl->resultCollector_.reset();
         m_impl->channelMgr_.reset();
         m_impl->m_connected = false;
-        ClientLogger()->info( "SuperGeniusClient disconnected" );
+        ClientLogger()->info( "SGClient disconnected" );
     }
 
-    bool SuperGeniusClient::IsConnected() const noexcept
+    bool SGClient::IsConnected() const noexcept
     {
         return m_impl->m_connected && m_impl->channelMgr_ && m_impl->channelMgr_->IsConnected();
     }

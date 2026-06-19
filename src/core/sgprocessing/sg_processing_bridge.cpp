@@ -343,24 +343,24 @@ namespace sgns::neoswarm::core
     // -----------------------------------------------------------------------
     // SetClient
     // -----------------------------------------------------------------------
-    void SGProcessingBridge::SetClient( network::SuperGeniusClient* client ) noexcept
+    void SGProcessingBridge::SetClient( network::SGClient* client ) noexcept
     {
         m_client = client;
-        BridgeLogger()->info( "SuperGeniusClient set (m_networkMode={})", client ? "true" : "false" );
+        BridgeLogger()->info( "SGClient set (m_networkMode={})", client ? "true" : "false" );
     }
 
     // -----------------------------------------------------------------------
-    // SubmitNetwork — Phase 2: dispatch via SuperGeniusClient
+    // SubmitNetwork — Phase 2: dispatch via SGClient
     // -----------------------------------------------------------------------
     outcome::result<std::vector<uint8_t>> SGProcessingBridge::SubmitNetwork( const std::string& jsondata ) const
     {
         if ( !m_client )
         {
-            BridgeLogger()->error( "SubmitNetwork: SuperGeniusClient not configured" );
+            BridgeLogger()->error( "SubmitNetwork: SGClient not configured" );
             return outcome::failure( Error::NetworkError );
         }
 
-        BridgeLogger()->debug( "Submitting job via SuperGeniusClient ({} bytes)", jsondata.size() );
+        BridgeLogger()->debug( "Submitting job via SGClient ({} bytes)", jsondata.size() );
         (void)jsondata;
         return outcome::failure( Error::NetworkError );
     }

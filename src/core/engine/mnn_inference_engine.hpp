@@ -45,7 +45,7 @@ namespace sgns
 
 namespace sgns::neoswarm::network
 {
-    class SuperGeniusClient;
+    class SGClient;
 }
 
 namespace sgns::neoswarm::core
@@ -129,15 +129,15 @@ namespace sgns::neoswarm::core
         }
 
         /**
-         * @brief Set the SuperGeniusClient for Phase 2 network dispatch.
+         * @brief Set the SGClient for Phase 2 network dispatch.
          *
          * Call once during initialization after both the engine and the
-         * SuperGeniusClient are created. The client pointer is passed through
+         * SGClient are created. The client pointer is passed through
          * to the internal SGProcessingBridge.
          *
-         * @param client  The SuperGeniusClient instance (owned by ApiServer).
+         * @param client  The SGClient instance (owned by ApiServer).
          */
-        void SetSuperGeniusClient( network::SuperGeniusClient* client ) noexcept;
+        void SetSGClient( network::SGClient* client ) noexcept;
 
         private:
         Config m_cfg;

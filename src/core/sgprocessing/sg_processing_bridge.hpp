@@ -25,7 +25,7 @@ namespace sgns
 
 namespace sgns::neoswarm::network
 {
-    class SuperGeniusClient;
+    class SGClient;
 }
 
 namespace sgns::neoswarm::core
@@ -47,10 +47,10 @@ namespace sgns::neoswarm::core
         ~SGProcessingBridge() = default;
 
         /**
-         * @brief Set the SuperGeniusClient for Phase 2 network dispatch.
-         * @param client  The SuperGeniusClient instance (owned by ApiServer).
+         * @brief Set the SGClient for Phase 2 network dispatch.
+         * @param client  The SGClient instance (owned by ApiServer).
          */
-        void SetClient( network::SuperGeniusClient* client ) noexcept;
+        void SetClient( network::SGClient* client ) noexcept;
 
         /**
          * @brief Build a GNUS_Schema JSON string from the supplied parameters.
@@ -86,7 +86,7 @@ namespace sgns::neoswarm::core
 
         private:
         Config m_cfg;
-        network::SuperGeniusClient* m_client = nullptr;
+        network::SGClient* m_client = nullptr;
 
         outcome::result<std::vector<uint8_t>> SubmitDirect( const std::string& jsondata,
                                                             std::shared_ptr<boost::asio::io_context> ioc ) const;
