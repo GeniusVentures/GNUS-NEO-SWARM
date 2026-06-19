@@ -28,7 +28,14 @@ Scope is bounded to what a Python training pipeline can prove. Distributed swarm
   6. Budget cap stops all teacher API calls when cumulative spend exceeds the limit, with spend state persisted between runs.
   7. Retry with exponential backoff recovers from rate limits (429) and server errors (5xx); circuit breaker opens after consecutive failures and supports half-open recovery.
   8. Checkpoints validate stage outputs (file existence, content quality, schema) before marking complete — not just empty `.done` files.
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Config layer: endpoints/models two-layer structure, benchmark table, ConfigLoader with validation and per-specialist overrides
+- [ ] 01-02-PLAN.md — Multi-backend TeacherClient: OpenAI + Anthropic backend architecture with apiType dispatch
+- [ ] 01-03-PLAN.md — Pipeline runner: subprocess execution, error-type handling, validated checkpoint system
+- [ ] 01-04-PLAN.md — Multi-teacher cascade with benchmark routing, budget persistence, half-open circuit breaker
+- [ ] 01-05-PLAN.md — Integration: update synthetic.py and distillation.py for new TeacherClient API
 
 ### Phase 2: Training & Distillation Quality
 **Goal**: Knowledge distillation converges with configurable KD loss, temperature sweeping produces analysis data, specialist training produces valid LoRA adapters, evaluation persists metrics per run, and a rules-based router maps query patterns to specialists.
@@ -72,7 +79,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Pipeline Hardening | 0/? | Not started | - |
+| 1. Pipeline Hardening | 0/5 | Planned | - |
 | 2. Training & Distillation Quality | 0/? | Not started | - |
 | 3. FP4 Quantization & Artifact Integrity | 0/? | Not started | - |
 | 4. Benchmark Evaluation | 0/? | Not started | - |
