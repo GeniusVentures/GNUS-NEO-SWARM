@@ -310,7 +310,7 @@ All library targets already use the `neoswarm_` prefix. No `genius_` prefixed ta
 
 ---
 
-## Phase 5: Function Size Refactors ❌ NOT STARTED
+## Phase 5: Function Size Refactors ✅ DONE
 
 Split oversized functions into helpers (max ~100 lines per Handbook Guideline 67):
 
@@ -325,7 +325,7 @@ Split oversized functions into helpers (max ~100 lines per Handbook Guideline 67
 
 ---
 
-## Phase 6: Remove Platform Ifdefs & Busy-Waits ❌ NOT STARTED
+## Phase 6: Remove Platform Ifdefs & Busy-Waits ✅ DONE
 
 Per Handbook Standard 114 — use `Platform.hpp` header, not `#ifdef` in source.
 
