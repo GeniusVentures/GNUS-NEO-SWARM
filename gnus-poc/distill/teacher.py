@@ -1,4 +1,9 @@
-"""DeepSeek v4 pro API client with cost controls, retry, and circuit breaker."""
+"""Multi-backend teacher API client with cost controls, retry, and circuit breaker.
+
+Dispatches teacher calls to the correct backend (OpenAI or Anthropic) based on the
+model's configured endpoint ``apiType``.  All backends produce a uniform response
+wrapper so callers receive the same interface regardless of backend.
+"""
 
 import json
 import os
@@ -8,9 +13,11 @@ from pathlib import Path
 from typing import Optional
 
 import yaml
-from openai import OpenAI
 
+from distill.backends.openai_backend import OpenAIBackend
+from distill.backends.anthropic_backend import AnthropicBackend
 from distill.teacher_errors import (
+    BackendNotFoundError,
     BudgetExceededError,
     CircuitBreakerOpenError,
     TeacherConfigError,
@@ -19,8 +26,59 @@ from distill.teacher_errors import (
 HTTP_NON_RETRYABLE = {400, 401, 402, 403, 404, 405, 422}
 HTTP_RATE_LIMIT = 429
 
+NON_RETRYABLE_EXCEPTIONS = (
+    BudgetExceededError,
+    CircuitBreakerOpenError,
+    TeacherConfigError,
+    BackendNotFoundError,
+)
+
+_SUPPORTED_API_TYPES = ("openai", "anthropic")
+
+
+def _backend_class_for(api_type: str):
+    """Resolve apiType string to backend class."""
+    if api_type == "openai":
+        return OpenAIBackend
+    if api_type == "anthropic":
+        return AnthropicBackend
+    return None
+
+
+class _ResponseWrapper:
+    """Lightweight adapter that makes a uniform backend dict look like an
+    OpenAI ``chat.completions.create`` response for backward compatibility."""
+
+    def __init__(self, uniform: dict):
+        class _Choice:
+            def __init__(self, msg_content):
+                self.message = _Choice._Message(msg_content)
+
+            class _Message:
+                def __init__(self, content):  # noqa: N805
+                    self.content = content
+
+        class _Usage:
+            def __init__(self, prompt_tokens, completion_tokens):
+                self.prompt_tokens = prompt_tokens
+                self.completion_tokens = completion_tokens
+
+        self.choices = [_Choice(uniform["content"])]
+        self.usage = _Usage(uniform["prompt_tokens"], uniform["completion_tokens"])
+        self._raw_response = uniform["raw_response"]
+
 
 class TeacherClient:
+    """Multi-backend teacher API client.
+
+    Builds a backend registry from ``config/pipeline.yaml`` endpoints and
+    dispatches each ``generate()`` call to the correct backend based on the
+    model's endpoint ``apiType``.
+
+    Backends are constructed lazily on first use so that test code can inject
+    mock backends via ``client._backends`` without triggering real SDK imports.
+    """
+
     def __init__(self, config_path: Optional[Path] = None, project_root: Optional[Path] = None):
         if project_root is None:
             project_root = Path(__file__).resolve().parent.parent
@@ -30,46 +88,161 @@ class TeacherClient:
             config_path = project_root / "config" / "pipeline.yaml"
         self._config = self._load_config(config_path)
 
-        teacher_cfg = self._config["teacher"]
-        api_key = os.getenv(teacher_cfg.get("api_key_env", "DEEPSEEK_API_KEY"))
-        if not api_key:
-            raise TeacherConfigError(
-                f"API key not found. Set {teacher_cfg.get('api_key_env', 'DEEPSEEK_API_KEY')} "
-                f"in gnus-poc/.env or environment."
-            )
+        # --- Endpoints & models (new two-layer config) ---
+        endpoints_cfg = self._config.get("endpoints", {})
+        models_cfg = self._config.get("models", {})
+        teacher_cfg = self._config.get("teacher", {})
 
-        self._client = OpenAI(
-            api_key=api_key,
-            base_url=teacher_cfg.get("base_url", "https://api.deepseek.com"),
-        )
-        self._model = teacher_cfg.get("model", "deepseek-v4-pro")
-        self._max_tokens = teacher_cfg.get("max_tokens", 4096)
-        self._temperature = teacher_cfg.get("temperature", 0.7)
+        if not endpoints_cfg:
+            raise TeacherConfigError("No 'endpoints' block found in pipeline.yaml")
+        if not models_cfg:
+            raise TeacherConfigError("No 'models' block found in pipeline.yaml")
+
+        self._models = models_cfg
+
+        # --- Teacher settings ---
+        self._default_max_tokens = int(teacher_cfg.get("max_tokens", 4096))
+        self._default_temperature = float(teacher_cfg.get("temperature", 0.7))
         self._max_retries = int(teacher_cfg.get("max_retries", 3))
         self._backoff_base = float(teacher_cfg.get("backoff_base_seconds", 2.0))
         self._budget_cap = float(teacher_cfg.get("budget_cap_usd", 5.0))
+        self._max_consecutive_failures = int(
+            teacher_cfg.get("circuit_breaker_failure_threshold", 5)
+        )
 
+        # --- Backend registry (lazy) ---
+        # Store endpoint configs so backends can be constructed on first use.
+        # Keys: endpoint name.  Values: (endpoint_config, api_key).
+        self._endpoint_registry = {}
+        for endpoint_name, ep_cfg in endpoints_cfg.items():
+            api_type = ep_cfg.get("apiType", "").lower()
+            if api_type not in _SUPPORTED_API_TYPES:
+                raise TeacherConfigError(
+                    f"Unknown apiType '{ep_cfg.get('apiType')}' for endpoint "
+                    f"'{endpoint_name}'. Supported: {list(_SUPPORTED_API_TYPES)}"
+                )
+            api_key = self._resolve_api_key(endpoint_name, api_type)
+            self._endpoint_registry[endpoint_name] = (ep_cfg, api_key)
+
+        # Lazily-created backend instances.  Tests may replace entries with mocks.
+        self._backends = {}
+
+        # --- Runtime state ---
         self._total_cost = 0.0
         self._call_count = 0
         self._consecutive_failures = 0
-        self._max_consecutive_failures = 5
         self._circuit_open = False
 
         self._cost_log_path = project_root / "artifacts" / "api_cost.jsonl"
         self._error_log_path = project_root / "artifacts" / "api_errors.jsonl"
         self._cost_log_path.parent.mkdir(parents=True, exist_ok=True)
 
+    # ------------------------------------------------------------------
+    # API key resolution
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _resolve_api_key(endpoint_name: str, api_type: str) -> str:
+        """Resolve the API key for an endpoint.
+
+        Priority:
+        1. ``LITELLM_API_KEY`` env var (for LiteLLM proxy endpoints)
+        2. ``{ENDPOINT_NAME_UPPER}_API_KEY`` env var
+        3. ``{API_TYPE_UPPER}_API_KEY`` env var (e.g. ``ANTHROPIC_API_KEY``)
+
+        Raises:
+            TeacherConfigError: If no API key is found.
+        """
+        candidates = [
+            "LITELLM_API_KEY",
+            f"{endpoint_name.upper()}_API_KEY",
+            f"{api_type.upper()}_API_KEY",
+        ]
+        for var_name in candidates:
+            key = os.getenv(var_name)
+            if key:
+                return key
+        raise TeacherConfigError(
+            f"No API key found for endpoint '{endpoint_name}' ({api_type}). "
+            f"Set one of: {', '.join(candidates)} in gnus-poc/.env or environment."
+        )
+
+    # ------------------------------------------------------------------
+    # Config loading
+    # ------------------------------------------------------------------
+
     def _load_config(self, config_path):
         with config_path.open() as f:
             return yaml.safe_load(f)
 
-    def _estimate_cost(self, prompt_tokens: int, completion_tokens: int) -> float:
-        return (prompt_tokens * 0.27 + completion_tokens * 1.10) / 1_000_000
+    # ------------------------------------------------------------------
+    # Backend dispatch
+    # ------------------------------------------------------------------
 
-    def _log_cost(self, prompt_tokens: int, completion_tokens: int, cost: float):
+    def _get_or_create_backend(self, endpoint_name: str):
+        """Return (possibly creating) the backend instance for an endpoint.
+
+        Backends are created lazily so that tests may inject mocks into
+        ``self._backends`` before any real SDK client is constructed.
+        """
+        if endpoint_name not in self._backends:
+            ep_cfg, api_key = self._endpoint_registry[endpoint_name]
+            api_type = ep_cfg.get("apiType", "").lower()
+            backend_cls = _backend_class_for(api_type)
+            # api_type is already validated in __init__, so backend_cls is not None
+            self._backends[endpoint_name] = backend_cls(
+                endpoint_config=ep_cfg,
+                model_id="",  # placeholder — real model_id is set per-call
+                api_key=api_key,
+            )
+        return self._backends[endpoint_name]
+
+    def _resolve_backend(self, model_name: str):
+        """Look up the backend instance for a model name.
+
+        Args:
+            model_name: Key in the ``models`` config block (e.g. ``"deepseek-v4-fast"``).
+
+        Returns:
+            A ``TeacherBackend`` instance.
+
+        Raises:
+            TeacherConfigError: If the model or its endpoint is unknown.
+        """
+        model_cfg = self._models.get(model_name)
+        if model_cfg is None:
+            raise TeacherConfigError(
+                f"Unknown model '{model_name}'. "
+                f"Available: {list(self._models.keys())}"
+            )
+        endpoint_name = model_cfg.get("endpoint")
+        if endpoint_name is None:
+            raise TeacherConfigError(
+                f"Model '{model_name}' has no 'endpoint' configured."
+            )
+        if endpoint_name not in self._endpoint_registry:
+            raise TeacherConfigError(
+                f"Endpoint '{endpoint_name}' not found for model '{model_name}'."
+            )
+        return self._get_or_create_backend(endpoint_name)
+
+    # ------------------------------------------------------------------
+    # Cost estimation (delegates to backends)
+    # ------------------------------------------------------------------
+
+    def _estimate_cost(self, prompt_tokens: int, completion_tokens: int) -> float:
+        # Use the default formula from TeacherBackend
+        from distill.backends.base import TeacherBackend
+        return TeacherBackend.estimate_cost(prompt_tokens, completion_tokens)
+
+    # ------------------------------------------------------------------
+    # Logging
+    # ------------------------------------------------------------------
+
+    def _log_cost(self, model_name: str, prompt_tokens: int, completion_tokens: int, cost: float):
         record = {
             "timestamp": datetime.now().isoformat(),
-            "model": self._model,
+            "model": model_name,
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
             "cost_usd": round(cost, 6),
@@ -89,6 +262,10 @@ class TeacherClient:
         with self._error_log_path.open("a") as f:
             f.write(json.dumps(record) + "\n")
 
+    # ------------------------------------------------------------------
+    # Circuit breaker & budget
+    # ------------------------------------------------------------------
+
     def _check_circuit(self):
         if self._circuit_open:
             raise CircuitBreakerOpenError("Circuit breaker is open. Too many consecutive failures.")
@@ -99,6 +276,10 @@ class TeacherClient:
                 f"Budget cap exceeded: ${self._total_cost:.4f} >= ${self._budget_cap:.2f}"
             )
 
+    # ------------------------------------------------------------------
+    # Retry classification
+    # ------------------------------------------------------------------
+
     def _is_retryable(self, exception: Exception) -> bool:
         status_code = getattr(exception, "status_code", None)
         if status_code is not None:
@@ -108,20 +289,40 @@ class TeacherClient:
                 return True
         return True
 
-    def _call_api(self, messages, **kwargs):
+    # ------------------------------------------------------------------
+    # Core API call
+    # ------------------------------------------------------------------
+
+    def _call_api(self, model_name: str, messages, **kwargs):
+        """Execute an API call through the correct backend with retry + circuit breaker.
+
+        Args:
+            model_name: Key from the ``models`` config block.
+            messages: List of message dicts (OpenAI format).
+            **kwargs: Passed to ``backend.generate()`` (max_tokens, temperature, etc.).
+
+        Returns:
+            ``_ResponseWrapper`` with ``.choices[0].message.content`` and ``.usage``.
+        """
         self._check_circuit()
         self._check_budget()
+
+        backend = self._resolve_backend(model_name)
+
+        # Apply defaults for max_tokens and temperature if not explicitly passed
+        max_tokens = kwargs.pop("max_tokens", self._default_max_tokens)
+        temperature = kwargs.pop("temperature", self._default_temperature)
 
         last_exception = None
         for attempt in range(self._max_retries):
             try:
-                response = self._client.chat.completions.create(
-                    model=self._model,
+                uniform = backend.generate(
                     messages=messages,
-                    max_tokens=kwargs.get("max_tokens", self._max_tokens),
-                    temperature=kwargs.get("temperature", self._temperature),
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    **kwargs,
                 )
-                return response
+                return _ResponseWrapper(uniform)
             except NON_RETRYABLE_EXCEPTIONS:
                 raise
             except Exception as e:
@@ -133,7 +334,8 @@ class TeacherClient:
                 if self._consecutive_failures >= self._max_consecutive_failures:
                     self._circuit_open = True
                     raise CircuitBreakerOpenError(
-                        f"Circuit breaker opened after {self._consecutive_failures} consecutive failures."
+                        f"Circuit breaker opened after {self._consecutive_failures} "
+                        f"consecutive failures."
                     ) from e
                 if attempt < self._max_retries - 1:
                     delay = self._backoff_base * (2 ** attempt)
@@ -141,20 +343,56 @@ class TeacherClient:
 
         raise last_exception
 
-    def generate(self, messages, **kwargs):
-        response = self._call_api(messages, **kwargs)
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def generate(self, model_name: Optional[str] = None, messages=None, **kwargs):
+        """Generate a completion through the appropriate backend.
+
+        Args:
+            model_name: Model key from the ``models`` config block.  If ``None``,
+                defaults to ``teacher.level1`` from pipeline.yaml.
+            messages: List of message dicts (OpenAI format).
+            **kwargs: Extra parameters forwarded to the backend.
+
+        Returns:
+            ``_ResponseWrapper`` with ``.choices[0].message.content`` and ``.usage``.
+        """
+        if model_name is None:
+            model_name = self._config["teacher"].get(
+                "level1", list(self._models.keys())[0]
+            )
+        if messages is None:
+            raise TeacherConfigError("messages parameter is required")
+
+        response = self._call_api(model_name, messages, **kwargs)
         self._consecutive_failures = 0
         self._call_count += 1
         usage = response.usage
         cost = self._estimate_cost(usage.prompt_tokens, usage.completion_tokens)
         self._total_cost += cost
-        self._log_cost(usage.prompt_tokens, usage.completion_tokens, cost)
+        self._log_cost(model_name, usage.prompt_tokens, usage.completion_tokens, cost)
         return response
 
-    def generate_with_logprobs(self, messages, **kwargs):
+    def generate_with_logprobs(self, model_name: Optional[str] = None, messages=None, **kwargs):
+        """Generate with log-probabilities (OpenAI-compatible endpoints only).
+
+        Args:
+            model_name: Model key (defaults to ``teacher.level1``).
+            messages: List of message dicts.
+            **kwargs: Extra parameters.
+
+        Returns:
+            ``_ResponseWrapper`` with logprobs data.
+        """
         kwargs["logprobs"] = True
         kwargs["top_logprobs"] = kwargs.get("top_logprobs", 20)
-        return self.generate(messages, **kwargs)
+        return self.generate(model_name, messages, **kwargs)
+
+    # ------------------------------------------------------------------
+    # Properties
+    # ------------------------------------------------------------------
 
     @property
     def total_cost(self):
@@ -171,10 +409,3 @@ class TeacherClient:
     @property
     def call_count(self):
         return self._call_count
-
-
-NON_RETRYABLE_EXCEPTIONS = (
-    BudgetExceededError,
-    CircuitBreakerOpenError,
-    TeacherConfigError,
-)
