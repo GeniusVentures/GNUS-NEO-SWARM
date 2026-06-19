@@ -4,7 +4,7 @@
  * @date       2026-05-06
  *
  * No platform-specific code. GPU = Vulkan only (MoltenVK on Apple).
- * Engine mode selected at runtime via Config::engine_m_mode, not compile flags.
+ * Engine mode selected at runtime via Config::m_engineMode, not compile flags.
  */
 
 #include "mnn_inference_engine.hpp"
@@ -70,17 +70,17 @@ namespace sgns::neoswarm::core
     int MNNInferenceEngine::SelectBackend() const
     {
         // MNN_FORWARD_VULKAN = 7, MNN_FORWARD_CPU = 0
-        return ( m_cfg.backend_ == "vulkan" ) ? 7 : 0;
+        return ( m_cfg.m_backend == "vulkan" ) ? 7 : 0;
 
     }
 
     std::string MNNInferenceEngine::BackendName() const
     {
-        if ( m_cfg.engine_m_mode == "sgprocessing" )
+        if ( m_cfg.m_engineMode == "sgprocessing" )
         {
             return m_cfg.m_sgNetworkMode ? "SGProcessing/Network" : "SGProcessing/Local";
         }
-        return ( m_cfg.backend_ == "vulkan" ) ? "MNN/Vulkan" : "MNN/CPU";
+        return ( m_cfg.m_backend == "vulkan" ) ? "MNN/Vulkan" : "MNN/CPU";
 
     }
 
@@ -89,10 +89,10 @@ namespace sgns::neoswarm::core
     // -----------------------------------------------------------------------
     outcome::result<void> MNNInferenceEngine::LoadModel( const std::string& model_path )
     {
-        EngineLogger()->info( "Loading model: {} (mode={}, backend={})", model_path, m_cfg.engine_m_mode, BackendName() );
+        EngineLogger()->info( "Loading model: {} (mode={}, backend={})", model_path, m_cfg.m_engineMode, BackendName() );
 
         // ---- SGProcessing path (primary) ----
-        if ( m_cfg.engine_m_mode == "sgprocessing" )
+        if ( m_cfg.m_engineMode == "sgprocessing" )
         {
             m_modelPath = model_path;
 
@@ -117,7 +117,7 @@ namespace sgns::neoswarm::core
         }
 
         // ---- MNN Interpreter path (fallback) ----
-        if ( m_cfg.engine_m_mode == "interpreter" )
+        if ( m_cfg.m_engineMode == "interpreter" )
         {
             // Check if this is an MNN LLM model directory (has llm_config.json or llm.mnn.json)
             std::string config_path;
@@ -141,11 +141,11 @@ namespace sgns::neoswarm::core
             if ( !config_path.empty() )
             {
                 // Configure Vulkan backend for MNN LLM before creation
-                if ( m_cfg.backend_ == "vulkan" )
+                if ( m_cfg.m_backend == "vulkan" )
                 {
                     auto executor = MNN::Express::Executor::getGlobalExecutor();
                     MNN::BackendConfig backendConfig;
-                    executor->setGlobalExecutorConfig( MNN_FORWARD_VULKAN, backendConfig, m_cfg.num_threads_ );
+                    executor->setGlobalExecutorConfig( MNN_FORWARD_VULKAN, backendConfig, m_cfg.m_numThreads );
                     EngineLogger()->info( "MNN Vulkan backend configured for LLM" );
                 }
 
@@ -184,7 +184,7 @@ namespace sgns::neoswarm::core
             }
             MNN::ScheduleConfig sched_cfg;
             sched_cfg.type = static_cast<MNNForwardType>( SelectBackend() );
-            sched_cfg.numThread = m_cfg.num_threads_;
+            sched_cfg.numThread = m_cfg.m_numThreads;
             m_session = m_interpreter->createSession( sched_cfg );
             if ( !m_session )
             {
@@ -197,7 +197,7 @@ namespace sgns::neoswarm::core
         }
 
         // ---- Stub mode (no engine configured or MNN not compiled) ----
-        EngineLogger()->warn( "Engine mode '{}' — running in stub mode", m_cfg.engine_m_mode );
+        EngineLogger()->warn( "Engine mode '{}' — running in stub mode", m_cfg.m_engineMode );
         m_modelPath = model_path;
         m_loaded.store( true );
         return outcome::success();
@@ -225,7 +225,7 @@ namespace sgns::neoswarm::core
         }
 
         // ---- SGProcessing path (primary) ----
-        if ( m_cfg.engine_m_mode == "sgprocessing" )
+        if ( m_cfg.m_engineMode == "sgprocessing" )
         {
             if ( !m_bridge || !m_tensorInterpreter )
             {
@@ -235,7 +235,7 @@ namespace sgns::neoswarm::core
             auto t0 = std::chrono::steady_clock::now();
 
             const sgns::InputFormat input_fmt =
-                m_cfg.use_fp4_ ? sgns::InputFormat::FP4_ULTRA : sgns::InputFormat::FLOAT32;
+                m_cfg.m_useFp4 ? sgns::InputFormat::FP4_ULTRA : sgns::InputFormat::FLOAT32;
             const std::vector<int64_t> shape = { 1, static_cast<int64_t>( task.m_prompt.size() ) };
 
             auto bytes_res = m_bridge->SubmitJob( m_modelPath, task.m_prompt, input_fmt, shape, m_ioc );
@@ -259,7 +259,7 @@ namespace sgns::neoswarm::core
         }
 
         // ---- MNN Interpreter path (fallback) ----
-        if ( m_cfg.engine_m_mode == "interpreter" )
+        if ( m_cfg.m_engineMode == "interpreter" )
         {
             // --- MNN native LLM path (autoregressive) ---
             if ( mnn_llm_ )
@@ -319,8 +319,8 @@ namespace sgns::neoswarm::core
                 }
 
                 auto& logits = logits_res.value();
-                ApplyRepetitionPenalty( logits, generated, m_cfg.repetition_penalty_ );
-                int next_token = SampleToken( logits, task.m_temperature, m_cfg.top_p_, m_cfg.top_k_ );
+                ApplyRepetitionPenalty( logits, generated, m_cfg.m_repetitionPenalty );
+                int next_token = SampleToken( logits, task.m_temperature, m_cfg.m_topP, m_cfg.m_topK );
 
                 float max_l = *std::max_element( logits.begin(), logits.end() );
                 float sum_exp = 0.0f;
@@ -377,7 +377,7 @@ namespace sgns::neoswarm::core
         // SGProcessing does not support streaming yet — fall through to batch.
         // Interpreter path supports token-by-token streaming.
 
-        if ( m_cfg.engine_m_mode == "interpreter" )
+        if ( m_cfg.m_engineMode == "interpreter" )
         {
             // --- MNN native LLM streaming ---
             if ( mnn_llm_ )
@@ -446,8 +446,8 @@ namespace sgns::neoswarm::core
                 }
 
                 auto& logits = logits_res.value();
-                ApplyRepetitionPenalty( logits, generated, m_cfg.repetition_penalty_ );
-                int next_token = SampleToken( logits, task.m_temperature, m_cfg.top_p_, m_cfg.top_k_ );
+                ApplyRepetitionPenalty( logits, generated, m_cfg.m_repetitionPenalty );
+                int next_token = SampleToken( logits, task.m_temperature, m_cfg.m_topP, m_cfg.m_topK );
 
                 if ( m_tokenizer->IsEOS( next_token ) )
                     break;

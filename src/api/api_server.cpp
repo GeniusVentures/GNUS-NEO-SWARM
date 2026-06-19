@@ -76,8 +76,8 @@ namespace sgns::neoswarm::api
 
         // 2. Core inference engine
         core::MNNInferenceEngine::Config engine_cfg;
-        engine_cfg.engine_m_mode = m_cfg.m_enableSgProcessing ? "sgprocessing" : "interpreter";
-        engine_cfg.backend_ = "vulkan"; // cross-platform; MoltenVK on Apple
+        engine_cfg.m_engineMode = m_cfg.m_enableSgProcessing ? "sgprocessing" : "interpreter";
+        engine_cfg.m_backend = "vulkan"; // cross-platform; MoltenVK on Apple
         engine_cfg.m_sgNetworkMode = m_cfg.m_sgProcessingNetworkMode;
         auto engine = std::make_shared<core::MNNInferenceEngine>( engine_cfg );
 

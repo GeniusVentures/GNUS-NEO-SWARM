@@ -53,7 +53,7 @@ namespace sgns::neoswarm::core
     /**
      * @brief MNN-backed inference engine with composable configuration.
      *
-     * Inference paths (selected at runtime via Config::engine_m_mode):
+     * Inference paths (selected at runtime via Config::m_engineMode):
      *
      *   "sgprocessing" — Primary path. Routes through SGProcessingManager
      *                    which handles model loading, chunking, and execution.
@@ -63,7 +63,7 @@ namespace sgns::neoswarm::core
      *                    standard single-file .mnn models. Requires the
      *                    external SentencePieceTokenizer to be attached.
      *
-     * GPU backend (selected at runtime via Config::backend_):
+     * GPU backend (selected at runtime via Config::m_backend):
      *
      *   "vulkan" — Vulkan (cross-platform). MoltenVK translates to Metal on Apple.
      *   "cpu"    — CPU-only fallback.
@@ -74,28 +74,28 @@ namespace sgns::neoswarm::core
         struct Config
         {
             /// Inference path: "sgprocessing" (primary) or "interpreter" (fallback)
-            std::string engine_m_mode = "sgprocessing";
+            std::string m_engineMode = "sgprocessing";
 
             /// GPU backend: "vulkan" (cross-platform) or "cpu"
-            std::string backend_ = "vulkan";
+            std::string m_backend = "vulkan";
 
             /// Use FP4 quantization for SGProcessing path
-            bool use_fp4_ = true;
+            bool m_useFp4 = true;
 
-            /// CPU thread count (used when backend_ == "cpu")
-            int num_threads_ = 4;
+            /// CPU thread count (used when m_backend == "cpu")
+            int m_numThreads = 4;
 
             /// Generation parameters
             static constexpr int   kDefaultMaxTokens         = 512;
-            int   max_new_tokens_     = kDefaultMaxTokens;
+            int   m_maxNewTokens     = kDefaultMaxTokens;
             static constexpr float kDefaultTemperature       = 0.7f;
             float m_temperature        = kDefaultTemperature;
             static constexpr float kDefaultTopP              = 0.9f;
-            float top_p_              = kDefaultTopP;
+            float m_topP              = kDefaultTopP;
             static constexpr int   kDefaultTopK              = 40;
-            int   top_k_              = kDefaultTopK;
+            int   m_topK              = kDefaultTopK;
             static constexpr float kDefaultRepetitionPenalty = 1.1f;
-            float repetition_penalty_ = kDefaultRepetitionPenalty;
+            float m_repetitionPenalty = kDefaultRepetitionPenalty;
 
             /// SGProcessing network mode (Phase 2: dispatch via gRPC to SuperGenius)
             bool m_sgNetworkMode = false;
