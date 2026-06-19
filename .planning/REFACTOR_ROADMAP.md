@@ -251,37 +251,35 @@ These malformed names share the bug class but weren't enumerated in the roadmap:
 
 ---
 
-## Phase 2b: Class/Type Name Renames ⚠️ IN PROGRESS
+## Phase 2b: Class/Type Name Renames ✅ DONE
 
-### 2b.1 API Server ⚠️
+### 2b.1 API Server ✅
 | Current | Target | Status |
 |---------|--------|--------|
-| `GeniusAPIServer` | `ApiServer` | ⚠️ Class rename not done |
-| `GeniusResponse` | `InferenceResponse` | ⚠️ Not done |
-| Log strings: `"GeniusAPIServer"` | `"ApiServer"` | ❌ |
-| Include guard: `NEOSWARM_API_GENIUSAPISERVER_HPP` | `NEOSWARM_API_API_SERVER_HPP` | ❌ |
+| `GeniusAPIServer` | `ApiServer` | ✅ Already `ApiServer` at file rename time |
+| `GeniusResponse` | `InferenceResponse` | ✅ Already renamed |
+| Stale comment: `"GeniusAPIServer"` in `genius_elm_chat_c.cpp:7` | Fixed → `"ApiServer"` | ✅ |
+| Include guard: `NEOSWARM_API_GENIUSAPISERVER_HPP` | `NEOSWARM_API_SERVER_HPP` | ✅ Already correct |
 
-### 2b.2 SuperGeniusClient ⚠️
+### 2b.2 SuperGeniusClient ✅
 | Current | Target | Status |
 |---------|--------|--------|
-| `SuperGeniusClient` class | TBD — `SgClient` or keep? | ⚠️ **DECISION NEEDED** — appears in ~80+ locations across 8 files |
+| `SuperGeniusClient` class | `SGClient` | ✅ Renamed — 43 refs across 8 files |
 
-This is the largest remaining class rename. The file was renamed to `super_genius_client.hpp` but the class inside still uses `SuperGeniusClient`. If the "Genius" prefix must go, this class needs renaming. However, it bridges to the SuperGenius blockchain, so the name may be intentional.
+### 2b.3 FFI Macros ✅
+| Current | Target | Status |
+|---------|--------|--------|
+| `GENIUS_ELM_CHAT_C_API` | `NEOSWARM_ELM_CHAT_C_API` | ✅ Renamed across .h/.cpp/.c |
+| `GENIUS_ELM_CHAT_C_NOEXCEPT` | `NEOSWARM_ELM_CHAT_C_NOEXCEPT` | ✅ Renamed across .h/.cpp/.c |
 
-### 2b.3 FFI Macros
-| Current | Target |
-|---------|--------|
-| `GENIUS_ELM_CHAT_C_API` | `NEOSWARM_ELM_CHAT_C_API` |
-| `GENIUS_ELM_CHAT_C_NOEXCEPT` | `NEOSWARM_ELM_CHAT_C_NOEXCEPT` |
+Exported function names (`GeniusElmInit`, etc.) intentionally left unchanged — they are the Flutter C ABI surface.
 
-**Note:** This is a C ABI — coordinate with Flutter bridge consumers before renaming.
-
-### 2b.4 Log/String Literals with "Genius"
-| File | Line | Current Text |
-|------|------|-------------|
-| `src/core/sgprocessing/sg_processing_bridge.cpp` | 194 | `"GeniusNeoSwarm inference job"` |
-| `src/genius_elm_chat_completions.cpp` | 17 | `"genius-elm-stub"` (model name) |
-| `src/genius_elm_chat_completions.cpp` | 23 | `"Genius ELM is running in stub mode."` |
+### 2b.4 Log/String Literals with "Genius" ✅
+| File | Line | Was | Now |
+|------|------|-----|-----|
+| `sg_processing_bridge.cpp` | 193 | `"GeniusNeoSwarm inference job"` | `"NeoSwarm inference job"` |
+| `genius_elm_chat_completions.cpp` | 44 | `"genius-elm-stub"` | `"neoswarm-elm-stub"` |
+| `genius_elm_chat_completions.cpp` | 50 | `"Genius ELM is running in stub mode."` | `"NeoSwarm ELM is running in stub mode."` |
 
 ---
 
@@ -377,7 +375,7 @@ No `#ifdef __unix__` / `#ifdef _WIN32` found in `src/`. ✅
 | 4 | 3 | Header Guard Fixes | ✅ DONE | Phase 2 |
 | 5 | 1 | Remove Feature-Gate #ifdefs | ✅ DONE | Phase 0 |
 | 6 | 2a | Member Variable Naming | ✅ DONE (enumerated items) | Phase 2 |
-| 7 | 2b | Class/Type Name Renames | ❌ | Phase 2a |
+| 7 | 2b | Class/Type Name Renames | ✅ DONE | Phase 2a |
 | 8 | 7 | Cleanup & Debt | ✅ DONE | — |
 | 9 | 5 | Function Size Refactors | ❌ | Phases 1–2b |
 | 10 | 6 | Remove Platform Ifdefs & Busy-Waits | ❌ | Phase 5 |
