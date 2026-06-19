@@ -4,7 +4,7 @@
  *             GeniusElmStringFree / GeniusElmGetStatus
  * @date       2026-06-10
  *
- * Returns canned responses until the real GeniusAPIServer pipeline is wired.
+ * Returns canned responses until the real ApiServer pipeline is wired.
  * The shared library is consumed by the Flutter bridge.
  */
 

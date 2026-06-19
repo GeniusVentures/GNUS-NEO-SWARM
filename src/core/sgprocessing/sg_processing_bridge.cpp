@@ -190,7 +190,7 @@ namespace sgns::neoswarm::core
         doc["name"] = "neo-swarm-inference";
         doc["version"] = "1.0.0";
         doc["gnus_spec_version"] = 1.0;
-        doc["description"] = "GeniusNeoSwarm inference job";
+        doc["description"] = "NeoSwarm inference job";
 
         // inputs
         nlohmann::json input_decl;

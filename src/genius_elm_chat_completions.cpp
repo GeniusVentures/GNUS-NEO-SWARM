@@ -41,13 +41,13 @@ namespace
   "id": "chatcmpl-stub",
   "object": "chat.completion",
   "created": 0,
-  "model": "genius-elm-stub",
+  "model": "neoswarm-elm-stub",
   "choices": [
     {
       "index": 0,
       "message": {
         "role": "assistant",
-        "content": "Genius ELM is running in stub mode."
+        "content": "NeoSwarm ELM is running in stub mode."
       },
       "finish_reason": "stop"
     }
