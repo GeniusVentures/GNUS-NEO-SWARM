@@ -1,0 +1,13 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/06-agentic-memory-layer.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "8.4 GNUS Agentic Memory Layer (GAML v1)",
+  "summary": "Describes the structured reasoning-oriented long-term memory system for GeniusCognitiveSystem, including object model, ingestion, retrieval, swarm consensus, and replication.",
+  "scope": ["GNUS Agentic Memory Layer", "GAML", "MemoryObject", "Ingestion Pipeline", "Agentic Retrieval", "Swarm Memory Consensus", "CRDT synchronization", "GeniusCognitiveSystem"],
+  "cross_refs": ["./05-grounding.md", "./INDEX.md", "./07-execution-and-performance.md"],
+  "locked": false,
+  "precedence": null,
+  "notes": "SHA-256 hash unavailable (Bash tool not enabled); used placeholder 00000000 for filename."
+}
