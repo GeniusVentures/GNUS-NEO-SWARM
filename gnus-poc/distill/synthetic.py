@@ -1,10 +1,11 @@
-"""Synthetic data generation using DeepSeek v4 pro teacher model."""
+"""Synthetic data generation using multi-backend cascade-capable teacher models."""
 
 import json
 import re
 from pathlib import Path
 from typing import Optional
 
+from distill.cascade import _DOMAIN_MAP
 from distill.teacher import TeacherClient
 from distill.teacher_errors import SyntheticDataError
 
@@ -27,8 +28,16 @@ _refusal_re = re.compile("|".join(REFUSAL_PATTERNS), re.IGNORECASE)
 
 
 class SyntheticDataGenerator:
-    def __init__(self, teacher_client: TeacherClient, project_root: Optional[Path] = None):
+    def __init__(
+        self,
+        teacher_client: TeacherClient,
+        project_root: Optional[Path] = None,
+        use_cascade: bool = True,
+        domain: str = "encyclopedic",
+    ):
         self._client = teacher_client
+        self._use_cascade = use_cascade
+        self._default_domain = domain
         if project_root is None:
             project_root = Path(__file__).resolve().parent.parent
         self._project_root = project_root
@@ -44,6 +53,8 @@ class SyntheticDataGenerator:
         if not user_prompts:
             return []
 
+        domain = _DOMAIN_MAP.get(niche_name, self._default_domain)
+
         results = []
         repeats = (num_samples // len(user_prompts)) + 1
         for i, user_prompt in enumerate(user_prompts * repeats):
@@ -56,7 +67,10 @@ class SyntheticDataGenerator:
             ]
 
             try:
-                response = self._client.generate(messages)
+                if self._use_cascade:
+                    response = self._client.generate_with_cascade(messages, domain=domain)
+                else:
+                    response = self._client.generate(model_name=None, messages=messages)
                 content = response.choices[0].message.content
 
                 if self._passes_quality(content, keywords):
