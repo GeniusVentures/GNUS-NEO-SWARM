@@ -8,7 +8,7 @@ wrapper so callers receive the same interface regardless of backend.
 import json
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -110,6 +110,9 @@ class TeacherClient:
         self._max_consecutive_failures = int(
             teacher_cfg.get("circuit_breaker_failure_threshold", 5)
         )
+        self._circuit_recovery_timeout = float(
+            teacher_cfg.get("circuit_breaker_recovery_timeout", 60)
+        )
 
         # --- Backend registry (lazy) ---
         # Store endpoint configs so backends can be constructed on first use.
@@ -141,13 +144,19 @@ class TeacherClient:
 
         # --- Runtime state ---
         self._total_cost = 0.0
+        self._budget_version = 1
         self._call_count = 0
         self._consecutive_failures = 0
         self._circuit_open = False
+        self._circuit_opened_at = None
+        self._circuit_half_open = False
 
         self._cost_log_path = project_root / "artifacts" / "api_cost.jsonl"
         self._error_log_path = project_root / "artifacts" / "api_errors.jsonl"
         self._cost_log_path.parent.mkdir(parents=True, exist_ok=True)
+
+        self._budget_state_path = project_root / "artifacts" / ".budget_state.json"
+        self._load_budget_state()
 
     # ------------------------------------------------------------------
     # API key resolution
@@ -275,14 +284,108 @@ class TeacherClient:
             f.write(json.dumps(record) + "\n")
 
     # ------------------------------------------------------------------
-    # Circuit breaker & budget
+    # Budget state persistence (disk)
+    # ------------------------------------------------------------------
+
+    def _load_budget_state(self):
+        """Load cumulative spend from ``artifacts/.budget_state.json``.
+
+        Budget state file format::
+
+            {
+                "cumulative_cost_usd": 1.234,
+                "budget_cap_usd": 5.0,
+                "last_updated": "2026-06-19T12:00:00+00:00",
+                "version": 1
+            }
+
+        If the file does not exist the budget starts at ``0.0``.
+        The budget state file can be edited manually — it is a soft
+        cost-control limit, not a security boundary (see T-04-01).
+        """
+        if self._budget_state_path.exists():
+            try:
+                data = json.loads(self._budget_state_path.read_text())
+                self._total_cost = float(data.get("cumulative_cost_usd", 0.0))
+                self._budget_version = int(data.get("version", 1))
+                print(
+                    f"Budget state loaded: ${self._total_cost:.4f} "
+                    f"of ${self._budget_cap:.2f}"
+                )
+            except (json.JSONDecodeError, ValueError, KeyError):
+                self._total_cost = 0.0
+                self._budget_version = 1
+        else:
+            self._total_cost = 0.0
+            self._budget_version = 1
+
+    def _save_budget_state(self):
+        """Persist current cumulative spend to ``artifacts/.budget_state.json``.
+
+        Called after every successful API call that adds cost.  Creates
+        parent directories if they do not exist.
+        """
+        self._budget_state_path.parent.mkdir(parents=True, exist_ok=True)
+        data = {
+            "cumulative_cost_usd": round(self._total_cost, 6),
+            "budget_cap_usd": self._budget_cap,
+            "last_updated": datetime.now(timezone.utc).isoformat(),
+            "version": self._budget_version,
+        }
+        self._budget_state_path.write_text(json.dumps(data, indent=2) + "\n")
+
+    def reset_budget(self):
+        """Reset cumulative spend to zero and persist the change.
+
+        Used by the pipeline runner when the ``--reset-budget`` CLI flag
+        is passed.
+        """
+        self._total_cost = 0.0
+        self._save_budget_state()
+        print("Budget reset — cumulative spend set to $0.00")
+
+    # ------------------------------------------------------------------
+    # Circuit breaker & budget (runtime gates)
     # ------------------------------------------------------------------
 
     def _check_circuit(self):
-        if self._circuit_open:
-            raise CircuitBreakerOpenError("Circuit breaker is open. Too many consecutive failures.")
+        """Gate API calls through a half-open circuit breaker.
+
+        **Closed:**  calls proceed normally.
+        **Open:**    calls are blocked for ``recovery_timeout`` seconds.
+                     After the timeout elapses the circuit transitions to
+                     *half-open* — the next call is allowed as a probe.
+        **Half-open:** a single probe call is permitted.  If it succeeds
+                     the circuit closes.  If it fails the circuit re-opens
+                     with a fresh recovery timer.
+
+        Raises:
+            CircuitBreakerOpenError: When the circuit is open and the
+                recovery timeout has not elapsed.
+        """
+        if not self._circuit_open:
+            return  # circuit closed — allow calls
+
+        if self._circuit_opened_at is None:
+            return  # safety: should not happen
+
+        elapsed = (datetime.now(timezone.utc) - self._circuit_opened_at).total_seconds()
+        if elapsed >= self._circuit_recovery_timeout:
+            self._circuit_half_open = True
+            return  # allow one probe request
+
+        remaining = self._circuit_recovery_timeout - elapsed
+        raise CircuitBreakerOpenError(
+            f"Circuit breaker open. {remaining:.0f}s remaining "
+            f"until half-open probe."
+        )
 
     def _check_budget(self):
+        """Raise ``BudgetExceededError`` when cumulative spend hits the cap.
+
+        Budget enforcement reads the persisted total from disk on startup
+        (see ``_load_budget_state``), so the cap applies across runs.
+        """
         if self._total_cost >= self._budget_cap:
             raise BudgetExceededError(
                 f"Budget cap exceeded: ${self._total_cost:.4f} >= ${self._budget_cap:.2f}"
@@ -307,6 +410,14 @@ class TeacherClient:
 
     def _call_api(self, model_name: str, messages, **kwargs):
         """Execute an API call through the correct backend with retry + circuit breaker.
+
+        Circuit breaker state machine:
+
+        * **Closed** → calls proceed; after ``failure_threshold`` consecutive
+          failures the circuit **opens** with a timestamp.
+        * **Open** → calls are blocked for ``recovery_timeout`` seconds.
+        * **Half-open** → one probe call is allowed.  Success **closes** the
+          circuit.  Failure **re-opens** it with a fresh recovery timer.
 
         Args:
             model_name: Key from the ``models`` config block.
@@ -334,6 +445,12 @@ class TeacherClient:
                     temperature=temperature,
                     **kwargs,
                 )
+                # Success — close the circuit if it was half-open
+                if self._circuit_half_open:
+                    self._circuit_open = False
+                    self._circuit_half_open = False
+                    self._circuit_opened_at = None
+                    print("Circuit breaker closed — half-open probe succeeded")
                 return _ResponseWrapper(uniform)
             except NON_RETRYABLE_EXCEPTIONS:
                 raise
@@ -343,12 +460,25 @@ class TeacherClient:
                     raise
                 self._consecutive_failures += 1
                 self._log_error(type(e).__name__, getattr(e, "status_code", None), str(e))
+
                 if self._consecutive_failures >= self._max_consecutive_failures:
-                    self._circuit_open = True
-                    raise CircuitBreakerOpenError(
-                        f"Circuit breaker opened after {self._consecutive_failures} "
-                        f"consecutive failures."
-                    ) from e
+                    if self._circuit_half_open:
+                        # Half-open probe failed — re-open with fresh timer
+                        self._circuit_half_open = False
+                        self._circuit_opened_at = datetime.now(timezone.utc)
+                        raise CircuitBreakerOpenError(
+                            "Half-open probe failed. Circuit re-opened."
+                        ) from e
+                    if not self._circuit_open:
+                        # Open the circuit for the first time
+                        self._circuit_open = True
+                        self._circuit_opened_at = datetime.now(timezone.utc)
+                        self._circuit_half_open = False
+                        raise CircuitBreakerOpenError(
+                            f"Circuit breaker opened after "
+                            f"{self._consecutive_failures} consecutive failures."
+                        ) from e
+
                 if attempt < self._max_retries - 1:
                     delay = self._backoff_base * (2 ** attempt)
                     time.sleep(delay)
@@ -385,6 +515,7 @@ class TeacherClient:
         cost = self._estimate_cost(usage.prompt_tokens, usage.completion_tokens)
         self._total_cost += cost
         self._log_cost(model_name, usage.prompt_tokens, usage.completion_tokens, cost)
+        self._save_budget_state()
         return response
 
     def generate_with_logprobs(self, model_name: Optional[str] = None, messages=None, **kwargs):
