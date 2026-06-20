@@ -16,6 +16,7 @@ import yaml
 
 from distill.backends.openai_backend import OpenAIBackend
 from distill.backends.anthropic_backend import AnthropicBackend
+from distill.cascade import TeacherCascade
 from distill.teacher_errors import (
     BackendNotFoundError,
     BudgetExceededError,
@@ -126,6 +127,17 @@ class TeacherClient:
 
         # Lazily-created backend instances.  Tests may replace entries with mocks.
         self._backends = {}
+
+        # --- Teacher cascade orchestrator ---
+        teacher_benchmark = self._config.get("teacher_benchmark", {})
+        level1_model = teacher_cfg.get("level1", list(self._models.keys())[0] if self._models else "deepseek-v4-fast")
+        confidence_threshold = float(teacher_cfg.get("confidence_threshold", 0.7))
+        self._cascade = TeacherCascade(
+            teacher_client=self,
+            benchmark_table=teacher_benchmark,
+            level1_model=level1_model,
+            confidence_threshold=confidence_threshold,
+        )
 
         # --- Runtime state ---
         self._total_cost = 0.0
@@ -389,6 +401,33 @@ class TeacherClient:
         kwargs["logprobs"] = True
         kwargs["top_logprobs"] = kwargs.get("top_logprobs", 20)
         return self.generate(model_name, messages, **kwargs)
+
+    def generate_with_cascade(self, messages, domain="encyclopedic", **kwargs):
+        """Generate a completion using the multi-teacher cascade.
+
+        Routes through ``TeacherCascade.execute()``: Level 1 always runs;
+        Level 2 is invoked only when Level 1 confidence is below threshold
+        and the best Level 2 teacher is selected from the benchmark table.
+
+        Args:
+            messages: List of message dicts (OpenAI format).
+            domain: Specialist niche name (e.g. ``"code"``, ``"medical"``).
+                Defaults to ``"encyclopedic"``.
+            **kwargs: Extra parameters forwarded to each teacher call.
+
+        Returns:
+            ``_ResponseWrapper`` with ``.choices[0].message.content`` set to
+            the cascade's final content.  The raw response payload is the
+            cascade result dict (for logging / inspection).
+        """
+        result = self._cascade.execute(messages, domain, **kwargs)
+        uniform = {
+            "content": result.final_content,
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "raw_response": result.to_dict(),
+        }
+        return _ResponseWrapper(uniform)
 
     # ------------------------------------------------------------------
     # Properties
