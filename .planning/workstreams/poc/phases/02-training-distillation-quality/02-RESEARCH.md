@@ -752,22 +752,13 @@ class MetricStore:
 | A5 | LLM threshold evaluation prompt should require structured JSON output with justification | Architecture Patterns | LOW -- structured output is a standard pattern for LLM evaluation tasks. The risk is in prompt effectiveness for specific threshold recommendations. |
 | A6 | `pip index versions` confirms `transitions` exists on PyPI but authoritative docs verification via Context7 was unavailable | Package Legitimacy Audit | LOW -- slopcheck rates it [OK], the project has 10+ years of history and ~2M downloads/month. Legitimacy risk is minimal. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Should the router state machine fire all matching rules (sum confidence) or stop at first match?**
-   - What we know: D-11 specifies "configurable priority ordering" and D-12 specifies "fallback chaining" (try primary, if below threshold try next-best). This implies first-match with fallback, not sum-of-matches.
-   - What's unclear: Whether keyword, regex, and syntax_density rules should all be evaluated independently (additive confidence) or short-circuit at the highest-priority match.
-   - Recommendation: First-match with priority ordering matches the GQHSM model (transitions are evaluated in priority order, first guard-passing transition fires). The fallback chain handles the "try next" case when confidence is below threshold.
+1. **RESOLVED: Router uses first-match with priority ordering.** Keyword, regex, and syntax_density rules short-circuit at the highest-priority match. Fallback chain handles "try next" when confidence below threshold. Matches GQHSM model (transitions evaluated in priority order, first guard-passing transition fires).
 
-2. **Is the behavioral validation diff threshold configurable per specialist?**
-   - What we know: D-08 specifies "inference output differs from base model" but doesn't specify how different it must be. Some specialists (medical) may need stricter behavioral change than others (encyclopedic).
-   - What's unclear: What metric to use for behavioral difference (token overlap ratio, BLEU of base vs adapter output, embedding cosine distance).
-   - Recommendation: Use token overlap ratio as the primary metric (percentage of tokens that differ between base model and adapter output). Default threshold: >5% token difference across 3 diverse prompts. Configurable per specialist in `config/specialists/<niche>.yaml`.
+2. **RESOLVED: Behavioral diff uses token overlap ratio, configurable per specialist.** Default threshold: >5% token difference across 3 diverse prompts. Configurable in `config/specialists/<niche>.yaml` under `behavioral_diff_threshold`. AdapterValidator implements this in Plan 02-03.
 
-3. **Should LLM threshold recommendations be logged-only, or optionally auto-applied?**
-   - What we know: D-15 says "LLM API can recursively update gate thresholds." The deferred section says "full autonomous threshold optimization without LLM involvement is deferred."
-   - What's unclear: Whether "can update" means auto-apply or recommend. The deferred section suggests auto-apply is acceptable when LLM-driven.
-   - Recommendation: Log all recommendations. Auto-apply only when LLM confidence > 0.9 AND the recommended change is < 20% from current value. Any change beyond these bounds is logged for human review only. This matches the "gradual adjustment" principle from the guard-aspect of D-16 (variance from prior run is logged, severe outliers trigger human review).
+3. **RESOLVED: LLM recommendations logged by default, auto-applied only when confidence > 0.9 and change < 20%.** ThresholdAdapter implements this in Plan 02-04. Any change beyond these bounds is logged for human review only.
 
 ## Environment Availability
 
