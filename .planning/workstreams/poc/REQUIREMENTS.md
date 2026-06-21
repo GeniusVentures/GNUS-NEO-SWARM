@@ -255,7 +255,7 @@ Benchmark results across runs must be comparable to enable trend analysis. The s
 | DIST-03 | Phase 2 | Pending |
 | TRAIN-01 | Phase 2 | Pending |
 | TRAIN-02 | Phase 2 | Pending |
-| TRAIN-03 | Phase 2 | Pending |
+| TRAIN-03 | Phase 2 | Complete |
 | ROUTE-01 | Phase 2 | Pending |
 | ROUTE-02 | Phase 2 | Pending |
 | QUANT-01 | Phase 3 | Complete |

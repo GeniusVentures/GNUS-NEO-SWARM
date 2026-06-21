@@ -8,7 +8,7 @@ Scope is bounded to what a Python training pipeline can prove. Distributed swarm
 
 ## Phases
 
-- [ ] **Phase 1: Pipeline Hardening** — Multi-teacher cascade with dual-backend API, subprocess pipeline execution, budget persistence, retry/circuit breaker, validated checkpoints
+- [x] **Phase 1: Pipeline Hardening** — Multi-teacher cascade with dual-backend API, subprocess pipeline execution, budget persistence, retry/circuit breaker, validated checkpoints
 - [ ] **Phase 2: Training & Distillation Quality** — KD convergence with temperature sweeping, valid LoRA adapters, evaluation metrics, rules-based specialist routing
 - [ ] **Phase 3: FP4 Quantization & Artifact Integrity** — Standards-compliant Ultra FP4 export with dual-mode selection and provenance manifests
 - [ ] **Phase 4: Benchmark Evaluation** — Established benchmark suite scoring as quality gate with manual feedback loop to distillation
@@ -52,10 +52,10 @@ Plans:
 **Plans**: 5 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Config extensions: training convergence, eval gates, router config, per-specialist thresholds
-- [ ] 02-02-PLAN.md — Convergence tracking: ConvergenceTracker with plateau detection, two-tier stopping, sweep analysis
+- [x] 02-01-PLAN.md — Config extensions: training convergence, eval gates, router config, per-specialist thresholds
+- [x] 02-02-PLAN.md — Convergence tracking: ConvergenceTracker with plateau detection, two-tier stopping, sweep analysis
 - [ ] 02-03-PLAN.md — Training quality validation: AdapterValidator with multi-prong checks, post-training validation
-- [ ] 02-04-PLAN.md — Evaluation metrics & gating: MetricStore, ThresholdAdapter, auto-gating, trend analysis
+- [x] 02-04-PLAN.md — Evaluation metrics & gating: MetricStore, ThresholdAdapter, auto-gating, trend analysis
 - [ ] 02-05-PLAN.md — Rules-based router: GQHSM-compatible state machine, YAML-driven rule engine, fallback chaining
 
 ### Phase 3: FP4 Quantization & Artifact Integrity
@@ -87,7 +87,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Pipeline Hardening | 0/5 | Planned | - |
-| 2. Training & Distillation Quality | 0/5 | Planned | - |
+| 2. Training & Distillation Quality | 3/5 | In Progress|  |
 | 3. FP4 Quantization & Artifact Integrity | 0/? | Not started | - |
 | 4. Benchmark Evaluation | 0/? | Not started | - |
 
