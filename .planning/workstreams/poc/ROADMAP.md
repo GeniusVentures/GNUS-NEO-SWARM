@@ -2,7 +2,7 @@
 
 ## Overview
 
-gnus-poc evolves from a fragile sequential training script into a hardened ELM training and distillation pipeline with benchmark-validated quality gates. The roadmap progresses through four phases: **hardening** (Phase 1, making the pipeline production-grade), **training quality** (Phase 2, KD convergence + evaluation + rules-based routing), **quantization** (Phase 3, SGFP4 v2 adaptive macroblock dual-mode export), and **benchmark validation** (Phase 4, established suite scoring as quality gate).
+gnus-poc evolves from a fragile sequential training script into a hardened ELM training and distillation pipeline with benchmark-validated quality gates. The roadmap progresses through four phases: **hardening** (Phase 1, making the pipeline production-grade), **training quality** (Phase 2, KD convergence + evaluation + rules-based routing), **quantization** (Phase 3, Ultra FP4 dual-mode export), and **benchmark validation** (Phase 4, established suite scoring as quality gate).
 
 Scope is bounded to what a Python training pipeline can prove. Distributed swarm execution, EGGROLL retraining, GAML memory, reputation/consensus, Tool Intermediary, and epistemic arbitration belong to the GNUS-NEO-SWARM C++ parent repo — not gnus-poc.
 
@@ -10,8 +10,8 @@ Scope is bounded to what a Python training pipeline can prove. Distributed swarm
 
 - [ ] **Phase 1: Pipeline Hardening** — Multi-teacher cascade with dual-backend API, subprocess pipeline execution, budget persistence, retry/circuit breaker, validated checkpoints
 - [ ] **Phase 2: Training & Distillation Quality** — KD convergence with temperature sweeping, valid LoRA adapters, evaluation metrics, rules-based specialist routing
-- [x] **Phase 3: FP4 Quantization & Artifact Integrity** — SGFP4 v2 adaptive macroblock export with quadtree partitioning, Laplacian error analysis, dual-mode selection, and provenance manifests (completed 2026-06-27)
-- [x] **Phase 4: Benchmark Evaluation** — Established benchmark suite scoring as quality gate with manual feedback loop to distillation (completed 2026-06-28)
+- [ ] **Phase 3: FP4 Quantization & Artifact Integrity** — Standards-compliant Ultra FP4 export with dual-mode selection and provenance manifests
+- [ ] **Phase 4: Benchmark Evaluation** — Established benchmark suite scoring as quality gate with manual feedback loop to distillation
 
 ## Phase Details
 
@@ -49,30 +49,24 @@ Plans:
   5. Hyperparameters from YAML config are respected at runtime; invalid combinations produce clear validation errors.
   6. Model evaluation produces accuracy, perplexity, and latency metrics (mean/P95) persisted to `artifacts/evaluations/` per run.
   7. Rules-based router classifies queries by keyword/syntax patterns and selects appropriate specialists from YAML config.
-**Plans**: 4 plans
+**Plans**: 5 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Distillation convergence with two-tier early stopping, temperature sweep JSON output, synthetic data quality checks
-- [ ] 02-02-PLAN.md — Rules-based specialist router with GQHSM-compatible state machine, keyword/regex/syntax density matching, fallback chaining
-- [ ] 02-03-PLAN.md — Post-training adapter validation with loadability, loss, and behavioral difference checks; hyperparameter validation
-- [ ] 02-04-PLAN.md — Specialist config extensions, evaluation metric persistence via MetricStore, auto-gating with consecutive-failure tracking
+- [ ] 02-01-PLAN.md — Config extensions: training convergence, eval gates, router config, per-specialist thresholds
+- [ ] 02-02-PLAN.md — Convergence tracking: ConvergenceTracker with plateau detection, two-tier stopping, sweep analysis
+- [ ] 02-03-PLAN.md — Training quality validation: AdapterValidator with multi-prong checks, post-training validation
+- [ ] 02-04-PLAN.md — Evaluation metrics & gating: MetricStore, ThresholdAdapter, auto-gating, trend analysis
+- [ ] 02-05-PLAN.md — Rules-based router: GQHSM-compatible state machine, YAML-driven rule engine, fallback chaining
 
 ### Phase 3: FP4 Quantization & Artifact Integrity
-**Goal**: SGFP4 v2 adaptive quantized export produces variable-effective-bitrate models with quadtree block partitioning (4x4 through 64x64), encode-side Laplacian error analysis, dual-mode per-block encoding (FP4_AFFINE/T158_AFFINE), superblock layout enum, and provenance manifests with SHA256 integrity.
+**Goal**: Ultra FP4 export produces standards-compliant quantized models with 64x64 macroblocks, dual-mode per-block selection (FP4_AFFINE/T158_AFFINE), and provenance manifests.
 **Depends on**: Phase 2 (needs trained and evaluated specialists to quantize)
 **Requirements**: QUANT-01, QUANT-02, QUANT-03
 **Success Criteria** (what must be TRUE):
-  1. SGFP4 v2 binary uses variable block sizes (4x4-64x64) selected by Laplacian-weighted error analysis with quadtree recursion, superblock layout enum, and variable payloads scaling with block area.
-  2. Both FP4_AFFINE and T158_AFFINE mode errors are evaluated per block; T158 is selected when `err_t158 <= (1.0 + delta) * err_fp4`; mode flags in per-block header bits are set correctly.
-  3. Model manifest records model_name, niche, base_model_ref, adapter_ref, quantization_params, encoder_version, timestamp_utc, and SHA256 hash for integrity verification.
-  4. ConfigLoader validates fp4_export thresholds at load time; CheckpointValidator verifies SGFP4 v2 magic header and manifest integrity.
-  5. SGFP4 quantization metrics (MSE, effective bitrate, T158 ratio) are persisted and gated via eval_gates with configurable thresholds.
-**Plans**: 3 plans
-
-Plans:
-- [x] 03-01-PLAN.md — FP4Exporter v2 upgrade: Laplacian analysis, quadtree encoder, variable payload, superblock layout, dual-mode, backward compatibility, manifest output
-- [x] 03-02-PLAN.md — Config extension: ConfigLoader._validate_fp4_export(), pipeline.yaml v2 thresholds, CheckpointValidator SGFP4 v2 output validation
-- [x] 03-03-PLAN.md — Eval gating: MetricStore for SGFP4 metrics, Benchmarker.gate_check() for quantization quality gates
+  1. Quantized weight tensors use correct 64x64 macroblock partitioning with properly packed header (half2 scale+bias), offset (mode flags), and codes_blob (B * 2048 bytes) arrays.
+  2. Both FP4_AFFINE and T158_AFFINE mode errors are evaluated per macroblock; T158 is selected when `err_t158 <= (1.0 + delta) * err_fp4`; mode flags in offset bits are set correctly.
+  3. Model manifest records source model identity, adapter identity, quantization parameters, encoder version, and timestamp; manifest hash enables integrity verification.
+**Plans**: TBD
 
 ### Phase 4: Benchmark Evaluation
 **Goal**: Quantized specialist models are scored against established benchmark suites (MMLU, HumanEval, GSM8K, domain-specific) as a quality gate. Failed benchmarks feed back into distillation strategy refinement.
@@ -83,13 +77,7 @@ Plans:
   2. Benchmarks act as a quality gate — models below configurable thresholds are flagged for distillation refinement.
   3. Benchmark results persist with model identity, quantization config, and timestamp for trend analysis across runs.
   4. Failed benchmarks produce actionable feedback (which categories underperformed, by how much) to guide manual distillation strategy adjustments.
-**Plans**: 4 plans
-
-Plans:
-- [x] 04-01-PLAN.md — lm-eval integration + MLX model wrapper + canonical benchmark runner
-- [x] 04-02-PLAN.md — Benchmark datasets + custom YAML tasks (PubMedQA, BIGPATENT) + specialist mapping
-- [x] 04-03-PLAN.md — Reproducibility fingerprint (D-02) + gate dimensions + hard floors + 2-of-3 composite
-- [x] 04-04-PLAN.md — Trend analysis + bootstrap CI (D-09) + repair suggestion reports (D-10)
+**Plans**: TBD
 
 ## Progress
 
@@ -99,9 +87,9 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Pipeline Hardening | 0/5 | Planned | - |
-| 2. Training & Distillation Quality | 0/4 | Planned | - |
-| 3. FP4 Quantization & Artifact Integrity | 3/3 | Complete   | 2026-06-27 |
-| 4. Benchmark Evaluation | 4/4 | Complete | 2026-06-28 |
+| 2. Training & Distillation Quality | 0/5 | Planned | - |
+| 3. FP4 Quantization & Artifact Integrity | 0/? | Not started | - |
+| 4. Benchmark Evaluation | 0/? | Not started | - |
 
 ## Scope Boundaries
 
@@ -114,7 +102,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 - LoRA specialist training with MLX
 - Model evaluation metrics (accuracy, perplexity, latency)
 - Rules-based specialist routing (YAML config)
-- SGFP4 v2 adaptive macroblock quantization with dual-mode selection, quadtree partitioning, and provenance manifests
+- Ultra FP4 quantization export with dual-mode selection
 - Benchmark evaluation gate (MMLU, HumanEval, GSM8K, domain suites)
 
 **Deferred to parent repo (GNUS-NEO-SWARM C++):**
