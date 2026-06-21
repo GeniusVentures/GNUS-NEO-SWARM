@@ -1,0 +1,35 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/15-epistemic-arbitration-and-cognitive-os.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "Data-Driven Epistemic Arbitration and Cognitive OS Extensions",
+  "summary": "Describes the Epistemic Arbitration Layer architecture for GeniusCognitiveSystem, covering design principles, framework families, GQHSM runtime, plugin architecture, and integration with existing components.",
+  "scope": [
+    "Epistemic Arbitration Layer",
+    "GeniusCognitiveSystem",
+    "Cognitive OS",
+    "Requestor Node",
+    "GQHSM",
+    "Sanskrit epistemology",
+    "Kripke modal reasoning",
+    "Hybrid arbitration frameworks",
+    "JSON-defined reasoning machines",
+    "Plugin architecture",
+    "GAML memory",
+    "HCTS",
+    "Semantic Core",
+    "ELM system",
+    "Consensus engine",
+    "Grounding layer",
+    "Thinking trace"
+  ],
+  "cross_refs": [
+    "./14-cognitive-retaining-system.md",
+    "./INDEX.md",
+    "https://github.com/Super-Genius/GQHSM"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

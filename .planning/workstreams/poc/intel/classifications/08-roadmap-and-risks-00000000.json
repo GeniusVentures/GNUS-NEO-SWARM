@@ -1,0 +1,26 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/08-roadmap-and-risks.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "11 Execution Roadmap",
+  "summary": "Phased execution roadmap for the Genius Cognitive System from semantic core foundations through beta delivery, paired with a risk analysis and mitigation plan.",
+  "scope": [
+    "Genius Cognitive System",
+    "FP4 quantization pipeline",
+    "expert routing and planner",
+    "reputation storage and weighted consensus",
+    "CRDT sync",
+    "memory governance",
+    "grounding retrieval",
+    "tool intermediary attestation"
+  ],
+  "cross_refs": [
+    "./07-execution-and-performance.md",
+    "./INDEX.md",
+    "./09-future-and-positioning.md"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}
