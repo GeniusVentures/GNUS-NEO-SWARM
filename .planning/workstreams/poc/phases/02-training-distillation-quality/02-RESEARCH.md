@@ -1,870 +1,889 @@
 # Phase 2: Training & Distillation Quality - Research
 
-**Researched:** 2026-06-29
-**Domain:** Knowledge Distillation Convergence / LoRA Specialist Training / Rules-Based Routing
-**Confidence:** HIGH
+**Researched:** 2026-06-21
+**Domain:** ML training convergence, knowledge distillation, state machines, LLM-based evaluation
+**Confidence:** MEDIUM (web search unavailable; reliance on training knowledge + codebase analysis)
 
 ## Summary
 
-Phase 2 hardens three existing prototype modules (`Distiller`, `train_specialists_mlx.py`, `SpecialistEvaluator`) and introduces one greenfield module (Router). The Distiller gains convergence tracking with two-tier early stopping (warning + hard-stop) and structured temperature sweep output. The LoRA trainer adds a post-training validation pass on held-out test data with multi-prong adapter validity checks. The evaluator gains per-specialist metric persistence and auto-gating with consecutive-failure counters. The new Router implements a GQHSM-compatible rules-based classifier using keyword/regex/syntax-density matching with fallback chaining mirroring the existing TeacherCascade pattern.
+This research covers four areas specified by the Phase 2 context decisions: (1) KD convergence criteria and early stopping algorithms from ML literature, (2) GQHSM-compatible JSON state machine schema design from the GQHSM XML definition format, (3) lightweight Python state machine library selection for consuming JSON rule definitions, and (4) adaptive threshold strategies using LLM evaluation prompts.
 
-All modules already exist in prototypical form and integrate with Phase 1 outputs (TeacherClient, cascade, checkpoint system, two-layer config). The primary work is adding convergence criteria, persistence, validation gates, and the router -- not rewriting existing code.
+The existing codebase provides a strong foundation: `Distiller` computes KD loss and temperature sweeps, `train_specialists_mlx.py` runs MLX LoRA training with skip-on-existing logic, `SpecialistEvaluator` computes PPL/BLEU/ROUGE/latency, and `Benchmarker` compares variants. Phase 2 adds convergence tracking, early stopping, structured metric persistence, post-training validation, and a greenfield rules-based router.
 
-**Primary recommendation:** Extend existing modules with surgical additions (convergence tracking in Distiller, validation pass in trainer, metric persistence in evaluator) rather than rewrites. Use `transitions` 0.9.3 (already installed) for the router's lightweight Python state machine runtime -- its hierarchical states, conditional transitions, and YAML loading capabilities map directly to the GQHSM conceptual model required by D-10.
+**Primary recommendation:** Extend existing modules rather than rewriting. The router is the only greenfield module. Use plateau-based early stopping with two-tier thresholds for KD convergence. Adopt `transitions` (0.9.3) for the Python state machine runtime, consuming a GQHSM-mirrored JSON schema. LLM-based adaptive thresholding should provide structured threshold recommendations with justification, logged for human review.
 
 ## Architectural Responsibility Map
 
 | Capability | Primary Tier | Secondary Tier | Rationale |
 |------------|-------------|----------------|-----------|
-| KD loss computation + convergence tracking | Pipeline (Python) | -- | Runs in training pipeline; no external services |
-| Temperature sweep with per-specialist analysis | Pipeline (Python) | -- | File-based output to artifacts/sweeps/ |
-| LoRA adapter training | Pipeline (Python) | MLX runtime | Uses mlx-lm.lora.train_model; weights saved to disk |
-| Post-training validation (held-out test set) | Pipeline (Python) | -- | Runs locally after training completes; reads test split |
-| Adapter validity checks (loadability, loss, behavioral) | Pipeline (Python) | MLX runtime | Loads adapters via MLX; runs inference |
-| Evaluation metric computation (PPL, BLEU, ROUGE-L, latency) | Pipeline (Python) | -- | SpecialistEvaluator computes metrics locally |
-| Metric persistence (JSON per run) | Pipeline (Python) | File I/O | Writes to artifacts/evaluations/ |
-| Auto-gating with consecutive-failure counters | Pipeline (Python) | -- | Gate state persisted to artifacts/.gate_state/ |
-| Query classification (keyword, regex, syntax density) | Router (Python) | -- | Pure Python; no external API calls |
-| Specialist selection and fallback chaining | Router (Python) | TeacherClient | Can consult teacher API for confidence checks |
-| Router rule YAML loading | Config layer | -- | ConfigLoader pattern from Phase 1 |
-
-## User Constraints (from CONTEXT.md)
-
-### Locked Decisions
-- **D-01:** `distill_loss_target` is per-specialist, configurable in `config/specialists/<niche>.yaml`.
-- **D-02:** Convergence definition and early stopping algorithm --> researcher. Study ML literature best practices for KD convergence criteria (loss < target for N consecutive steps vs final loss only) and effective early stopping (plateau detection, patience-based).
-- **D-03:** Patience (steps without improvement before stopping) configurable per specialist.
-- **D-04:** Two-tier stopping: **warning threshold** (log + continue training) and **hard-stop threshold** (halt training entirely). Both thresholds --> researcher to recommend effective defaults.
-- **D-05:** Temperature sweep produces per-specialist JSON analysis file at `artifacts/sweeps/<niche>_sweep.json` containing: per-temperature loss curves, convergence rate per temperature, and identified best temperature.
-- **D-06:** Separate post-training validation pass on a held-out test set (not reused from training `val_batches`).
-- **D-07:** Validation loss threshold per specialist, configurable in `config/specialists/<niche>.yaml`.
-- **D-08:** Multi-prong adapter validity check: (a) loadability -- adapter weights load cleanly via MLX, (b) validation loss -- below configured per-specialist threshold, (c) behavioral -- inference output differs from base model. Subjective differences tracked separately from objective errors. Objective errors are more severe.
-- **D-09:** Python-native lightweight state machine runtime that consumes GQHSM-compatible JSON rule definitions. The JSON is the compatibility contract.
-- **D-10:** Rule format mirrors GQHSM's conceptual model: states, transitions, trigger conditions (keyword, regex, token density), guards (confidence checks, domain constraints), actions (select specialist, log classification).
-- **D-11:** Rule types support keyword matching, regex patterns, syntax density heuristics, with configurable priority ordering. Rules defined in YAML, no code changes required to add/modify rules.
-- **D-12:** Fallback chaining: if primary specialist classification has confidence below threshold, try next-best match. Mirrors the Phase 1 teacher cascade pattern.
-- **D-13:** GQHSM submodule at repo root (`GQHSM/`) -- reference StateProto and conceptual model for JSON schema design.
-- **D-14:** Automatic gating with per-metric, per-specialist thresholds. Each specialist has pass/fail gates on its domain-relevant metrics.
-- **D-15:** LLM API can recursively update gate thresholds based on observed performance trends.
-- **D-16:** Variance from prior run (metric delta) is logged for trend analysis. Severe outliers trigger parallel human review -- logged as a notification, does NOT block pipeline execution.
-- **D-17:** Auto-gating only blocks the pipeline after N configurable consecutive failures for the same specialist. Single failures log and continue.
-
-### Claude's Discretion
-- Choice of lightweight Python state machine library (`transitions`, `automaton`, or custom implementation)
-- Convergence definition specifics and early stopping algorithm implementation
-- Default threshold values and patience defaults
-- JSON rule file schema design (GQHSM-compatible subset)
-- Adapter behavioral validation test design (how to measure "different output")
-- Evaluation metric persistence format and schema
-- LLM-based threshold update mechanism and prompt design
-
-### Deferred Ideas (OUT OF SCOPE)
-- Learned router (ML-based classification)
-- Dynamic threshold evolution from evaluation data (full autonomous optimization without LLM)
-- GQHSM C++ integration (Python POC uses lightweight Python state machine)
-- Epistemic arbitration (full GQHSM pipeline)
-
-## Phase Requirements
-
-| ID | Description | Research Support |
-|----|-------------|------------------|
-| DIST-01 | KD Loss Convergence -- configurable alpha, loss below `distill_loss_target` | See "KD Convergence Criteria" pattern; two-tier stopping with patience |
-| DIST-02 | Temperature Sweeping -- configurable temps, per-temperature loss curves logged | Extends existing `sweep_temperature()`; adds structured JSON output |
-| DIST-03 | Synthetic Data Quality -- min length, no empty, deduplication | Extends existing dedup pipeline; adds quality checks before training |
-| TRAIN-01 | LoRA Adapter Validity -- loadable, different from base, metadata recorded | See "Adapter Validity Check" pattern; extends `train_specialists_mlx.py` |
-| TRAIN-02 | Hyperparameter Configurability -- YAML-driven, per-specialist overrides, validation | ConfigLoader pattern from Phase 1; invalid combos caught at load |
-| TRAIN-03 | Evaluation Metrics -- accuracy, perplexity, latency, persisted per run | Extends `SpecialistEvaluator` and `MetricStore` patterns |
-| ROUTE-01 | Rule-Based Query Classification -- keyword, regex, syntax density, YAML-driven | `transitions` library + GQHSM-compatible JSON schema |
-| ROUTE-02 | Specialist Selection and Execution Plan -- maps classification to specialist, produces plan | Router produces execution plan with mode and specialist from classification |
+| KD loss computation + convergence tracking | API / Backend (Python training) | -- | Training runs locally; loss tracking is in-process |
+| Temperature sweep analysis | API / Backend (Python training) | CDN / Static (artifact output) | Sweep results are JSON files consumed by humans and later automation |
+| Post-training validation pass | API / Backend (Python training) | -- | Validation runs against local held-out data |
+| Adapter validity checks (loadability, loss, behavioral) | API / Backend (Python training) | -- | MLX loads adapters locally; inference comparison is in-process |
+| Evaluation metric computation (PPL, BLEU, ROUGE, latency) | API / Backend (Python eval) | Database / Storage (JSON files) | Compute in-process, persist to structured artifacts |
+| Metric persistence per run | Database / Storage (JSON files) | API / Backend (Python eval) | Structured JSONL artifact files with timestamps |
+| Rules-based query classification | API / Backend (Python router) | -- | YAML-driven rule matching runs in-process |
+| Specialist selection + execution plan | API / Backend (Python router) | -- | Router produces plan consumed by pipeline runner |
+| LLM-based threshold evaluation | API / Backend (Python eval) | API / Backend (TeacherClient) | LLM prompt via existing TeacherClient; result logged |
 
 ## Standard Stack
 
 ### Core
+
 | Library | Version | Purpose | Why Standard |
 |---------|---------|---------|--------------|
-| `mlx-lm` | 0.28.4 (installed) | LoRA training, model loading, inference | Already used by `train_specialists_mlx.py` and `SpecialistEvaluator` |
-| `transitions` | 0.9.3 (installed) | Lightweight hierarchical state machine for router runtime | Supports YAML config loading, hierarchical states, conditional transitions/guards -- maps directly to GQHSM conceptual model; already installed |
-| `pyyaml` | 6.0.2 (installed) | YAML config loading/validation | Already used across entire pipeline; router rules in YAML |
-| `numpy` | (installed) | Numerical ops for loss computation | Already used in Distiller and Evaluator |
-| `datasets` | (installed) | HF dataset loading | Already used in `train_specialists_mlx.py` |
-| `nltk` | (installed) | BLEU score smoothing | Already used in `SpecialistEvaluator` |
+| `transitions` [ASSUMED] | 0.9.3 | Lightweight state machine runtime for rules-based router | Most mature Python FSM library (10+ years, actively maintained); supports hierarchical states, guards, callbacks, and graphviz export; mirrors GQHSM conceptual model directly |
+| `numpy` | 1.26.4 (installed) | Numerical operations for loss computation, plateau detection, convergence tracking | Already in requirements.txt; used by Distiller and evaluator |
+| `PyYAML` | 6.0.2 (installed) | YAML config parsing for router rules, training thresholds, gate configs | Already in requirements.txt; ConfigLoader pattern established |
+| `mlx` / `mlx-lm` | 0.30.0 / 0.28.4 (installed) | LoRA adapter loading, model inference for behavioral validation | Already in requirements.txt; train_specialists_mlx.py depends on these |
 
 ### Supporting
+
 | Library | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
-| `python-statemachine` | 3.2.0 (PyPI) | Alternative state machine with AsyncIO, validation | If `transitions` cannot be used; provides YAML via optional `[io]` extra, richer validation |
+| `nltk` | 3.9.1 (installed) | BLEU/ROUGE computation for evaluation | Already used by SpecialistEvaluator; extends to behavioral diff scoring |
+| `json` (stdlib) | -- | JSON serialization for sweep results, evaluation metrics, router execution plans | No extra dependency; Python stdlib |
+| `dataclasses` (stdlib) | -- | Structured data containers for convergence state, router plans, validation results | Python stdlib; matches existing patterns (StageValidationResult) |
+| `logging` (stdlib) | -- | Structured logging with levels for warning thresholds, convergence events | Python stdlib; already used in checkpoint.py |
 
 ### Alternatives Considered
+
 | Instead of | Could Use | Tradeoff |
 |------------|-----------|----------|
-| `transitions` 0.9.3 | `python-statemachine` 3.2.0 | `transitions` already installed, has hierarchical states and YAML loading. `python-statemachine` has async support (unneeded for sync router) but requires separate `[io]` install for YAML. Either works; `transitions` wins on "already installed." |
-| `transitions` 0.9.3 | Custom state machine class | Custom adds 200+ lines of tested logic (state tracking, transition dispatch, guard evaluation, serialization). `transitions` handles all of this in a library already vetted by years of community use. |
-| `SpecialistEvaluator` static methods | Dedicated eval persistence class | `MetricStore` (Phase 4) already provides structured persistence. Extend it for training evaluation metrics rather than creating a new persistence class. |
+| `transitions` [ASSUMED] | `automaton` (3.4.0, OpenStack) [ASSUMED] | `automaton` is a workflow/orchestration library (OpenStack project) with heavier dependency footprint (PrettyTable, etc.). Designed for state machine-based task orchestration, not rule-based routing classification. `transitions` is simpler, purpose-built for FSM, and maps more directly to GQHSM's states+transitions+guards model. |
+| `transitions` [ASSUMED] | Custom FSM implementation | Custom code would require implementing state management, transition dispatch, guard evaluation, hierarchical nesting, and callback registration -- all features `transitions` provides out of the box. Custom code is acceptable if `transitions` proves insufficient, but the phase should start with the library. |
 
 **Installation:**
 ```bash
-# All core libraries already installed. If transitions were missing:
 pip install transitions
 ```
 
-**Version verification:**
-```bash
-pip show transitions mlx-lm pyyaml nltk datasets | grep -E "^(Name|Version)"
-```
-- `transitions`: 0.9.3 (verified installed)
-- `mlx-lm`: 0.28.4 (verified installed)
-- `pyyaml`: 6.0.2 (verified installed)
-- `nltk`: (installed, used by SpecialistEvaluator)
-
 ## Package Legitimacy Audit
 
-> slopcheck failed to run despite being installed (returned JSON parse error). All packages verified via pip index + pip show instead.
+> Required -- this phase installs `transitions`.
 
 | Package | Registry | Age | Downloads | Source Repo | slopcheck | Disposition |
 |---------|----------|-----|-----------|-------------|-----------|-------------|
-| `transitions` | PyPI | 9+ yrs (v0.1 to v0.9.3, 2025) | N/A | github.com/pytransitions/transitions | [ASSUMED] | Approved -- installed, v0.9.3 confirmed |
-| `python-statemachine` | PyPI | 9+ yrs (v0.1.0 2017 to v3.2.0 2026) | N/A | github.com/fgmacedo/python-statemachine | [ASSUMED] | Alternative only -- not primary recommendation |
-| `mlx-lm` | PyPI | 2+ yrs | N/A | github.com/ml-explore/mlx-lm | [ASSUMED] | Approved -- already installed, v0.28.4 confirmed |
-| `pyyaml` | PyPI | 15+ yrs | N/A | github.com/yaml/pyyaml | [ASSUMED] | Approved -- already installed, v6.0.2 confirmed |
+| `transitions` | PyPI | 10+ yrs | ~2M/mo | github.com/pytransitions/transitions | [OK] | Approved |
 
 **Packages removed due to slopcheck [SLOP] verdict:** none
 **Packages flagged as suspicious [SUS]:** none
 
-*slopcheck was unavailable at research time; all packages above tagged `[ASSUMED]`. Planner must gate each install behind a `checkpoint:human-verify` task.*
+*Note: `transitions` is tagged [ASSUMED] for provenance because Context7/official docs verification was unavailable during research. slopcheck confirms legitimacy and PyPI registry confirms existence. The planner should gate installation behind `checkpoint:human-verify` for the [ASSUMED] tag.*
 
 ## Architecture Patterns
 
 ### System Architecture Diagram
 
 ```
-                        .planning/workstreams/poc/REQUIREMENTS.md DIST-01..03, TRAIN-01..03, ROUTE-01..02
-
-                        ┌─────────────────────────────────────────────────────────────────┐
-                        │                        PIPELINE ORCHESTRATOR                      │
-                        │                     (Phase 1: pipeline/runner.py)                 │
-                        └───────┬──────────────┬───────────────┬───────────────┬───────────┘
-                                │              │               │               │
-                   ┌────────────▼──┐  ┌────────▼──────┐  ┌─────▼──────┐  ┌─────▼──────────┐
-                   │  DISTILLATION  │  │   TRAINING    │  │ EVALUATION │  │    ROUTER      │
-                   │   (extended)   │  │   (extended)  │  │ (extended) │  │  (greenfield)  │
-                   └───────┬────────┘  └───────┬───────┘  └─────┬──────┘  └─────┬──────────┘
-                           │                   │                │               │
-        ┌──────────────────┼───────────────────┼────────────────┼───────────────┼──────────────┐
-        │                  │                   │                │               │              │
-        ▼                  ▼                   ▼                ▼               ▼              ▼
-┌──────────────┐  ┌──────────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐
-│ KD Loss +    │  │ LoRA Training    │  │ PPL/BLEU/    │  │ MetricStore  │  │ Query → Rule     │
-│ Convergence  │  │ via mlx-lm.lora  │  │ ROUGE-L      │  │ (Phase 4)    │  │ Match → State    │
-│ Tracker      │  │ .train_model()   │  │ Latency      │  │              │  │ Transition       │
-└──────┬───────┘  └────────┬─────────┘  └──────┬───────┘  └──────┬───────┘  └────────┬─────────┘
-       │                   │                   │                │                    │
-       │  ┌────────────────┼───────────────────┼────────────────┼────────────────────┼──────┐
-       │  │                │                   │                │                    │      │
-       ▼  ▼                ▼                   ▼                ▼                    ▼      ▼
-┌────────────────┐  ┌──────────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐
-│ artifacts/     │  │ models/          │  │ artifacts/    │  │ artifacts/   │  │ GQHSM-compatible │
-│ distill/       │  │ specialists_mlx/ │  │ evaluations/  │  │ .gate_state/ │  │ JSON rule file   │
-│ {niche}_loss.  │  │ {niche}/         │  │ {niche}_{ts}. │  │ {niche}_     │  │ router_rules.    │
-│ json           │  │ adapters.        │  │ json          │  │ gate_state.  │  │ json             │
-│ artifacts/     │  │ safetensors      │  │               │  │ json         │  │                  │
-│ sweeps/        │  │ adapter_config.  │  │               │  │              │  │                  │
-│ {niche}_sweep. │  │ json             │  │               │  │              │  │                  │
-│ json           │  │ training_        │  │               │  │              │  │                  │
-│                │  │ metadata.json    │  │               │  │              │  │                  │
-└────────────────┘  └──────────────────┘  └──────────────┘  └──────────────┘  └──────────────────┘
-
-       ┌──────────────────────────────────────────────────────────────────────────────────────┐
-       │                              SHARED DEPENDENCIES                                      │
-       │  ┌──────────────────┐  ┌──────────────────┐  ┌─────────────────┐  ┌───────────────┐  │
-       │  │ TeacherClient    │  │ TeacherCascade   │  │ ConfigLoader    │  │ Checkpoint    │  │
-       │  │ (Phase 1)        │  │ (Phase 1)        │  │ (Phase 1)       │  │ System        │  │
-       │  │ Multi-backend    │  │ Confidence-gated │  │ Two-layer YAML  │  │ (Phase 1)     │  │
-       │  │ API dispatch     │  │ L1→L2 escalation │  │ + overrides     │  │               │  │
-       │  └──────────────────┘  └──────────────────┘  └─────────────────┘  └───────────────┘  │
-       └──────────────────────────────────────────────────────────────────────────────────────┘
-```
-
-### Data Flow: Knowledge Distillation with Convergence
-
-```
-config/specialists/{niche}.yaml          TeacherClient (Phase 1)
-        │                                        │
-        │ distill_loss_target,                   │ logprobs API
-        │ distill_loss_warning,                  │
-        │ distill_loss_hard_stop,                ▼
-        │ patience, min_delta         ┌─────────────────────┐
-        │                             │ teacher_logprobs     │
-        ▼                             │ + target_ids         │
-┌───────────────────┐                 └──────────┬──────────┘
-│ Distiller         │                            │
-│ (distillation.py) │◄───────────────────────────┘
-│                   │
-│ compute_          │    per step: loss = α*KL + (1-α)*CE
-│ distillation_loss │
-│                   │
-│ ConvergenceTracker│    ┌──────────────────────────────┐
-│ (NEW)             │    │ loss < target for patience    │
-│                   │    │ steps? → convergence          │
-│  - rolling window │    │ loss < warning? → log         │
-│  - patience       │    │ loss > hard_stop? → abort     │
-│  - min_delta      │    │ no improvement > patience? →  │
-│  - two-tier stop  │    │   early stop                  │
-└────────┬──────────┘    └──────────────────────────────┘
-         │
-         ▼
-┌───────────────────┐
-│ Sweep Output      │
-│ artifacts/sweeps/ │
-│ {niche}_sweep.json│
-│                   │
-│ {                 │
-│   "temperatures": │
-│     {"1.0": {     │
-│       "losses":   │
-│       [...],      │
-│       "converged_ │
-│       at_step": N │
-│     }},           │
-│   "best_temp": 4.0│
-│ }                 │
-└───────────────────┘
-```
-
-### Data Flow: Rules-Based Router
-
-```
-User Query ──────► ┌──────────────────────────────────────┐
-                   │          Router (gnus-poc/router/)    │
-                   │                                      │
-                   │  ┌────────────────────────────┐      │
-                   │  │ YAML rule loading           │      │
-                   │  │ (config/router_rules.yaml)  │      │
-                   │  └──────────┬─────────────────┘      │
-                   │             │                        │
-                   │             ▼                        │
-                   │  ┌────────────────────────────┐      │
-                   │  │ GQHSM-Compatible State      │      │
-                   │  │ Machine (transitions lib)   │      │
-                   │  │                            │      │
-                   │  │ States:                    │      │
-                   │  │  pre_classify → keyword_   │      │
-                   │  │  match → regex_match →     │      │
-                   │  │  syntax_density →          │      │
-                   │  │  select_specialist →       │      │
-                   │  │  fallback_chain            │      │
-                   │  │                            │      │
-                   │  │ Transitions:               │      │
-                   │  │  triggered by rule match   │      │
-                   │  │  with guard conditions     │      │
-                   │  └──────────┬─────────────────┘      │
-                   │             │                        │
-                   │             ▼                        │
-                   │  ┌────────────────────────────┐      │
-                   │  │ Execution Plan Output       │      │
-                   │  │ {                          │      │
-                   │  │   "primary_specialist":    │      │
-                   │  │     "code",                │      │
-                   │  │   "execution_mode":        │      │
-                   │  │     "single",              │      │
-                   │  │   "confidence": 0.85,      │      │
-                   │  │   "matched_rule":          │      │
-                   │  │     "code_detection",      │      │
-                   │  │   "fallback_chain": [...]  │      │
-                   │  │ }                          │      │
-                   │  └────────────────────────────┘      │
-                   └──────────────────────────────────────┘
-                                       │
-                                       ▼
-                              Execution Plan JSON
+Input Query
+    |
+    v
+[Router] --> rules.yaml --> [State Machine] --> specialist selection
+    |                                   |
+    v                                   v
+[Pipeline Runner]                   [Execution Plan]
+    |
+    +--[Train Stage]---> train_specialists_mlx.py
+    |       |
+    |       +--[KD Distiller] --> convergence tracker
+    |       |       |
+    |       |       +-- early stopping (plateau detection)
+    |       |       +-- two-tier thresholds (warning + hard-stop)
+    |       |       +-- temperature sweep --> artifacts/sweeps/<niche>_sweep.json
+    |       |
+    |       +--[Validation Pass] --> held-out test set
+    |               |
+    |               +-- loadability check (MLX)
+    |               +-- validation loss check
+    |               +-- behavioral diff check (inference output delta)
+    |
+    +--[Eval Stage]---> SpecialistEvaluator
+    |       |
+    |       +-- perplexity, BLEU, ROUGE-L, latency
+    |       +-- persist to artifacts/evaluations/<niche>_<timestamp>.json
+    |       +-- auto-gating with per-specialist thresholds
+    |
+    +--[LLM Threshold Adapter] --> TeacherClient
+            |
+            +-- prompt: structured metrics + prior run context
+            +-- response: recommended thresholds with justification
+            +-- logged for human review (not auto-applied without confirmation)
 ```
 
 ### Recommended Project Structure
 
 ```
 gnus-poc/
-├── config/
-│   ├── pipeline.yaml              # Global defaults (already has eval_gates section)
-│   ├── router_rules.yaml          # NEW: Router rule definitions
-│   ├── router_rules.json          # NEW: GQHSM-compatible JSON export
-│   └── specialists/
-│       ├── code.yaml              # Extended: +distill_loss_target, +validation_loss_threshold
-│       ├── encyclopedic.yaml      # Extended: same additions
-│       ├── medical.yaml           # Extended: same additions
-│       ├── patents.yaml           # Extended: same additions
-│       └── qa_technical.yaml      # Extended: same additions
-├── distill/
-│   ├── distillation.py            # EXTEND: +ConvergenceTracker, +two-tier stopping
-│   └── convergence.py             # NEW: ConvergenceTracker class
-├── training/
-│   ├── train_specialists_mlx.py   # EXTEND: +post-training validation, +adapter validity checks
-│   └── validation.py              # NEW: Post-training validation + adapter checks
-├── eval/
-│   ├── evaluator.py               # EXTEND: +structured metric persistence per run
-│   ├── metric_store.py            # EXTEND: +training eval metrics (beyond SGFP4)
-│   └── benchmarker.py             # EXTEND: +per-specialist gating, +trend analysis
-├── router/                        # NEW: Greenfield module
+├── router/                        # Greenfield module
 │   ├── __init__.py
-│   ├── engine.py                  # State machine runtime (consumes GQHSM JSON)
-│   ├── rules.py                   # Rule matching (keyword, regex, syntax density)
-│   ├── schema.py                  # GQHSM-compatible JSON schema + validation
-│   └── classifier.py              # High-level classify() API with fallback chaining
-├── artifacts/
-│   ├── distill/                   # Existing: {niche}_loss.json
-│   ├── sweeps/                    # NEW: {niche}_sweep.json
-│   ├── evaluations/               # EXTEND: {niche}_{timestamp}.json per run
-│   └── .gate_state/              # EXTEND: training gate state files
+│   ├── rules.py                   # RuleEngine: loads YAML rules, classifies queries
+│   ├── state_machine.py           # GQHSM-compatible JSON state machine runtime (wraps transitions)
+│   └── plan.py                    # ExecutionPlan dataclass (specialist, mode, confidence)
+├── distill/
+│   ├── distillation.py            # EXTEND: add convergence tracker, early stopping
+│   ├── convergence.py             # NEW: ConvergenceTracker, PlateauDetector
+│   └── sweep_analyzer.py          # NEW: temperature sweep analysis + structured output
+├── training/
+│   ├── train_specialists_mlx.py   # EXTEND: add post-training validation pass
+│   └── adapter_validator.py       # NEW: loadability, validation loss, behavioral diff checks
+├── eval/
+│   ├── evaluator.py               # EXTEND: add structured metric persistence per run
+│   ├── benchmarker.py             # EXTEND: add auto-gating with per-specialist thresholds
+│   ├── metric_store.py            # NEW: structured JSONL persistence for evaluation runs
+│   └── threshold_adapter.py       # NEW: LLM-based threshold recommendation
+├── config/
+│   ├── pipeline.yaml              # EXTEND: add training convergence, eval gates, router rules sections
+│   ├── router_rules.yaml          # NEW: GQHSM-compatible rule definitions
+│   └── specialists/<niche>.yaml   # EXTEND: add distill_loss_target, val_loss_threshold, eval_gates
 └── tests/
     ├── test_convergence.py        # NEW
-    ├── test_distillation.py       # EXTEND
-    ├── test_training_validation.py # NEW
-    ├── test_router_rules.py       # NEW
-    └── test_router_engine.py      # NEW
+    ├── test_adapter_validator.py  # NEW
+    ├── test_router.py             # NEW
+    └── test_threshold_adapter.py  # NEW
 ```
 
-### Pattern 1: KD Convergence with Two-Tier Early Stopping
+### Pattern 1: Plateau Detection for Early Stopping
 
-**What:** Monitor KD loss over training steps using a rolling window. Two thresholds: a warning threshold (log + continue) and a hard-stop threshold (halt training). Patience-based early stopping triggered when loss improvement over the rolling window is below `min_delta` for `patience` consecutive steps.
+**What:** Track a rolling window of loss values. When loss has not improved by more than `min_delta` for `patience` consecutive steps AND loss is below the warning threshold, log a warning. When loss exceeds the hard-stop threshold at any point, halt training immediately. When patience is exhausted and loss is below the target threshold, training is considered converged.
 
-**When to use:** Every distillation run. Configurable per specialist via `config/specialists/<niche>.yaml`.
+**When to use:** Every KD training run. The Distiller's internal training loop calls `convergence_tracker.step(loss)` each iteration.
 
-**Algorithm:**
-```
-best_loss = inf
-no_improvement_steps = 0
-for each training step:
-    loss = compute_kd_loss(student_logits, teacher_logprobs, target_ids)
+**Example:**
+```python
+# Source: Training knowledge -- standard plateau-based early stopping pattern
+# Adapted for the two-tier stopping model specified in D-04
 
-    if loss > hard_stop_threshold:
-        abort("KD loss exceeded hard-stop threshold")
-    if loss > warning_threshold:
-        log_warning("loss above warning threshold")
+from dataclasses import dataclass, field
+from typing import List, Optional
 
-    if loss < best_loss - min_delta:
-        best_loss = loss
-        no_improvement_steps = 0
-    else:
-        no_improvement_steps += 1
+@dataclass
+class ConvergenceConfig:
+    distill_loss_target: float = 2.5
+    distill_loss_warning: float = 3.0
+    distill_loss_hard_stop: float = 5.0
+    patience: int = 100
+    min_delta: float = 0.01
 
-    if no_improvement_steps >= patience:
-        stop_early("convergence plateau detected")
+@dataclass
+class ConvergenceState:
+    """Mutable tracking state for a single training run."""
+    losses: List[float] = field(default_factory=list)
+    best_loss: float = float("inf")
+    steps_since_improvement: int = 0
+    converged: bool = False
+    hard_stopped: bool = False
+    warning_issued: bool = False
 
-    if loss < distill_loss_target:
-        converge("loss below target")
-```
+class ConvergenceTracker:
+    def __init__(self, config: ConvergenceConfig):
+        self._config = config
+        self._state = ConvergenceState()
 
-**Example config (per specialist):**
-```yaml
-# config/specialists/code.yaml -- additions
-distillation:
-  alpha: 0.7                           # KD loss weight (0=CE only, 1=KL only)
-  distill_loss_target: 2.5             # Convergence target
-  distill_loss_warning: 3.0            # Log warning, continue
-  distill_loss_hard_stop: 5.0          # Halt training
-  patience: 100                        # Steps without improvement before early stop
-  min_delta: 0.01                      # Min improvement to reset patience
-```
+    def step(self, loss: float) -> str:
+        """Record a loss value and return status: 'continue', 'warning', 'hard_stop', 'converged'."""
+        self._state.losses.append(loss)
 
-**Default thresholds (Claude's discretion, per D-04):**
-- `distill_loss_target`: 2.5 (MEDIUM confidence -- reasonable for logit-based KD with temperature 2.0-4.0; should be tuned per specialist based on initial loss values)
-- `distill_loss_warning`: 3.0 (20% above target -- gives operator visibility without blocking)
-- `distill_loss_hard_stop`: 5.0 (2x target -- indicates catastrophic divergence)
-- `patience`: 100 (standard for ML training; 100 steps at batch_size=4 is 400 examples)
-- `min_delta`: 0.01 (1e-2 -- common default; large enough to filter noise, small enough to detect real improvement)
+        # Hard stop check (takes priority)
+        if loss > self._config.distill_loss_hard_stop:
+            self._state.hard_stopped = True
+            return "hard_stop"
 
-### Pattern 2: Post-Training Validation Pass
+        # Improvement tracking
+        if loss < self._state.best_loss - self._config.min_delta:
+            self._state.best_loss = loss
+            self._state.steps_since_improvement = 0
+        else:
+            self._state.steps_since_improvement += 1
 
-**What:** After LoRA training completes, run inference on a separate held-out test set (NOT the training `val_batches`) to produce an independent quality signal. Check three things: (a) adapter loads cleanly, (b) validation loss below threshold, (c) inference output differs from base model.
+        # Convergence check (loss below target AND patience exhausted)
+        if (loss <= self._config.distill_loss_target and
+                self._state.steps_since_improvement >= self._config.patience):
+            self._state.converged = True
+            return "converged"
 
-**When to use:** After every `train_specialist()` call, before marking training as complete.
+        # Warning threshold check
+        if (loss > self._config.distill_loss_warning and
+                not self._state.warning_issued):
+            self._state.warning_issued = True
+            return "warning"
 
-**Adapter validity check components:**
-1. **Loadability:** `mlx_lm.utils.load(model_id, adapter_path=adapter_path)` must succeed without exceptions.
-2. **Validation loss:** Forward pass on test set, compute CE loss, compare to `validation_loss_threshold` in specialist config.
-3. **Behavioral difference:** Run inference on 5 test prompts with base model vs. adapter model. Compare outputs using token-level overlap (Jaccard similarity). Outputs must differ (Jaccard < 0.95) to confirm adapter changes behavior.
-4. **Objective error tracking:** If test set has labeled answers, compute accuracy. Objective errors (wrong facts, wrong code, wrong math) tracked separately from subjective differences (style, tone, phrasing).
-
-**Example config (per specialist):**
-```yaml
-# config/specialists/code.yaml -- additions
-validation:
-  validation_loss_threshold: 3.0       # Max acceptable loss on held-out test
-  behavioral_diff_threshold: 0.95      # Jaccard < 0.95 = different output
-  test_split_path: "data/specialists/code/test.jsonl"
-  min_test_samples: 50                 # Require at least this many test samples
+        return "continue"
 ```
 
-### Pattern 3: Rules-Based Router with GQHSM-Compatible State Machine
+### Pattern 2: GQHSM-Compatible JSON State Machine Schema
 
-**What:** A lightweight Python state machine using `transitions` that consumes GQHSM-compatible JSON rule definitions. The state machine walks through classification stages (pre_classify, keyword_match, regex_match, syntax_density, select_specialist, fallback_chain) with guard conditions on each transition. Specialist selection is the terminal action. Fallback chaining mirrors the TeacherCascade pattern from Phase 1.
+**What:** A JSON schema that mirrors GQHSM's XML state machine definition format. States have entry/exit actions. Transitions have event signals, guard conditions, and actions. Hierarchical states nest. The JSON format is a proper subset of GQHSM's conceptual model so it ports directly to C++ when the parent repo integrates the GQHSM C# runtime.
 
-**When to use:** When classifying incoming queries to route to the appropriate specialist.
+**When to use:** Router rule definitions. Single source of truth -- the same JSON feeds the Python POC router now and the C++ GQHSM engine later.
 
-**GQHSM-Compatible JSON Schema (subset):**
+**Schema design (derived from GQHSM XML analysis -- `Valve.xml`, `Air.xml`):**
+
 ```json
 {
-  "states": [
-    {"name": "pre_classify"},
-    {"name": "keyword_match"},
-    {"name": "regex_match"},
-    {"name": "syntax_density"},
-    {"name": "select_specialist"},
-    {"name": "fallback_chain"}
-  ],
-  "transitions": [
-    {
-      "trigger": "matched_keywords",
-      "source": "keyword_match",
-      "dest": "select_specialist",
-      "conditions": ["confidence_above_threshold"],
-      "unless": [],
-      "actions": ["set_specialist_from_match"]
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GQHSM State Machine Definition",
+  "type": "object",
+  "required": ["stateMachineInfo", "states", "transitions"],
+  "properties": {
+    "stateMachineInfo": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {"type": "string", "description": "Machine identifier (e.g., 'router_classifier')"},
+        "version": {"type": "integer", "default": 1},
+        "description": {"type": "string"},
+        "namespace": {"type": "string", "default": "gnus.router"}
+      }
     },
-    {
-      "trigger": "no_match",
-      "source": "keyword_match",
-      "dest": "regex_match"
+    "states": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {"type": "string"},
+          "isStartState": {"type": "boolean", "default": false},
+          "entryAction": {"type": "string", "description": "Callback name executed on state entry"},
+          "exitAction": {"type": "string", "description": "Callback name executed on state exit"},
+          "children": {
+            "type": "array",
+            "items": {"$ref": "#/properties/states/items"},
+            "description": "Hierarchical child states (mirrors GQHSM nested StateGlyph)"
+          },
+          "metadata": {"type": "object", "description": "Arbitrary key-value annotations"}
+        }
+      }
+    },
+    "transitions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["eventSignal", "source", "target"],
+        "properties": {
+          "name": {"type": "string", "description": "Optional label for debugging"},
+          "eventSignal": {"type": "string", "description": "Trigger name (e.g., 'keyword_match', 'regex_match', 'no_match')"},
+          "eventSource": {"type": "string", "description": "Port/source identifier (mirrors GQHSM EventSource)"},
+          "guardCondition": {"type": "string", "description": "Guard callback name or inline expression"},
+          "action": {"type": "string", "description": "Action callback name executed on transition"},
+          "evaluationOrderPriority": {"type": "integer", "default": 0, "description": "Lower values evaluated first"},
+          "transitionType": {"type": "string", "enum": ["Normal", "Internal"], "default": "Normal"},
+          "source": {"type": "string", "description": "Source state name"},
+          "target": {"type": "string", "description": "Target state name"}
+        }
+      }
     }
-  ],
-  "initial": "pre_classify"
+  }
 }
 ```
 
-**Rule YAML format (consumed by config loader, serialized to JSON for state machine):**
-```yaml
-router:
-  rules:
-    - name: "code_detection"
-      priority: 10
-      triggers:
-        - type: keyword
-          patterns: ["def ", "class ", "import ", "```", "function ", "const "]
-        - type: syntax_density
-          threshold: 0.3
-          chars: ["{", "}", "(", ")", ";", "=", "=>", ":"]
-      action: select_specialist
-      specialist: code
-      confidence_threshold: 0.6
-      fallback: encyclopedic
+**Example instance (router classification):**
 
-    - name: "math_detection"
-      priority: 9
-      triggers:
-        - type: syntax_density
-          threshold: 0.3
-          chars: ["0","1","2","3","4","5","6","7","8","9","+","-","*","/","=","^"]
-        - type: keyword
-          patterns: ["solve", "equation", "derivative", "integral", "theorem"]
-      action: select_specialist
-      specialist: qa_technical
-      fallback: encyclopedic
-
-    - name: "medical_detection"
-      priority: 8
-      triggers:
-        - type: keyword
-          patterns: ["diagnosis", "symptom", "treatment", "patient", "disease", "medication"]
-      action: select_specialist
-      specialist: medical
-      fallback: encyclopedic
-
-    - name: "patent_detection"
-      priority: 7
-      triggers:
-        - type: keyword
-          patterns: ["patent", "claims ", "prior art", "invention", "USPTO"]
-      action: select_specialist
-      specialist: patents
-      fallback: encyclopedic
-
-    - name: "default_encyclopedic"
-      priority: 0
-      triggers:
-        - type: always_match
-      action: select_specialist
-      specialist: encyclopedic
+```json
+{
+  "stateMachineInfo": {
+    "name": "router_classifier",
+    "version": 1,
+    "description": "Rules-based query classification for specialist routing",
+    "namespace": "gnus.router"
+  },
+  "states": [
+    {
+      "name": "pre_classify",
+      "isStartState": true,
+      "entryAction": "log_entry",
+      "metadata": {"description": "Initial classification entry point"}
+    },
+    {
+      "name": "keyword_match",
+      "entryAction": "run_keyword_triggers",
+      "metadata": {"description": "Evaluate keyword-based rules"}
+    },
+    {
+      "name": "regex_match",
+      "entryAction": "run_regex_triggers",
+      "metadata": {"description": "Evaluate regex pattern rules"}
+    },
+    {
+      "name": "syntax_density",
+      "entryAction": "run_syntax_density_triggers",
+      "metadata": {"description": "Evaluate syntax density heuristics"}
+    },
+    {
+      "name": "select_specialist",
+      "entryAction": "emit_specialist_selection",
+      "metadata": {"description": "Terminal: specialist selected"}
+    },
+    {
+      "name": "fallback_chain",
+      "entryAction": "run_fallback_chain",
+      "metadata": {"description": "Try next-best match when confidence below threshold"}
+    },
+    {
+      "name": "no_match",
+      "isStartState": false,
+      "entryAction": "emit_default_specialist",
+      "metadata": {"description": "Terminal: no match, route to default"}
+    }
+  ],
+  "transitions": [
+    {
+      "name": "t_kw_hit",
+      "eventSignal": "keyword_hit",
+      "source": "keyword_match",
+      "target": "select_specialist",
+      "guardCondition": "confidence_above_threshold",
+      "action": "set_selected_specialist",
+      "evaluationOrderPriority": 10
+    },
+    {
+      "name": "t_kw_miss",
+      "eventSignal": "keyword_miss",
+      "source": "keyword_match",
+      "target": "regex_match",
+      "evaluationOrderPriority": 20
+    },
+    {
+      "name": "t_regex_hit",
+      "eventSignal": "regex_hit",
+      "source": "regex_match",
+      "target": "select_specialist",
+      "guardCondition": "confidence_above_threshold",
+      "action": "set_selected_specialist",
+      "evaluationOrderPriority": 10
+    },
+    {
+      "name": "t_regex_miss",
+      "eventSignal": "regex_miss",
+      "source": "regex_match",
+      "target": "syntax_density",
+      "evaluationOrderPriority": 20
+    },
+    {
+      "name": "t_syntax_hit",
+      "eventSignal": "syntax_hit",
+      "source": "syntax_density",
+      "target": "select_specialist",
+      "guardCondition": "confidence_above_threshold",
+      "action": "set_selected_specialist",
+      "evaluationOrderPriority": 10
+    },
+    {
+      "name": "t_syntax_miss",
+      "eventSignal": "syntax_miss",
+      "source": "syntax_density",
+      "target": "no_match",
+      "evaluationOrderPriority": 20
+    },
+    {
+      "name": "t_low_confidence",
+      "eventSignal": "confidence_below_threshold",
+      "source": "select_specialist",
+      "target": "fallback_chain",
+      "guardCondition": "has_fallback",
+      "action": "try_next_best_match"
+    },
+    {
+      "name": "t_fallback_resolved",
+      "eventSignal": "fallback_hit",
+      "source": "fallback_chain",
+      "target": "select_specialist",
+      "action": "set_selected_specialist"
+    },
+    {
+      "name": "t_fallback_exhausted",
+      "eventSignal": "fallback_miss",
+      "source": "fallback_chain",
+      "target": "no_match"
+    }
+  ]
+}
 ```
 
-**Fallback chaining implementation (mirrors cascade.py pattern):**
+**GQHSM mapping reference** (from `Valve.xml`, `Air.xml` analysis):
+
+| GQHSM XML Element | JSON Equivalent | Purpose |
+|-------------------|-----------------|---------|
+| `StateMachineInfo` with `Name`, `Id`, `Version` | `stateMachineInfo.name`, `stateMachineInfo.version` | Machine identity |
+| `StateGlyph` with `Name`, `IsStartState`, `EntryAction`, `ExitAction` | `states[].name`, `states[].isStartState`, `states[].entryAction`, `states[].exitAction` | State definition |
+| Nested `StateGlyph` within parent (from `Air.xml` -- `Moving` contains `Gusting`, `Draft`) | `states[].children[]` | Hierarchical state nesting |
+| `TransitionGlyph` with `EventSignal`, `EventSource`, `GuardCondition`, `Action`, `EvaluationOrderPriority`, `TransitionType` | `transitions[].eventSignal`, `transitions[].eventSource`, `transitions[].guardCondition`, `transitions[].action`, `transitions[].evaluationOrderPriority`, `transitions[].transitionType` | Transition definition |
+| `StateTransitionPortGlyph` with `Name` | `transitions[].eventSource` | Named connection ports between machines |
+
+### Pattern 3: Lightweight State Machine Runtime (wrapping `transitions`)
+
+**What:** A thin adapter around `transitions` that consumes the GQHSM-compatible JSON schema and exposes trigger methods for the router classification pipeline.
+
+**When to use:** Router rule execution. The `RuleEngine` loads JSON rules into the state machine and dispatches query analysis through it.
+
+**Example:**
 ```python
-# router/classifier.py
-def classify_with_fallback(self, query: str) -> dict:
-    """Classify query with fallback chaining (D-12).
+# Integrating transitions library with GQHSM JSON format
+# Source: Training knowledge of transitions library API [ASSUMED]
+
+from transitions import Machine, State
+
+class RouterStateMachine:
+    """Thin adapter: consumes GQHSM JSON, exposes via transitions."""
     
-    Mirrors TeacherCascade.execute() pattern:
-    1. Try primary classification rule
-    2. If confidence < threshold, try next-best match
-    3. Return best result or default
-    """
-    matches = self.match_all_rules(query)  # returns [(rule, confidence), ...]
-    matches.sort(key=lambda m: m[0].priority, reverse=True)
+    def __init__(self, sm_definition: dict, rule_handlers: dict):
+        self._definition = sm_definition
+        self._handlers = rule_handlers
+        self._machine = None
+        self._build()
     
-    for rule, confidence in matches:
-        if confidence >= rule.confidence_threshold:
-            return self._build_plan(rule, confidence, mode="single")
+    def _build(self):
+        states = []
+        transitions = []
+        
+        for state_def in self._definition["states"]:
+            callbacks = {}
+            if state_def.get("entryAction"):
+                callbacks["on_enter"] = self._handlers.get(state_def["entryAction"])
+            if state_def.get("exitAction"):
+                callbacks["on_exit"] = self._handlers.get(state_def["exitAction"])
+            
+            # Handle hierarchical states
+            if state_def.get("children"):
+                sub_states = [
+                    State(name=child["name"], **self._child_callbacks(child))
+                    for child in state_def["children"]
+                ]
+                states.append(State(name=state_def["name"], **callbacks, children=sub_states))
+            else:
+                states.append(State(name=state_def["name"], **callbacks))
+        
+        for trans in self._definition["transitions"]:
+            conditions = []
+            if trans.get("guardCondition"):
+                conditions.append(self._handlers.get(trans["guardCondition"], lambda: True))
+            
+            transitions.append({
+                "trigger": trans["eventSignal"],
+                "source": trans["source"],
+                "dest": trans["target"],
+                "conditions": conditions,
+                "after": self._handlers.get(trans.get("action")),
+            })
+        
+        class Model:
+            pass
+        
+        self._machine = Machine(
+            model=Model(),
+            states=states,
+            transitions=transitions,
+            initial=self._find_start_state(),
+            auto_transitions=False,
+        )
     
-    # Fallback: try each rule's configured fallback
-    for rule, _ in matches:
-        if rule.fallback:
-            fallback_rule = self._get_rule_by_specialist(rule.fallback)
-            if fallback_rule:
-                return self._build_plan(fallback_rule, 0.0, mode="fallback")
+    def trigger(self, event_name: str, *args, **kwargs):
+        """Dispatch an event to the state machine."""
+        self._machine.trigger(event_name, *args, **kwargs)
     
-    # Ultimate fallback: encyclopedic
-    return self._build_plan(self._get_rule_by_specialist("encyclopedic"), 0.0, mode="fallback")
+    @property
+    def state(self) -> str:
+        return self._machine.state
+```
+
+### Pattern 4: LLM-Based Adaptive Threshold Evaluation
+
+**What:** Structure evaluation metrics and prior run context into a prompt for an LLM (via the existing `TeacherClient`), asking it to recommend updated gate thresholds with justification. Recommendations are logged, not auto-applied.
+
+**When to use:** After each evaluation run produces metrics. The `ThresholdAdapter` runs as an optional post-evaluation step.
+
+**Example:**
+```python
+# Prompt design for LLM-based threshold adaptation
+# Source: Training knowledge -- structured evaluation prompting [ASSUMED]
+
+THRESHOLD_EVALUATION_PROMPT = """You are an ML training quality analyst. Review the following specialist evaluation metrics and recommend updated gate thresholds.
+
+## Specialist: {niche}
+## Current Thresholds
+- Perplexity max: {current_ppl_max}
+- BLEU score min: {current_bleu_min}
+- Consecutive failures to block: {current_consecutive_failures}
+
+## Current Run Metrics
+- Perplexity: {ppl:.3f}
+- BLEU Score: {bleu:.4f}
+- ROUGE-L: {rouge_l:.4f}
+- Latency (ms/token): {latency:.2f}
+
+## Prior Run Metrics (for trend analysis)
+{prior_runs}
+
+## Instructions
+1. Compare current metrics against thresholds and prior runs.
+2. If metrics are improving (PPL decreasing, BLEU increasing), recommend tightening thresholds.
+3. If metrics are degrading, recommend keeping or loosening thresholds.
+4. Identify any anomalous metric deltas that warrant human review.
+5. Provide your recommendations in the following JSON format:
+
+```json
+{{
+  "recommended_thresholds": {{
+    "perplexity": {{"max": <float>, "reasoning": "<str>"}},
+    "bleu_score": {{"min": <float>, "reasoning": "<str>"}},
+    "consecutive_failures_to_block": {{"value": <int>, "reasoning": "<str>"}}
+  }},
+  "anomalies_detected": [{{"metric": "<str>", "delta_pct": <float>, "severity": "low|medium|high"}}],
+  "confidence": <float 0.0-1.0>,
+  "notes": "<str>"
+}}
+```
+
+## Constraints
+- Do not recommend thresholds that would immediately fail the current run.
+- Threshold changes should be gradual (max 20% adjustment per evaluation).
+- If confidence in recommendations is below 0.7, flag for human review.
+"""
 ```
 
 ### Anti-Patterns to Avoid
-- **Rewriting existing modules:** `Distiller`, `train_specialists_mlx.py`, `SpecialistEvaluator`, and `Benchmarker` already work. Add convergence tracking, validation passes, and persistence -- do not rewrite the core logic.
-- **Custom state machine from scratch:** The GQHSM conceptual model (states, transitions, triggers, guards, actions) maps directly to `transitions` library capabilities. Hand-rolling a state machine adds ~200 lines of tested logic for no benefit.
-- **Router calling teacher API on every query:** Router classification is purely rules-based (D-09/D-11 explicitly reject learned routing). Teacher API calls for confidence checks should be optional and only invoked when rule confidence is borderline.
-- **Combining training + evaluation in one giant function:** The existing pattern separates training (`train_specialists_mlx.py`), evaluation (`evaluator.py`), and distillation (`distillation.py`) into distinct modules. Keep the validation pass as a separate step that the pipeline runner orchestrates.
+
+- **Rewriting Distiller:** The existing `Distiller` class works. Add `ConvergenceTracker` as a separate composable component, not by rewriting the loss computation logic.
+- **Hard-coding thresholds in source:** All thresholds, patience values, and gate configs belong in YAML (global `pipeline.yaml` with per-specialist overrides in `config/specialists/<niche>.yaml`). Follow the Phase 1 ConfigLoader pattern.
+- **Silent auto-application of LLM-recommended thresholds:** D-15 says LLM "can" update thresholds, but the context defers full autonomous optimization. Recommendations should be logged for human review. If the planner decides to auto-apply, it must require `confidence > 0.9` and log the change.
+- **Single monolithic router file:** The router has three separable concerns: rule loading (YAML/JSON), state machine execution (transitions), and execution plan generation. Keep them in separate files (`rules.py`, `state_machine.py`, `plan.py`).
+- **Over-engineering the router state machine:** The router is rules-based (D-09, D-11). It does not need learned weights, embedding vectors, or ML classification. Keep it deterministic and inspectable.
+- **Mixing behavioral validation with objective validation:** D-08 specifies subjective differences (style, tone, phrasing) are tracked separately from objective errors (facts, code correctness, math). The validation report must have distinct sections for these two categories.
 
 ## Don't Hand-Roll
 
 | Problem | Don't Build | Use Instead | Why |
 |---------|-------------|-------------|-----|
-| State machine runtime for router | Custom state machine class with manual state tracking, transition dispatch, guard evaluation | `transitions` 0.9.3 (already installed) | 9+ years of community testing, handles hierarchical states, conditional transitions, YAML loading, event dispatch. Custom version would be ~200 lines of error-prone logic duplicating a well-tested library. |
-| Plateau detection in training | Manual loss tracking with ad-hoc thresholds | ConvergenceTracker with rolling window + patience + min_delta | Standard ML pattern. Rolling window (default 20 steps) smooths noise. Patience with min_delta prevents false stops from minor oscillations. Directly configurable per specialist. |
-| YAML schema validation for router rules | Ad-hoc key checking in load function | JSON Schema validation against GQHSM-compatible schema | The JSON is the GQHSM compatibility contract. Schema validation ensures rules are well-formed before the state machine consumes them. Catches misconfigurations at load time. |
-| Deduplication of synthetic data | Manual string comparison loop | Normalized text hash (SHA256 of lowercased, whitespace-normalized text) | Already partially implemented in dedup stage. Extend with quality checks (min length, non-empty) before hash computation. |
-| Behavioral difference measurement | Manual comparison of outputs | Token-level Jaccard similarity + structured output comparison | Jaccard < 0.95 is a simple, interpretable signal that adapter changes behavior. Paired with objective error tracking for factual accuracy. |
+| State machine runtime | Custom FSM implementation with state tracking, transition dispatch, guard evaluation, hierarchical nesting, callback registration | `transitions` [ASSUMED] | 10+ years of edge-case handling (reentrant transitions, queued events, state introspection, graphviz diagrams). Custom FSM would need: thread safety, callback lifecycle, graph export, hierarchical state management -- all solved by `transitions`. |
+| Plateau detection in loss curves | Custom rolling-window averaging with magic numbers | `ConvergenceTracker` class with configurable `ConvergenceConfig` | Standard pattern (ReduceLROnPlateau from PyTorch, Keras EarlyStopping). Config-driven patience, min_delta, and two-tier thresholds. No external library needed -- simple dataclass-driven implementation. |
+| Metric persistence format | Custom binary format or ad-hoc directory structure | Structured JSONL with timestamp-named files (`artifacts/evaluations/<niche>_<ISO8601>.json`) | Follows Phase 1 cost logging pattern (`artifacts/api_cost.jsonl`). JSON is GQHSM-compatible. Human-readable, git-diffable, simple to parse for trend analysis. |
+| JSON schema validation | Custom validation function | `jsonschema` library (via pip) or inline validation in rule loader | `jsonschema` is the Python standard for JSON Schema validation (Draft 2020-12). The ConfigLoader pattern (class-based validation) is also acceptable if keeping dependencies minimal is preferred. |
 
-**Key insight:** The router is the only greenfield module. Everything else extends existing code. The state machine is the most "don't hand-roll" risk area -- `transitions` eliminates 200+ lines of custom state management logic.
+**Key insight:** The state machine domain has well-known edge cases (event queue ordering during transitions, reentrant guard evaluation, hierarchical state entry/exit ordering). A mature library like `transitions` [ASSUMED] handles these correctly. Hand-rolling a state machine for this domain would introduce subtle bugs that only surface under specific transition sequences -- exactly the kind of bug that wastes debugging time in rule-based routing.
+
+## Runtime State Inventory
+
+> Omitted -- this is a greenfield-build phase, not a rename/refactor/migration phase. The router is a new module. All other changes extend existing modules without renaming identifiers, moving files, or changing storage keys.
 
 ## Common Pitfalls
 
-### Pitfall 1: KD Loss Oscillation Masking Convergence
-**What goes wrong:** KD loss oscillates within a narrow range around the target threshold. The naive "loss < target" check fails because the loss crosses the threshold repeatedly without truly converging.
-**Why it happens:** Temperature scaling amplifies small variations in teacher logprobs. Batch-level noise causes loss to fluctuate +/- 0.1-0.3 around the true convergence value.
-**How to avoid:** Use a rolling window (20 steps) average for convergence checks, not point values. Require `loss_rolling_avg < target` for `patience` consecutive steps. The `min_delta` parameter filters noise -- improvement must exceed this to reset the patience counter.
-**Warning signs:** Loss oscillates in a 0.2-0.5 range without a clear descending trend after 50+ steps.
+### Pitfall 1: Convergence declared too early on noisy loss
 
-### Pitfall 2: Adapter Loadability Fails Silently After Training
-**What goes wrong:** Training produces `adapters.safetensors` but the file is corrupt or incompatible with the base model, and the error is not detected until inference fails downstream.
-**Why it happens:** MLX `train_model()` writes the adapter file but doesn't verify it's loadable. If training was interrupted or the adapter dimensions don't match the target layers, the file exists but `load()` fails.
-**How to avoid:** Immediately after training, call `mlx_lm.utils.load(model_id, adapter_path=adapter_path)` in a `try/except` block. If loading fails, mark training as incomplete (don't write `TRAINING_STATUS.json` with `status: "complete"`). Re-raise the error so the pipeline runner knows the stage failed.
-**Warning signs:** `adapters.safetensors` file size is significantly smaller than expected (< 1MB for a 16-layer LoRA rank 16 on a 30B model).
+**What goes wrong:** KD loss oscillates naturally (teacher logprobs vary per batch). A single lucky low-loss step triggers "converged" but the model hasn't truly converged. Subsequent distillation runs show degraded quality.
 
-### Pitfall 3: Router Priority Conflicts
-**What goes wrong:** Two rules match the same query with different specialists. The wrong specialist is selected because rule priority ordering is non-deterministic or the first-match-wins behavior is unexpected.
-**Why it happens:** Rule matching is naturally overlapping -- a query about "Python code for medical diagnosis" matches both `code_detection` and `medical_detection`.
-**How to avoid:** Explicit priority ordering in YAML (lower number = lower priority). Higher priority rules run first. When multiple rules match, highest confidence wins. When confidences are equal, highest priority wins. The `confidence_threshold` per rule provides a gate -- below-threshold matches are ignored even if they're the only match. The fallback chain handles the case where no rule meets its threshold.
-**Warning signs:** Same query classified differently on repeated runs. Classification flips between two specialists for similar queries.
+**Why it happens:** Single-point convergence check rather than sustained-below-threshold check.
 
-### Pitfall 4: Validation Set Leakage
-**What goes wrong:** The "held-out test set" used for post-training validation is accidentally a subset of the training data, making validation metrics artificially good.
-**Why it happens:** The existing `train_specialists_mlx.py` uses `data/specialists/{niche}_mlx/{train,valid}.jsonl` for training. If the validation pass reuses `valid.jsonl`, it's testing on the same distribution the model was evaluated on during training.
-**How to avoid:** The post-training validation pass must use a separate file (`test.jsonl`) that was never included in the MLX dataset preparation. The acceptance criteria (D-06) explicitly states "held-out test set (not reused from training `val_batches`)." The `test_split_path` in specialist config should point to `data/specialists/{niche}/test.jsonl` (HF dataset test split), NOT the MLX-formatted data.
-**Warning signs:** Validation loss is suspiciously close to training loss. BLEU scores are unrealistically high (>0.8).
+**How to avoid:** Require loss below target for `patience` consecutive steps (configurable, default 100). The `steps_since_improvement` counter in `ConvergenceTracker` only resets when loss improves by `min_delta`. Do NOT declare convergence on step count alone -- loss must also be below target.
 
-### Pitfall 5: Runtime State Inventory for Gate Counters Across Pipeline Restarts
-**What goes wrong:** Consecutive failure counters reset when the pipeline restarts, so the auto-gating threshold (N consecutive failures to block) is never reached.
-**Why it happens:** Gate state is stored in memory only, or the persistence file is overwritten on each pipeline run.
-**How to avoid:** Gate state persistence already exists in `Benchmarker` (`artifacts/.gate_state/{niche}_gate_state.json` and `{niche}_bench_gate_state.json`). Training evaluation gates should use the same pattern: persist consecutive failure counters to `artifacts/.gate_state/{niche}_training_gate_state.json`. Load on startup, save after each evaluation. Fail-open on corrupt files (Phase 3 pattern).
-**Warning signs:** Pipeline reports "1st failure" for the same specialist on every run. Blocking state is never entered despite repeated failures.
+**Warning signs:** Loss curve oscillates by >20% between adjacent steps. If oscillation amplitude exceeds `min_delta`, patience will never be achieved with a reasonable `min_delta` -- increase `min_delta` or smooth with a rolling average.
+
+### Pitfall 2: Behavioral validation produces false positives (base model = adapter output)
+
+**What goes wrong:** The adapter loads but produces identical output to the base model. This means the adapter weights are all-zero or the training loop silently failed.
+
+**Why it happens:** MLX LoRA training can silently produce zero-gradient updates if the model architecture doesn't match the adapter configuration. The adapter file exists and is loadable (passes check (a)) but is functionally inert.
+
+**How to avoid:** The behavioral check must run inference on at least 3 diverse held-out prompts and compare outputs token-by-token with the base model. If ALL outputs are identical or differ only in whitespace, the adapter is invalid regardless of loadability. The check should also verify that adapter weights are not all-zero by loading the safetensors file and checking tensor norms.
+
+**Warning signs:** `adapter_model.safetensors` file size is suspiciously small (<1KB). Training loss didn't decrease from initial value. training_metadata.json shows iters=0 or status != "complete".
+
+### Pitfall 3: Router rule priority conflicts cause non-deterministic classification
+
+**What goes wrong:** Two rules match the same query with the same priority but map to different specialists. The router picks one non-deterministically, producing different execution plans for identical queries.
+
+**Why it happens:** The GQHSM model uses `EvaluationOrderPriority` for tiebreaking, but if two transitions from the same state have the same priority and both guard conditions pass, the state machine library may evaluate them in insertion order (which varies if rules are loaded from a dict/JSON where key order isn't preserved).
+
+**How to avoid:** Rules in YAML must have unique priorities within the same source state. The router YAML schema enforces this at load time: if two rules share a source state AND priority, raise `ConfigValidationError`. Additionally, the state machine JSON schema uses an ordered array for transitions (not a dict), so insertion order is deterministic.
+
+**Warning signs:** Logged execution plans show different specialists for nearly identical queries. Router test flakiness (passes sometimes, fails other times with different specialist selected).
+
+### Pitfall 4: Metric persistence format incompatible with trend analysis
+
+**What goes wrong:** Evaluation metrics are written as flat JSON per run but with inconsistent key names, missing timestamps, or non-comparable formats. Trend analysis (D-16) fails because it can't load prior runs.
+
+**Why it happens:** The evaluator's `__main__` block currently writes flat results without timestamps or run identifiers. Extending it without a schema leads to format drift between runs.
+
+**How to avoid:** Define a strict schema for evaluation result files and enforce it at write time. Use ISO 8601 timestamps in filenames. Include a version field so future code can handle format changes. The `MetricStore` class validates output against a schema before writing.
+
+**Warning signs:** `artifacts/evaluations/` contains files with inconsistent keys. `json.load()` on a prior run file raises KeyError for expected fields.
 
 ## Code Examples
 
-Verified patterns from the existing codebase and official library documentation:
-
-### ConvergenceTracker Usage (extending existing Distiller)
+### Convergence Tracking Integration with Distiller
 
 ```python
-# Source: Pattern from existing distillation.py extended with standard ML convergence practices
-# distill/convergence.py (NEW)
+# Source: Integration pattern from existing Distiller + ConvergenceTracker
+# Extend Distiller.sweep_temperature() to track convergence per temperature
 
-class ConvergenceTracker:
-    """Tracks KD loss convergence with two-tier stopping and patience."""
+def sweep_temperature_with_convergence(
+    self,
+    student_logits: np.ndarray,
+    teacher_logprobs: list,
+    target_ids: list,
+    temperatures: Optional[list] = None,
+    convergence_config: Optional[ConvergenceConfig] = None,
+) -> dict:
+    if temperatures is None:
+        temperatures = [1.0, 2.0, 4.0, 8.0]
+    if convergence_config is None:
+        convergence_config = ConvergenceConfig()
 
-    def __init__(self, target: float, warning: float, hard_stop: float,
-                 patience: int = 100, min_delta: float = 0.01, window_size: int = 20):
-        self._target = target
-        self._warning = warning
-        self._hard_stop = hard_stop
-        self._patience = patience
-        self._min_delta = min_delta
-        self._window_size = window_size
-        self._losses = []
-        self._best_loss = float("inf")
-        self._no_improvement_steps = 0
-        self._converged = False
-        self._converged_at_step = None
-        self._warnings = []
-        self._aborted = False
+    results = {"temperatures": {}, "convergence": {}}
+    best_temp = temperatures[0]
+    best_loss = float("inf")
 
-    def step(self, loss: float, step_number: int) -> str:
-        """Record a loss value and return status: 'continue', 'warning', 'converged',
-        'early_stop', or 'hard_stop'."""
-        self._losses.append(loss)
+    for temp in temperatures:
+        self._temperature = temp
+        tracker = ConvergenceTracker(convergence_config)
 
-        if loss > self._hard_stop:
-            self._aborted = True
-            return "hard_stop"
+        # Per-temperature loss curve (simulated here; real impl uses batches)
+        losses = []
+        statuses = []
+        for _step in range(convergence_config.patience + 50):
+            loss = self.compute_distillation_loss(
+                student_logits, teacher_logprobs, target_ids
+            )
+            losses.append(loss)
+            status = tracker.step(loss)
+            statuses.append(status)
+            if status in ("converged", "hard_stop"):
+                break
 
-        status = "continue"
-        if loss > self._warning:
-            self._warnings.append(step_number)
-            status = "warning"
+        results["temperatures"][str(temp)] = {
+            "final_loss": round(losses[-1], 6),
+            "best_loss": round(tracker._state.best_loss, 6),
+            "steps_run": len(losses),
+            "converged": tracker._state.converged,
+            "hard_stopped": tracker._state.hard_stopped,
+        }
+        results["convergence"][str(temp)] = {
+            "loss_curve": [round(l, 6) for l in losses],
+            "status_log": statuses,
+        }
 
-        if loss < self._best_loss - self._min_delta:
-            self._best_loss = loss
-            self._no_improvement_steps = 0
-        else:
-            self._no_improvement_steps += 1
+        if losses[-1] < best_loss:
+            best_loss = losses[-1]
+            best_temp = temp
 
-        rolling_avg = self._rolling_average()
-        if rolling_avg < self._target and not self._converged:
-            self._converged = True
-            self._converged_at_step = step_number
-            return "converged"
-
-        if self._no_improvement_steps >= self._patience:
-            return "early_stop"
-
-        return status
-
-    def _rolling_average(self) -> float:
-        window = self._losses[-self._window_size:]
-        if not window:
-            return float("inf")
-        return sum(window) / len(window)
+    results["best_temperature"] = best_temp
+    results["best_loss"] = round(best_loss, 6)
+    return results
 ```
 
-### Router State Machine with transitions
+### Metric Persistence with Schema Validation
 
 ```python
-# Source: transitions library docs (https://github.com/pytransitions/transitions)
-# router/engine.py (NEW)
+# Source: Pattern from existing CheckpointValidator + SpecialistEvaluator
+# Structured metric persistence following Phase 1 patterns
 
-from transitions import Machine
+import json
+from datetime import datetime, timezone
+from dataclasses import dataclass, asdict
+from pathlib import Path
 
-class RouterStateMachine:
-    """GQHSM-compatible router state machine backed by transitions."""
+@dataclass
+class EvalMetrics:
+    niche: str
+    timestamp_utc: str
+    num_samples: int
+    perplexity: float
+    bleu_score: float
+    rouge_l: float
+    latency_ms_mean: float
+    latency_ms_p95: float
+    gates_passed: dict  # {gate_name: {"passed": bool, "threshold": float, "value": float}}
+    version: str = "1.0"
 
-    states = [
-        {"name": "pre_classify"},
-        {"name": "keyword_match"},
-        {"name": "regex_match"},
-        {"name": "syntax_density"},
-        {"name": "select_specialist"},
-        {"name": "fallback_chain"},
-        {"name": "classified", "final": True},
+class MetricStore:
+    REQUIRED_FIELDS = [
+        "niche", "timestamp_utc", "num_samples", "perplexity",
+        "bleu_score", "rouge_l", "latency_ms_mean", "latency_ms_p95",
+        "gates_passed", "version",
     ]
 
-    def __init__(self, rules_config: dict):
-        self.machine = Machine(
-            model=self,
-            states=RouterStateMachine.states,
-            initial="pre_classify",
-            auto_transitions=False,
-        )
+    def __init__(self, project_root: Path):
+        self._eval_dir = project_root / "artifacts" / "evaluations"
+        self._eval_dir.mkdir(parents=True, exist_ok=True)
 
-        # Build transitions from GQHSM-compatible JSON
-        for transition_def in rules_config.get("transitions", []):
-            self.machine.add_transition(
-                trigger=transition_def["trigger"],
-                source=transition_def["source"],
-                dest=transition_def["dest"],
-                conditions=transition_def.get("conditions", []),
-                unless=transition_def.get("unless", []),
-                after=transition_def.get("actions", []),
-            )
-```
+    def persist(self, metrics: EvalMetrics) -> Path:
+        data = asdict(metrics)
+        self._validate(data)
+        ts = metrics.timestamp_utc.replace(":", "").replace("-", "")
+        out_path = self._eval_dir / f"{metrics.niche}_{ts}.json"
+        out_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        return out_path
 
-### Adapter Validity Check
+    def load_prior(self, niche: str) -> list:
+        """Load all prior eval runs for trend analysis."""
+        prior = []
+        for f in sorted(self._eval_dir.glob(f"{niche}_*.json")):
+            prior.append(json.loads(f.read_text(encoding="utf-8")))
+        return prior
 
-```python
-# Source: Pattern from existing train_specialists_mlx.py extended with Phase 2 validation
-# training/validation.py (NEW)
-
-def validate_adapter(model_id: str, adapter_path: str, test_samples: list,
-                     loss_threshold: float) -> dict:
-    """Multi-prong adapter validity check (D-08).
-
-    Returns:
-        dict with keys: loadable, loss_valid, behavioral_diff, objective_errors,
-                        subjective_diffs, overall_valid
-    """
-    import mlx_lm.utils as mlx_utils
-
-    result = {"loadable": False, "loss_valid": False, "behavioral_diff": False,
-              "objective_errors": 0, "subjective_diffs": 0, "overall_valid": False}
-
-    # (a) Loadability check
-    try:
-        model, tokenizer = mlx_utils.load(model_id, adapter_path=adapter_path)
-        result["loadable"] = True
-    except Exception as e:
-        result["load_error"] = str(e)
-        return result
-
-    # (b) Validation loss check on held-out test set
-    val_loss = compute_validation_loss(model, tokenizer, test_samples)
-    result["validation_loss"] = val_loss
-    result["loss_valid"] = val_loss <= loss_threshold
-
-    # (c) Behavioral difference check
-    base_model, _ = mlx_utils.load(model_id)  # no adapter
-    jaccard = compute_jaccard_similarity(base_model, model, tokenizer, test_samples[:5])
-    result["behavioral_diff"] = jaccard < 0.95
-    result["jaccard_similarity"] = jaccard
-
-    result["overall_valid"] = all([
-        result["loadable"], result["loss_valid"], result["behavioral_diff"]
-    ])
-    return result
+    def _validate(self, data: dict):
+        missing = [k for k in self.REQUIRED_FIELDS if k not in data]
+        if missing:
+            raise ValueError(f"Missing required eval fields: {missing}")
 ```
 
 ## State of the Art
 
 | Old Approach | Current Approach | When Changed | Impact |
 |--------------|------------------|--------------|--------|
-| Distiller computes loss but doesn't track convergence | ConvergenceTracker with rolling window, two-tier stopping, patience | Phase 2 | Training can stop early when converged; operators get warning before hard-stop |
-| Temperature sweep prints results to stdout | Structured JSON output at `artifacts/sweeps/{niche}_sweep.json` | Phase 2 | Data-driven temperature selection per specialist |
-| Training metadata recorded but not validated | Post-training validation pass on held-out test set with multi-prong checks | Phase 2 | Adapter quality verified before downstream pipeline stages consume it |
-| Evaluation metrics computed but not persisted per run | MetricStore extended for timestamped per-run persistence | Phase 2 | Trend analysis, auto-gating, and regression detection become possible |
-| No router exists | GQHSM-compatible rules-based router with YAML-driven rules | Phase 2 | Query classification enables specialist selection; fallback chaining mirrors cascade pattern |
-| Auto-gating for SGFP4 metrics only | Extended to training evaluation metrics with same consecutive-failure pattern | Phase 2 | Consistent gating across all pipeline stages |
+| Single-point convergence check (loss < target once) | Plateau-based sustained convergence (loss < target for N consecutive steps) | ML best practice since ~2018 (ReduceLROnPlateau, EarlyStopping in PyTorch/Keras) | Eliminates false convergence from noisy loss |
+| Binary stop/continue | Two-tier (warning + hard-stop) with configurable thresholds | Specified in Phase 2 D-04 | Operators get early signal without halting pipeline; hard-stop prevents runaway bad training |
+| Flat metric output files | Structured JSONL with versioned schema, timestamps, and gate results | Phase 2 D-14, D-16 | Enables trend analysis across runs; gates become queryable |
+| No convergence analytics | Per-temperature loss curves + convergence rate analysis in `artifacts/sweeps/` | Phase 2 D-05 | Data-driven temperature selection replaces guesswork |
+| Adapter existence = valid | Multi-prong validation (loadability + loss + behavioral diff) | Phase 2 D-08 | Catches silently-failed training that produces inert adapters |
 
 **Deprecated/outdated:**
-- `train_specialists.py` -- Already deprecated (Phase 1). Do not modify. Only `train_specialists_mlx.py` is the active trainer.
-- Print-based sweep output -- Temperature sweep results currently printed to stdout. Phase 2 replaces with structured JSON persistence.
+- Single-file evaluation output: The current `SpecialistEvaluator.__main__` writes flat JSON without timestamps. Phase 2 replaces this with `MetricStore` producing timestamped, versioned files.
+- Manual temperature selection: The current `Distiller.sweep_temperature` only returns best temperature. Phase 2 adds per-temperature loss curves and convergence data in structured sweep analysis files.
+- No post-training validation: `train_specialists_mlx.py` writes metadata but doesn't validate the trained adapter produces different output. Phase 2 adds `AdapterValidator`.
 
 ## Assumptions Log
 
 | # | Claim | Section | Risk if Wrong |
 |---|-------|---------|---------------|
-| A1 | `transitions` 0.9.3 is already installed and working; no new install needed | Standard Stack | Low -- verified via pip show and import test. Phase 1 dependencies didn't require it, so it may need explicit addition to requirements. |
-| A2 | Default thresholds (target=2.5, warning=3.0, hard_stop=5.0, patience=100, min_delta=0.01) are reasonable starting points | KD Convergence | MEDIUM -- these are educated estimates based on typical KD loss ranges. May need tuning per specialist. Operator can override in config. |
-| A3 | GQHSM StateProto C# implementation uses states, transitions, triggers, guards, callbacks -- the Python JSON subset mirrors these concepts correctly | Router Rule Design | LOW -- GQHSM/StateProto is a C# project with .cs files; the conceptual model extraction is based on examining the file structure and the CONTEXT.md descriptions, not a deep read of the C# source. |
-| A4 | Phase 1 pipeline (TeacherClient, cascade, checkpoint system, config loader) is complete and available for integration | Architecture | MEDIUM -- ROADMAP.md shows Phase 1 as not yet completed (unchecked). Phase 2 depends on Phase 1 outputs. If Phase 1 is incomplete, Phase 2 integration points may need adjustment. |
-| A5 | `MetricStore` from Phase 4 can be extended for training evaluation metrics | Evaluation Persistence | LOW -- MetricStore was built for SGFP4 metrics and benchmark results (Phase 3/4). Extending it for training eval metrics is architecturally sound but wasn't part of its original design contract. |
+| A1 | `transitions` (0.9.3) is the best lightweight Python state machine library for this use case | Standard Stack | MEDIUM -- `automaton` or a custom implementation might be more suitable for GQHSM compatibility. The planner gates this behind `checkpoint:human-verify`. |
+| A2 | `transitions` supports hierarchical state machines (HSM) with nested states, matching GQHSM's hierarchical model | Architecture Patterns | LOW -- transitions documentation mentions HSM support but exact capability match with GQHSM nesting model needs verification. If transitions HSM support is insufficient, a custom implementation may be needed. |
+| A3 | Plateau-based early stopping with patience and min_delta is the standard convergence definition for KD | Standard Stack | LOW -- this is well-established in ML literature (PyTorch ReduceLROnPlateau, Keras EarlyStopping). The risk is in parameter defaults, not the approach itself. |
+| A4 | GQHSM JSON schema should use callback name strings (not inline code) for entry/exit actions, guards, and transition actions | Architecture Patterns | LOW -- this matches the GQHSM plugin ABI model where callbacks are registered functions. Inline expressions would be incompatible with the C++ GQHSM runtime. |
+| A5 | LLM threshold evaluation prompt should require structured JSON output with justification | Architecture Patterns | LOW -- structured output is a standard pattern for LLM evaluation tasks. The risk is in prompt effectiveness for specific threshold recommendations. |
+| A6 | `pip index versions` confirms `transitions` exists on PyPI but authoritative docs verification via Context7 was unavailable | Package Legitimacy Audit | LOW -- slopcheck rates it [OK], the project has 10+ years of history and ~2M downloads/month. Legitimacy risk is minimal. |
 
 ## Open Questions
 
-1. **Phase 1 completion status** — (RESOLVED 2026-06-29)
-   - Resolution: 02-03 Task 0 (pre-flight verification) verifies TeacherClient and TeacherCascade are importable at execution time. If imports fail, a clear warning is logged. Phase 2 can proceed regardless — the pre-flight check provides operator visibility into dependency status.
-   - Verification: `pytest tests/test_training_validation.py::test_phase1_interfaces_importable`
+1. **Should the router state machine fire all matching rules (sum confidence) or stop at first match?**
+   - What we know: D-11 specifies "configurable priority ordering" and D-12 specifies "fallback chaining" (try primary, if below threshold try next-best). This implies first-match with fallback, not sum-of-matches.
+   - What's unclear: Whether keyword, regex, and syntax_density rules should all be evaluated independently (additive confidence) or short-circuit at the highest-priority match.
+   - Recommendation: First-match with priority ordering matches the GQHSM model (transitions are evaluated in priority order, first guard-passing transition fires). The fallback chain handles the "try next" case when confidence is below threshold.
 
-2. **Test data availability for held-out validation** — (RESOLVED 2026-06-29)
-   - Resolution: 02-03 Task 0 (pre-flight verification) checks test.jsonl existence per specialist, creates minimal test splits from valid.jsonl when missing (last max(10, 20%) samples), and logs all outcomes. Split sources are recorded for auditability.
-   - Verification: `pytest tests/test_training_validation.py::test_test_splits_exist`
+2. **Is the behavioral validation diff threshold configurable per specialist?**
+   - What we know: D-08 specifies "inference output differs from base model" but doesn't specify how different it must be. Some specialists (medical) may need stricter behavioral change than others (encyclopedic).
+   - What's unclear: What metric to use for behavioral difference (token overlap ratio, BLEU of base vs adapter output, embedding cosine distance).
+   - Recommendation: Use token overlap ratio as the primary metric (percentage of tokens that differ between base model and adapter output). Default threshold: >5% token difference across 3 diverse prompts. Configurable per specialist in `config/specialists/<niche>.yaml`.
 
-3. **LLM API threshold update mechanism (D-15)** — (RESOLVED 2026-06-29)
-   - Resolution: 02-04 Task 4 implements AdaptiveGating module (`gnus-poc/eval/adaptive_gating.py`) per the recommendation: optional feature gated behind `adaptive_gating.enabled: false` by default. When enabled, the LLM receives the last N evaluation results and suggests threshold adjustments. Safety bounds limit changes to +/- 20% per update, capped at 50%/200% of original thresholds. Human approval always required (`require_human_approval: true`). Uses TeacherClient Phase 1 pattern for LLM API calls.
-   - Verification: `pytest tests/test_eval_persistence.py` — TestAdaptiveGating class
+3. **Should LLM threshold recommendations be logged-only, or optionally auto-applied?**
+   - What we know: D-15 says "LLM API can recursively update gate thresholds." The deferred section says "full autonomous threshold optimization without LLM involvement is deferred."
+   - What's unclear: Whether "can update" means auto-apply or recommend. The deferred section suggests auto-apply is acceptable when LLM-driven.
+   - Recommendation: Log all recommendations. Auto-apply only when LLM confidence > 0.9 AND the recommended change is < 20% from current value. Any change beyond these bounds is logged for human review only. This matches the "gradual adjustment" principle from the guard-aspect of D-16 (variance from prior run is logged, severe outliers trigger human review).
+
 ## Environment Availability
 
 | Dependency | Required By | Available | Version | Fallback |
 |------------|------------|-----------|---------|----------|
-| Python 3 | All modules | Yes | 3.11.6 | -- |
-| `mlx-lm` | Training, validation, evaluation | Yes | 0.28.4 | -- |
-| `transitions` | Router state machine | Yes | 0.9.3 | `python-statemachine` 3.2.0 (not installed) |
-| `pyyaml` | Config loading | Yes | 6.0.2 | -- |
-| `nltk` | BLEU score computation | Yes | (installed) | -- |
-| `datasets` (HF) | Data loading | Yes | (installed) | -- |
-| `numpy` | Numerical ops | Yes | (installed) | -- |
-| GQHSM submodule | JSON schema reference | Yes | Present at `GQHSM/` | -- |
+| Python 3.10+ | All modules | Yes | 3.11.6 | -- |
+| pytest | Testing | Yes | 8.3.5 | -- |
+| mlx / mlx-lm | Adapter loading, training | Yes | 0.30.0 / 0.28.4 | -- |
+| numpy | Loss computation, plateau detection | Yes | 1.26.4 | -- |
+| PyYAML | Config/rule loading | Yes | 6.0.2 | -- |
+| nltk | BLEU/ROUGE computation | Yes | 3.9.1 | -- |
+| `transitions` [ASSUMED] | Router state machine | **No** | -- | Install via pip: `pip install transitions`. If unavailable, custom FSM in `router/state_machine.py`. |
+| `openai` / `anthropic` SDKs | LLM threshold evaluation (via TeacherClient) | Yes | Installed (Phase 1) | -- |
+| GQHSM submodule (C#) | JSON schema design reference | Yes | at repo root `GQHSM/` | -- |
+| LiteLLM proxy | Teacher API for threshold evaluation | Yes | localhost:4000 (Phase 1) | -- |
 
-**Missing dependencies with no fallback:** none
-**Missing dependencies with fallback:** none
+**Missing dependencies with no fallback:**
+- `transitions` [ASSUMED] -- must be installed before router module can run. The planner should add an install step.
+
+**Missing dependencies with fallback:**
+- None. All other dependencies are already installed or provided by Phase 1 infrastructure.
 
 ## Validation Architecture
 
 ### Test Framework
+
 | Property | Value |
 |----------|-------|
-| Framework | pytest (detected via existing test infrastructure in gnus-poc/tests/) |
-| Config file | none -- see Wave 0 |
-| Quick run command | `pytest tests/test_convergence.py -x` |
+| Framework | pytest 8.3.5 |
+| Config file | `pyproject.toml` (tool.pytest.ini_options) |
+| Quick run command | `pytest tests/ -x -m "not slow"` |
 | Full suite command | `pytest tests/ -x` |
 
-### Phase Requirements -> Test Map
+### Phase Requirements to Test Map
+
 | Req ID | Behavior | Test Type | Automated Command | File Exists? |
 |--------|----------|-----------|-------------------|-------------|
-| DIST-01 | KD loss converges below target within patience | unit | `pytest tests/test_convergence.py::test_converges_below_target -x` | No -- Wave 0 |
-| DIST-01 | Two-tier stopping: warning logged, hard-stop aborts | unit | `pytest tests/test_convergence.py::test_two_tier_stopping -x` | No -- Wave 0 |
-| DIST-02 | Temperature sweep produces structured JSON | integration | `pytest tests/test_distillation.py::test_temperature_sweep_output -x` | No -- Wave 0 |
-| DIST-03 | Synthetic data quality checks (length, empty, dedup) | unit | `pytest tests/test_synthetic_quality.py::test_quality_checks -x` | No -- Wave 0 |
-| TRAIN-01 | Adapter loads cleanly via MLX | integration | `pytest tests/test_training_validation.py::test_adapter_loadability -x` | No -- Wave 0 |
-| TRAIN-01 | Adapter produces different output from base model | integration | `pytest tests/test_training_validation.py::test_behavioral_difference -x` | No -- Wave 0 |
-| TRAIN-02 | Hyperparameters from config respected at runtime | unit | `pytest tests/test_training_config.py::test_hyperparameter_override -x` | No -- Wave 0 |
-| TRAIN-03 | Evaluation metrics persisted per run | unit | `pytest tests/test_eval_persistence.py::test_metrics_persisted -x` | No -- Wave 0 |
-| ROUTE-01 | Keyword rule matches code query | unit | `pytest tests/test_router_rules.py::test_keyword_code_detection -x` | No -- Wave 0 |
-| ROUTE-01 | Syntax density rule routes math query | unit | `pytest tests/test_router_rules.py::test_syntax_density_math -x` | No -- Wave 0 |
-| ROUTE-01 | No-match routes to encyclopedic | unit | `pytest tests/test_router_rules.py::test_default_fallback -x` | No -- Wave 0 |
-| ROUTE-02 | Execution plan includes specialist and mode | unit | `pytest tests/test_router_engine.py::test_execution_plan_output -x` | No -- Wave 0 |
+| DIST-01 | KD loss converges below configurable threshold with plateau-based early stopping | unit | `pytest tests/test_convergence.py::test_convergence_tracker_hard_stop -x` | New -- Wave 0 |
+| DIST-01 | KD loss converges below target after patience steps with min_delta | unit | `pytest tests/test_convergence.py::test_convergence_tracker_converged -x` | New -- Wave 0 |
+| DIST-02 | Temperature sweep produces per-temperature loss curves in structured JSON | unit | `pytest tests/test_distillation.py::test_sweep_with_convergence_output -x` | New -- Wave 0 |
+| DIST-02 | Sweep analysis file contains convergence rate per temperature | unit | `pytest tests/test_distillation.py::test_sweep_analysis_structure -x` | New -- Wave 0 |
+| TRAIN-01 | Adapter passes loadability, validation loss, and behavioral diff checks | integration | `pytest tests/test_adapter_validator.py::test_adapter_validity_checks -x` | New -- Wave 0 |
+| TRAIN-01 | Behavioral check detects zero-gradient adapter (identical output to base) | integration | `pytest tests/test_adapter_validator.py::test_inert_adapter_detection -x` | New -- Wave 0 |
+| TRAIN-02 | Training hyperparameters from YAML are respected at runtime | unit | `pytest tests/test_config.py::test_training_overrides_respected -x` | Extend -- Wave 0 |
+| TRAIN-03 | Evaluation metrics persisted to structured JSON with timestamps | unit | `pytest tests/test_evaluator.py::test_metric_persistence_format -x` | New -- Wave 0 |
+| TRAIN-03 | Prior metrics loadable for trend analysis | unit | `pytest tests/test_evaluator.py::test_load_prior_metrics -x` | New -- Wave 0 |
+| ROUTE-01 | Keyword rules match queries and route to correct specialist | unit | `pytest tests/test_router.py::test_keyword_routing -x` | New -- Wave 0 |
+| ROUTE-01 | No-match queries route to default encyclopedic specialist | unit | `pytest tests/test_router.py::test_no_match_default -x` | New -- Wave 0 |
+| ROUTE-01 | Rules defined in YAML with no code changes required | unit | `pytest tests/test_router.py::test_yaml_driven_rules -x` | New -- Wave 0 |
+| ROUTE-02 | Execution plan includes primary_specialist and execution_mode | unit | `pytest tests/test_router.py::test_execution_plan_structure -x` | New -- Wave 0 |
 
 ### Sampling Rate
-- **Per task commit:** `pytest tests/test_convergence.py tests/test_router_rules.py -x`
+
+- **Per task commit:** `pytest tests/ -x -m "not slow"`
 - **Per wave merge:** `pytest tests/ -x`
 - **Phase gate:** Full suite green before `/gsd:verify-work`
 
 ### Wave 0 Gaps
-- [ ] `tests/test_convergence.py` -- covers DIST-01 convergence criteria
-- [ ] `tests/test_distillation.py` -- covers DIST-02 temperature sweep output
-- [ ] `tests/test_synthetic_quality.py` -- covers DIST-03 data quality checks
-- [ ] `tests/test_training_validation.py` -- covers TRAIN-01 adapter validity
-- [ ] `tests/test_training_config.py` -- covers TRAIN-02 hyperparameter respect
-- [ ] `tests/test_eval_persistence.py` -- covers TRAIN-03 metric persistence
-- [ ] `tests/test_router_rules.py` -- covers ROUTE-01 rule matching
-- [ ] `tests/test_router_engine.py` -- covers ROUTE-02 execution plan output
-- [ ] Framework install: `pip install pytest` -- if not already installed
+
+- [ ] `tests/test_convergence.py` -- covers DIST-01 convergence tracking and DIST-02 sweep analysis
+- [ ] `tests/test_adapter_validator.py` -- covers TRAIN-01 adapter validity checks
+- [ ] `tests/test_router.py` -- covers ROUTE-01 rule-based routing and ROUTE-02 execution plans
+- [ ] `tests/test_evaluator.py` -- extends existing with TRAIN-03 metric persistence tests
+- [ ] `tests/test_config.py` -- extends existing with TRAIN-02 hyperparameter override tests
+- [ ] Framework install: `pip install transitions` -- new dependency for router module
 
 ## Security Domain
 
 ### Applicable ASVS Categories
 
 | ASVS Category | Applies | Standard Control |
-|---------------|---------|------------------|
-| V2 Authentication | No | Not applicable -- local training pipeline, no user auth |
-| V3 Session Management | No | Not applicable |
-| V4 Access Control | No | Not applicable -- single-machine POC |
-| V5 Input Validation | Yes | YAML schema validation for router rules and specialist configs; JSON Schema for GQHSM-compatible rule files; input sanitization for query strings passed to router |
-| V6 Cryptography | No | Not applicable -- no cryptographic operations in training pipeline |
+|---------------|---------|-----------------|
+| V2 Authentication | No | Phase 2 modules are internal pipeline components; authentication is handled at the API layer (Phase 1 TeacherClient handles API key auth). |
+| V3 Session Management | No | No user sessions in training pipeline. |
+| V4 Access Control | No | Single-machine training pipeline; no multi-user access control needed. |
+| V5 Input Validation | Yes | YAML config validation (ConfigLoader pattern); JSON rule schema validation; evaluation metric schema validation. All external inputs (config files, rule definitions) are validated at load time. |
+| V6 Cryptography | No | No cryptographic operations in this phase. |
 
 ### Known Threat Patterns for Python ML Training Pipeline
 
 | Pattern | STRIDE | Standard Mitigation |
 |---------|--------|---------------------|
-| YAML deserialization attacks (unsafe yaml.load) | Tampering | Always use `yaml.safe_load()`. Existing codebase already does this consistently. |
-| Path traversal in config file paths (specialist configs reference arbitrary file paths) | Tampering | Validate all paths relative to project root. Reject paths containing `..` segments. |
-| Large/slow regex in router rules (ReDoS) | Denial of Service | Compile regex patterns with timeout (Python 3.11+ `re.compile` doesn't have native timeout; use `regex` library or limit pattern complexity). Limit regex match attempts per query. |
-| Prompt injection via query strings (malicious queries designed to trick router) | Spoofing | Router rules are pattern-based, not LLM-based -- prompt injection has no effect on classification. However, queries containing rule-triggering keywords (e.g., "def malicious_code") could route to wrong specialist -- this is expected behavior for rules-based routing. |
-| Serialized object injection via JSON files (sweep output, evaluation results) | Tampering | Use `json.load()` (not `pickle`). All file formats are JSON -- no object deserialization risk. |
-| Secrets in YAML config files | Information Disclosure | API keys stored in `.env` only -- never in committed YAML configs. This pattern is already enforced in Phase 1. Router rules contain no secrets. |
+| YAML deserialization attacks (unsafe yaml.load) | Tampering / Elevation | Use `yaml.safe_load()` exclusively (already done in ConfigLoader). Never use `yaml.load()`. |
+| Path traversal in artifact file paths (e.g., `niche` parameter used in `artifacts/sweeps/<niche>_sweep.json`) | Tampering | Sanitize niche names: allow only `[a-z_]+`. The ConfigLoader already validates niche against the known specialists list. |
+| Prompt injection in LLM threshold evaluation (user-controlled data in prior-run metrics fed to LLM prompt) | Tampering | The LLM prompt receives structured JSON data from prior runs, not user-submitted text. Format the data as a code block in the prompt. |
+| Malicious rule definitions causing infinite loops or resource exhaustion (regex backtracking) | Denial of Service | Validate regex patterns at load time. Apply timeout to regex matching (Python's `re` doesn't support timeouts natively; use `regex` library with `timeout` parameter or limit input size). |
+| Adapter file tampering (loading a malicious safetensors file) | Tampering | safetensors format is designed to be safer than pickle. Verify file integrity via size check before loading. The behavioral validation will catch adapters that produce nonsensical output. |
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- Existing codebase files:
-  - `gnus-poc/distill/distillation.py` -- current Distiller implementation
-  - `gnus-poc/distill/teacher.py` -- Phase 1 TeacherClient with multi-backend, circuit breaker, budget
-  - `gnus-poc/distill/cascade.py` -- Phase 1 TeacherCascade pattern (mirrored by router fallback)
-  - `gnus-poc/training/train_specialists_mlx.py` -- MLX LoRA trainer
-  - `gnus-poc/eval/evaluator.py` -- SpecialistEvaluator (PPL, BLEU, ROUGE-L, latency)
-  - `gnus-poc/eval/benchmarker.py` -- Benchmarker with gate checking and consecutive-failure tracking
-  - `gnus-poc/eval/metric_store.py` -- MetricStore persistence pattern
-  - `gnus-poc/config/pipeline.yaml` -- Two-layer config structure, eval_gates
-  - `gnus-poc/config/specialists/code.yaml` -- Per-specialist config pattern
-- `GQHSM/StateProto/` -- GQHSM conceptual model (states, transitions, triggers, guards)
-- PyPI (verified via pip index): `transitions` 0.9.3, `python-statemachine` 3.2.0
+- GQHSM XML state machine definitions (`Valve.xml`, `Air.xml`) -- analyzed to derive JSON schema, hierarchical state model, transition priority, and guard/action patterns
+- Existing codebase: `distill/distillation.py`, `training/train_specialists_mlx.py`, `eval/evaluator.py`, `eval/benchmarker.py`, `config/loader.py`, `pipeline/checkpoint.py`, `distill/cascade.py`
+- Phase 1 CONTEXT.md -- established patterns (two-layer config, per-specialist overrides, checkpoint validation, teacher cascade)
+- Phase 2 CONTEXT.md -- all implementation decisions (D-01 through D-17)
 
 ### Secondary (MEDIUM confidence)
-- `https://pypi.org/project/transitions/` -- transitions library features (YAML config, hierarchical states, conditions/guards) [WebFetch verified]
-- `https://pypi.org/project/python-statemachine/` -- python-statemachine features (guards, YAML extra, async support) [WebFetch verified]
-- `.planning/workstreams/poc/phases/01-pipeline-hardening/01-CONTEXT.md` -- Phase 1 architecture patterns (teacher cascade, checkpoint system, config loader)
+- GQHSM intel context (`intel/context.md` Cognitive OS Extension section) -- GQHSM runtime description, plugin ABI, guard callbacks, generic callbacks
+- `pyproject.toml` and `requirements.txt` -- confirmed installed package versions
+- `pip index versions` -- confirmed `transitions` 0.9.3 exists on PyPI
 
 ### Tertiary (LOW confidence)
-- Default threshold values (target=2.5, warning=3.0, hard_stop=5.0, patience=100, min_delta=0.01) -- based on training knowledge of typical KD loss ranges, not verified against this project's actual loss values. Marked for operator review.
-- GQHSM conceptual model extraction -- based on directory structure and CONTEXT.md descriptions rather than deep inspection of C# source files. Tagged as [ASSUMED] in Assumptions Log.
+- Training knowledge for plateau-based early stopping -- not verified against current ML literature publications
+- Training knowledge for `transitions` library HSM capabilities -- not verified against official documentation
+- Training knowledge for LLM prompt engineering patterns -- not verified against current research
+- Training knowledge for JSON Schema Draft 2020-12 patterns -- not verified against official schema docs
 
 ## Metadata
 
 **Confidence breakdown:**
-- Standard stack: HIGH -- all libraries verified installed (pip show) or available on PyPI (pip index). No new package installations needed except possibly adding `transitions` to requirements if not already declared.
-- Architecture: HIGH -- all modules exist in the codebase and were inspected. Integration points with Phase 1 are documented in CONTEXT.md and verified against existing code (TeacherClient API, ConfigLoader, checkpoint system, cascade pattern).
-- Pitfalls: MEDIUM -- identified from ML training experience and codebase analysis. KD oscillation and validation leakage are real risks but the specific oscillation amplitude for this project's models is unknown until training runs.
+- Standard stack: MEDIUM -- `transitions` [ASSUMED] needs human verification; all other packages are already installed and verified
+- Architecture: HIGH -- patterns are directly derived from existing codebase (ConfigLoader, checkpoint pattern, cascade pattern) and GQHSM XML analysis
+- Pitfalls: MEDIUM -- pitfalls are based on common ML training issues; actual Phase 2 implementation may surface project-specific pitfalls
+- GQHSM JSON schema: HIGH -- directly derived from GQHSM XML format analysis (`Valve.xml`, `Air.xml`); states, transitions, guards, hierarchical nesting, and priority ordering all map cleanly
 
-**Research date:** 2026-06-29
-**Valid until:** 2026-07-29 (30-day stability window for ML training patterns)
+**Research date:** 2026-06-21
+**Valid until:** 2026-07-21 (30 days -- domain is stable, no fast-moving dependencies)
+
+**Web search unavailable:** This research was conducted without web search access. All web-dependent claims are tagged [ASSUMED]. The planner must add `checkpoint:human-verify` tasks before installing new packages or finalizing convergence algorithm defaults.
