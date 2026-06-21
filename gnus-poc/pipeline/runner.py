@@ -174,7 +174,7 @@ class PipelineRunner:
 
                 result = self._run_stage(n, stage)
 
-                if result.success and not force:
+                if result.success:
                     # Validate outputs and mark checkpoint.
                     validation = self._checkpoint.validate_stage(n, stage)
                     passed_count = sum(

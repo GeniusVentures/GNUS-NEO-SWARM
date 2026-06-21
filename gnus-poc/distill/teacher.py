@@ -432,11 +432,15 @@ class TeacherClient:
 
         backend = self._resolve_backend(model_name)
 
+        # Set the actual model identifier for this call (validated by _resolve_backend)
+        model_cfg = self._models[model_name]
+        backend._model_id = model_cfg.get("model_id", model_name)
+
         # Apply defaults for max_tokens and temperature if not explicitly passed
         max_tokens = kwargs.pop("max_tokens", self._default_max_tokens)
         temperature = kwargs.pop("temperature", self._default_temperature)
 
-        last_exception = None
+        last_exception = RuntimeError("max_retries set to 0")
         for attempt in range(self._max_retries):
             try:
                 uniform = backend.generate(

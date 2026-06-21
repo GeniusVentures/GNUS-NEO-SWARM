@@ -224,11 +224,8 @@ class TeacherCascade:
         # -- Step 3: Benchmark routing → Level 2 ----------------------------
         benchmark_key = _DOMAIN_MAP.get(domain)
         if benchmark_key is None or benchmark_key not in self._benchmark_table:
-            # Unknown domain — fall back to the first available domain key
-            if self._benchmark_table:
-                benchmark_key = next(iter(self._benchmark_table.keys()))
-            elif level1_content is not None:
-                # No benchmark table at all — return Level 1 result as-is
+            # Domain not in benchmark table — return Level 1 result if available
+            if level1_content is not None:
                 return CascadeResult(
                     final_content=level1_content,
                     level1_confidence=level1_confidence,
@@ -269,7 +266,7 @@ class TeacherCascade:
                     }
                 )
 
-                if l2_confidence > best_l2_confidence:
+                if l2_confidence >= best_l2_confidence:
                     best_l2_confidence = l2_confidence
                     best_l2_content = l2_content
                     best_l2_model = model_name
