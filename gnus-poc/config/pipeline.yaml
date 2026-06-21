@@ -91,6 +91,7 @@ training:
   fine_tune_type: "lora"
   optimizer: "adamw"
   seed: 42
+  min_example_length: 200              # Minimum character length for synthetic/generated examples
 
   # -- Phase 2: KD training convergence (per-specialist defaults) --
   distill_loss_target: 2.5        # Per-specialist default; overridden in config/specialists/<niche>.yaml

@@ -59,6 +59,7 @@ class SyntheticDataGenerator:
         domain = _DOMAIN_MAP.get(niche_name, self._default_domain)
 
         results = []
+        seen_hashes: set = set()
         repeats = (num_samples // len(user_prompts)) + 1
         for i, user_prompt in enumerate(user_prompts * repeats):
             if len(results) >= num_samples:
@@ -76,13 +77,22 @@ class SyntheticDataGenerator:
                     response = self._client.generate(model_name=None, messages=messages)
                 content = response.choices[0].message.content
 
-                if self._passes_quality(content, keywords):
-                    results.append({
-                        "text": content,
-                        "source": "synthetic_deepseek_v4_pro",
-                        "niche": niche_name,
-                        "prompt": user_prompt,
-                    })
+                if not self._passes_quality(content, keywords):
+                    continue
+
+                # Dedup: skip if normalized text hash already seen
+                norm_text = self._normalize_for_dedup(content)
+                text_hash = hash(norm_text)
+                if text_hash in seen_hashes:
+                    continue
+                seen_hashes.add(text_hash)
+
+                results.append({
+                    "text": content,
+                    "source": "synthetic_deepseek_v4_pro",
+                    "niche": niche_name,
+                    "prompt": user_prompt,
+                })
             except Exception as e:
                 raise SyntheticDataError(
                     f"Failed to generate sample {i} for niche '{niche_name}': {e}"
@@ -91,6 +101,10 @@ class SyntheticDataGenerator:
         return results
 
     def _passes_quality(self, text: str, keywords: Optional[list] = None) -> bool:
+        # Rule 2: empty / whitespace-only response discard
+        if not text or not text.strip():
+            return False
+
         if len(text) < QUALITY_MIN_CHARS:
             return False
 
@@ -103,6 +117,17 @@ class SyntheticDataGenerator:
                 return False
 
         return True
+
+    @staticmethod
+    def _normalize_for_dedup(text: str) -> str:
+        """Normalize text for dedup hashing: lowercase, collapse whitespace, strip.
+
+        Returns the normalized string suitable for hashing and comparison.
+        """
+        import re as _re
+        normalized = text.lower()
+        normalized = _re.sub(r"\s+", " ", normalized)
+        return normalized.strip()
 
     def save_to_jsonl(self, samples: list, output_path: Path):
         output_path.parent.mkdir(parents=True, exist_ok=True)

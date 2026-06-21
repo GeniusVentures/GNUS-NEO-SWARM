@@ -280,6 +280,46 @@ class CheckpointValidator:
                 "detail": f"{valid_count} rows >= {min_rows} minimum",
             })
 
+        # Check 4: content quality — every entry has non-empty text meeting
+        # the configured min_example_length (mirrors SyntheticDataGenerator._passes_quality).
+        min_length = self._kMinSyntheticRowCount * 10  # rough proxy: 10 chars/row minimum
+        try:
+            from config.loader import ConfigLoader
+            loader = ConfigLoader(self._root)
+            cfg = loader.get_effective_config(niche)
+            min_length = cfg.get("min_example_length", 200)
+        except Exception:
+            pass  # fall back to default if config not loadable
+
+        short_entries = []
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            try:
+                parsed = json.loads(stripped)
+            except json.JSONDecodeError:
+                continue
+            text = parsed.get("text", "")
+            if not text or not text.strip() or len(text) < min_length:
+                short_entries.append(i + 1)
+
+        if short_entries:
+            checks.append({
+                "name": "content_quality",
+                "passed": False,
+                "detail": f"{len(short_entries)} entr{'y' if len(short_entries) == 1 else 'ies'} "
+                          f"with text field below {min_length} character minimum "
+                          f"(lines: {short_entries[:5]}{'…' if len(short_entries) > 5 else ''})",
+            })
+        else:
+            checks.append({
+                "name": "content_quality",
+                "passed": True,
+                "detail": f"All entries have valid text fields >= {min_length} characters, "
+                          f"matching SyntheticDataGenerator._passes_quality",
+            })
+
         return checks
 
     # -- dedup -----------------------------------------------------------
