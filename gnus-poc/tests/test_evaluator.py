@@ -176,3 +176,71 @@ class TestMetricStore:
         # Should only load the valid file, skip the corrupt one
         assert len(prior) == 1
         assert prior[0]["niche"] == "medical"
+
+
+class TestEvaluateAndPersist:
+    """Integration tests for SpecialistEvaluator.evaluate_and_persist()."""
+
+    def test_evaluate_and_persist_empty_samples(self, tmp_path):
+        evaluator = SpecialistEvaluator(project_root=tmp_path)
+        mock_model = MagicMock()
+        mock_tokenizer = MagicMock()
+        result = evaluator.evaluate_and_persist(
+            mock_model, mock_tokenizer, [], "test",
+        )
+        assert result["results"]["niche"] == "test"
+        assert result["results"]["num_samples"] == 0
+        assert "persisted_path" in result
+        assert "timestamp_utc" in result
+        assert Path(result["persisted_path"]).exists()
+
+    def test_evaluate_and_persist_writes_gate_data(self, tmp_path):
+        evaluator = SpecialistEvaluator(project_root=tmp_path)
+        mock_model = MagicMock()
+        mock_tokenizer = MagicMock()
+        result = evaluator.evaluate_and_persist(
+            mock_model, mock_tokenizer, [], "test",
+            gate_thresholds={"ppl_max": 50.0, "bleu_min": 0.15},
+        )
+        assert "gates_passed" in result
+        persisted = json.loads(Path(result["persisted_path"]).read_text())
+        assert "gates_passed" in persisted
+        assert persisted["version"] == "1.0"
+
+    def test_evaluate_and_persist_uses_provided_metric_store(self, tmp_path):
+        evaluator = SpecialistEvaluator(project_root=tmp_path)
+        store = MetricStore(project_root=tmp_path)
+        mock_model = MagicMock()
+        mock_tokenizer = MagicMock()
+        result = evaluator.evaluate_and_persist(
+            mock_model, mock_tokenizer, [], "test",
+            metric_store=store,
+        )
+        assert Path(result["persisted_path"]).exists()
+        # Verify store can load it back
+        prior = store.load_prior("test")
+        assert len(prior) == 1
+
+    def test_check_gates_perplexity_pass(self):
+        gates = SpecialistEvaluator._check_gates(
+            {"perplexity": 12.0}, {"ppl_max": 50.0}
+        )
+        assert gates["perplexity"]["passed"] is True
+
+    def test_check_gates_perplexity_fail(self):
+        gates = SpecialistEvaluator._check_gates(
+            {"perplexity": 75.0}, {"ppl_max": 50.0}
+        )
+        assert gates["perplexity"]["passed"] is False
+
+    def test_check_gates_bleu_pass(self):
+        gates = SpecialistEvaluator._check_gates(
+            {"bleu_score": 0.45}, {"bleu_min": 0.15}
+        )
+        assert gates["bleu_score"]["passed"] is True
+
+    def test_check_gates_bleu_fail(self):
+        gates = SpecialistEvaluator._check_gates(
+            {"bleu_score": 0.05}, {"bleu_min": 0.15}
+        )
+        assert gates["bleu_score"]["passed"] is False

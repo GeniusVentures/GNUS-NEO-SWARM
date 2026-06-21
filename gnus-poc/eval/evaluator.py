@@ -2,15 +2,21 @@
 
 import argparse
 import json
+import logging
 import math
 import sys
 import time
 from collections import defaultdict
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
+
+from eval.metric_store import EvalMetrics, MetricStore
+
+logger = logging.getLogger(__name__)
 
 
 class SpecialistEvaluator:
@@ -152,6 +158,121 @@ class SpecialistEvaluator:
                 else:
                     dp[curr][j] = max(dp[prev][j], dp[curr][j - 1])
         return dp[m % 2][n]
+
+    # ------------------------------------------------------------------
+    # Structured evaluation + persistence (Phase 2)
+    # ------------------------------------------------------------------
+
+    def evaluate_and_persist(
+        self,
+        model,
+        tokenizer,
+        test_samples: list,
+        niche_name: str,
+        metric_store: Optional[MetricStore] = None,
+        gate_thresholds: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Evaluate a specialist, check gate thresholds, and persist results.
+
+        Extends ``evaluate()`` with structured persistence via ``MetricStore``
+        and automated gate checks against per-specialist thresholds.
+
+        Args:
+            model: MLX model instance.
+            tokenizer: Tokenizer for the model.
+            test_samples: List of test sample dicts with ``"text"`` keys.
+            niche_name: Specialist niche identifier.
+            metric_store: Optional pre-created ``MetricStore``.  Created
+                lazily from ``project_root`` if not provided.
+            gate_thresholds: Optional dict with keys ``"ppl_max"``,
+                ``"bleu_min"``, ``"consecutive_failures"``.  Defaults
+                to reasonable values if not provided.
+
+        Returns:
+            Enriched evaluation dict containing:
+            - ``results``: raw metric dict from ``evaluate()``
+            - ``gates_passed``: per-gate pass/fail with threshold and value
+            - ``persisted_path``: path to the artifact file (if persisted)
+            - ``timestamp_utc``: ISO 8601 timestamp
+        """
+        # 1. Run core evaluation
+        results = self.evaluate(model, tokenizer, test_samples, niche_name)
+
+        # 2. Resolve gate thresholds
+        if gate_thresholds is None:
+            gate_thresholds = {
+                "ppl_max": 50.0,
+                "bleu_min": 0.15,
+                "consecutive_failures": 3,
+            }
+
+        # 3. Apply gate checks
+        gates_passed = self._check_gates(results, gate_thresholds)
+
+        # 4. Build EvalMetrics and persist
+        timestamp = datetime.now(timezone.utc).isoformat()  # noqa: UP017 (timezone.utc not available)
+        metrics = EvalMetrics(
+            niche=niche_name,
+            timestamp_utc=timestamp,
+            num_samples=results.get("num_samples", 0),
+            perplexity=results.get("perplexity") or 0.0,
+            bleu_score=results.get("bleu_score") or 0.0,
+            rouge_l=results.get("rouge_l") or 0.0,
+            latency_ms_mean=results.get("latency_ms_per_token") or 0.0,
+            latency_ms_p95=results.get("latency_ms_per_token") or 0.0,
+            gates_passed=gates_passed,
+        )
+
+        if metric_store is None:
+            metric_store = MetricStore(self._project_root)
+        persisted_path = metric_store.persist(metrics)
+
+        return {
+            "results": results,
+            "gates_passed": gates_passed,
+            "persisted_path": str(persisted_path),
+            "timestamp_utc": timestamp,
+        }
+
+    @staticmethod
+    def _check_gates(
+        results: Dict[str, Any],
+        thresholds: Dict[str, Any],
+    ) -> Dict[str, Dict[str, Any]]:
+        """Compare evaluation results against per-metric gate thresholds.
+
+        Args:
+            results: Raw evaluation dict from ``evaluate()``.
+            thresholds: Gate threshold dict with keys ``ppl_max``,
+                ``bleu_min``, and ``consecutive_failures``.
+
+        Returns:
+            Dict keyed by gate name, each containing ``passed``,
+            ``threshold``, and ``value``.
+        """
+        gates: Dict[str, Dict[str, Any]] = {}
+
+        # Perplexity gate: lower is better
+        ppl = results.get("perplexity")
+        ppl_max = thresholds.get("ppl_max", 50.0)
+        if ppl is not None:
+            gates["perplexity"] = {
+                "passed": ppl <= ppl_max,
+                "threshold": float(ppl_max),
+                "value": float(ppl),
+            }
+
+        # BLEU gate: higher is better
+        bleu = results.get("bleu_score")
+        bleu_min = thresholds.get("bleu_min", 0.15)
+        if bleu is not None:
+            gates["bleu_score"] = {
+                "passed": bleu >= bleu_min,
+                "threshold": float(bleu_min),
+                "value": float(bleu),
+            }
+
+        return gates
 
 
 if __name__ == "__main__":
