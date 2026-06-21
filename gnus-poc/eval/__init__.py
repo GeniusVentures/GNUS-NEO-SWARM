@@ -2,5 +2,6 @@
 
 from eval.evaluator import SpecialistEvaluator
 from eval.benchmarker import Benchmarker
+from eval.metric_store import EvalMetrics, MetricStore
 
-__all__ = ["SpecialistEvaluator", "Benchmarker"]
+__all__ = ["SpecialistEvaluator", "Benchmarker", "EvalMetrics", "MetricStore"]
