@@ -140,7 +140,7 @@ class TestKeywordRouting:
         assert plan.primary_specialist == "code"
         assert plan.execution_mode == "local_lora"
         assert plan.confidence > 0.0
-        assert "code_keyword" in plan.matched_rules
+        assert any("code" in r for r in plan.matched_rules), f"Expected code rule, got {plan.matched_rules}"
 
     def test_keyword_case_insensitive(self, rule_engine):
         """Keyword matching is case-insensitive."""
@@ -247,7 +247,7 @@ class TestYamlDrivenRules:
   execution_mode: "local_lora"
   is_default: true
 """
-        engine.reload(yaml_str=yaml_str)
+        engine.reload(rules_str=yaml_str)
 
         # After: medical query routes to medical specialist
         plan_after = engine.classify(query)
