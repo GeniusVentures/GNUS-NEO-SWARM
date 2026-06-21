@@ -17,6 +17,7 @@ tqdm>=4.65.0
 
 # API & config
 openai>=1.12.0
+anthropic>=0.49.0
 tenacity>=8.2.0
 python-dotenv>=1.0.0
 PyYAML>=6.0.0

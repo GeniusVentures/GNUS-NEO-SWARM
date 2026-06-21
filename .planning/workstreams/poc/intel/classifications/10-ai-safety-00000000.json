@@ -1,0 +1,27 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/10-ai-safety.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "15 AI Safety Philosophy",
+  "summary": "Describes the decentralized AI safety architecture for GeniusCognitiveSystem v1, covering node-level enforcement, reputation mechanisms, client-side filtering, and tool intermediary controls.",
+  "scope": [
+    "GeniusCognitiveSystem v1",
+    "AI Safety",
+    "Node-Level Enforcement",
+    "Reputation-Based Enforcement",
+    "Client-Side Preference Filtering",
+    "Tool Intermediary Enforcement",
+    "Safety Profile Declaration",
+    "Grounding Safety Integration",
+    "Swarm Mode Safety"
+  ],
+  "cross_refs": [
+    "./09-future-and-positioning.md",
+    "./INDEX.md",
+    "./11-distributed-swarm-thinking-context.md"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

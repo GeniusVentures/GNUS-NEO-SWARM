@@ -9,9 +9,11 @@ Container layout: headers[B] | offsets[B] | codes_blob[B*2048]
 - offsets: (byte_offset & ~0xF) | flags4
 """
 
+import argparse
 import json
 import math
 import struct
+import sys
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -197,3 +199,30 @@ class FP4Exporter:
             json.dump(stats, f, indent=2)
 
         return bin_path, stats
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Export specialist weights to FP4 Ultra format")
+    parser.add_argument("--niche", required=True, help="Specialist niche name")
+    args = parser.parse_args()
+
+    project_root = Path(__file__).resolve().parent.parent
+    exporter = FP4Exporter(project_root)
+
+    # Placeholder export — real export requires adapter weights from training
+    dummy_weights = np.random.randn(512, 512).astype(np.float32) * 0.01
+    output_dir = project_root / "models" / "specialists_mlx" / args.niche / "fp4"
+    bin_path, stats = exporter.export_to_file(dummy_weights, args.niche, output_dir)
+
+    manifest = {
+        "model_name": args.niche,
+        "niche": args.niche,
+        "base_model_ref": "",
+        "adapter_ref": "",
+        "quantization_params": {"format": "fp4_ultra"},
+        "encoder_version": "0.1.0",
+        "timestamp_utc": "",
+    }
+    with (output_dir / "manifest.json").open("w") as f:
+        json.dump(manifest, f, indent=2)
+    print(f"FP4 export {args.niche}: {bin_path} ({stats['total_bytes']} bytes)")

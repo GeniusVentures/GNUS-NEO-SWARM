@@ -52,15 +52,10 @@ The current v0.1.0 implements a 7-stage sequential pipeline (data_prep -> synthe
 - Adaptive mode selection per block during encoding (doc 16 Section 16.5).
 - Policy configurable per specialist in `config/specialists/<niche>.yaml`.
 
-### Decision 3: Single-Machine EGGROLL Scope
+### Decision 3: Scope Boundary — Training Pipeline Only
 
-**Status:** Decided (2026-06-18)
-**Decision:** EGGROLL retraining is scoped to single-machine proof-of-concept (Phase 1 of the EGGROLL rollout plan).
-**Rationale:**
-- gnus-poc is a Python PoC, not a distributed system.
-- Single-machine EGGROLL proves: deterministic perturbation, compact fitness, promotion loop.
-- Multi-node beehive coordination requires the C++ GNUS infrastructure (libp2p, IPFS-lite) — out of scope for this PoC.
-- Aligns with doc 13 rollout: Phase 1 is single-machine proof, later phases are GNUS platform.
+**Status:** Decided (2026-06-19)
+**Decision:** gnus-poc is scoped to the ELM teacher→student training and distillation pipeline through benchmark validation. EGGROLL retraining, GAML memory, reputation/consensus, and epistemic arbitration belong to the GNUS-NEO-SWARM C++ parent repo.
 
 ## Architecture Reference
 
@@ -86,23 +81,24 @@ Additional:
 ## Scope Boundaries
 
 **In scope (v1):**
-- Pipeline hardening and robustness
-- Teacher API with cost controls, retry, circuit breaker
+- Pipeline hardening with subprocess execution and validated checkpoints
+- Multi-teacher cascade (DSv4 Fast → domain-routed Level 2) with dual-backend API (OpenAI + Anthropic)
+- Budget enforcement, retry with exponential backoff, circuit breaker
 - Knowledge distillation with KD loss and temperature sweeping
 - LoRA specialist training with MLX
-- Model evaluation and benchmarking
-- Ultra FP4 quantization export
-- Rule-based router/planner for specialist selection
-- Single-machine EGGROLL retraining
-- GAML-compatible memory store
-- Grounding/retrieval integration
-- Reputation scoring and continuous learning loop
+- Model evaluation metrics (accuracy, perplexity, latency)
+- Rules-based specialist routing (YAML-driven, not learned)
+- Ultra FP4 quantization export with dual-mode selection and provenance manifests
+- Benchmark evaluation gate (MMLU, HumanEval, GSM8K, domain suites)
 
-**Out of scope (deferred to v2 or GNUS C++ platform):**
-- Distributed swarm execution (needs libp2p, C++ infra)
-- Tool Intermediary / secure agent architecture (needs sandboxing, C++ infra)
-- Multi-node consensus/arbitration (needs distributed runtime)
+**Out of scope (belongs to GNUS-NEO-SWARM C++ parent repo):**
+- EGGROLL swarm retraining and evolutionary optimization
+- GAML agentic memory layer
+- Reputation-weighted consensus
+- Distributed swarm execution (needs libp2p, IPFS-lite)
+- Tool Intermediary / secure agent architecture (needs sandboxing)
+- Multi-node consensus/arbitration
 - GPU decode shaders for FP4 (needs Vulkan/MoltenVK)
-- Hierarchical Critical Thinking Specialists (post-v1 enhancement)
-- Epistemic Arbitration / GQHSM (post-v1 enhancement)
-- EGGROLL beehive/swarm aggregation (needs distributed runtime)
+- Hierarchical Critical Thinking Specialists (HCTS)
+- Epistemic Arbitration / GQHSM
+- Grounding/retrieval integration

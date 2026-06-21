@@ -1,10 +1,14 @@
-"""Synthetic data generation using DeepSeek v4 pro teacher model."""
+"""Synthetic data generation using multi-backend cascade-capable teacher models."""
 
+import argparse
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Optional
 
+from config.loader import ConfigLoader
+from distill.cascade import _DOMAIN_MAP
 from distill.teacher import TeacherClient
 from distill.teacher_errors import SyntheticDataError
 
@@ -27,8 +31,16 @@ _refusal_re = re.compile("|".join(REFUSAL_PATTERNS), re.IGNORECASE)
 
 
 class SyntheticDataGenerator:
-    def __init__(self, teacher_client: TeacherClient, project_root: Optional[Path] = None):
+    def __init__(
+        self,
+        teacher_client: TeacherClient,
+        project_root: Optional[Path] = None,
+        use_cascade: bool = True,
+        domain: str = "encyclopedic",
+    ):
         self._client = teacher_client
+        self._use_cascade = use_cascade
+        self._default_domain = domain
         if project_root is None:
             project_root = Path(__file__).resolve().parent.parent
         self._project_root = project_root
@@ -44,6 +56,8 @@ class SyntheticDataGenerator:
         if not user_prompts:
             return []
 
+        domain = _DOMAIN_MAP.get(niche_name, self._default_domain)
+
         results = []
         repeats = (num_samples // len(user_prompts)) + 1
         for i, user_prompt in enumerate(user_prompts * repeats):
@@ -56,7 +70,10 @@ class SyntheticDataGenerator:
             ]
 
             try:
-                response = self._client.generate(messages)
+                if self._use_cascade:
+                    response = self._client.generate_with_cascade(messages, domain=niche_name)
+                else:
+                    response = self._client.generate(model_name=None, messages=messages)
                 content = response.choices[0].message.content
 
                 if self._passes_quality(content, keywords):
@@ -92,3 +109,19 @@ class SyntheticDataGenerator:
         with output_path.open("w") as f:
             for sample in samples:
                 f.write(json.dumps(sample) + "\n")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Generate synthetic data for a specialist niche")
+    parser.add_argument("--niche", required=True, help="Specialist niche name")
+    args = parser.parse_args()
+
+    project_root = Path(__file__).resolve().parent.parent
+    loader = ConfigLoader(project_root)
+    cfg = loader.get_effective_config(args.niche)
+    system_prompt = cfg.get("system_prompt", f"You are a {args.niche} specialist.")
+    user_prompts = cfg.get("synthetic_prompts", [f"Explain {args.niche} concepts in detail."])
+    client = TeacherClient(project_root)
+    generator = SyntheticDataGenerator(client, project_root, use_cascade=True)
+    samples = generator.generate_for_niche(args.niche, system_prompt, user_prompts)
+    generator.save_to_jsonl(samples, project_root / "artifacts" / "synthetic" / f"{args.niche}.jsonl")
