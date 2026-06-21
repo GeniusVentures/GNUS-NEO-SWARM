@@ -9,7 +9,7 @@ Scope is bounded to what a Python training pipeline can prove. Distributed swarm
 ## Phases
 
 - [x] **Phase 1: Pipeline Hardening** — Multi-teacher cascade with dual-backend API, subprocess pipeline execution, budget persistence, retry/circuit breaker, validated checkpoints
-- [ ] **Phase 2: Training & Distillation Quality** — KD convergence with temperature sweeping, valid LoRA adapters, evaluation metrics, rules-based specialist routing
+- [x] **Phase 2: Training & Distillation Quality** — KD convergence with temperature sweeping, valid LoRA adapters, evaluation metrics, rules-based specialist routing (completed 2026-06-21)
 - [ ] **Phase 3: FP4 Quantization & Artifact Integrity** — Standards-compliant Ultra FP4 export with dual-mode selection and provenance manifests
 - [ ] **Phase 4: Benchmark Evaluation** — Established benchmark suite scoring as quality gate with manual feedback loop to distillation
 
@@ -54,9 +54,9 @@ Plans:
 Plans:
 - [x] 02-01-PLAN.md — Config extensions: training convergence, eval gates, router config, per-specialist thresholds
 - [x] 02-02-PLAN.md — Convergence tracking: ConvergenceTracker with plateau detection, two-tier stopping, sweep analysis
-- [ ] 02-03-PLAN.md — Training quality validation: AdapterValidator with multi-prong checks, post-training validation
+- [x] 02-03-PLAN.md — Training quality validation: AdapterValidator with multi-prong checks, post-training validation
 - [x] 02-04-PLAN.md — Evaluation metrics & gating: MetricStore, ThresholdAdapter, auto-gating, trend analysis
-- [ ] 02-05-PLAN.md — Rules-based router: GQHSM-compatible state machine, YAML-driven rule engine, fallback chaining
+- [x] 02-05-PLAN.md — Rules-based router: GQHSM-compatible state machine, YAML-driven rule engine, fallback chaining
 
 ### Phase 3: FP4 Quantization & Artifact Integrity
 **Goal**: Ultra FP4 export produces standards-compliant quantized models with 64x64 macroblocks, dual-mode per-block selection (FP4_AFFINE/T158_AFFINE), and provenance manifests.
@@ -87,7 +87,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Pipeline Hardening | 0/5 | Planned | - |
-| 2. Training & Distillation Quality | 3/5 | In Progress|  |
+| 2. Training & Distillation Quality | 5/5 | Complete   | 2026-06-21 |
 | 3. FP4 Quantization & Artifact Integrity | 0/? | Not started | - |
 | 4. Benchmark Evaluation | 0/? | Not started | - |
 

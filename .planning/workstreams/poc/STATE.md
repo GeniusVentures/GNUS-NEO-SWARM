@@ -4,7 +4,7 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Phase 2 Plan 02-02 complete - ConvergenceTracker and SweepAnalyzer
-last_updated: "2026-06-21T23:52:51.330Z"
+last_updated: "2026-06-21T23:53:13.892Z"
 last_activity: 2026-06-21
 progress:
   total_phases: 4
@@ -64,6 +64,10 @@ Recent decisions affecting current work:
 - Plateau-Based Early Stopping: ConvergenceTracker uses patience and min_delta (PyTorch ReduceLROnPlateau pattern).
 - Two-Tier Stopping: Warning threshold logs and continues; hard-stop threshold halts immediately.
 - Synthetic Dedup: Normalized text hash dedup in generate_for_niche (lowercase, collapsed whitespace).
+- [Phase ?]: Router confidence scoring uses ratio-based keyword matching, binary regex matching, and capped density ratios
+- [Phase ?]: Router default specialist determined by is_default rule flag rather than hardcoded value
+- [Phase ?]: All router classification rules live in YAML config only; adding a rule requires no Python code change
+- [Phase ?]: RouterStateMachine builds transitions.Machine lazily on first trigger(); module imports cleanly without transitions installed
 
 ### Blockers/Concerns
 
