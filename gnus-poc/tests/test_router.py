@@ -389,7 +389,7 @@ class TestInputLimits:
         from router.rules import RouterConfigError
 
         huge_query = "x" * 102401  # 100KB + 1 byte
-        with pytest.raises(RouterConfigError, match="input.*size"):
+        with pytest.raises(RouterConfigError, match="Input size"):
             rule_engine.classify(huge_query)
 
     def test_input_just_under_limit(self, rule_engine):
