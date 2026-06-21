@@ -390,17 +390,17 @@ class CheckpointValidator:
             })
             return checks
 
-        if "status" not in meta:
+        if meta.get("status") != "complete":
             checks.append({
-                "name": "metadata_has_status",
+                "name": "metadata_status_complete",
                 "passed": False,
-                "detail": "training_metadata.json missing 'status' field",
+                "detail": f"training_metadata.json status must be 'complete', got '{meta.get('status')}'",
             })
         else:
             checks.append({
-                "name": "metadata_has_status",
+                "name": "metadata_status_complete",
                 "passed": True,
-                "detail": f"Status: {meta['status']}",
+                "detail": "Training status is 'complete'",
             })
 
         return checks

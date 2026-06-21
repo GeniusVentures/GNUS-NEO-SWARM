@@ -1,8 +1,12 @@
 """Cross-niche deduplication using MinHash LSH."""
 
+import argparse
 import hashlib
+import json
 import struct
+import sys
 from collections import defaultdict
+from pathlib import Path
 from typing import List, Optional, Set, Tuple
 
 
@@ -73,3 +77,33 @@ def deduplicate_within_niche(samples: list, jaccard_threshold: float = 0.8, num_
             keep.append(i)
 
     return [samples[i] for i in keep]
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Deduplicate synthetic data for a specialist niche")
+    parser.add_argument("--niche", required=True, help="Specialist niche name")
+    args = parser.parse_args()
+
+    project_root = Path(__file__).resolve().parent.parent
+    input_path = project_root / "artifacts" / "synthetic" / f"{args.niche}.jsonl"
+    if not input_path.exists():
+        print(f"No synthetic data found at {input_path} — nothing to deduplicate")
+        sys.exit(0)
+
+    samples = []
+    with input_path.open() as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                samples.append(json.loads(line))
+
+    deduped = deduplicate_within_niche(samples)
+    removed = len(samples) - len(deduped)
+
+    out_dir = project_root / "artifacts" / "dedup"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    with (out_dir / f"{args.niche}_hashes.json").open("w") as f:
+        json.dump({"niche": args.niche, "count": len(deduped)}, f)
+    with (out_dir / f"{args.niche}_dedup_log.json").open("w") as f:
+        json.dump({"niche": args.niche, "original": len(samples), "deduped": len(deduped), "removed_count": removed}, f)
+    print(f"Dedup {args.niche}: {len(samples)} → {len(deduped)} ({removed} removed)")

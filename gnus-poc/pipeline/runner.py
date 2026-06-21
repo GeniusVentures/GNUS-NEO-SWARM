@@ -190,6 +190,7 @@ class PipelineRunner:
                         self._checkpoint.mark_complete(n, stage, validation)
                     else:
                         print(f"  [{stage}] Validation FAILED — checkpoint not written")
+                        break  # Abort niche — downstream stages need valid checkpoint inputs
                 elif not result.success:
                     print(f"  [{stage}] FAILED — continuing to next niche")
                     # Per D-10: niche failure does not abort the entire pipeline.

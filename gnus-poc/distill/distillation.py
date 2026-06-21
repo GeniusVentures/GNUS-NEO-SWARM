@@ -1,6 +1,10 @@
 """Logit-based knowledge distillation from teacher to student."""
 
+import argparse
+import json
 import math
+import sys
+from pathlib import Path
 from typing import Optional
 
 import numpy as np
@@ -85,3 +89,25 @@ class Distiller:
             "best_temperature": best_temp,
             "best_loss": round(best_loss, 6),
         }
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run knowledge distillation for a specialist")
+    parser.add_argument("--niche", required=True, help="Specialist niche name")
+    args = parser.parse_args()
+
+    project_root = Path(__file__).resolve().parent.parent
+    distiller = Distiller()
+
+    # Produce a minimal loss log — real loss computation requires model + data
+    loss_log = {
+        "niche": args.niche,
+        "losses": [float("inf")],
+        "note": "Placeholder — run with model and tokenizer for real KD loss",
+    }
+
+    out_dir = project_root / "artifacts" / "distill"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    with (out_dir / f"{args.niche}_loss.json").open("w") as f:
+        json.dump(loss_log, f, indent=2)
+    print(f"Distillation {args.niche}: loss log written")
