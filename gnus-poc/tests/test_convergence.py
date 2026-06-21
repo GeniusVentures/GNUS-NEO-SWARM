@@ -85,7 +85,7 @@ class TestConvergenceTracker:
         for _ in range(10):
             tracker.step(3.0)
 
-        assert tracker.state.steps_since_improvement == 10
+        assert tracker.state.steps_since_improvement == 9  # first step registers improvement (loss < inf)
         assert tracker.state.best_loss == 3.0
 
         # Significant improvement should reset counter
