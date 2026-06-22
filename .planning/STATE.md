@@ -1,69 +1,15 @@
 # Project State
 
-## Project Reference
+## Overview
 
-See: .planning/PROJECT.md (created 2026-06-18)
+Two active workstreams. See individual STATE.md files for detailed phase tracking.
 
-**Core value:** A Python proof-of-concept that trains specialized Expert Language Models (ELMs) through teacher-student knowledge distillation and evolutionary (EGGROLL-style) retraining.
-**Current focus:** Phase 1 — Pipeline Hardening
-
-## Current Position
-
-Phase: 1 of 7 (Pipeline Hardening)
-Plan: 0 of ? in current phase
-Status: Ready to plan
-Last activity: 2026-06-18 — Project initialized with ROADMAP.md, REQUIREMENTS.md, PROJECT.md
-
-Progress: [░░░░░░░░░░] 0%
-
-## Performance Metrics
-
-**Velocity:**
-- Total plans completed: 0
-- Average duration: N/A
-- Total execution time: 0 hours
-
-**By Phase:**
-
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| - | - | - | - |
-
-**Recent Trend:**
-- Last 5 plans: N/A
-- Trend: N/A
-
-*Updated after each plan completion*
-
-## Accumulated Context
-
-### Decisions
-
-Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
-
-- **Adapter-Based Architecture:** Specialists are LoRA adapters on a shared Qwen3-30B-A3B backbone (not standalone models).
-- **Per-Specialist Quantization:** FP4_AFFINE for accuracy-critical specialists, T158_AFFINE for latency-tolerant ones.
-- **Single-Machine EGGROLL:** Scope limited to single-machine proof-of-concept (Phase 1 of the EGGROLL rollout plan).
-
-### Pending Todos
-
-None yet. Capture with `/gsd:capture`.
-
-### Blockers/Concerns
-
-None yet.
-
-## Deferred Items
-
-Items acknowledged and carried forward from previous milestone close:
-
-| Category | Item | Status | Deferred At |
-|----------|------|--------|-------------|
-| *(none)* | | | |
+**Workstreams:**
+- `neoswarm` — C++ cognitive engine. Phases 1–6 (production readiness, 59% requirements complete). Phases 7–11 (cognitive system, not started).
+- `poc` — Python training pipeline. Phases 1–4. Phase 1 shipped (PR #75), Phase 2 context gathered.
 
 ## Session Continuity
 
-Last session: 2026-06-18
-Stopped at: Project initialization complete — ROADMAP.md, REQUIREMENTS.md, PROJECT.md, STATE.md written
+Last session: 2026-06-22
+Stopped at: Workstream bifurcation complete
 Resume file: None

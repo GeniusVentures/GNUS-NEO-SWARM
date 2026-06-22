@@ -121,4 +121,186 @@ Production readiness for the GNUS NEO SWARM decentralized AI inference engine. T
 
 **Refactor work (2026-06-18):** All 10 REFACTOR_ROADMAP.md phases complete — zero `#ifdef` gates, all members `m_`-prefixed, all functions under 100 lines, `SuperGeniusClient` → `SGClient`, FFI macros renamed, Genius string literals cleaned, busy-wait removed, platform abstractions created.
 
-*Roadmap updated: 2026-06-18*
+---
+
+## Cognitive System Phases (7–11)
+
+These phases evolve GNUS-NEO-SWARM from a production-hardened single-node inference engine into a **distributed cognitive swarm** with ELM orchestration, structured memory, reputation-weighted consensus, secure tool intermediation, and advanced cognition. They implement the GeniusCognitiveSystem architecture defined in `GeniusCogntiveSystem/docs/architecture/`.
+
+**Architecture reference (authoritative):**
+
+| Doc | Covers |
+|-----|--------|
+| 01 Executive Summary | System objectives, primary/secondary goals |
+| 02 System Overview | 7-layer cognitive stack, component mapping |
+| 03 Model and Router | Semantic Core, ELM taxonomy, router design |
+| 04 Reputation and Consensus | Reputation model, weighted consensus, byzantine tolerance |
+| 05 Grounding and Retrieval | Grokipedia integration, private knowledge grounding |
+| 06 GAML Agentic Memory | Structured memory objects, bridge blocks, CRDT convergence |
+| 07 Execution and Performance | Execution patterns, latency budgets |
+| 08 Roadmap and Risks | Phase sequencing, risk analysis |
+| 10 AI Safety | Decentralized safety model, reputation-enforced, node-sovereign |
+| 11 Distributed Swarm Thinking | Thinking context model, specialist taxonomy, routing rules |
+| 12 Secure Agent Architecture | Tool Intermediary boundary, capability-scoped execution |
+| 13 EGGROLL Swarm Retraining | Evolutionary optimization, swarm-native adaptation |
+| 14 Cognitive Retaining System | HCTS, targeted retraining |
+| 15 Epistemic Arbitration | Cognitive OS extensions, epistemic arbitration |
+| 16 SGFP4 Format | Adaptive quantization format specification |
+
+### Scope Boundary with gnus-poc
+
+| Layer | Owned By | Workstream |
+|-------|----------|-----------|
+| Specialist training + distillation | gnus-poc | `poc` (Python) |
+| SGFP4 quantization export | gnus-poc | `poc` (Python) |
+| Benchmark evaluation gate | gnus-poc | `poc` (Python) |
+| C++ inference engine (MNN runtime) | GNUS-NEO-SWARM | `neoswarm` (C++) |
+| ELM role orchestration | GNUS-NEO-SWARM | `neoswarm` (C++) |
+| Router/Planner (rule-based → learned) | GNUS-NEO-SWARM | `neoswarm` (C++) |
+| GAML memory layer | GNUS-NEO-SWARM | `neoswarm` (C++) |
+| Distributed swarm execution (libp2p, IPFS-lite) | GNUS-NEO-SWARM | `neoswarm` (C++) |
+| Reputation-weighted consensus | GNUS-NEO-SWARM | `neoswarm` (C++) |
+| Tool Intermediary / secure agent boundary | GNUS-NEO-SWARM | `neoswarm` (C++) |
+| AI safety (node-local enforcement) | GNUS-NEO-SWARM | `neoswarm` (C++) |
+| EGGROLL retraining orchestration | GNUS-NEO-SWARM | `neoswarm` (C++) |
+| Epistemic arbitration / GQHSM | GNUS-NEO-SWARM | `neoswarm` (C++) |
+| SGFP4 GPU decode shaders (Vulkan/MoltenVK) | GNUS-NEO-SWARM | `neoswarm` (C++) |
+
+### Phases
+
+- [ ] **Phase 7: Expert Language Models + Router** — Role-based and domain-specific ELM orchestration with rule-based routing
+- [ ] **Phase 8: Agentic Memory (GAML v1)** — Structured long-term memory with bridge blocks, facts, policies, CRDT convergence
+- [ ] **Phase 9: Swarm Networking + Distributed Execution** — Multi-node execution with reputation-weighted consensus
+- [ ] **Phase 10: AI Safety + Secure Agent Architecture** — Node-local safety, policy profiles, Tool Intermediary boundary
+- [ ] **Phase 11: Advanced Cognition** — EGGROLL retraining, epistemic arbitration, hierarchical critical thinking
+
+### Phase 7: Expert Language Models + Router
+
+**Goal:** Deploy role-based and domain-specific ELMs with a rule-based router that decomposes, routes, and chains specialist execution.
+
+**Architecture reference:** Docs 03, 11
+
+**Depends on:** Phases 1–6 (production-hardened engine), gnus-poc Phase 3 (quantized specialists)
+
+**Scope:**
+- Seven role-based ELMs: Planner, Verifier, Arbiter, Refiner, Grounding, Tool-Support, Primary Draft
+- Domain-specific ELMs: Code, Math, Science (loaded from gnus-poc quantized exports)
+- Rule-based router extending existing `RuleBasedRouter` with heuristics from doc 11 §10
+- Sequential execution chains (Planner → Domain ELM → Verifier → Refiner)
+- Router evolution path: heuristic MVP → lightweight classifier → cognitive planner
+- All ELMs behind abstract interfaces — implementations are swappable per architecture doc 03 §5.2.1
+
+### Phase 8: Agentic Memory (GAML v1)
+
+**Goal:** Replace stateless inference with structured long-term memory.
+
+**Architecture reference:** Doc 06
+
+**Depends on:** Phase 7
+
+**Scope:**
+- Structured memory object model (bridge blocks, facts, policies, events, tenant operational)
+- Memory Governor: retrieval prefiltering, relevance selection, temporal resolution
+- Ingestion pipeline: fact extraction, context mapping, write evaluation with provenance
+- Local storage via RocksDB, CRDT-backed replication via IPFS-lite
+
+### Phase 9: Swarm Networking + Distributed Execution
+
+**Goal:** Execute cognitive tasks across multiple GNUS nodes with reputation-weighted consensus.
+
+**Architecture reference:** Docs 04, 11
+
+**Depends on:** Phase 7, Phase 8
+
+**Scope:**
+- Requestor-Orchestrator model (no permanent leader)
+- Task broadcast via libp2p, signed result collection, consensus finalization
+- Reputation model: role-aware scores (Planner, Math, Verification, Formatting, Grounding, Safety)
+- Weighted consensus with arbiter-mediated synthesis fallback
+- Byzantine tolerance via reputation decay, consistency penalties, exclusion gates
+
+### Phase 10: AI Safety + Secure Agent Architecture
+
+**Goal:** Node-local safety screening, cryptographically declared safety profiles, mandatory Tool Intermediary boundary.
+
+**Architecture reference:** Docs 10, 12
+
+**Depends on:** Phase 7, Phase 9
+
+**Scope:**
+- Node-level safety screening — no centralized gateway, no GeoIP enforcement
+- Safety profiles: versioned, cryptographically signed, IPFS-distributed
+- Client-side policy preference filtering
+- Tool Intermediary boundary: dry-run → sanitization → capability check → approval gate → attestation → side-effect gating
+- 100% tool execution attestation; zero direct side-effect paths from ELM workers
+
+### Phase 11: Advanced Cognition
+
+**Goal:** EGGROLL swarm retraining, epistemic arbitration, hierarchical critical thinking.
+
+**Architecture reference:** Docs 13, 14, 15
+
+**Depends on:** Phases 7–10
+
+**Scope:**
+- **EGGROLL Retraining:** Evolutionary optimization of ELM adapters using swarm execution traces
+- **Epistemic Arbitration:** Evidence-chain-based arbitration beyond weighted voting
+- **Cognitive OS Extensions:** Task scheduling, resource allocation, cognitive budget management
+- **Hierarchical Critical Thinking:** Multi-pass critique with escalating scrutiny levels
+
+### Cognitive Phase Dependencies
+
+```
+gnus-poc Phase 3 (quantized specialists)
+    │
+    ▼
+Phase 7: ELMs + Router ──────────────────────┐
+    │                                          │
+    ▼                                          │
+Phase 8: GAML Memory ─────────────────────┐   │
+    │                                      │   │
+    ▼                                      ▼   ▼
+Phase 9: Swarm Networking ◄──────── Phase 7 + 8
+    │
+    ▼
+Phase 10: AI Safety + Secure Agents ◄── Phase 7 + 9
+    │
+    ▼
+Phase 11: Advanced Cognition ◄────────── Phases 7–10
+```
+
+### Cognitive Phase Progress
+
+| Phase | SPEC | PLAN | Status |
+|-------|------|------|--------|
+| 7. ELMs + Router | ✗ | ✗ | Not started |
+| 8. GAML Memory | ✗ | ✗ | Not started |
+| 9. Swarm Networking | ✗ | ✗ | Not started |
+| 10. AI Safety + Secure Agents | ✗ | ✗ | Not started |
+| 11. Advanced Cognition | ✗ | ✗ | Not started |
+
+### Key Architectural Constraints
+
+From the parent PTDS — every phase plan must respect these:
+
+1. **Program to interfaces, not implementations.** ELM roles, memory stores, consensus engines — all behind abstract interfaces.
+2. **No centralized safety gateway.** Safety is node-local, reputation-enforced, client-selectable.
+3. **Requestor-Orchestrator, not permanent leader.** Each request defines its own temporary orchestration context.
+4. **Memory is structured, not transcript replay.** GAML stores typed objects with provenance metadata.
+5. **Tool Intermediary is mandatory.** No ELM or Semantic Core worker may directly cause side effects.
+6. **Reputation is role-aware.** Scores track domain-specific and role-specific performance.
+7. **Liveness over perfection.** Consensus terminates within bounded time; insufficient quorum degrades gracefully.
+8. **Adapters over standalone models.** Per gnus-poc Decision 1, specialists are LoRA adapters on a shared backbone.
+
+### GSD Workflow
+
+Each cognitive phase follows the standard GSD pipeline:
+
+```
+/gsd:discuss-phase  →  SPEC.md
+/gsd:plan-phase     →  PLAN.md
+/gsd:execute-phase  →  Implementation with atomic commits
+/gsd:verify-work    →  UAT against SPEC.md
+```
+
+*Roadmap updated: 2026-06-22*
