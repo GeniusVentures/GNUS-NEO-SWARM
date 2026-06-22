@@ -56,7 +56,7 @@ Generated: 2026-06-18 | Mode: merge | Precedence: ADR > SPEC > PRD > DOC
   - Execution roadmap (4 phases) and risk analysis
   - Future compatibility and strategic positioning
   - AI safety philosophy (4-layer model)
-  - SGFP4 adaptive quantization format
+  - Ultra FP4 adaptive quantization format
   - EGGROLL Swarm Retraining architecture
   - Targeted Retraining and Hierarchical Critical Thinking Specialists
   - Epistemic Arbitration and Cognitive OS extensions (GQHSM-based)
@@ -70,7 +70,7 @@ The 5 docs most relevant to the gnus-poc ELM training/distillation pipeline:
 | 03-model-and-router | ELM model architecture, specialist types, router design |
 | 13-eggroll-swarm-retraining | Teacher->student distillation via EGGROLL evolutionary optimization |
 | 14-cognitive-retaining-system | Hierarchical specialist training, targeted retraining, continuous learning |
-| 16-sgfp4-format | Quantization format used for model compression in gnus-poc |
+| 16-ultra-fp4-format | Quantization format used for model compression in gnus-poc |
 | 08-roadmap-and-risks | Project roadmap (Phase 1: Semantic Core + FP4 pipeline) |
 
 ## Conflicts

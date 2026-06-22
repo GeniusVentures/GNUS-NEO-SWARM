@@ -1,0 +1,15 @@
+# Technical Q&A specialist — StackExchange and technical documentation
+
+specialist:
+  name: "qa_technical"
+  base_model: "mlx-community/Qwen3-30B-A3B-Instruct-2507-bf16"
+  niche_sources: ["StackExchange", "Technical Documentation", "Q&A Forums"]
+  system_prompt: "You are a technical Q&A specialist."
+  synthetic_prompts:
+    - "How do I optimize a PostgreSQL query that joins five tables?"
+    - "What are the best practices for securing a Kubernetes cluster?"
+    - "Explain how DNS resolution works step by step."
+    - "Troubleshoot a 502 Bad Gateway error on an Nginx reverse proxy."
+  training:
+    lora_rank: 16
+    iterations: 1000

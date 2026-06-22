@@ -1,0 +1,13 @@
+# Example experiment override — applies on top of pipeline.yaml and specialist configs
+# This demonstrates the experiment A/B testing pattern for Phase 3+
+
+experiment:
+  id: "exp_lora_rank_32"
+  description: "Test rank-32 LoRA vs baseline rank-16 on medical and code"
+  overrides:
+    medical:
+      training:
+        lora_rank: 32
+    code:
+      training:
+        lora_rank: 32

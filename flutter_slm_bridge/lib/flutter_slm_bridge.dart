@@ -1,43 +1,24 @@
-
 import 'dart:async';
 import 'dart:ffi';
 import 'dart:io';
 import 'dart:isolate';
 
-import 'flutter_slm_bridge_bindings_generated.dart';
+import 'package:ffi/ffi.dart';
 
-/// A very short-lived native function.
-///
-/// For very short-lived functions, it is fine to call them on the main isolate.
-/// They will block the Dart execution while running the native function, so
-/// only do this for native functions which are guaranteed to be short-lived.
-int sum(int a, int b) => _bindings.sum(a, b);
+import 'genius_slm_bindings_generated.dart';
 
-/// A longer lived native function, which occupies the thread calling it.
-///
-/// Do not call these kind of native functions in the main isolate. They will
-/// block Dart execution. This will cause dropped frames in Flutter applications.
-/// Instead, call these native functions on a separate isolate.
-///
-/// Modify this to suit your own use case. Example use cases:
-///
-/// 1. Reuse a single isolate for various different kinds of requests.
-/// 2. Use multiple helper isolates for parallel execution.
-Future<int> sumAsync(int a, int b) async {
-  final SendPort helperIsolateSendPort = await _helperIsolateSendPort;
-  final int requestId = _nextSumRequestId++;
-  final _SumRequest request = _SumRequest(requestId, a, b);
-  final Completer<int> completer = Completer<int>();
-  _sumRequests[requestId] = completer;
-  helperIsolateSendPort.send(request);
-  return completer.future;
-}
+const String _libName = 'Genius-MOS-SLM-FFI';
 
-const String _libName = 'flutter_slm_bridge';
-
-/// The dynamic library in which the symbols for [FlutterSlmBridgeBindings] can be found.
+/// The dynamic library containing the GeniusSlm symbols.
 final DynamicLibrary _dylib = () {
-  if (Platform.isMacOS || Platform.isIOS) {
+  if (Platform.isMacOS) {
+    // Use absolute path to the pre-built dylib during development.
+    // In a production app bundle this would be embedded via the podspec.
+    const dylib =
+        '/Volumes/Work/Gnus_ai/genius-llm-v1/GNUS-NEO-SWARM/build/OSX/Release/lib$_libName.dylib';
+    return DynamicLibrary.open(dylib);
+  }
+  if (Platform.isIOS) {
     return DynamicLibrary.open('$_libName.framework/$_libName');
   }
   if (Platform.isAndroid || Platform.isLinux) {
@@ -46,86 +27,133 @@ final DynamicLibrary _dylib = () {
   if (Platform.isWindows) {
     return DynamicLibrary.open('$_libName.dll');
   }
-  throw UnsupportedError('Unknown platform: ${Platform.operatingSystem}');
+  throw UnsupportedError('Unsupported platform: ${Platform.operatingSystem}');
 }();
 
-/// The bindings to the native functions in [_dylib].
-final FlutterSlmBridgeBindings _bindings = FlutterSlmBridgeBindings(_dylib);
+/// The generated FFI bindings.
+final GeniusSlmBindings _bindings = GeniusSlmBindings(_dylib);
 
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
 
-/// A request to compute `sum`.
+/// Initialises the Genius SLM engine.
 ///
-/// Typically sent from one isolate to another.
-class _SumRequest {
-  final int id;
-  final int a;
-  final int b;
+/// Call this once at app startup before sending any chat messages.
+/// Pass [modelPath] to use a real MNN model, or leave null for stub mode
+/// (useful for UI development without a model file).
+///
+/// Returns 0 on success, -1 on failure.
+int geniusSlmInit({String? modelPath, String? knowledgePath}) {
+  final modelPtr = modelPath != null
+      ? modelPath.toNativeUtf8().cast<Char>()
+      : nullptr.cast<Char>();
+  final knowledgePtr = knowledgePath != null
+      ? knowledgePath.toNativeUtf8().cast<Char>()
+      : nullptr.cast<Char>();
 
-  const _SumRequest(this.id, this.a, this.b);
+  final result = _bindings.GeniusSlmInit(modelPtr, knowledgePtr);
+
+  if (modelPath != null) malloc.free(modelPtr);
+  if (knowledgePath != null) malloc.free(knowledgePtr);
+
+  return result;
 }
 
-/// A response with the result of `sum`.
+/// Sends a chat message and returns the assistant's reply.
 ///
-/// Typically sent from one isolate to another.
-class _SumResponse {
-  final int id;
-  final int result;
+/// [requestJson] must be an OpenAI v1 chat/completions request JSON string:
+/// ```json
+/// {"messages": [{"role": "user", "content": "What is 2+2?"}]}
+/// ```
+///
+/// Returns the full OpenAI v1 response JSON string.
+/// Runs on the calling isolate — use [chatCompletionsCreateAsync] for
+/// long-running inference to avoid blocking the UI thread.
+String chatCompletionsCreate(String requestJson) {
+  final ptr = requestJson.toNativeUtf8().cast<Char>();
+  final result = _bindings.GeniusSlmChatCompletionsCreate(ptr);
+  malloc.free(ptr);
 
-  const _SumResponse(this.id, this.result);
+  if (result == nullptr) {
+    return '{"error":{"message":"null response from native","type":"ffi_error"}}';
+  }
+
+  final response = result.cast<Utf8>().toDartString();
+  _bindings.GeniusSlmStringFree(result);
+  return response;
 }
 
-/// Counter to identify [_SumRequest]s and [_SumResponse]s.
-int _nextSumRequestId = 0;
+/// Sends a chat message on a helper isolate and returns the assistant's reply.
+///
+/// Use this for real model inference to avoid dropping frames in Flutter.
+/// The stub mode response is fast enough for the main isolate, but once a
+/// real model is loaded this should be the default call path.
+Future<String> chatCompletionsCreateAsync(String requestJson) async {
+  return await Isolate.run(() => chatCompletionsCreate(requestJson));
+}
 
-/// Mapping from [_SumRequest] `id`s to the completers corresponding to the correct future of the pending request.
-final Map<int, Completer<int>> _sumRequests = <int, Completer<int>>{};
+/// Returns the current engine status as a JSON string.
+///
+/// Contains:
+///   - "model_loaded": bool — whether a real model is loaded
+///   - "mode": string — "sgprocessing", "interpreter", or "stub"
+///   - "backend": string — "vulkan", "cpu", or "none"
+///   - "model_path": string — path to the loaded model (empty if stub)
+String getEngineStatus() {
+  final result = _bindings.GeniusSlmGetStatus();
+  if (result == nullptr) {
+    return '{"model_loaded":false,"mode":"error","backend":"none","model_path":""}';
+  }
+  final status = result.cast<Utf8>().toDartString();
+  _bindings.GeniusSlmStringFree(result);
+  return status;
+}
 
-/// The SendPort belonging to the helper isolate.
-Future<SendPort> _helperIsolateSendPort = () async {
-  // The helper isolate is going to send us back a SendPort, which we want to
-  // wait for.
-  final Completer<SendPort> completer = Completer<SendPort>();
+/// Returns true if a real model is loaded (not in stub mode).
+bool isModelLoaded() {
+  final status = getEngineStatus();
+  return status.contains('"model_loaded":true');
+}
 
-  // Receive port on the main isolate to receive messages from the helper.
-  // We receive two types of messages:
-  // 1. A port to send messages on.
-  // 2. Responses to requests we sent.
-  final ReceivePort receivePort = ReceivePort()
-    ..listen((dynamic data) {
-      if (data is SendPort) {
-        // The helper isolate sent us the port on which we can sent it requests.
-        completer.complete(data);
-        return;
+/// Convenience helper: extracts the assistant's text content from a
+/// raw OpenAI v1 response JSON string returned by [chatCompletionsCreate].
+///
+/// Returns the content string, or an error message if parsing fails.
+String extractContent(String responseJson) {
+  try {
+    // Simple extraction without importing dart:convert at this layer.
+    // Looks for "content":"..." in the choices array.
+    const contentKey = '"content":"';
+    final idx = responseJson.indexOf(contentKey);
+    if (idx == -1) {
+      // Check for error response
+      const errorKey = '"message":"';
+      final errIdx = responseJson.indexOf(errorKey);
+      if (errIdx != -1) {
+        final start = errIdx + errorKey.length;
+        final end = responseJson.indexOf('"', start);
+        if (end != -1) return '[Error] ${responseJson.substring(start, end)}';
       }
-      if (data is _SumResponse) {
-        // The helper isolate sent us a response to a request we sent.
-        final Completer<int> completer = _sumRequests[data.id]!;
-        _sumRequests.remove(data.id);
-        completer.complete(data.result);
-        return;
+      return responseJson;
+    }
+    final start = idx + contentKey.length;
+    // Find closing quote, skipping escaped quotes
+    var end = start;
+    while (end < responseJson.length) {
+      if (responseJson[end] == '"' &&
+          (end == 0 || responseJson[end - 1] != '\\')) {
+        break;
       }
-      throw UnsupportedError('Unsupported message type: ${data.runtimeType}');
-    });
-
-  // Start the helper isolate.
-  await Isolate.spawn((SendPort sendPort) async {
-    final ReceivePort helperReceivePort = ReceivePort()
-      ..listen((dynamic data) {
-        // On the helper isolate listen to requests and respond to them.
-        if (data is _SumRequest) {
-          final int result = _bindings.sum_long_running(data.a, data.b);
-          final _SumResponse response = _SumResponse(data.id, result);
-          sendPort.send(response);
-          return;
-        }
-        throw UnsupportedError('Unsupported message type: ${data.runtimeType}');
-      });
-
-    // Send the port to the main isolate on which we can receive requests.
-    sendPort.send(helperReceivePort.sendPort);
-  }, receivePort.sendPort);
-
-  // Wait until the helper isolate has sent us back the SendPort on which we
-  // can start sending requests.
-  return completer.future;
-}();
+      end++;
+    }
+    return responseJson
+        .substring(start, end)
+        .replaceAll(r'\"', '"')
+        .replaceAll(r'\n', '\n')
+        .replaceAll(r'\t', '\t')
+        .replaceAll(r'\\', '\\');
+  } catch (_) {
+    return responseJson;
+  }
+}

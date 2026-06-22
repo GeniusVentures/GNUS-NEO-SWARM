@@ -13,7 +13,7 @@
     "Security Layer",
     "MNN model runtime",
     "Vulkan/MoltenVK GPU acceleration",
-    "SGFP4 codec",
+    "Ultra FP4 codec",
     "CUDA/Vulkan shaders",
     "libp2p",
     "IPFS-lite",
@@ -30,7 +30,7 @@
     "Layered Cognitive Stack"
   ],
   "cross_refs": [
-    "./16-sgfp4-format.md",
+    "./16-ultra-fp4-format.md",
     "./01-executive-summary.md",
     "./INDEX.md",
     "./03-model-and-router.md"

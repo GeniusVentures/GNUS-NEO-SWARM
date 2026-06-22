@@ -12,11 +12,11 @@
 
 ## Core Value
 
-A Python proof-of-concept that trains specialized Expert Language Models (ELMs) through teacher-student knowledge distillation and evolutionary (EGGROLL-style) retraining, producing quantized (SGFP4) specialists deployable on Apple Silicon via MLX.
+A Python proof-of-concept that trains specialized Expert Language Models (ELMs) through teacher-student knowledge distillation and evolutionary (EGGROLL-style) retraining, producing quantized (Ultra FP4) specialists deployable on Apple Silicon via MLX.
 
 ## Description
 
-gnus-poc is the training and distillation subset of the GeniusCognitiveSystem architecture. It takes a DeepSeek v4 Pro teacher model, generates synthetic domain-specific data, trains LoRA adapter specialists on a Qwen3-30B-A3B backbone, distills knowledge through logit-based KD, evaluates quality, and exports quantized models in SGFP4 format.
+gnus-poc is the training and distillation subset of the GeniusCognitiveSystem architecture. It takes a DeepSeek v4 Pro teacher model, generates synthetic domain-specific data, trains LoRA adapter specialists on a Qwen3-30B-A3B backbone, distills knowledge through logit-based KD, evaluates quality, and exports quantized models in Ultra FP4 format.
 
 The current v0.1.0 implements a 7-stage sequential pipeline (data_prep -> synthetic_data -> dedup -> train -> evaluate -> distill -> quantize) for 5 specialist niches (medical, qa_technical, code, encyclopedic, patents).
 
@@ -26,7 +26,7 @@ The current v0.1.0 implements a 7-stage sequential pipeline (data_prep -> synthe
 2. **Single-machine**: No distributed execution. Sequential pipeline with checkpoint resume.
 3. **Python 3.10+**: No C++ runtime dependency. Leverages MLX, PyTorch-compatible tooling.
 4. **Adapter-based architecture**: Specialists are LoRA adapters on a shared backbone, not standalone models (see Key Decisions).
-5. **SGFP4 export format**: 64x64 macroblocks, dual-mode (FP4_AFFINE/T158_AFFINE), per-block affine decode.
+5. **Ultra FP4 export format**: 64x64 macroblocks, dual-mode (FP4_AFFINE/T158_AFFINE), per-block affine decode.
 
 ## Key Decisions
 
@@ -72,7 +72,7 @@ gnus-poc implements the ELM training subset of the GeniusCognitiveSystem 7-layer
 | 7. Distributed Infrastructure | doc 02, 04 | Not in scope |
 
 Additional:
-- SGFP4 Format: doc 16 — Core (quantization export)
+- Ultra FP4 Format: doc 16 — Core (quantization export)
 - EGGROLL Retraining: doc 13 — Phase 5
 - Reputation: doc 04 — Phase 7
 - Hierarchical Critics (HCTS): doc 14 — v2 deferred
@@ -88,7 +88,7 @@ Additional:
 - LoRA specialist training with MLX
 - Model evaluation metrics (accuracy, perplexity, latency)
 - Rules-based specialist routing (YAML-driven, not learned)
-- SGFP4 quantization export with dual-mode selection and provenance manifests
+- Ultra FP4 quantization export with dual-mode selection and provenance manifests
 - Benchmark evaluation gate (MMLU, HumanEval, GSM8K, domain suites)
 
 **Out of scope (belongs to GNUS-NEO-SWARM C++ parent repo):**

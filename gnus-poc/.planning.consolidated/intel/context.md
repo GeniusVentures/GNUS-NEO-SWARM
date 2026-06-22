@@ -36,7 +36,7 @@ Secondary goals: energy-efficient inference; scalability across nodes; future co
 
 - MNN: Model runtime for optimized deep learning inference.
 - Vulkan/MoltenVK: GPU acceleration (MoltenVK for Apple platforms).
-- SGFP4 codec: Weight compression via adaptive format with 64x64 macroblocks, fixed 2048-byte payloads, per-block affine decode, dual-mode (FP4_AFFINE / T158_AFFINE) selection.
+- Ultra FP4 codec: Weight compression via adaptive format with 64x64 macroblocks, fixed 2048-byte payloads, per-block affine decode, dual-mode (FP4_AFFINE / T158_AFFINE) selection.
 - CUDA/Vulkan shaders: Tile-based decode and matmul.
 
 ### Distributed Layer
@@ -88,7 +88,7 @@ Plugin ABI: `GQHSM_RegisterEpistemicPlugin(Registry&, EpistemicContext&)`, `GQHS
 
 Central reasoning substrate for foundational responses. Optimized for high-throughput distributed inference. Selected from high-performing, medium-sized model families suitable for quantized distributed deployment.
 
-Quantized using SGFP4 adaptive format: 64x64 macroblocks, fixed 2048-byte payloads, per-block affine decode (scale + bias in packed FP16 header), dual-mode per block (FP4_AFFINE: 4-bit signed codes; T158_AFFINE: ternary ~1.58-bit class). GPU-decoded in shared memory at inference time via Vulkan/MoltenVK with MNN runtime.
+Quantized using Ultra FP4 adaptive format: 64x64 macroblocks, fixed 2048-byte payloads, per-block affine decode (scale + bias in packed FP16 header), dual-mode per block (FP4_AFFINE: 4-bit signed codes; T158_AFFINE: ternary ~1.58-bit class). GPU-decoded in shared memory at inference time via Vulkan/MoltenVK with MNN runtime.
 
 ### Expert Language Models (ELMs)
 
@@ -361,9 +361,9 @@ All nodes run local safety checks -> Orchestrator verifies safety flags -> Polic
 
 ---
 
-## SGFP4 Adaptive Quantization Format
+## Ultra FP4 Adaptive Quantization Format
 
-**Source:** `docs/architecture/16-sgfp4-format.md`
+**Source:** `docs/architecture/16-ultra-fp4-format.md`
 
 ### Design Goals
 

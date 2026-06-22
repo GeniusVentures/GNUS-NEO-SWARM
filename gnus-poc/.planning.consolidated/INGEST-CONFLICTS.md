@@ -20,9 +20,9 @@ All blockers are cross-ref graph cycles. These are navigational cycles (bidirect
   Impact: Bidirectional navigation link.
   -> Accept as navigational artifact.
 
-[BLOCKER] Cross-ref cycle: 02-system-overview <-> 16-sgfp4-format
-  Found: docs/architecture/02-system-overview.md references 16-sgfp4-format
-  Found: docs/architecture/16-sgfp4-format.md references 02-system-overview
+[BLOCKER] Cross-ref cycle: 02-system-overview <-> 16-ultra-fp4-format
+  Found: docs/architecture/02-system-overview.md references 16-ultra-fp4-format
+  Found: docs/architecture/16-ultra-fp4-format.md references 02-system-overview
   Impact: Bidirectional navigation link.
   -> Accept as navigational artifact.
 
@@ -32,9 +32,9 @@ All blockers are cross-ref graph cycles. These are navigational cycles (bidirect
   Impact: Bidirectional navigation link.
   -> Accept as navigational artifact.
 
-[BLOCKER] Cross-ref cycle: 03-model-and-router <-> 16-sgfp4-format
-  Found: docs/architecture/03-model-and-router.md references 16-sgfp4-format
-  Found: docs/architecture/16-sgfp4-format.md references 03-model-and-router
+[BLOCKER] Cross-ref cycle: 03-model-and-router <-> 16-ultra-fp4-format
+  Found: docs/architecture/03-model-and-router.md references 16-ultra-fp4-format
+  Found: docs/architecture/16-ultra-fp4-format.md references 03-model-and-router
   Impact: Bidirectional navigation link.
   -> Accept as navigational artifact.
 
@@ -124,8 +124,8 @@ Note: Larger cycles exist (e.g., 16->07->06->05->04->03->16) caused by doc 16 cr
     - "whether adapter composition should be preferred over multiple standalone specialists"
     - "whether role specialists and domain specialists should use the same quantization policy"
     - "how reputation should interact with quantization-induced quality drift"
-  Also relevant: docs/architecture/16-sgfp4-format.md (SPEC) defines the quantization format in detail but does not specify per-specialist quantization policy.
-  Impact: gnus-poc uses SGFP4 quantization format. The quantization strategy for different specialist types is undefined and will affect the distillation pipeline design.
+  Also relevant: docs/architecture/16-ultra-fp4-format.md (SPEC) defines the quantization format in detail but does not specify per-specialist quantization policy.
+  Impact: gnus-poc uses Ultra FP4 quantization format. The quantization strategy for different specialist types is undefined and will affect the distillation pipeline design.
   -> Define quantization policy per specialist role before implementing the training pipeline.
 
 ---

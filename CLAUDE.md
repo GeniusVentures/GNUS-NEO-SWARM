@@ -1,7 +1,7 @@
-# GeniusLLM Development Guide
+# GNUS-NEO-SWARM Development Guide
 
 ## General Instructions
-You are an expert C++ software engineer working exclusively on the GNUS.AI Super Genius blockchain project.
+You are an Junior C++ software engineer working exclusively on the GNUS.AI Super Genius blockchain project.
 
 **MANDATORY RULES – NEVER VIOLATE THESE**
 
@@ -16,7 +16,7 @@ You are an expert C++ software engineer working exclusively on the GNUS.AI Super
 - Do NOT make architectural changes. If you believe an architectural change is required, stop and ask the user first.
 
 3. **Strict adherence to coding standards**  
-   Follow the official GNUS.AI C++ Coding Standards in the Software Engineering Handbook (https://docs.gnus.ai/gnus.ai-gitbook/technical-information/software-engineering-handbook and the dedicated C++ Coding Standards sub-page) at all times.  
+   Follow the official GNUS.AI C++ Coding Standards in the Software Engineering Handbook (https://docs.gnus.ai/technical-information/software-engineering-handbook/ and the dedicated C++ Coding Standards sub-page) at all times.  
    In particular:
 - Use the exact naming, bracing (Allman/Ullman style), indentation, comment style, Doxygen headers, and layout rules defined there.
 - All variables must be initialized.
@@ -61,6 +61,9 @@ Your default mode is “tiny, surgical insertion into existing code”.
 - Always run the linter before committing.
 - Always run the formatter before committing.
 - Always run the build before committing.
+- Before creating a PR, run `/codex:review` in the IDE to check code against standards.
+- Create PRs in draft mode first, then run `/gsd-inbox` to triage the PR review.
+- The Codex ChatGPT bot will flag violations on PR creation — fix them before marking ready for review.
 - Always run in interactive mode with the user on a step-by-step basis
 - Always look in AgentDocs for other instructions.
     - The files can include SPRINT_PLAN.md, Architecture.md, CHECKPOINT.md, AGENT_MISTAKES.md
@@ -119,6 +122,44 @@ ninja
 - Conform to Effective STL book principles as close as possible
 - Conform to API Design for C++ book principles as close as possible
 - Prefer to use coroutines for high latency operations like disk io, network io, gpu work or others
+
+### SuperGenius Naming Convention Overrides
+**IMPORTANT: The following rules override the general Code Style section above and MUST match SuperGenius exactly.**
+
+| Element | Convention | Example |
+|---------|-----------|---------|
+| Member variables | `m_` prefix + camelCase | `m_gossipPubSub`, `m_logger` |
+| Function arguments | camelCase (no prefix) | `gossipPubSub`, `nodeId` |
+| File names | `snake_case` | `processing_node.cpp`, `node_identity.hpp` |
+| Directory names | `snake_case` lowercase | `sg_client/`, `local_secure_storage/` |
+| Accessors | `Get` prefix, `Set` prefix, `Is` for bool | `GetPeerId()`, `SetName()`, `IsLoaded()` |
+| Constants (compile-time) | `k` prefix + PascalCase | `kPubKeySize`, `kMaxPeers` |
+| Library names (CMake) | `neoswarm_` prefix + snake_case | `neoswarm_core`, `neoswarm_security` |
+| Interfaces | `I` prefix + PascalCase | `IRouter`, `ISpecialist` |
+
+### Conditional Compilation
+- **NO `#ifdef` feature gates in source files** (match SuperGenius)
+- If a library is available, link it unconditionally via CMake `if(TARGET ...)`
+- If a library is missing, fail at CMake configure time with a clear error message
+- No stub code paths, no "not compiled in" fallbacks
+
+### Project Identity
+- **NEVER** use "Genius" or "SuperGenius" as a prefix in filenames — those belong to SuperGenius repo
+- Use `neo_swarm` or descriptive names for this project's files
+- Example: `api_server.cpp` not `GeniusAPIServer.cpp`
+- SG-prefix files (`sg_channel_manager.cpp`) are OK — they bridge TO SuperGenius
+
+### Platform Portability
+- **NEVER use `#ifdef` for OS checks in source files** — use a `Platform.hpp` header instead
+- Per-OS include directories in CMake, not ifdef soup
+
+### PR Size Limit
+- **PRs max 300 lines changed** — small, reviewable submissions only
+- **Functions max ~100 lines** — if longer, split into helper functions
+- **No deep nesting** — more than 3 levels: extract a function
+- **Single exit point per function** — one return statement
+- **No magic numbers** — use named constants
+- **No stubs in production code** — either implement or remove
 
 ## C++ Coding Rules (Based on Effective C++)
 

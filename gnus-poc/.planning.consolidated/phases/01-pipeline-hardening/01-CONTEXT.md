@@ -74,7 +74,7 @@ Delivers a reliable, production-grade 7-stage training pipeline with multi-teach
 ### Architecture Docs (GeniusCognitiveSystem)
 - `../../docs/architecture/03-model-and-router.md` — ELM model architecture, specialist types
 - `../../docs/architecture/13-eggroll-swarm-retraining.md` — Teacher→student distillation architecture (future phases)
-- `../../docs/architecture/16-sgfp4-format.md` — SGFP4 quantization format spec
+- `../../docs/architecture/16-ultra-fp4-format.md` — Ultra FP4 quantization format spec
 
 ### Existing Implementation
 - `config/pipeline.yaml` — Current single-teacher config, training/eval/fp4 settings

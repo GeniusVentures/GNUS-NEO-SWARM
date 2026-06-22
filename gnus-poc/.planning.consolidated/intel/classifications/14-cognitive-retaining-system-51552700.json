@@ -1,0 +1,25 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/14-cognitive-retaining-system.md",
+  "type": "DOC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "19. Targeted Retraining and Hierarchical Critical Thinking Specialists",
+  "summary": "Describes the Targeted Retraining framework and Hierarchical Critical Thinking Specialists architecture for continuous, personalized cognitive improvement via lightweight adapter updates without full model retraining.",
+  "scope": [
+    "Targeted Retraining framework",
+    "EGGROLL-based optimization",
+    "Hierarchical Critical Thinking Specialists (HCTS)",
+    "Bias-aware reasoning",
+    "Cognitive Resistance Layer",
+    "Cognitive Twin integration",
+    "Continuous Learning Loop",
+    "Cognitive Training Event schema"
+  ],
+  "cross_refs": [
+    "./13-eggroll-swarm-retraining.md",
+    "./INDEX.md"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "Classified as DOC rather than ADR: the numbered filename prefix (14-) and location in docs/architecture/ create a weak ADR signal, but content has no Decision/Context/Consequences sections, no Status field, and no trade-off analysis. Document is prose-heavy architectural explanation describing system design concepts without a recorded decision."
+}

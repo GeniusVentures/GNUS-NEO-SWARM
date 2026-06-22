@@ -179,8 +179,8 @@ Based on classification, the router must select the appropriate specialist model
 
 ## QUANT — FP4 Quantization
 
-### QUANT-01: SGFP4 Format Compliance
-The FP4 exporter must produce weight tensors partitioned into 64x64 macroblocks with the SGFP4 container layout: headers (uint32 packed half2 scale+bias), offsets (uint32 with mode flags), and codes_blob (B * 2048 bytes of concatenated per-block payloads).
+### QUANT-01: Ultra FP4 Format Compliance
+The FP4 exporter must produce weight tensors partitioned into 64x64 macroblocks with the Ultra FP4 container layout: headers (uint32 packed half2 scale+bias), offsets (uint32 with mode flags), and codes_blob (B * 2048 bytes of concatenated per-block payloads).
 
 **Acceptance Criteria:**
 - Exported tensor dimensions are padded to multiples of 64.
