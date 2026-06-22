@@ -12,6 +12,7 @@ Scope is bounded to what a Python training pipeline can prove. Distributed swarm
 - [x] **Phase 2: Training & Distillation Quality** — KD convergence with temperature sweeping, valid LoRA adapters, evaluation metrics, rules-based specialist routing (completed 2026-06-21)
 - [ ] **Phase 3: FP4 Quantization & Artifact Integrity** — Standards-compliant Ultra FP4 export with dual-mode selection and provenance manifests
 - [ ] **Phase 4: Benchmark Evaluation** — Established benchmark suite scoring as quality gate with manual feedback loop to distillation
+- [ ] **Phase 5: PTDS v4 Unsloth Integration** — Unsloth training backend (parallel to MLX), Teacher→Parent→Specialist 3-tier distillation, GFP4 hybrid quantization, role-based specialist taxonomy
 
 ## Phase Details
 
@@ -79,17 +80,30 @@ Plans:
   4. Failed benchmarks produce actionable feedback (which categories underperformed, by how much) to guide manual distillation strategy adjustments.
 **Plans**: TBD
 
+### Phase 5: PTDS v4 Unsloth Integration
+**Goal**: Add Unsloth as a parallel training backend following the Phase 1 multi-backend pattern, implement Teacher→Parent→Specialist 3-tier distillation per PTDS v4 §3, support GFP4 hybrid quantization, and introduce role-based specialist taxonomy.
+**Depends on**: Phase 4 (needs benchmark-validated specialists from MLX pipeline to compare against)
+**Requirements**: TBD (to be defined in discuss-phase)
+**Success Criteria** (what must be TRUE):
+  1. Unsloth `FastLanguageModel` with LoRA runs as a config-selectable training backend alongside MLX.
+  2. 3-tier distillation pipeline: Teacher → Parent (7-13B) → Specialist (0.2-3B) with KL divergence loss.
+  3. GFP4 hybrid quantization (FP4/Ternary + Log mode) produces compliant export artifacts.
+  4. Role-based specialists (Planner, Solver, Verifier, Arbiter, Refiner) replace or complement domain specialists.
+  5. Backend-agnostic training abstraction (TrainingBackend) enables config-driven dispatch.
+**Plans**: TBD
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Pipeline Hardening | 0/5 | Planned | - |
-| 2. Training & Distillation Quality | 5/5 | Complete   | 2026-06-21 |
+| 1. Pipeline Hardening | 5/5 | Shipped | PR #75 |
+| 2. Training & Distillation Quality | 5/5 | Shipped | PR #76 |
 | 3. FP4 Quantization & Artifact Integrity | 0/? | Not started | - |
 | 4. Benchmark Evaluation | 0/? | Not started | - |
+| 5. PTDS v4 Unsloth Integration | 0/? | Not started | - |
 
 ## Scope Boundaries
 
