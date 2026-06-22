@@ -10,7 +10,7 @@ Scope is bounded to what a Python training pipeline can prove. Distributed swarm
 
 - [x] **Phase 1: Pipeline Hardening** — Multi-teacher cascade with dual-backend API, subprocess pipeline execution, budget persistence, retry/circuit breaker, validated checkpoints
 - [x] **Phase 2: Training & Distillation Quality** — KD convergence with temperature sweeping, valid LoRA adapters, evaluation metrics, rules-based specialist routing (completed 2026-06-21)
-- [ ] **Phase 3: FP4 Quantization & Artifact Integrity** — Standards-compliant Ultra FP4 export with dual-mode selection and provenance manifests
+- [ ] **Phase 3: FP4 Quantization & Artifact Integrity** — GFP4 v2 adaptive macroblock quantization (4×4 to 64×64), Laplacian error analysis, quadtree layout, dual-mode + Log mode, provenance manifests
 - [ ] **Phase 4: Benchmark Evaluation** — Established benchmark suite scoring as quality gate with manual feedback loop to distillation
 - [ ] **Phase 5: PTDS v4 Unsloth Integration** — Unsloth training backend (parallel to MLX), Teacher→Parent→Specialist 3-tier distillation, GFP4 hybrid quantization, role-based specialist taxonomy
 
@@ -60,13 +60,18 @@ Plans:
 - [x] 02-05-PLAN.md — Rules-based router: GQHSM-compatible state machine, YAML-driven rule engine, fallback chaining
 
 ### Phase 3: FP4 Quantization & Artifact Integrity
-**Goal**: Ultra FP4 export produces standards-compliant quantized models with 64x64 macroblocks, dual-mode per-block selection (FP4_AFFINE/T158_AFFINE), and provenance manifests.
+**Goal**: GFP4 v2 adaptive macroblock quantization — variable block sizes (4×4 to 64×64) with encode-side Laplacian error analysis, quadtree layout, dual-mode per-block selection (FP4_AFFINE/T158_AFFINE + Log mode), and provenance manifests with integrity hashes.
 **Depends on**: Phase 2 (needs trained and evaluated specialists to quantize)
 **Requirements**: QUANT-01, QUANT-02, QUANT-03
 **Success Criteria** (what must be TRUE):
-  1. Quantized weight tensors use correct 64x64 macroblock partitioning with properly packed header (half2 scale+bias), offset (mode flags), and codes_blob (B * 2048 bytes) arrays.
-  2. Both FP4_AFFINE and T158_AFFINE mode errors are evaluated per macroblock; T158 is selected when `err_t158 <= (1.0 + delta) * err_fp4`; mode flags in offset bits are set correctly.
-  3. Model manifest records source model identity, adapter identity, quantization parameters, encoder version, and timestamp; manifest hash enables integrity verification.
+  1. Encoder supports adaptive macroblock hierarchy (64×64 → 32×32 → 16×16 → 8×8 → 4×4) with encode-side Laplacian-weighted error to select block size per region.
+  2. 64×64 superblock container with layout enum (0-5): one 64×64, four 32×32s, sixteen 16×16s, sixty-four 8×8s, mixed quadtree, full 4×4 stamps.
+  3. Both FP4_AFFINE and T158_AFFINE modes evaluated per block; mode flag (bit 0 of offset) set correctly. Log mode (bit 1) supported per PTDS v4 §6.
+  4. Payload scales with block area — not fixed 2048 bytes. 4×4 FP4 = 8 bytes, 64×64 FP4 = 2048 bytes.
+  5. Variable effective bitrate: typical average ~2.7-3.3 bpw (vs fixed 4.0 bpw in v1).
+  6. Error tolerance thresholds per macroblock size, configurable in pipeline.yaml.
+  7. Quantization results feed back into Phase 2 evaluation gating to identify distillation paths that map well to GFP4.
+  8. Model manifest records source model identity, adapter identity, quantization parameters, encoder version, timestamp, and content hash for integrity verification.
 **Plans**: TBD
 
 ### Phase 4: Benchmark Evaluation
