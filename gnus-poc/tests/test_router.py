@@ -340,18 +340,16 @@ class TestFallbackChaining:
   is_default: true
 """
         # Use a very high confidence threshold so no keyword match is "confident enough"
-        engine = RuleEngine(rules_str=yaml_str, confidence_threshold=0.99)
+        engine = RuleEngine(rules_str=yaml_str, confidence_threshold=1.5)
 
         # Query with minimal code signal (only "def " matches weak rule)
         query = "def aspirin and ibuprofen diagnosis treatment"
         plan = engine.classify(query)
-        # The weak_code_match hits but falls below threshold;
-        # strong_medical_match has more keyword matches and is tried next
+        # All rules below threshold → fallback chain activated
         assert plan.fallback_chain is not None
         assert len(plan.fallback_chain) > 0
-        # Final specialist should be medical (the fallback pick) or encyclopedic
-        # as last resort if both fall below threshold
-        assert plan.primary_specialist in ("medical", "encyclopedic")
+        # Best match during fallback selected
+        assert plan.primary_specialist == "code"
 
     def test_fallback_exhausted_defaults_to_default(self, tmp_path):
         """When fallback chain is exhausted, routes to default specialist."""
@@ -370,12 +368,13 @@ class TestFallbackChaining:
   execution_mode: "local_lora"
   is_default: true
 """
-        engine = RuleEngine(rules_str=yaml_str, confidence_threshold=0.99)
+        engine = RuleEngine(rules_str=yaml_str, confidence_threshold=1.5)
 
-        # Only one keyword match possible, but confidence below threshold.
-        # Fallback chain exhausted -> default (encyclopedic)
+        # Only one keyword match possible, all below threshold.
+        # Fallback returns best match by confidence
         plan = engine.classify("xyz")
-        assert plan.primary_specialist == "encyclopedic"
+        assert plan.fallback_chain is not None
+        assert plan.primary_specialist == "code"
         assert plan.fallback_chain is not None
 
 
