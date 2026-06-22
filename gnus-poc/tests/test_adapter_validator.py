@@ -92,7 +92,7 @@ def _write_test_jsonl(path: Path, lines: list):
 def valid_adapter_dir(tmp_path):
     """Create a temporary adapter directory with a valid safetensors file."""
     adapter_dir = tmp_path / "adapters" / "test_specialist"
-    safetensors_path = adapter_dir / "adapters.safetensors"
+    safetensors_path = adapter_dir / "adapter_model.safetensors"
     _write_dummy_safetensors(safetensors_path, {"lora_A.weight": (4, 64), "lora_B.weight": (64, 4)})
     (adapter_dir / "adapter_config.json").write_text(json.dumps({"model": "test-model"}))
     return str(adapter_dir)
@@ -102,7 +102,7 @@ def valid_adapter_dir(tmp_path):
 def inert_adapter_dir(tmp_path):
     """Create a temporary adapter directory with all-zero safetensors (inert adapter)."""
     adapter_dir = tmp_path / "adapters" / "inert_specialist"
-    safetensors_path = adapter_dir / "adapters.safetensors"
+    safetensors_path = adapter_dir / "adapter_model.safetensors"
     _write_all_zero_safetensors(safetensors_path, {"lora_A.weight": (4, 64), "lora_B.weight": (64, 4)})
     (adapter_dir / "adapter_config.json").write_text(json.dumps({"model": "test-model"}))
     return str(adapter_dir)
@@ -134,32 +134,11 @@ def test_valid_adapter_passes_all_checks(valid_adapter_dir, valid_test_data):
     )
 
     # Mock model loading to avoid real MLX model download/inference.
-    with mock.patch("training.adapter_validator._load_model_and_adapter") as mock_load, \
-         mock.patch("training.adapter_validator._run_inference") as mock_infer, \
-         mock.patch("training.adapter_validator._compute_loss") as mock_loss:
+    with mock.patch.object(AdapterValidator, "_compute_validation_loss") as mock_loss, \
+         mock.patch.object(AdapterValidator, "_compute_behavioral_diff") as mock_diff:
 
-        # Simulate a model + tokenizer pair for base and adapter
-        mock_model = mock.MagicMock()
-        mock_tokenizer = mock.MagicMock()
-        mock_load.return_value = (mock_model, mock_tokenizer)
-
-        # Base model output (3 prompts -> 3 outputs)
-        base_outputs = [
-            "Paris is the capital of France.",
-            "Quantum computing uses quantum bits.",
-            "print('Hello, world!')",
-        ]
-        # Adapter output — different from base (behavioral diff > 0%)
-        adapter_outputs = [
-            "The capital of France is Paris, a city known for its rich history.",
-            "Quantum computing harnesses superposition and entanglement.",
-            "print('Hello, world!')  # Simple Python greeting",
-        ]
-
-        mock_infer.side_effect = base_outputs + adapter_outputs
-
-        # Validation loss below threshold
         mock_loss.return_value = 2.1
+        mock_diff.return_value = 10.0
 
         result = validator.validate(
             niche="test_specialist",
@@ -185,24 +164,17 @@ def test_all_zero_weights_detected_as_inert(inert_adapter_dir, valid_test_data):
     flagged as all_zero_weights=True and fail all_checks_passed."""
     validator = AdapterValidator()
 
-    with mock.patch("training.adapter_validator._load_model_and_adapter") as mock_load, \
-         mock.patch("training.adapter_validator._run_inference") as mock_infer, \
-         mock.patch("training.adapter_validator._compute_loss") as mock_loss:
+    result = validator.validate(
+        niche="inert_specialist",
+        adapter_path=inert_adapter_dir,
+        test_data_path=valid_test_data,
+        base_model_id="test-model",
+    )
 
-        mock_load.return_value = (mock.MagicMock(), mock.MagicMock())
-        mock_infer.return_value = "dummy output"
-        mock_loss.return_value = 2.0
-
-        result = validator.validate(
-            niche="inert_specialist",
-            adapter_path=inert_adapter_dir,
-            test_data_path=valid_test_data,
-            base_model_id="test-model",
-        )
-
-        assert result.all_zero_weights is True
-        assert result.all_checks_passed is False
-        assert any("zero" in e.lower() for e in result.errors)
+    assert result.all_zero_weights is True
+    assert result.loadable is False
+    assert result.all_checks_passed is False
+    assert any("zero" in e.lower() for e in result.errors)
 
 
 # ---------------------------------------------------------------------------
@@ -214,16 +186,11 @@ def test_identical_output_detected_as_inert(valid_adapter_dir, valid_test_data):
     the behavioral-diff check must fail (diff == 0%)."""
     validator = AdapterValidator(behavioral_diff_threshold=5.0)
 
-    with mock.patch("training.adapter_validator._load_model_and_adapter") as mock_load, \
-         mock.patch("training.adapter_validator._run_inference") as mock_infer, \
-         mock.patch("training.adapter_validator._compute_loss") as mock_loss:
+    with mock.patch.object(AdapterValidator, "_compute_validation_loss") as mock_loss, \
+         mock.patch.object(AdapterValidator, "_compute_behavioral_diff") as mock_diff:
 
-        mock_load.return_value = (mock.MagicMock(), mock.MagicMock())
-
-        # Both base and adapter produce the SAME output — identical adapter
-        identical_output = "Paris is the capital of France."
-        mock_infer.return_value = identical_output
         mock_loss.return_value = 2.0
+        mock_diff.return_value = 0.0
 
         result = validator.validate(
             niche="test_specialist",
@@ -246,22 +213,11 @@ def test_behavioral_diff_above_threshold_passes(valid_adapter_dir, valid_test_da
     threshold (>5% token difference), the behavioral-diff check must pass."""
     validator = AdapterValidator(behavioral_diff_threshold=5.0)
 
-    with mock.patch("training.adapter_validator._load_model_and_adapter") as mock_load, \
-         mock.patch("training.adapter_validator._run_inference") as mock_infer, \
-         mock.patch("training.adapter_validator._compute_loss") as mock_loss:
+    with mock.patch.object(AdapterValidator, "_compute_validation_loss") as mock_loss, \
+         mock.patch.object(AdapterValidator, "_compute_behavioral_diff") as mock_diff:
 
-        mock_load.return_value = (mock.MagicMock(), mock.MagicMock())
-
-        # Base output is very short; adapter output is much longer
-        base_outputs = ["Short.", "Brief.", "Minimal."]
-        adapter_outputs = [
-            "This is a much longer and more detailed response that differs substantially.",
-            "A comprehensive explanation that goes far beyond the brief base output.",
-            "Extensive details and thorough analysis make this answer very different.",
-        ]
-        # 6 base calls (3 for base model, 3 for adapter model)
-        mock_infer.side_effect = base_outputs + adapter_outputs
         mock_loss.return_value = 2.0
+        mock_diff.return_value = 15.0
 
         result = validator.validate(
             niche="test_specialist",
@@ -271,7 +227,7 @@ def test_behavioral_diff_above_threshold_passes(valid_adapter_dir, valid_test_da
         )
 
         assert result.behavioral_diff_passed is True
-        assert result.behavioral_diff_pct > 5.0
+        assert result.behavioral_diff_pct == 15.0
 
 
 # ---------------------------------------------------------------------------
@@ -283,13 +239,11 @@ def test_validation_loss_below_threshold_passes(valid_adapter_dir, valid_test_da
     validation_loss_passed must be True."""
     validator = AdapterValidator(val_loss_threshold=3.0)
 
-    with mock.patch("training.adapter_validator._load_model_and_adapter") as mock_load, \
-         mock.patch("training.adapter_validator._run_inference") as mock_infer, \
-         mock.patch("training.adapter_validator._compute_loss") as mock_loss:
+    with mock.patch.object(AdapterValidator, "_compute_validation_loss") as mock_loss, \
+         mock.patch.object(AdapterValidator, "_compute_behavioral_diff") as mock_diff:
 
-        mock_load.return_value = (mock.MagicMock(), mock.MagicMock())
-        mock_infer.return_value = "Some response"
         mock_loss.return_value = 1.5  # Below threshold of 3.0
+        mock_diff.return_value = 10.0
 
         result = validator.validate(
             niche="test_specialist",
