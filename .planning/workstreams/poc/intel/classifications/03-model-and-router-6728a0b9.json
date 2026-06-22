@@ -1,0 +1,13 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/03-model-and-router.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "Model and Router",
+  "summary": "Describes the Semantic Core, Expert Language Models (ELMs), and Router design for the GeniusCognitiveSystem architecture.",
+  "scope": ["Semantic Core", "Expert Language Models", "Router Layer", "SGFP4 Quantization", "GeniusCognitiveSystem"],
+  "cross_refs": ["./16-sgfp4-format.md", "./02-system-overview.md", "./INDEX.md", "./04-reputation-consensus.md"],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}
