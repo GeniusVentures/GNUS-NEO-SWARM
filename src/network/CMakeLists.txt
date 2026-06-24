@@ -71,6 +71,7 @@ if(TARGET p2p::p2p)
         "${THIRDPARTY_BUILD_DIR}/libp2p/include"
         "${THIRDPARTY_BUILD_DIR}/boost/build/include"
         "${THIRDPARTY_BUILD_DIR}/fmt/include"
+        "${GENIUS_SDK_INCLUDE_DIR}"
         "${THIRDPARTY_BUILD_DIR}/soralog/include"
         "${THIRDPARTY_BUILD_DIR}/Microsoft.GSL/include"
     )

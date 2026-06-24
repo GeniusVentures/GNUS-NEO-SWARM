@@ -1,11 +1,12 @@
 /**
  * @file       super_genius_client.hpp
- * @brief      Client for SuperGenius blockchain compute network dispatch via PubSub gRPC
+ * @brief      Client for SuperGenius blockchain compute network dispatch via GeniusSDK
  * @date       2026-05-28
  *
  * Encapsulates all communication with the SuperGenius processing network.
- * Manages a persistent gRPC channel, publishes signed Task messages to the
- * grid channel via PubSub, and collects results from per-job result channels.
+ * GeniusSDK handles gRPC transport internally through SuperGenius's
+ * gRPCForSuperGenius. This client signs tasks and dispatches through
+ * the SDK — zero raw gRPC calls.
  */
 
 #ifndef NEOSWARM_NETWORK_SG_CLIENT_SUPERGENIUSCLIENT_HPP
@@ -30,14 +31,14 @@ namespace sgns::neoswarm::network
      *        compute network via PubSub-based gRPC dispatch.
      *
      * Methodology:
-     *   - Open a persistent gRPC channel with keepalive
+     *   - Initialize GeniusSDK for node operation
      *   - Sign every Task with the node's secp256k1 identity
-     *   - Publish to the grid channel, subscribe to per-job result channels
+     *   - Dispatch via GeniusSDKProcess(), collect via GeniusSDKGetProcessingStatus()
      *   - Timeout-bounded result collection via condition_variable
      *
      * Designed as a separate component under src/network/sg_client/ with
-     * four internal sub-components: channel manager, job submitter, result
-     * collector, and message authenticator.
+     * three internal sub-components: job submitter, result collector,
+     * and message authenticator. gRPC transport is handled by GeniusSDK.
      */
     class SGClient
     {

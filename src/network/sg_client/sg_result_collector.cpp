@@ -1,6 +1,6 @@
 /**
  * @file       sg_result_collector.cpp
- * @brief      Timeout-bounded result collection from SuperGenius PubSub result channels
+ * @brief      Timeout-bounded result collection via GeniusSDK polling
  * @date       2026-05-28
  */
 
@@ -22,44 +22,38 @@ namespace sgns::neoswarm::network
 
     struct SGResultCollector::Impl
     {
-        std::shared_ptr<grpc::Channel> m_channel;
+        std::string m_endpoint;
         SGMessageAuthenticator& m_authenticator;
         SGResultCollectorConfig m_cfg;
 
-        // Timeout-bounded collection using condition_variable
-        // (matches existing ResultAggregation pattern)
         std::mutex m_mutex;
         std::condition_variable cv_;
         bool resultReady_ = false;
         std::vector<uint8_t> resultData_;
 
-        Impl( std::shared_ptr<grpc::Channel> channel,
+        Impl( const std::string& endpoint,
               SGMessageAuthenticator& authenticator,
               SGResultCollectorConfig cfg )
-            : m_channel( std::move( channel ) )
+            : m_endpoint( endpoint )
             , m_authenticator( authenticator )
             , m_cfg( std::move( cfg ) )
         {
         }
     };
 
-    SGResultCollector::SGResultCollector( std::shared_ptr<grpc::Channel> channel,
+    SGResultCollector::SGResultCollector( const std::string& endpoint,
                                           SGMessageAuthenticator& authenticator,
                                           SGResultCollectorConfig cfg )
-        : m_impl( std::make_unique<Impl>( std::move( channel ), authenticator, std::move( cfg ) ) )
+        : m_impl( std::make_unique<Impl>( endpoint, authenticator, std::move( cfg ) ) )
     {
     }
 
     outcome::result<std::vector<uint8_t>> SGResultCollector::WaitForResult( const std::string& taskId,
-                                                                            std::chrono::seconds timeout )
+                                                                             std::chrono::seconds timeout )
     {
         CollectLogger()->info( "Waiting for result on results/{} (timeout={}s)", taskId, timeout.count() );
 
-        // Subscribe to results/<taskId> channel
-        // TODO(Phase 2): implement actual gRPC PubSub subscribe when service stubs linked
-
-        // Block until result arrives or timeout expires
-        // Pattern matches ResultAggregation::Collect() in src/network/result_aggregation.cpp
+        // TODO(Phase 2 Wave 3): poll GeniusSDKGetProcessingStatus() in a loop
         std::unique_lock<std::mutex> lock( m_impl->m_mutex );
 
         bool gotResult = m_impl->cv_.wait_for( lock, timeout, [this] { return m_impl->resultReady_; } );
