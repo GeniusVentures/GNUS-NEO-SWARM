@@ -7,7 +7,9 @@
 #include "sg_job_submitter.hpp"
 #include "sg_message_authenticator.hpp"
 #include "common/logging.hpp"
+#include "GeniusSDK.h"
 #include <chrono>
+#include <cstring>
 #include <iomanip>
 #include <random>
 #include <sstream>
@@ -74,9 +76,24 @@ namespace sgns::neoswarm::network
 
         SubmitLogger()->info( "Publishing task {} to {} ({} bytes, signed)", taskId, m_impl->m_endpoint, taskMessage.size() );
 
-        // TODO(Phase 2 Wave 2): dispatch via GeniusSDKProcess(taskMessage)
-        SubmitLogger()->warn( "GeniusSDK dispatch not yet wired — task {} prepared for submission", taskId );
+        if ( taskMessage.size() >= 2048 )
+        {
+            SubmitLogger()->error( "Task payload too large for GeniusSDK ({} bytes, max 2047)", taskMessage.size() );
+            return outcome::failure( Error::InvalidArgument );
+        }
 
+        JsonData_t sdkPayload;
+        std::strncpy( sdkPayload, taskMessage.c_str(), sizeof( sdkPayload ) - 1 );
+        sdkPayload[ sizeof( sdkPayload ) - 1 ] = '\0';
+
+        auto sdkResult = GeniusSDKProcess( sdkPayload );
+        if ( sdkResult != GENIUS_NODE_RET_OK )
+        {
+            SubmitLogger()->error( "GeniusSDKProcess failed: error code {}", static_cast<int>( sdkResult ) );
+            return outcome::failure( Error::NetworkError );
+        }
+
+        SubmitLogger()->info( "Task {} dispatched via GeniusSDK", taskId );
         return taskId;
 
     }
