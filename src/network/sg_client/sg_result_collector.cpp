@@ -7,8 +7,11 @@
 #include "sg_result_collector.hpp"
 #include "sg_message_authenticator.hpp"
 #include "common/logging.hpp"
+#include "GeniusSDK.h"
+#include <chrono>
 #include <condition_variable>
 #include <mutex>
+#include <thread>
 
 namespace sgns::neoswarm::network
 {
@@ -51,22 +54,42 @@ namespace sgns::neoswarm::network
     outcome::result<std::vector<uint8_t>> SGResultCollector::WaitForResult( const std::string& taskId,
                                                                              std::chrono::seconds timeout )
     {
-        CollectLogger()->info( "Waiting for result on results/{} (timeout={}s)", taskId, timeout.count() );
+        CollectLogger()->info( "Waiting for result on task {} (timeout={}s)", taskId, timeout.count() );
 
-        // TODO(Phase 2 Wave 3): poll GeniusSDKGetProcessingStatus() in a loop
-        std::unique_lock<std::mutex> lock( m_impl->m_mutex );
+        constexpr std::chrono::milliseconds kPollInterval{ 500 };
+        auto deadline = std::chrono::steady_clock::now() + timeout;
+        int pollCount = 0;
 
-        bool gotResult = m_impl->cv_.wait_for( lock, timeout, [this] { return m_impl->resultReady_; } );
-
-        if ( !gotResult )
+        while ( std::chrono::steady_clock::now() < deadline )
         {
-            CollectLogger()->warn( "Result collection timed out for task {}", taskId );
+            ++pollCount;
+
+            auto status = GeniusSDKGetProcessingStatus();
+
+            if ( status.status == GENIUS_PR_STATUS_DISABLED )
+            {
+                CollectLogger()->error( "GeniusSDK processing disabled — cannot collect result" );
+                return outcome::failure( Error::NetworkError );
+            }
+
+            if ( status.status == GENIUS_PR_STATUS_IDLE )
+            {
+                CollectLogger()->info( "GeniusSDK processing complete ({} polls, {}%)", pollCount, status.percentage );
+                break;
+            }
+
+            std::this_thread::sleep_for( kPollInterval );
+        }
+
+        if ( std::chrono::steady_clock::now() >= deadline )
+        {
+            CollectLogger()->warn( "Result collection timed out for task {} after {} polls", taskId, pollCount );
             return outcome::failure( Error::BroadcastTimeout );
         }
 
         if ( m_impl->resultData_.empty() )
         {
-            CollectLogger()->warn( "Empty result received for task {}", taskId );
+            CollectLogger()->warn( "Empty result for task {} — processing completed but no data", taskId );
             return outcome::failure( Error::InferenceFailed );
         }
 
