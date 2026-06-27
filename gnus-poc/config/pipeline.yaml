@@ -114,3 +114,22 @@ fp4_export:
   laplacian_levels: 3
   # Log mode bitmap flag reserved (Phase 5: Unsloth Integration) — default: Linear only
   log_mode_enabled: false
+
+# ---------------------------------------------------------------------------
+# Evaluation gating — per-dimension quality thresholds with auto-gating
+#
+# Each dimension defines a numeric threshold and a consecutive-failure count
+# that triggers a blocking state (preventing promotion to next pipeline stage).
+# SGFP4 dimensions (D-09): Quantization error metrics become eval gate dimensions
+# following the Phase 2 auto-gating pattern.
+# ---------------------------------------------------------------------------
+eval_gates:
+  fp4_mse:
+    max: 0.01
+    consecutive_failures_to_block: 3
+  fp4_effective_bitrate:
+    max: 4.0
+    consecutive_failures_to_block: 2
+  fp4_t158_ratio:
+    min: 0.05
+    consecutive_failures_to_block: 2
