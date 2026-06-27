@@ -4,7 +4,7 @@ milestone: v1.0
 milestone_name: milestone
 status: "Phase 1 shipped - PR #75"
 stopped_at: Phase 2 context gathered
-last_updated: "2026-06-27T23:48:30.432Z"
+last_updated: "2026-06-27T23:48:45.068Z"
 last_activity: 2026-06-18 — Project initialized with ROADMAP.md, REQUIREMENTS.md, PROJECT.md
 progress:
   total_phases: 4
@@ -64,6 +64,10 @@ Recent decisions affecting current work:
 - **Adapter-Based Architecture:** Specialists are LoRA adapters on a shared Qwen3-30B-A3B backbone (not standalone models).
 - **Per-Specialist Quantization:** FP4_AFFINE for accuracy-critical specialists, T158_AFFINE for latency-tolerant ones.
 - **Single-Machine EGGROLL:** Scope limited to single-machine proof-of-concept (Phase 1 of the EGGROLL rollout plan).
+- [Phase ?]: fp4_export block is optional — absent block warns (not errors) to allow Phase 1/2 work without quantization config
+- [Phase ?]: fp4_weights_exist check extended to glob *.sgfp4 alongside *.npz/*.safetensors for v2+ output
+- [Phase ?]: Missing .sgfp4 binary does not fail validation — v1-only exports remain valid
+- [Phase ?]: Manifest SHA256 validation uses streaming 64 KiB chunks for memory-safe binary hashing
 
 ### Pending Todos
 
@@ -83,6 +87,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-27T23:48:17.190Z
+Last session: 2026-06-27T23:48:36.096Z
 Stopped at: Phase 2 context gathered
 Resume file: None
