@@ -10,7 +10,7 @@ Scope is bounded to what a Python training pipeline can prove. Distributed swarm
 
 - [ ] **Phase 1: Pipeline Hardening** — Multi-teacher cascade with dual-backend API, subprocess pipeline execution, budget persistence, retry/circuit breaker, validated checkpoints
 - [ ] **Phase 2: Training & Distillation Quality** — KD convergence with temperature sweeping, valid LoRA adapters, evaluation metrics, rules-based specialist routing
-- [ ] **Phase 3: FP4 Quantization & Artifact Integrity** — SGFP4 v2 adaptive macroblock export with quadtree partitioning, Laplacian error analysis, dual-mode selection, and provenance manifests
+- [x] **Phase 3: FP4 Quantization & Artifact Integrity** — SGFP4 v2 adaptive macroblock export with quadtree partitioning, Laplacian error analysis, dual-mode selection, and provenance manifests (completed 2026-06-27)
 - [ ] **Phase 4: Benchmark Evaluation** — Established benchmark suite scoring as quality gate with manual feedback loop to distillation
 
 ## Phase Details
@@ -64,7 +64,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — FP4Exporter v2 upgrade: Laplacian analysis, quadtree encoder, variable payload, superblock layout, dual-mode, backward compatibility, manifest output
+- [x] 03-01-PLAN.md — FP4Exporter v2 upgrade: Laplacian analysis, quadtree encoder, variable payload, superblock layout, dual-mode, backward compatibility, manifest output
 - [x] 03-02-PLAN.md — Config extension: ConfigLoader._validate_fp4_export(), pipeline.yaml v2 thresholds, CheckpointValidator SGFP4 v2 output validation
 - [x] 03-03-PLAN.md — Eval gating: MetricStore for SGFP4 metrics, Benchmarker.gate_check() for quantization quality gates
 
@@ -88,7 +88,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 |-------|----------------|--------|-----------|
 | 1. Pipeline Hardening | 0/5 | Planned | - |
 | 2. Training & Distillation Quality | 0/? | Not started | - |
-| 3. FP4 Quantization & Artifact Integrity | 2/3 | In Progress|  |
+| 3. FP4 Quantization & Artifact Integrity | 3/3 | Complete   | 2026-06-27 |
 | 4. Benchmark Evaluation | 0/? | Not started | - |
 
 ## Scope Boundaries

@@ -260,7 +260,7 @@ Benchmark results across runs must be comparable to enable trend analysis. The s
 | ROUTE-02 | Phase 2 | Pending |
 | QUANT-01 | Phase 3 | Complete |
 | QUANT-02 | Phase 3 | Complete |
-| QUANT-03 | Phase 3 | Pending |
+| QUANT-03 | Phase 3 | Complete |
 | BMARK-01 | Phase 4 | Pending |
 | BMARK-02 | Phase 4 | Pending |
 | BMARK-03 | Phase 4 | Pending |
