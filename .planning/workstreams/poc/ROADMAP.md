@@ -65,8 +65,8 @@ Plans:
 
 Plans:
 - [ ] 03-01-PLAN.md — FP4Exporter v2 upgrade: Laplacian analysis, quadtree encoder, variable payload, superblock layout, dual-mode, backward compatibility, manifest output
-- [ ] 03-02-PLAN.md — Config extension: ConfigLoader._validate_fp4_export(), pipeline.yaml v2 thresholds, CheckpointValidator SGFP4 v2 output validation
-- [ ] 03-03-PLAN.md — Eval gating: MetricStore for SGFP4 metrics, Benchmarker.gate_check() for quantization quality gates
+- [x] 03-02-PLAN.md — Config extension: ConfigLoader._validate_fp4_export(), pipeline.yaml v2 thresholds, CheckpointValidator SGFP4 v2 output validation
+- [x] 03-03-PLAN.md — Eval gating: MetricStore for SGFP4 metrics, Benchmarker.gate_check() for quantization quality gates
 
 ### Phase 4: Benchmark Evaluation
 **Goal**: Quantized specialist models are scored against established benchmark suites (MMLU, HumanEval, GSM8K, domain-specific) as a quality gate. Failed benchmarks feed back into distillation strategy refinement.
@@ -88,7 +88,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 |-------|----------------|--------|-----------|
 | 1. Pipeline Hardening | 0/5 | Planned | - |
 | 2. Training & Distillation Quality | 0/? | Not started | - |
-| 3. FP4 Quantization & Artifact Integrity | 0/3 | Planned | - |
+| 3. FP4 Quantization & Artifact Integrity | 2/3 | In Progress|  |
 | 4. Benchmark Evaluation | 0/? | Not started | - |
 
 ## Scope Boundaries
