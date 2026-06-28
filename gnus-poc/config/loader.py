@@ -114,6 +114,7 @@ class ConfigLoader:
         self._validate_teacher()
         self._validate_teacher_benchmark()
         self._validate_pipeline_specialists()
+        self._validate_fp4_export()
 
     def _validate_endpoints(self) -> None:
         endpoints = self._global_config.get("endpoints")
@@ -213,6 +214,117 @@ class ConfigLoader:
                     f"pipeline.specialists[{i}]",
                     "must be a string",
                 )
+
+    def _validate_fp4_export(self) -> None:
+        """Validate the fp4_export configuration block.
+
+        Per D-08: fp4_export is optional (Phase 1/2 may run without quantization).
+        When present, validates error_thresholds per block size, ternary_delta range,
+        min_block_size power-of-2, laplacian_levels, and log_mode_enabled type.
+        """
+        fp4_export = self._global_config.get("fp4_export")
+
+        # fp4_export block is optional — absent means quantization not configured
+        if fp4_export is None:
+            import logging
+            logging.getLogger(__name__).warning(
+                "fp4_export block not found in pipeline.yaml; "
+                "quantization configuration not validated"
+            )
+            return
+
+        if not isinstance(fp4_export, dict):
+            raise ConfigValidationError("fp4_export", "must be a dictionary")
+
+        # --- error_thresholds -------------------------------------------------
+        error_thresholds = fp4_export.get("error_thresholds")
+        prefix_et = "fp4_export.error_thresholds"
+
+        if error_thresholds is not None:
+            if not isinstance(error_thresholds, dict):
+                raise ConfigValidationError(prefix_et, "must be a dictionary")
+
+            required_block_sizes = [64, 32, 16, 8, 4]
+            for size in required_block_sizes:
+                # Allow both integer and string keys (YAML parses keys as int or str)
+                if size not in error_thresholds and str(size) not in error_thresholds:
+                    raise ConfigValidationError(
+                        prefix_et,
+                        f"missing required block size: {size}",
+                    )
+
+                entry = error_thresholds.get(size, error_thresholds.get(str(size)))
+                if not isinstance(entry, dict):
+                    raise ConfigValidationError(
+                        f"{prefix_et}.{size}",
+                        f"must be a dictionary with max_mse and max_relative",
+                    )
+
+                for field_name in ("max_mse", "max_relative"):
+                    field_path = f"{prefix_et}.{size}.{field_name}"
+                    value = entry.get(field_name)
+                    if value is None:
+                        raise ConfigValidationError(field_path, f"missing required field '{field_name}'")
+                    if not isinstance(value, (int, float)):
+                        raise ConfigValidationError(
+                            field_path,
+                            f"must be a number, got {type(value).__name__}",
+                        )
+                    if value <= 0.0:
+                        raise ConfigValidationError(
+                            field_path,
+                            f"must be positive (> 0), got {value}",
+                        )
+
+        # --- ternary_delta ----------------------------------------------------
+        ternary_delta = fp4_export.get("ternary_delta")
+        if ternary_delta is not None:
+            if not isinstance(ternary_delta, (int, float)):
+                raise ConfigValidationError(
+                    "fp4_export.ternary_delta",
+                    f"must be a number, got {type(ternary_delta).__name__}",
+                )
+            if ternary_delta < 0.0 or ternary_delta > 1.0:
+                raise ConfigValidationError(
+                    "fp4_export.ternary_delta",
+                    f"must be in range [0.0, 1.0], got {ternary_delta}",
+                )
+
+        # --- min_block_size ---------------------------------------------------
+        min_block_size = fp4_export.get("min_block_size")
+        if min_block_size is not None:
+            if not isinstance(min_block_size, int):
+                raise ConfigValidationError(
+                    "fp4_export.min_block_size",
+                    f"must be an integer, got {type(min_block_size).__name__}",
+                )
+            if min_block_size not in (4, 8, 16, 32, 64):
+                raise ConfigValidationError(
+                    "fp4_export.min_block_size",
+                    f"must be a power of 2 in {{4, 8, 16, 32, 64}}, got {min_block_size}",
+                )
+
+        # --- laplacian_levels -------------------------------------------------
+        laplacian_levels = fp4_export.get("laplacian_levels")
+        if laplacian_levels is not None:
+            if not isinstance(laplacian_levels, int):
+                raise ConfigValidationError(
+                    "fp4_export.laplacian_levels",
+                    f"must be an integer, got {type(laplacian_levels).__name__}",
+                )
+            if laplacian_levels < 1:
+                raise ConfigValidationError(
+                    "fp4_export.laplacian_levels",
+                    f"must be >= 1, got {laplacian_levels}",
+                )
+
+        # --- log_mode_enabled -------------------------------------------------
+        log_mode_enabled = fp4_export.get("log_mode_enabled")
+        if log_mode_enabled is not None and not isinstance(log_mode_enabled, bool):
+            raise ConfigValidationError(
+                "fp4_export.log_mode_enabled",
+                f"must be a boolean, got {type(log_mode_enabled).__name__}",
+            )
 
     # -- private: override resolution ------------------------------------------------
 
@@ -317,6 +429,80 @@ if __name__ == "__main__":
     check("effective config preserves endpoints", "endpoints" in eff_code)
     check("effective config preserves paths", "paths" in eff_code)
     check("effective config preserves evaluation", "evaluation" in eff_code)
+
+    # Test 9: fp4_export validation — no error on valid config
+    try:
+        fp4_export = loader._global_config.get("fp4_export", {})
+        loader._validate_fp4_export()
+        check("fp4_export validation passes on valid config", True)
+    except ConfigValidationError as exc:
+        check("fp4_export validation passes on valid config", False, str(exc))
+
+    # Test 10: fp4_export with missing block size raises error
+    saved_fp4 = loader._global_config.get("fp4_export")
+    if saved_fp4 and "error_thresholds" in saved_fp4:
+        saved_et = dict(saved_fp4["error_thresholds"])
+        # Simulate: remove block size 4
+        bad_et = {k: v for k, v in saved_et.items() if k != 4 and k != "4"}
+        loader._global_config["fp4_export"]["error_thresholds"] = bad_et
+        try:
+            loader._validate_fp4_export()
+            check("missing block size 4 raises ConfigValidationError", False, "no exception raised")
+        except ConfigValidationError as exc:
+            check("missing block size 4 raises ConfigValidationError", "missing required block size: 4" in str(exc), str(exc))
+        # Restore
+        loader._global_config["fp4_export"]["error_thresholds"] = saved_et
+
+    # Test 11: negative max_mse raises ConfigValidationError
+    if saved_fp4 and "error_thresholds" in saved_fp4:
+        saved_et = dict(saved_fp4["error_thresholds"])
+        bad_et = dict(saved_et)
+        saved_64 = dict(saved_et.get(64, saved_et.get("64", {})))
+        bad_et[64] = dict(saved_64)
+        bad_et[64]["max_mse"] = -1.0
+        loader._global_config["fp4_export"]["error_thresholds"] = bad_et
+        try:
+            loader._validate_fp4_export()
+            check("negative max_mse raises ConfigValidationError", False, "no exception raised")
+        except ConfigValidationError as exc:
+            check("negative max_mse raises ConfigValidationError",
+                  "positive" in str(exc) and "-1" in str(exc), str(exc))
+        # Restore
+        loader._global_config["fp4_export"]["error_thresholds"] = saved_et
+
+    # Test 12: ternary_delta out of range raises ConfigValidationError
+    if saved_fp4:
+        saved_delta = saved_fp4.get("ternary_delta")
+        loader._global_config["fp4_export"]["ternary_delta"] = 1.5
+        try:
+            loader._validate_fp4_export()
+            check("ternary_delta=1.5 raises ConfigValidationError", False, "no exception raised")
+        except ConfigValidationError as exc:
+            check("ternary_delta=1.5 raises ConfigValidationError",
+                  "1.5" in str(exc), str(exc))
+        loader._global_config["fp4_export"]["ternary_delta"] = saved_delta
+
+    # Test 13: min_block_size=3 raises ConfigValidationError
+    if saved_fp4:
+        saved_mbs = saved_fp4.get("min_block_size")
+        loader._global_config["fp4_export"]["min_block_size"] = 3
+        try:
+            loader._validate_fp4_export()
+            check("min_block_size=3 raises ConfigValidationError", False, "no exception raised")
+        except ConfigValidationError as exc:
+            check("min_block_size=3 raises ConfigValidationError",
+                  "power of 2" in str(exc) and "3" in str(exc), str(exc))
+        loader._global_config["fp4_export"]["min_block_size"] = saved_mbs
+
+    # Test 14: absent fp4_export block does not raise error
+    saved_fp4_block = loader._global_config.pop("fp4_export", None)
+    try:
+        loader._validate_fp4_export()
+        check("absent fp4_export block succeeds (warning only)", True)
+    except ConfigValidationError as exc:
+        check("absent fp4_export block succeeds (warning only)", False, str(exc))
+    if saved_fp4_block is not None:
+        loader._global_config["fp4_export"] = saved_fp4_block
 
     print(f"\n  {passed} passed, {failed} failed")
     sys.exit(0 if failed == 0 else 1)

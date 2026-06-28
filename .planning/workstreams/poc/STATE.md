@@ -4,14 +4,14 @@ milestone: v1.0
 milestone_name: milestone
 status: "Phase 1 shipped - PR #75"
 stopped_at: Phase 2 context gathered
-last_updated: "2026-06-21T20:58:31.308Z"
+last_updated: "2026-06-27T23:49:56.546Z"
 last_activity: 2026-06-18 — Project initialized with ROADMAP.md, REQUIREMENTS.md, PROJECT.md
 progress:
   total_phases: 4
-  completed_phases: 1
-  total_plans: 5
-  completed_plans: 5
-  percent: 25
+  completed_phases: 2
+  total_plans: 8
+  completed_plans: 8
+  percent: 50
 ---
 
 # Project State
@@ -30,7 +30,7 @@ Plan: 0 of ? in current phase
 Status: Phase 1 shipped - PR #75
 Last activity: 2026-06-18 — Project initialized with ROADMAP.md, REQUIREMENTS.md, PROJECT.md
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -52,6 +52,8 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: N/A
 
 *Updated after each plan completion*
+| Phase 03-fp4-quantization-artifact-integrity P02 | 250 | 2 tasks | 5 files |
+| Phase 03-fp4-quantization-artifact-integrity P01 | 341 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -63,6 +65,10 @@ Recent decisions affecting current work:
 - **Adapter-Based Architecture:** Specialists are LoRA adapters on a shared Qwen3-30B-A3B backbone (not standalone models).
 - **Per-Specialist Quantization:** FP4_AFFINE for accuracy-critical specialists, T158_AFFINE for latency-tolerant ones.
 - **Single-Machine EGGROLL:** Scope limited to single-machine proof-of-concept (Phase 1 of the EGGROLL rollout plan).
+- [Phase ?]: fp4_export block is optional — absent block warns (not errors) to allow Phase 1/2 work without quantization config
+- [Phase ?]: fp4_weights_exist check extended to glob *.sgfp4 alongside *.npz/*.safetensors for v2+ output
+- [Phase ?]: Missing .sgfp4 binary does not fail validation — v1-only exports remain valid
+- [Phase ?]: Manifest SHA256 validation uses streaming 64 KiB chunks for memory-safe binary hashing
 
 ### Pending Todos
 
@@ -82,6 +88,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-21T20:22:43.272Z
+Last session: 2026-06-27T23:49:56.539Z
 Stopped at: Phase 2 context gathered
-Resume file: .planning/workstreams/poc/phases/02-training-distillation-quality/02-CONTEXT.md
+Resume file: None

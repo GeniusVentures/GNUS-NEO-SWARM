@@ -99,3 +99,37 @@ evaluation:
 fp4_export:
   target_bits: 4
   block_size: 64
+  # SGFP4 v2 adaptive macroblock error thresholds per block size (D-08)
+  error_thresholds:
+    64: { max_mse: 0.01, max_relative: 0.05 }
+    32: { max_mse: 0.005, max_relative: 0.03 }
+    16: { max_mse: 0.002, max_relative: 0.02 }
+    8:  { max_mse: 0.001, max_relative: 0.01 }
+    4:  { max_mse: 0.0005, max_relative: 0.005 }
+  # Ternary mode selection delta: prefer T158 when err_t158 <= (1.0 + delta) * err_fp4
+  ternary_delta: 0.10
+  # Minimum block size for adaptive quadtree (must be power of 2, >= 4)
+  min_block_size: 4
+  # Number of Laplacian pyramid levels for encode-side error analysis
+  laplacian_levels: 3
+  # Log mode bitmap flag reserved (Phase 5: Unsloth Integration) — default: Linear only
+  log_mode_enabled: false
+
+# ---------------------------------------------------------------------------
+# Evaluation gating — per-dimension quality thresholds with auto-gating
+#
+# Each dimension defines a numeric threshold and a consecutive-failure count
+# that triggers a blocking state (preventing promotion to next pipeline stage).
+# SGFP4 dimensions (D-09): Quantization error metrics become eval gate dimensions
+# following the Phase 2 auto-gating pattern.
+# ---------------------------------------------------------------------------
+eval_gates:
+  fp4_mse:
+    max: 0.01
+    consecutive_failures_to_block: 3
+  fp4_effective_bitrate:
+    max: 4.0
+    consecutive_failures_to_block: 2
+  fp4_t158_ratio:
+    min: 0.05
+    consecutive_failures_to_block: 2

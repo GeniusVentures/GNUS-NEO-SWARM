@@ -6,6 +6,7 @@ stage output quality before marking a stage complete.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from dataclasses import dataclass, field
@@ -65,6 +66,26 @@ class CheckpointValidator:
 
     #: Minimum number of lines required in synthetic data JSONL output.
     _kMinSyntheticRowCount: int = 10
+
+    #: Expected magic header for SGFP4 v2 binary files.
+    _kSgfp4Magic: bytes = b"SGF4"
+
+    #: Expected SGFP4 v2 version byte.
+    _kSgfp4Version: int = 0x02
+
+    #: Required fields in quantization manifest.json (QUANT-03).
+    _kQuantManifestRequiredFields: tuple = (
+        "model_name",
+        "niche",
+        "base_model_ref",
+        "adapter_ref",
+        "quantization_params",
+        "encoder_version",
+        "timestamp_utc",
+    )
+
+    #: Chunk size for SHA256 streaming hash computation (64 KiB).
+    _kSha256ChunkSize: int = 65536
 
     #: Stages recognized by the pipeline (mirrors PipelineRunner.STAGES).
     STAGES = [
@@ -554,7 +575,17 @@ class CheckpointValidator:
     # -- quantize --------------------------------------------------------
 
     def _validate_quantize(self, niche: str) -> List[Dict[str, Any]]:
-        """Validate quantize stage: FP4 export files and manifest exist."""
+        """Validate quantize stage: FP4 export files, manifest, and SGFP4 v2 artifacts.
+
+        Checks:
+        1. fp4_dir_exists — the fp4 output directory exists
+        2. fp4_weights_exist — at least one .npz, .safetensors, or .sgfp4 file
+        3. manifest_exists — manifest.json exists
+        4. sgfp4_binary_exists — the {niche}.sgfp4 v2 binary exists (warning if missing)
+        5. magic_header_valid — .sgfp4 file starts with b'SGF4' + 0x02
+        6. manifest_sha256_valid — manifest fp4_binary.sha256 matches .sgfp4 file hash
+        7. manifest_required_fields — QUANT-03 required fields present in manifest
+        """
         checks: List[Dict[str, Any]] = []
         fp4_dir = self._root / "models" / "specialists_mlx" / niche / "fp4"
 
@@ -573,13 +604,17 @@ class CheckpointValidator:
             "detail": f"Directory exists: {fp4_dir}",
         })
 
-        # Check 2: at least one .npz or .safetensors file
-        weight_files = list(fp4_dir.glob("*.npz")) + list(fp4_dir.glob("*.safetensors"))
+        # Check 2: at least one .npz, .safetensors, or .sgfp4 file
+        weight_files = (
+            list(fp4_dir.glob("*.npz"))
+            + list(fp4_dir.glob("*.safetensors"))
+            + list(fp4_dir.glob("*.sgfp4"))
+        )
         if len(weight_files) == 0:
             checks.append({
                 "name": "fp4_weights_exist",
                 "passed": False,
-                "detail": f"No .npz or .safetensors files in {fp4_dir}",
+                "detail": f"No .npz, .safetensors, or .sgfp4 files in {fp4_dir}",
             })
         else:
             checks.append({
@@ -591,7 +626,8 @@ class CheckpointValidator:
 
         # Check 3: manifest.json exists
         manifest = fp4_dir / "manifest.json"
-        if not manifest.exists() or not manifest.is_file():
+        manifest_exists = manifest.exists() and manifest.is_file()
+        if not manifest_exists:
             checks.append({
                 "name": "manifest_exists",
                 "passed": False,
@@ -604,7 +640,194 @@ class CheckpointValidator:
                 "detail": f"Found: {manifest}",
             })
 
+        # --- SGFP4 v2 checks (additive; v1-only output still passes) ---------
+
+        # Check 4: sgfp4 binary existence (v2-specific)
+        sgfp4_path = fp4_dir / f"{niche}.sgfp4"
+        sgfp4_exists = sgfp4_path.exists() and sgfp4_path.is_file()
+        if sgfp4_exists:
+            checks.append({
+                "name": "sgfp4_binary_exists",
+                "passed": True,
+                "detail": f"Found: {sgfp4_path}",
+            })
+        else:
+            # Not a failure — v1 .fp4 files are still valid quantize output
+            checks.append({
+                "name": "sgfp4_binary_exists",
+                "passed": True,
+                "detail": "No .sgfp4 v2 binary found (v1-only export is valid)",
+            })
+
+        # Check 5: magic header validation (only if .sgfp4 exists)
+        if sgfp4_exists:
+            self._check_sgfp4_magic_header(checks, sgfp4_path)
+
+        # Check 6: manifest SHA256 validation (if manifest and .sgfp4 both exist)
+        if manifest_exists and sgfp4_exists:
+            self._check_manifest_sha256(checks, manifest, sgfp4_path)
+
+        # Check 7: manifest required fields (if manifest exists)
+        if manifest_exists:
+            self._check_manifest_required_fields(checks, manifest)
+
         return checks
+
+    def _check_sgfp4_magic_header(
+        self,
+        checks: List[Dict[str, Any]],
+        sgfp4_path: Path,
+    ) -> None:
+        """Validate the SGFP4 v2 magic header (b'SGF4' + 0x02)."""
+        try:
+            with open(sgfp4_path, "rb") as fh:
+                header_bytes = fh.read(5)
+        except OSError as exc:
+            checks.append({
+                "name": "magic_header_valid",
+                "passed": False,
+                "detail": f"Could not read {sgfp4_path}: {exc}",
+            })
+            return
+
+        if len(header_bytes) < 5:
+            checks.append({
+                "name": "magic_header_valid",
+                "passed": False,
+                "detail": f"File too short for SGFP4 header: {len(header_bytes)} bytes",
+            })
+            return
+
+        actual_magic = header_bytes[:4]
+        actual_version = header_bytes[4]
+
+        if actual_magic != self._kSgfp4Magic:
+            checks.append({
+                "name": "magic_header_valid",
+                "passed": False,
+                "detail": f"Expected magic b'SGF4', got {actual_magic}",
+            })
+            return
+
+        if actual_version != self._kSgfp4Version:
+            checks.append({
+                "name": "magic_header_valid",
+                "passed": False,
+                "detail": f"Expected version 0x02, got {actual_version:#04x}",
+            })
+            return
+
+        checks.append({
+            "name": "magic_header_valid",
+            "passed": True,
+            "detail": "Magic SGF4 + version 0x02",
+        })
+
+    def _check_manifest_sha256(
+        self,
+        checks: List[Dict[str, Any]],
+        manifest_path: Path,
+        sgfp4_path: Path,
+    ) -> None:
+        """Verify manifest fp4_binary.sha256 matches the .sgfp4 file content hash."""
+        # Read manifest
+        try:
+            manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            checks.append({
+                "name": "manifest_sha256_valid",
+                "passed": False,
+                "detail": f"Could not read manifest: {exc}",
+            })
+            return
+
+        fp4_binary = manifest_data.get("fp4_binary")
+        if not isinstance(fp4_binary, dict):
+            checks.append({
+                "name": "manifest_sha256_valid",
+                "passed": True,
+                "detail": "No fp4_binary object in manifest (backward compatible)",
+            })
+            return
+
+        manifest_hash = fp4_binary.get("sha256")
+        if manifest_hash is None:
+            checks.append({
+                "name": "manifest_sha256_valid",
+                "passed": True,
+                "detail": "No sha256 field in manifest fp4_binary (backward compatible)",
+            })
+            return
+
+        # Compute SHA256 of .sgfp4 binary (streaming, 64 KiB chunks)
+        try:
+            file_hash = self._file_sha256(sgfp4_path)
+        except OSError as exc:
+            checks.append({
+                "name": "manifest_sha256_valid",
+                "passed": False,
+                "detail": f"Could not hash {sgfp4_path}: {exc}",
+            })
+            return
+
+        if file_hash == manifest_hash:
+            checks.append({
+                "name": "manifest_sha256_valid",
+                "passed": True,
+                "detail": "SHA256 matches",
+            })
+        else:
+            checks.append({
+                "name": "manifest_sha256_valid",
+                "passed": False,
+                "detail": f"Manifest SHA256 {manifest_hash} does not match file SHA256 {file_hash}",
+            })
+
+    def _check_manifest_required_fields(
+        self,
+        checks: List[Dict[str, Any]],
+        manifest_path: Path,
+    ) -> None:
+        """Validate QUANT-03 required fields in manifest.json."""
+        try:
+            manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            checks.append({
+                "name": "manifest_required_fields",
+                "passed": False,
+                "detail": f"Could not read manifest: {exc}",
+            })
+            return
+
+        missing_fields = [
+            field for field in self._kQuantManifestRequiredFields
+            if field not in manifest_data
+        ]
+
+        if missing_fields:
+            checks.append({
+                "name": "manifest_required_fields",
+                "passed": False,
+                "detail": f"Missing required fields: {missing_fields}",
+            })
+        else:
+            checks.append({
+                "name": "manifest_required_fields",
+                "passed": True,
+                "detail": f"All {len(self._kQuantManifestRequiredFields)} required fields present",
+            })
+
+    @staticmethod
+    def _file_sha256(file_path: Path) -> str:
+        """Compute the SHA256 hex digest of a file (streaming, 64 KiB chunks)."""
+        sha = hashlib.sha256()
+        with open(file_path, "rb") as fh:
+            while True:
+                chunk = fh.read(CheckpointValidator._kSha256ChunkSize)
+                if not chunk:
+                    break
+                sha.update(chunk)
+        return sha.hexdigest()
 
     # ------------------------------------------------------------------
     # Checkpoint lifecycle (read / write / clear)
