@@ -77,7 +77,13 @@ Plans:
   2. Benchmarks act as a quality gate — models below configurable thresholds are flagged for distillation refinement.
   3. Benchmark results persist with model identity, quantization config, and timestamp for trend analysis across runs.
   4. Failed benchmarks produce actionable feedback (which categories underperformed, by how much) to guide manual distillation strategy adjustments.
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — lm-eval integration + MLX model wrapper + canonical benchmark runner
+- [ ] 04-02-PLAN.md — Benchmark datasets + custom YAML tasks (PubMedQA, BIGPATENT) + specialist mapping
+- [ ] 04-03-PLAN.md — Reproducibility fingerprint (D-02) + gate dimensions + hard floors + 2-of-3 composite
+- [ ] 04-04-PLAN.md — Trend analysis + bootstrap CI (D-09) + repair suggestion reports (D-10)
 
 ## Progress
 
@@ -89,7 +95,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | 1. Pipeline Hardening | 0/5 | Planned | - |
 | 2. Training & Distillation Quality | 0/? | Not started | - |
 | 3. FP4 Quantization & Artifact Integrity | 3/3 | Complete   | 2026-06-27 |
-| 4. Benchmark Evaluation | 0/? | Not started | - |
+| 4. Benchmark Evaluation | 0/4 | Planned | - |
 
 ## Scope Boundaries
 
