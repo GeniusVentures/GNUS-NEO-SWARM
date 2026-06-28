@@ -6,7 +6,7 @@
 
 ## SPEC-01: Reputation-Based Consensus System
 
-- **Source:** `docs/architecture/04-reputation-consensus.md`
+- **Source:** `docs/architecture/reputation-consensus.md`
 - **Title:** 7 Reputation-Based Consensus System
 - **Confidence:** medium
 - **Type:** api-contract | protocol
@@ -78,7 +78,7 @@ Bootstrap nodes may start with reputation = 1.0 and full participation rights. R
 
 ## SPEC-02: Secure Agent Architecture
 
-- **Source:** `docs/architecture/12-secure-agent-architecture.md`
+- **Source:** `docs/architecture/secure-agent-architecture.md`
 - **Title:** 17 Secure Agent Architecture for the GNUS.ai Decentralized Cognitive System
 - **Confidence:** high
 - **Type:** api-contract | protocol | nfr
