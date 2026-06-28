@@ -143,8 +143,9 @@ class TestCustomTaskFailFast:
         descriptive error when the task is actually loaded (not just registered).
 
         TaskManager registration is lazy — invalid dataset_path surfaces only
-        at load time via ``load_task_or_group``. This test verifies the
-        fail-fast contract: a broken dataset_path does not silently succeed.
+        at load time via ``load`` (or the deprecated ``load_task_or_group``).
+        This test verifies the fail-fast contract: a broken dataset_path does
+        not silently succeed.
         """
         _write_minimal_dataset_stub_yaml(tmp_path / "broken.yaml")
         from lm_eval.tasks import TaskManager
@@ -154,8 +155,11 @@ class TestCustomTaskFailFast:
         assert "broken_dataset_ref" in tm.task_index
 
         # Loading the task must raise — proves fail-fast contract.
+        # Use the current `load()` API; fall back to the deprecated
+        # `load_task_or_group()` if `load()` is unavailable (older lm-eval).
+        loader = getattr(tm, "load", None) or tm.load_task_or_group
         with pytest.raises(Exception) as excinfo:
-            tm.load_task_or_group("broken_dataset_ref")
+            loader("broken_dataset_ref")
 
         # Error must mention the broken dataset path
         message = str(excinfo.value).lower()

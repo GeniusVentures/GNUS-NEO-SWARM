@@ -1,0 +1,41 @@
+# Custom lm-eval v0.4 YAML task definition for BIGPATENT summarization.
+#
+# Per Phase 04-02 Task 1 + RESEARCH.md: BIGPATENT is not natively in lm-eval.
+# This YAML defines the patent abstract summarization task used as the blocking
+# benchmark for the `patents` specialist (D-05).
+#
+# Source: HuggingFace dataset `big_patent`, config `all` (covers all CPC
+# sections A-H). Standard HF splits (train/validation/test) are used.
+#
+# ASSUMPTION: dataset field names (description, abstract) are taken from the
+# BIGPATENT data card and MUST be verified at runtime. If the actual field
+# names differ, only the Jinja2 templates below need adjustment.
+#
+# Per D-03: canonical generation params are frozen (temperature=0.0,
+# do_sample=false, max_gen_toks=512) for reproducible scoring.
+# Per D-02: num_fewshot is NOT set here — set at runtime in benchmark_runner.py.
+task: bigpatent
+dataset_path: big_patent
+dataset_name: all
+test_split: test
+output_type: generate_until
+doc_to_text: >-
+  Summarize the following patent description into a single abstract paragraph.
+
+  Description: {{description}}
+
+  Abstract:
+doc_to_target: "{{abstract}}"
+generation_kwargs:
+  max_gen_toks: 512
+  temperature: 0.0
+  do_sample: false
+metric_list:
+  - metric: rouge1
+    aggregation: mean
+    higher_is_better: true
+  - metric: rougeL
+    aggregation: mean
+    higher_is_better: true
+metadata:
+  version: 0
