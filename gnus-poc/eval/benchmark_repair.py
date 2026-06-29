@@ -311,8 +311,16 @@ def generate_repair_report(
             "detail": sgfp4_from_gate.get("detail", ""),
         }
 
-    timestamp_utc = datetime.now(timezone.utc).isoformat()
-    report_id_ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    # WR-04: capture the timestamp ONCE and thread it through both the
+    # report_id and the save filename. Earlier code captured three independent
+    # ``datetime.now()`` calls (timestamp_utc, report_id_ts, and the filename
+    # timestamp inside save_repair_report), so two reports for the same niche
+    # within the same second got the SAME report_id but DIFFERENT filenames --
+    # the report_id could not locate the file on disk. Microsecond precision is
+    # used in both so the filename timestamp is recoverable from report_id.
+    now = datetime.now(timezone.utc)
+    timestamp_utc = now.isoformat()
+    report_id_ts = now.strftime("%Y%m%d-%H%M%S-%f")
 
     report = {
         "niche": niche_name,
@@ -337,6 +345,11 @@ def save_repair_report(
 ) -> Path:
     """Write a repair report to ``artifacts/repair_reports/{niche}_{timestamp}.json``.
 
+    WR-04: the filename timestamp is derived from ``report["report_id"]`` (set
+    by ``generate_repair_report``) so the filename is recoverable from the
+    report_id field. Falls back to a fresh timestamp only if report_id is
+    malformed.
+
     Args:
         niche_name: Specialist niche.
         report: Report dict from ``generate_repair_report``.
@@ -346,7 +359,13 @@ def save_repair_report(
         Path to the written report.
     """
     reports_dir = _repair_reports_dir(project_root)
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f")
+    # Derive the filename timestamp from the report_id so the two stay in sync.
+    report_id = report.get("report_id", "") if isinstance(report, dict) else ""
+    prefix = f"{niche_name}_"
+    if report_id.startswith(prefix) and len(report_id) > len(prefix):
+        timestamp = report_id[len(prefix):]
+    else:
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f")
     out_path = reports_dir / f"{niche_name}_{timestamp}.json"
     with out_path.open("w", encoding="utf-8") as f:
         json.dump(report, f, indent=2)
@@ -361,6 +380,14 @@ def should_block_pipeline(gate_result: dict) -> bool:
     D-10: 3rd consecutive failure blocks pipeline promotion. The operator must
     intervene manually -- the system never auto-fixes.
 
+    WR-05: D-08 also makes the SGFP4 regression check (quantized vs
+    unquantized-adapter) a MANDATORY gate dimension. A failed SGFP4 regression
+    (e.g. quantization destroyed 15% of accuracy) blocks the pipeline even
+    before any individual benchmark accumulates 3 consecutive failures. The
+    ``needs_bootstrap: True`` placeholder result from
+    ``Benchmarker._sgfp4_regression_check`` (first run, no unquantized
+    baseline) is treated as a pass -- only an explicit ``passed: False`` blocks.
+
     Args:
         gate_result: Output of ``Benchmarker.gate_check_benchmarks()``.
 
@@ -369,12 +396,26 @@ def should_block_pipeline(gate_result: dict) -> bool:
     """
     if not isinstance(gate_result, dict):
         return False
+
+    niche = gate_result.get("niche", "<unknown>")
+
+    # D-08 mandatory SGFP4 regression dimension: an explicit failure blocks
+    # regardless of consecutive_failures count. ``passed`` defaults to True
+    # so the ``needs_bootstrap`` first-run placeholder does NOT block.
+    sgfp4_regression = gate_result.get("sgfp4_regression")
+    if isinstance(sgfp4_regression, dict) and sgfp4_regression.get("passed") is False:
+        logger.warning(
+            "Pipeline blocked for %s -- SGFP4 regression check FAILED (D-08 "
+            "mandatory dimension). See artifacts/repair_reports/ for details.",
+            niche,
+        )
+        return True
+
     if not gate_result.get("blocking", False):
         return False
     consecutive = gate_result.get("consecutive_failures", {}) or {}
     if not consecutive:
         return False
-    niche = gate_result.get("niche", "<unknown>")
     blocked = any(int(v) >= _K_BLOCKING_THRESHOLD for v in consecutive.values())
     if blocked:
         logger.warning(
