@@ -468,16 +468,17 @@ class BenchmarkRunner:
             "model_version", self._kModelVersionPlaceholder
         )
 
-        # Reproducibility fingerprint
-        fingerprint = collect_fingerprint_fields(
+        # Reproducibility fingerprint (WR-01): prefer the real
+        # ``benchmark_fingerprint.compute_fingerprint`` (Plan 04-03) when the
+        # specialist config supplies manifest paths; otherwise fail closed by
+        # embedding a fingerprint that ``validate_fingerprint`` will mark
+        # ``fingerprint_valid: False`` (missing manifest SHA fields). The
+        # earlier hardcoded ``"stub"`` / ``"n/a"`` placeholders passed
+        # validation despite being non-reproducible, defeating D-02.
+        fingerprint = self._build_fingerprint(
             task_name=task_name,
-            task_revision="0",
-            dataset_revision="unknown",
-            prompt_hash="n/a",
-            fewshot_seed=kBenchmarkFewShot.get(task_name, kDefaultFewShot),
-            chat_template_hash="n/a",
-            answer_extraction="default",
-            generation_params=gen_params,
+            gen_params=gen_params,
+            specialist_config=specialist_config,
         )
 
         entry = {
@@ -497,6 +498,69 @@ class BenchmarkRunner:
             },
         }
         return entry
+
+    def _build_fingerprint(
+        self,
+        task_name: str,
+        gen_params: dict,
+        specialist_config: dict,
+    ) -> dict:
+        """Build the D-02 reproducibility fingerprint for a benchmark entry.
+
+        WR-01: prefer ``benchmark_fingerprint.compute_fingerprint`` (Plan
+        04-03) when the specialist config supplies ``model_manifest_path``
+        and ``sgfp4_manifest_path``. When manifests are unavailable, FAIL
+        CLOSED by returning a fingerprint with ``model_manifest_sha256`` /
+        ``sgfp4_manifest_sha256`` set to ``None`` -- ``validate_fingerprint``
+        then marks ``fingerprint_valid: False`` (T-04-16 pattern) so the
+        record is visibly flagged as non-reproducible rather than silently
+        carrying ``"stub"`` placeholders that pass validation.
+        """
+        model_manifest = specialist_config.get("model_manifest_path")
+        sgfp4_manifest = specialist_config.get("sgfp4_manifest_path")
+        prompt_template = specialist_config.get("prompt_template", "")
+        chat_template = specialist_config.get("chat_template")
+        task_revision = specialist_config.get("task_revision")
+        dataset_revision = specialist_config.get("dataset_revision")
+        fewshot_seed = kBenchmarkFewShot.get(task_name, kDefaultFewShot)
+
+        if model_manifest and sgfp4_manifest:
+            try:
+                from eval.benchmark_fingerprint import compute_fingerprint
+                return compute_fingerprint(
+                    task_name=task_name,
+                    fewshot_seed=fewshot_seed,
+                    prompt_template=str(prompt_template),
+                    model_manifest_path=Path(model_manifest),
+                    sgfp4_manifest_path=Path(sgfp4_manifest),
+                    generation_params=gen_params,
+                    task_revision=task_revision,
+                    dataset_revision=dataset_revision,
+                    chat_template=chat_template,
+                )
+            except Exception as exc:  # noqa: BLE001 - fall through to fail-closed
+                logger.warning(
+                    "compute_fingerprint failed for task=%s: %s -- falling "
+                    "back to fail-closed fingerprint", task_name, exc,
+                )
+
+        # Fail-closed fingerprint: manifest SHA fields are None so
+        # validate_fingerprint reports fingerprint_valid=False (T-04-16).
+        # ``collect_fingerprint_fields`` is retained for the non-manifest
+        # scalar fields but the SHA placeholders are overridden to None.
+        fp = collect_fingerprint_fields(
+            task_name=task_name,
+            task_revision=task_revision if task_revision else "unknown",
+            dataset_revision=dataset_revision if dataset_revision else "unknown",
+            prompt_hash="unavailable",
+            fewshot_seed=fewshot_seed,
+            chat_template_hash="unavailable",
+            answer_extraction="default",
+            generation_params=gen_params,
+        )
+        fp["model_manifest_sha256"] = None
+        fp["sgfp4_manifest_sha256"] = None
+        return fp
 
     def _build_not_implemented_entry(
         self,
