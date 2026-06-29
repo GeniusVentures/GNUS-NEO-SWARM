@@ -549,28 +549,75 @@ class Benchmarker:
         return 0.0
 
     def composite_2_of_3(
-        self, scores_pass: bool, regression_pass: bool, deviation_pass: bool
+        self,
+        scores_pass: bool,
+        regression_pass: bool,
+        deviation_pass: bool,
+        scores_evaluated: bool = True,
+        regression_evaluated: bool = True,
+        deviation_evaluated: bool = True,
     ) -> dict:
         """D-08 composite gate: passes when at least 2 of 3 dimensions pass.
+
+        WR-08: on a specialist's first run, regression (no previous run) and
+        deviation (no baseline) default-pass. Without tracking which dims were
+        actually measured, the composite reports ``passed_count = 3`` and the
+        gate can report "all green" without having measured 2 of the 3
+        dimensions. The ``evaluated`` flag per dimension surfaces this so
+        downstream consumers can distinguish "passed by measurement" from
+        "passed by absence of data". The composite still requires >= 2 passing
+        dims (D-08 contract unchanged), but each dimension dict now carries an
+        ``evaluated`` flag.
 
         Args:
             scores_pass: True iff ALL blocking benchmark scores >= hard_floor.
             regression_pass: True iff regression from previous run <= threshold.
             deviation_pass: True iff deviation from baseline <= threshold.
+            scores_evaluated: True iff the scores dimension was actually
+                measured (always True in practice -- hard floors always run).
+            regression_evaluated: True iff a previous run existed to compare
+                against. False on first run.
+            deviation_evaluated: True iff an internal baseline existed. False
+                when ``MissingBaselineError`` was caught.
 
         Returns:
             Dict with ``passed`` (bool), ``passed_count`` (int 0-3),
-            and ``dimensions`` mapping each dimension name to {passed, detail}.
+            ``evaluated_count`` (int 0-3), and ``dimensions`` mapping each
+            dimension name to {passed, evaluated, detail}.
         """
         dims = {
-            "scores": {"passed": bool(scores_pass), "detail": "hard floors" + ("" if scores_pass else " not") + " met"},
-            "regression": {"passed": bool(regression_pass), "detail": "regression within threshold" if regression_pass else "regression exceeds threshold"},
-            "deviation": {"passed": bool(deviation_pass), "detail": "deviation within threshold" if deviation_pass else "deviation exceeds threshold"},
+            "scores": {
+                "passed": bool(scores_pass),
+                "evaluated": bool(scores_evaluated),
+                "detail": "hard floors" + ("" if scores_pass else " not") + " met",
+            },
+            "regression": {
+                "passed": bool(regression_pass),
+                "evaluated": bool(regression_evaluated),
+                "detail": (
+                    "regression not measured (no previous run)"
+                    if not regression_evaluated else
+                    ("regression within threshold" if regression_pass
+                     else "regression exceeds threshold")
+                ),
+            },
+            "deviation": {
+                "passed": bool(deviation_pass),
+                "evaluated": bool(deviation_evaluated),
+                "detail": (
+                    "deviation not measured (no baseline)"
+                    if not deviation_evaluated else
+                    ("deviation within threshold" if deviation_pass
+                     else "deviation exceeds threshold")
+                ),
+            },
         }
         passed_count = sum(1 for d in dims.values() if d["passed"])
+        evaluated_count = sum(1 for d in dims.values() if d["evaluated"])
         return {
             "passed": passed_count >= 2,
             "passed_count": passed_count,
+            "evaluated_count": evaluated_count,
             "dimensions": dims,
         }
 
@@ -749,11 +796,13 @@ class Benchmarker:
                 hard_floor_all_pass = False
 
         # ---- Regression vs previous run (D-08 dim 2) ----
-        # Load previous canonical result (second-most-recent)
+        # Load previous canonical result (previous run per WR-07 grouping).
         previous_payload = self._find_previous_canonical(niche_name)
         regression_pass = True
+        regression_evaluated = False
         if previous_payload is not None:
             prev_results = previous_payload.get("results", {})
+            any_compared = False
             for benchmark in blocking_benchmarks:
                 if benchmark not in prev_results:
                     continue
@@ -762,15 +811,19 @@ class Benchmarker:
                 cur_score = self._extract_score(current_results.get(benchmark, {}))
                 if prev_score <= 0:
                     continue
+                any_compared = True
                 regression = (prev_score - cur_score) / prev_score
                 if regression > thresholds["regression_max_pct"]:
                     regression_pass = False
                     break
+            regression_evaluated = any_compared
 
         # ---- Deviation from internal baseline (D-07, D-08 dim 3) ----
         deviation_pass = True
+        deviation_evaluated = False
         try:
             baseline_scores = self._load_baseline_scores(niche_name)
+            any_compared = False
             for benchmark in blocking_benchmarks:
                 if benchmark not in baseline_scores:
                     continue
@@ -779,19 +832,25 @@ class Benchmarker:
                 cur_score = self._extract_score(current_results.get(benchmark, {}))
                 if baseline <= 0:
                     continue
+                any_compared = True
                 deviation = (baseline - cur_score) / baseline
                 if deviation > thresholds["deviation_max_pct"]:
                     deviation_pass = False
                     break
+            deviation_evaluated = any_compared
         except MissingBaselineError:
             # No baseline -> deviation dimension skipped (treat as pass for POC)
             deviation_pass = True
+            deviation_evaluated = False
 
         # ---- Composite 2-of-3 gate (D-08) ----
         composite = self.composite_2_of_3(
             scores_pass=hard_floor_all_pass,
             regression_pass=regression_pass,
             deviation_pass=deviation_pass,
+            scores_evaluated=True,  # hard floors always run
+            regression_evaluated=regression_evaluated,
+            deviation_evaluated=deviation_evaluated,
         )
 
         # ---- Mandatory SGFP4 regression check (D-08) ----
