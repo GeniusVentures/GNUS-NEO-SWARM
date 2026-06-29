@@ -61,7 +61,7 @@ Your default mode is “tiny, surgical insertion into existing code”.
 - Always run the linter before committing.
 - Always run the formatter before committing.
 - Always run the build before committing.
-- Before creating a PR, run `/codex:review` in the IDE to check code against standards.
+- Before creating a PR, ensure `/gsd-code-review` has been run for the phase (e.g. `/gsd:code-review <phase> --ws <workstream>`) and any Critical/Warning findings resolved. Do **not** run `/codex:review` — GSD code review is the required pre-PR review gate for this project.
 - Create PRs in draft mode first, then run `/gsd-inbox` to triage the PR review.
 - The Codex ChatGPT bot will flag violations on PR creation — fix them before marking ready for review.
 - Always run in interactive mode with the user on a step-by-step basis
