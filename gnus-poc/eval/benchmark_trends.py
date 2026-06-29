@@ -23,6 +23,12 @@ _K_MAX_N_BOOTSTRAP = 100_000
 _K_MAX_INPUT_SAMPLES = 10_000
 _K_DEFAULT_N_BOOTSTRAP = 10_000
 _K_DEFAULT_CONFIDENCE = 0.95
+# CR-06: minimum sample count to support a meaningful bootstrap CI. With
+# n=1 (single aggregate delta, no variance) the percentile CI is degenerate
+# (lower == upper == the one sample) and ``excludes_zero`` flags any negative
+# delta as "significant" -- a false positive. Below this threshold we report
+# ``reason: insufficient_samples_for_ci`` and ``significant: False`` instead.
+_K_MIN_BOOTSTRAP_SAMPLES = 2
 
 
 def _trends_dir(project_root: Optional[Path]) -> Path:
@@ -332,10 +338,27 @@ def is_degradation_significant(
         if not diffs:
             continue
 
+        mean_delta = sum(diffs) / len(diffs)
+
+        # CR-06: guard against the n=1 false positive. With a single sample
+        # the percentile CI collapses (lower == upper == the sample), so
+        # ``excludes_zero`` would flag ANY negative delta as "significant".
+        # Report insufficient samples instead of a vacuous CI. The existing
+        # 4-category MMLU tests (n=4) still pass this threshold.
+        if len(diffs) < _K_MIN_BOOTSTRAP_SAMPLES:
+            result[benchmark] = {
+                "significant": False,
+                "ci_lower": None,
+                "ci_upper": None,
+                "mean_delta": mean_delta,
+                "n_samples": len(diffs),
+                "reason": "insufficient_samples_for_ci",
+            }
+            continue
+
         lower, upper = bootstrap_ci(
             diffs, n_bootstrap=n_bootstrap, confidence=confidence, seed=seed
         )
-        mean_delta = sum(diffs) / len(diffs)
         # D-09: degradation significant when CI excludes zero AND mean is negative.
         excludes_zero = (upper < 0.0) or (lower > 0.0)
         significant = bool(excludes_zero and mean_delta < 0.0)
