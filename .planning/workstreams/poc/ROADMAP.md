@@ -11,7 +11,7 @@ Scope is bounded to what a Python training pipeline can prove. Distributed swarm
 - [ ] **Phase 1: Pipeline Hardening** — Multi-teacher cascade with dual-backend API, subprocess pipeline execution, budget persistence, retry/circuit breaker, validated checkpoints
 - [ ] **Phase 2: Training & Distillation Quality** — KD convergence with temperature sweeping, valid LoRA adapters, evaluation metrics, rules-based specialist routing
 - [x] **Phase 3: FP4 Quantization & Artifact Integrity** — SGFP4 v2 adaptive macroblock export with quadtree partitioning, Laplacian error analysis, dual-mode selection, and provenance manifests (completed 2026-06-27)
-- [ ] **Phase 4: Benchmark Evaluation** — Established benchmark suite scoring as quality gate with manual feedback loop to distillation
+- [x] **Phase 4: Benchmark Evaluation** — Established benchmark suite scoring as quality gate with manual feedback loop to distillation (completed 2026-06-28)
 
 ## Phase Details
 
@@ -80,10 +80,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — lm-eval integration + MLX model wrapper + canonical benchmark runner
-- [ ] 04-02-PLAN.md — Benchmark datasets + custom YAML tasks (PubMedQA, BIGPATENT) + specialist mapping
-- [ ] 04-03-PLAN.md — Reproducibility fingerprint (D-02) + gate dimensions + hard floors + 2-of-3 composite
-- [ ] 04-04-PLAN.md — Trend analysis + bootstrap CI (D-09) + repair suggestion reports (D-10)
+- [x] 04-01-PLAN.md — lm-eval integration + MLX model wrapper + canonical benchmark runner
+- [x] 04-02-PLAN.md — Benchmark datasets + custom YAML tasks (PubMedQA, BIGPATENT) + specialist mapping
+- [x] 04-03-PLAN.md — Reproducibility fingerprint (D-02) + gate dimensions + hard floors + 2-of-3 composite
+- [x] 04-04-PLAN.md — Trend analysis + bootstrap CI (D-09) + repair suggestion reports (D-10)
 
 ## Progress
 
@@ -95,7 +95,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | 1. Pipeline Hardening | 0/5 | Planned | - |
 | 2. Training & Distillation Quality | 0/? | Not started | - |
 | 3. FP4 Quantization & Artifact Integrity | 3/3 | Complete   | 2026-06-27 |
-| 4. Benchmark Evaluation | 0/4 | Planned | - |
+| 4. Benchmark Evaluation | 4/4 | Complete | 2026-06-28 |
 
 ## Scope Boundaries
 
