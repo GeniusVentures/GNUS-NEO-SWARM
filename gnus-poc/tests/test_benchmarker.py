@@ -297,6 +297,7 @@ def _write_benchmark_result(
     payload = {
         "niche": niche_name,
         "timestamp_utc": "2026-06-28T00:00:00Z",
+        "run_id": "2026-06-28-000000",
         "model_version": f"test-{quant_label}",
         "mode": mode,
         "quantized": bool(quantized),

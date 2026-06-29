@@ -834,18 +834,23 @@ class Benchmarker:
         }
 
     def _find_previous_canonical(self, niche_name: str):
-        """Find the SECOND-most-recent canonical quantized result (for regression).
+        """Find the most recent canonical quantized result from the PREVIOUS run.
 
         Per CR-01: glob the producer pattern ``{niche}_*_*.json`` and filter by
         the payload ``mode == "canonical"`` AND ``quantized`` field (defaulting
         True for backward compat). ``_baseline`` / ``_comparison`` /
         ``_sgfp4_metrics`` sibling files are excluded.
 
-        Returns None if fewer than two canonical quantized results exist.
+        Per WR-07: a single benchmark *run* writes one file per task sharing
+        the same ``run_id`` (or ``timestamp_utc`` for legacy records without
+        ``run_id``). Grouping by run_id avoids the earlier bug where the
+        "second-most-recent file" was likely a sibling task from the SAME run
+        rather than the previous run -- making the regression delta
+        meaningless. We pick the most recent run as "current" and the
+        next-most-recent distinct run as "previous", returning the first
+        canonical quantized payload from that previous run.
 
-        Note (WR-07): "previous run" semantics are imperfect here -- a single
-        run writes one file per task, so ``canonical[1]`` may be a sibling task
-        from the SAME run. Grouping by ``run_id`` is the clean fix (deferred).
+        Returns None if fewer than two distinct runs exist.
         """
         pattern = f"{niche_name}_*_*.json"
         excluded_stems = ("_baseline", "_comparison", "_sgfp4_metrics")
@@ -857,7 +862,10 @@ class Benchmarker:
             key=lambda p: p.stat().st_mtime,
             reverse=True,
         )
-        canonical = []
+        # Preserve insertion order (Python 3.7+ dict): run_id -> first payload
+        # seen for that run. mtime-descending sort means the first run_id
+        # encountered is the most recent run.
+        runs = {}
         for path in candidates:
             try:
                 with path.open("r", encoding="utf-8") as f:
@@ -868,5 +876,10 @@ class Benchmarker:
                 continue
             if payload.get("quantized", True) is False:
                 continue
-            canonical.append(payload)
-        return canonical[1] if len(canonical) >= 2 else None
+            run_key = payload.get("run_id") or payload.get("timestamp_utc") or path.name
+            runs.setdefault(run_key, payload)
+
+        if len(runs) < 2:
+            return None
+        # runs is ordered most-recent-first; index 1 is the previous run.
+        return list(runs.values())[1]

@@ -290,8 +290,12 @@ class BenchmarkRunner:
                 task_name,
             )
 
-        # Generate timestamp once for all output files
+        # Generate timestamp once for all output files. This same timestamp is
+        # also the ``run_id`` stamped into every entry so that downstream
+        # consumers (Benchmarker._find_previous_canonical, WR-07) can group
+        # sibling task files from the SAME run vs files from a previous run.
         timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+        run_id = timestamp_str
 
         # Determine generation params based on mode
         gen_params = {}
@@ -339,7 +343,8 @@ class BenchmarkRunner:
             if task_name in not_implemented:
                 # Write not-implemented entry
                 entry = self._build_not_implemented_entry(
-                    niche, timestamp_str, mode, source, task_name, quantized=quantized,
+                    niche, timestamp_str, mode, source, task_name,
+                    quantized=quantized, run_id=run_id,
                 )
             else:
                 entry = self._build_benchmark_entry(
@@ -352,6 +357,7 @@ class BenchmarkRunner:
                     gen_params=gen_params,
                     specialist_config=specialist_config,
                     quantized=quantized,
+                    run_id=run_id,
                 )
 
             output_path = self._benchmarks_dir / f"{niche}_{task_name}_{timestamp_str}.json"
@@ -444,6 +450,7 @@ class BenchmarkRunner:
         gen_params: dict,
         specialist_config: dict,
         quantized: bool = True,
+        run_id: Optional[str] = None,
     ) -> dict:
         """Build a single benchmark result entry conforming to the D-02 schema.
 
@@ -494,6 +501,7 @@ class BenchmarkRunner:
         entry = {
             "niche": niche,
             "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+            "run_id": run_id or timestamp_str,
             "model_version": model_version,
             "quantization_config": quant_config,
             "mode": mode,
@@ -580,11 +588,13 @@ class BenchmarkRunner:
         source: str,
         task_name: str,
         quantized: bool = True,
+        run_id: Optional[str] = None,
     ) -> dict:
         """Build a result entry for a not-yet-implemented benchmark."""
         return {
             "niche": niche,
             "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+            "run_id": run_id or timestamp_str,
             "model_version": self._kModelVersionPlaceholder,
             "quantization_config": {},
             "mode": mode,
