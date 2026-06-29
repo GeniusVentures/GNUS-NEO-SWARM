@@ -544,3 +544,88 @@ class TestGateCheckBenchmarks:
         deviation_dim = result["composite_result"]["dimensions"]["deviation"]
         assert deviation_dim["passed"] is False
 
+
+# ---------------------------------------------------------------------------
+# CR-01 integration: producer (BenchmarkRunner) -> consumer (Benchmarker)
+# filename contract. The reviewer noted the test helper fabricated a different
+# filename token than the real producer, so the gate never fired on real output.
+# These tests write files via the REAL producer entry builder + REAL filename
+# pattern ({niche}_{task}_{ts}.json) and read them via the REAL consumer, so a
+# regression to the old {niche}_canonical_*.json glob returns None and fails.
+# ---------------------------------------------------------------------------
+
+
+def _write_real_producer_result(runner, task, mode, quantized, ts, niche="medical"):
+    """Write a benchmark result exactly as BenchmarkRunner.run_benchmarks does.
+
+    Uses the real _build_benchmark_entry payload and the real filename pattern
+    at benchmark_runner.py:363 (``{niche}_{task_name}_{timestamp_str}.json``).
+    """
+    entry = runner._build_benchmark_entry(
+        niche=niche,
+        timestamp_str=ts,
+        mode=mode,
+        source="local",
+        task_name=task,
+        raw_results={task: {"acc": 0.62, "acc_norm": 0.65}},
+        gen_params={},
+        specialist_config={},
+        quantized=quantized,
+        run_id=ts,
+    )
+    path = runner._benchmarks_dir / f"{niche}_{task}_{ts}.json"
+    path.write_text(json.dumps(entry))
+    return path
+
+
+def test_find_canonical_results_discovers_real_producer_files(tmp_path):
+    """CR-01: consumer discovers real producer output (no 'canonical' filename token).
+
+    Before the fix _find_canonical_results globbed {niche}_canonical_*.json which
+    never matched the producer's {niche}_{task}_{ts}.json files, so the gate always
+    reported 'No canonical benchmark results available yet'. The fix globs the
+    producer pattern and filters by payload mode/quantized.
+    """
+    from eval.benchmark_runner import BenchmarkRunner
+
+    runner = BenchmarkRunner(project_root=tmp_path)
+    _write_real_producer_result(runner, "medmcqa", "canonical", True, "20260628-120000-000001")
+    _write_real_producer_result(runner, "medmcqa", "canonical", False, "20260628-120000-000002")
+    _write_real_producer_result(runner, "mmlu", "diagnostic", True, "20260628-120000-000003")
+
+    bench = Benchmarker(project_root=tmp_path)
+
+    payload = bench._find_canonical_results("medical", quantized_only=True)
+    assert payload is not None, (
+        "consumer returned None for real producer file -- CR-01 filename contract regressed"
+    )
+    assert payload["mode"] == "canonical"
+    assert payload["quantized"] is True
+    assert "medmcqa" in payload["results"], "canonical quantized medmcqa result must be discovered"
+    # Diagnostic-mode file must be filtered out by the mode == "canonical" check.
+    assert "mmlu" not in payload["results"], (
+        "diagnostic-mode file leaked into canonical lookup -- mode filter broken"
+    )
+
+
+def test_find_canonical_results_quantized_discriminator(tmp_path):
+    """CR-01: quantized/unquantized discrimination comes from the payload field.
+
+    An unquantized-adapter canonical file (the SGFP4 regression baseline) must be
+    excluded by quantized_only=True but included by quantized_only=False, so the
+    D-08 gate can tell the gated quantized run apart from its unquantized baseline.
+    """
+    from eval.benchmark_runner import BenchmarkRunner
+
+    runner = BenchmarkRunner(project_root=tmp_path)
+    _write_real_producer_result(runner, "medmcqa", "canonical", False, "20260628-120000-000001")
+
+    bench = Benchmarker(project_root=tmp_path)
+
+    assert bench._find_canonical_results("medical", quantized_only=True) is None, (
+        "unquantized file must be excluded when quantized_only=True"
+    )
+    payload = bench._find_canonical_results("medical", quantized_only=False)
+    assert payload is not None, "unquantized canonical file must be discoverable (quantized_only=False)"
+    assert payload["quantized"] is False
+
