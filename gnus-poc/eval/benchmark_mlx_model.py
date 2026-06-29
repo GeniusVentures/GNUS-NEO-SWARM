@@ -317,12 +317,22 @@ class MLXBenchmarkModel(LM):
                 stop_sequences = [stop_sequences]
 
             requested_max = gen_kwargs.get("max_gen_toks", kDefaultMaxGenToks)
-            # T-04-04: cap at model context window
-            max_gen_toks = min(requested_max, self._max_length)
+            # T-04-04: cap at model context window.
 
             prompt_ids = self._encode(context)
             if len(prompt_ids) > self._max_length:
                 prompt_ids = prompt_ids[-self._max_length:]
+
+            # WR-11: cap generation so prompt + generation fits in the context
+            # window. The earlier ``min(requested_max, self._max_length)`` did
+            # NOT account for the prompt length, so once the cumulative window
+            # exceeded ``_max_length`` the sliding view dropped the oldest
+            # tokens out of attention -- generation at later steps was then
+            # conditioned on a DIFFERENT context than at earlier steps, making
+            # greedy decode inconsistent and stop sequences that depend on
+            # early context unreliable. Reserve room for the prompt explicitly.
+            available = max(0, self._max_length - len(prompt_ids))
+            max_gen_toks = max(0, min(requested_max, available))
 
             generated_ids: List[int] = []
             current_ids = list(prompt_ids)
