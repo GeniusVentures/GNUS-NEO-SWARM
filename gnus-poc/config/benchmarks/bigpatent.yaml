@@ -39,3 +39,17 @@ metric_list:
     higher_is_better: true
 metadata:
   version: 0
+
+# ---------------------------------------------------------------------------
+# Per-benchmark config (Phase 04-02 Task 2). lm-eval ignores these extra
+# keys; ConfigLoader.validate_benchmarks_config reads them for gate setup.
+# ---------------------------------------------------------------------------
+name: bigpatent
+task_name: bigpatent
+num_fewshot: 0
+blocking: true
+description: "BIGPATENT patent abstract summarization"
+hard_floor: 0.20
+regression_max_pct: 0.10
+deviation_max_pct: 0.20
+dataset_revision: null

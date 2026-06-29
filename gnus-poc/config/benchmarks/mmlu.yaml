@@ -1,0 +1,17 @@
+# Per-benchmark config: MMLU.
+#
+# Per D-04: MMLU is the universal diagnostic baseline — runs for every
+# specialist but is NOT a blocking gate. Per-subject breakdown is surfaced for
+# trend analysis only.
+# Per D-02: established 5-shot protocol.
+# Per D-08: hard_floor = 0.25 (random baseline for 4-choice multiple choice).
+name: mmlu
+task_name: mmlu
+num_fewshot: 5
+output_type: multiple_choice
+blocking: false
+description: "MMLU 57-subject multiple choice"
+hard_floor: 0.25
+regression_max_pct: 0.10
+deviation_max_pct: 0.20
+dataset_revision: null

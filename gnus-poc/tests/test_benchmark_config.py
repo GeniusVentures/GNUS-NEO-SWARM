@@ -312,6 +312,8 @@ class TestRequiredFieldsContract:
 
     def test_required_fields_list_matches_schema(self):
         """BENCHMARK_REQUIRED_FIELDS must include all D-04 required fields."""
+        # BENCHMARK_REQUIRED_FIELDS is a tuple of (name, type) pairs.
+        field_names = {name for name, _ in BENCHMARK_REQUIRED_FIELDS}
         for field in (
             "name",
             "task_name",
@@ -322,6 +324,6 @@ class TestRequiredFieldsContract:
             "regression_max_pct",
             "deviation_max_pct",
         ):
-            assert field in BENCHMARK_REQUIRED_FIELDS, (
+            assert field in field_names, (
                 f"{field} missing from BENCHMARK_REQUIRED_FIELDS"
             )
