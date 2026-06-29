@@ -355,12 +355,42 @@ def _write_baseline(project_root, niche_name, baseline_scores):
     return path
 
 
+def _make_sgfp4_metrics(project_root, niche_name, mse=0.005, bitrate=3.2, t158=0.15):
+    """Module-level helper for backward-compat test (mirrors TestBenchmarker method)."""
+    from eval.metric_store import MetricStore
+
+    store = MetricStore(project_root=project_root)
+    total_blocks = 100
+    t158_blocks = int(round(t158 * total_blocks))
+    fp4_blocks = total_blocks - t158_blocks
+    fp4_stats = {
+        "shape": [4096, 256],
+        "num_superblocks": 4,
+        "layout_distribution": {0: 3, 1: 1},
+        "fp4_blocks": fp4_blocks,
+        "t158_blocks": t158_blocks,
+        "effective_bpw": bitrate,
+        "total_bytes": 8192,
+        "per_block_errors": [mse] * 10,
+    }
+    store.record_sgfp4_metrics(niche_name, fp4_stats)
+    return store
+
+
 class TestGateCheckBenchmarks:
+    """Plan 04-03 benchmark gate tests (additive to Phase 3 SGFP4 tests)."""
+
     def test_backward_compat_sgfp4_gate_check_unchanged(self, tmp_path):
         """Test 1: existing Phase 3 gate_check() behavior is unchanged."""
-        self._make_sgfp4_metrics(tmp_path, "code", mse=0.005, bitrate=3.2, t158=0.15)
+        _make_sgfp4_metrics(tmp_path, "code", mse=0.005, bitrate=3.2, t158=0.15)
         bench = Benchmarker(project_root=tmp_path)
-        config = self._make_gate_config()
+        config = {
+            "eval_gates": {
+                "fp4_mse": {"max": 0.01, "consecutive_failures_to_block": 3},
+                "fp4_effective_bitrate": {"max": 4.0, "consecutive_failures_to_block": 2},
+                "fp4_t158_ratio": {"min": 0.05, "consecutive_failures_to_block": 2},
+            }
+        }
         result = bench.gate_check("code", config)
         assert result["passed"] is True
         assert result["blocking"] is False

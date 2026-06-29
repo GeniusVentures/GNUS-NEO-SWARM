@@ -124,6 +124,9 @@ fp4_export:
 # following the Phase 2 auto-gating pattern.
 # ---------------------------------------------------------------------------
 eval_gates:
+  # -----------------------------------------------------------------------
+  # SGFP4 dimensions (Phase 3, D-09) -- UNCHANGED
+  # -----------------------------------------------------------------------
   fp4_mse:
     max: 0.01
     consecutive_failures_to_block: 3
@@ -133,3 +136,17 @@ eval_gates:
   fp4_t158_ratio:
     min: 0.05
     consecutive_failures_to_block: 2
+  # -----------------------------------------------------------------------
+  # Benchmark-specific gate dimensions (Plan 04-03)
+  #
+  # D-06: tiered gating -- 1st failure warns, 3rd consecutive blocks.
+  # D-08: hard floors are enforced per-benchmark in config/benchmarks/<name>.yaml;
+  #       the composite gate below activates only AFTER all hard floors pass.
+  # -----------------------------------------------------------------------
+  benchmark_composite:
+    description: "2-of-3 composite gate for benchmark quality (D-08)"
+    consecutive_failures_to_block: 3
+  sfgp4_regression:
+    description: "Mandatory SGFP4 unquantized-vs-quantized regression check (D-08)"
+    max_regression_pct: 0.10
+    consecutive_failures_to_block: 3
