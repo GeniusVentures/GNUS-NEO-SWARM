@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: "Phase 1 shipped - PR #75"
-stopped_at: Phase 2 context gathered
-last_updated: "2026-06-27T23:49:56.546Z"
-last_activity: 2026-06-18 — Project initialized with ROADMAP.md, REQUIREMENTS.md, PROJECT.md
+status: "Phase 04 shipped — PR #85"
+stopped_at: Phase 4 complete
+last_updated: "2026-06-29T06:30:41.007Z"
+last_activity: 2026-06-28
 progress:
   total_phases: 4
-  completed_phases: 2
-  total_plans: 8
-  completed_plans: 8
-  percent: 50
+  completed_phases: 3
+  total_plans: 12
+  completed_plans: 12
+  percent: 75
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (created 2026-06-18)
 
 **Core value:** A Python proof-of-concept that trains specialized Expert Language Models (ELMs) through teacher-student knowledge distillation and evolutionary (EGGROLL-style) retraining.
-**Current focus:** Phase 1 — Pipeline Hardening
+**Current focus:** Phase 4 complete — Benchmark Evaluation shipped
 
 ## Current Position
 
-Phase: 1 of 7 (Pipeline Hardening)
-Plan: 0 of ? in current phase
-Status: Phase 1 shipped - PR #75
-Last activity: 2026-06-18 — Project initialized with ROADMAP.md, REQUIREMENTS.md, PROJECT.md
+Phase: 4 of 4 (Benchmark Evaluation) — COMPLETE
+Plan: 4 of 4 in current phase
+Status: Phase 04 shipped — PR #85
+Last activity: 2026-06-28
 
-Progress: [██████████] 100%
+Progress: [█████████ ] 90%
 
 ## Performance Metrics
 
@@ -52,6 +52,7 @@ Progress: [██████████] 100%
 - Trend: N/A
 
 *Updated after each plan completion*
+| Phase 04-benchmark-evaluation P04 | 973 | 2 tasks | 6 files |
 | Phase 03-fp4-quantization-artifact-integrity P02 | 250 | 2 tasks | 5 files |
 | Phase 03-fp4-quantization-artifact-integrity P01 | 341 | 2 tasks | 7 files |
 
@@ -69,6 +70,9 @@ Recent decisions affecting current work:
 - [Phase ?]: fp4_weights_exist check extended to glob *.sgfp4 alongside *.npz/*.safetensors for v2+ output
 - [Phase ?]: Missing .sgfp4 binary does not fail validation — v1-only exports remain valid
 - [Phase ?]: Manifest SHA256 validation uses streaming 64 KiB chunks for memory-safe binary hashing
+- [Phase 4]: D-09 -- bootstrap 95% CI on per-category score differences; regression significant when CI excludes zero AND mean delta negative
+- [Phase 4]: D-10 -- repair suggestions are advisory only (never auto-mutate distillation config); 3rd consecutive failure blocks pipeline promotion
+- [Phase 4]: D-11 -- MetricStore is source of truth for benchmark results; artifacts/trends/ are regenerable derived views
 
 ### Pending Todos
 
@@ -88,6 +92,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-27T23:49:56.539Z
-Stopped at: Phase 2 context gathered
+Last session: 2026-06-29T02:18:00.000Z
+Stopped at: Phase 4 complete
 Resume file: None

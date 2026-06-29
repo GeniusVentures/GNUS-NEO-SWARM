@@ -129,7 +129,7 @@ class TestCheckpointValidator:
         model_dir.mkdir(parents=True)
         (model_dir / "adapter_config.json").write_text("{}")
         (model_dir / "adapter_model.safetensors").write_text("weights")
-        (model_dir / "training_metadata.json").write_text('{"status": "completed"}')
+        (model_dir / "training_metadata.json").write_text('{"status": "complete"}')
 
         cv = CheckpointValidator(tmp_project_root)
         result = cv.validate_stage("code", "train")

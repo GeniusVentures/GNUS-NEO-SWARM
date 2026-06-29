@@ -71,7 +71,7 @@ class SyntheticDataGenerator:
 
             try:
                 if self._use_cascade:
-                    response = self._client.generate_with_cascade(messages, domain=niche_name)
+                    response = self._client.generate_with_cascade(messages, domain=domain)
                 else:
                     response = self._client.generate(model_name=None, messages=messages)
                 content = response.choices[0].message.content

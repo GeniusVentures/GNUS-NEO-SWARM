@@ -1,0 +1,47 @@
+# Custom lm-eval v0.4 YAML task definition for PubMedQA.
+#
+# Per Phase 04-02 Task 1 + RESEARCH.md Pattern 2: PubMedQA is not natively
+# supported with the 3-way yes/no/maybe classification that the POC requires.
+# This YAML overrides lm-eval's built-in pubmedqa task with the explicit
+# yes/no/maybe choice list.
+#
+# Source: HuggingFace dataset qiaojin/PubMedQA, config pqa_labeled (the labeled
+# subset with ground-truth final_decision answers).
+#
+# ASSUMPTION A1 (RESEARCH.md): dataset field names ({question}, {final_decision},
+# {contexts}) are taken from the PubMedQA data card and MUST be verified at
+# runtime via `datasets.load_dataset("qiaojin/PubMedQA", "pqa_labeled")`. If
+# field names differ, only the Jinja2 templates below need adjustment.
+#
+# Per D-02: num_fewshot is NOT set here — set at runtime in benchmark_runner.py.
+task: pubmedqa
+dataset_path: qiaojin/PubMedQA
+dataset_name: pqa_labeled
+test_split: train
+output_type: multiple_choice
+doc_to_text: >-
+  {{question}}
+  Context: {{contexts | join("\n"}}
+  Answer:
+doc_to_target: "{{final_decision}}"
+doc_to_choice: ["yes", "no", "maybe"]
+metric_list:
+  - metric: acc
+    aggregation: mean
+    higher_is_better: true
+metadata:
+  version: 0
+
+# ---------------------------------------------------------------------------
+# Per-benchmark config (Phase 04-02 Task 2). lm-eval ignores these extra
+# keys; ConfigLoader.validate_benchmarks_config reads them for gate setup.
+# ---------------------------------------------------------------------------
+name: pubmedqa
+task_name: pubmedqa
+num_fewshot: 0
+blocking: true
+description: "PubMedQA 3-way yes/no/maybe classification"
+hard_floor: 0.35
+regression_max_pct: 0.10
+deviation_max_pct: 0.20
+dataset_revision: null

@@ -1,0 +1,15 @@
+# Per-benchmark config: HumanEval.
+#
+# Per D-04/D-05: blocking benchmark for the `code` specialist (code generation).
+# Per D-02: established 0-shot protocol for pass@1 evaluation.
+# Per D-08: hard_floor = 0.30 (above near-zero random for code generation).
+name: humaneval
+task_name: humaneval
+num_fewshot: 0
+output_type: generate_until
+blocking: true
+description: "HumanEval pass@1 code generation"
+hard_floor: 0.30
+regression_max_pct: 0.10
+deviation_max_pct: 0.20
+dataset_revision: null

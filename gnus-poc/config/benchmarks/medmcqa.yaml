@@ -1,0 +1,15 @@
+# Per-benchmark config: MedMCQA.
+#
+# Per D-04/D-05: blocking benchmark for the `medical` specialist (multiple
+# choice medical QA). Per D-02: established 5-shot protocol.
+# Per D-08: hard_floor = 0.30 (4-choice MC, above the 0.25 random baseline).
+name: medmcqa
+task_name: medmcqa
+num_fewshot: 5
+output_type: multiple_choice
+blocking: true
+description: "MedMCQA multiple choice medical QA"
+hard_floor: 0.30
+regression_max_pct: 0.10
+deviation_max_pct: 0.20
+dataset_revision: null

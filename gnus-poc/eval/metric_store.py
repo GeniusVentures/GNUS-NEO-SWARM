@@ -5,15 +5,30 @@ MetricStore reads the stats.json format produced by FP4Exporter.export_to_file
 fp4_t158_ratio) alongside the raw stats for auditability.
 
 Implements D-09: SGFP4 error metrics become gate dimensions in eval_gates.
+
+Plan 04-04 (D-11): MetricStore is the source of truth for benchmark results too.
+``record_benchmark_results`` / ``load_benchmark_results`` /
+``load_all_benchmark_results`` / ``load_benchmark_run_by_fingerprint`` extend the
+Phase 3 SGFP4 API without altering it.
 """
 
 import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
+
+
+# Required keys for a benchmark results payload (Plan 04-01 schema, D-02).
+_BENCHMARK_REQUIRED_KEYS = (
+    "niche",
+    "timestamp_utc",
+    "mode",
+    "fingerprint",
+    "results",
+)
 
 
 class MetricStore:
@@ -37,6 +52,9 @@ class MetricStore:
         self._project_root = project_root
         self._metrics_dir = project_root / "artifacts" / "evaluations"
         self._metrics_dir.mkdir(parents=True, exist_ok=True)
+        # Plan 04-04 (D-11): benchmark results live in artifacts/benchmarks/
+        self._benchmarks_dir = project_root / "artifacts" / "benchmarks"
+        self._benchmarks_dir.mkdir(parents=True, exist_ok=True)
 
     # ------------------------------------------------------------------
     # Public API
@@ -147,6 +165,191 @@ class MetricStore:
             except (json.JSONDecodeError, OSError) as exc:
                 logger.warning("Skipping unreadable metrics file %s: %s", file_path, exc)
         return result
+
+    # ==================================================================
+    # Plan 04-04: Benchmark result persistence (D-11 source of truth)
+    #
+    # These methods are ADDITIVE to the Phase 3 SGFP4 API above. The Phase 3
+    # methods (record_sgfp4_metrics, load_sgfp4_metrics, list_all_metrics) are
+    # unchanged and write to a separate directory (artifacts/evaluations/).
+    # ==================================================================
+
+    def record_benchmark_results(
+        self,
+        niche_name: str,
+        benchmark_name: str,
+        results: dict,
+    ) -> Path:
+        """Persist a benchmark results payload as the source of truth (D-11).
+
+        Writes ``results`` to
+        ``artifacts/benchmarks/{niche}_{benchmark}_{YYYYMMDD-HHMMSS}.json``.
+        Validates the required payload keys before writing and flags an invalid
+        fingerprint non-destructively (T-04-16: bad input is recorded with a
+        ``fingerprint_valid: False`` flag rather than silently dropping data).
+
+        Args:
+            niche_name: Specialist niche (e.g. ``"medical"``).
+            benchmark_name: Benchmark identifier (e.g. ``"mmlu"``).
+            results: Results payload per the Plan 04-01 schema. Must contain
+                ``niche``, ``timestamp_utc``, ``mode``, ``fingerprint``, ``results``.
+
+        Returns:
+            Path to the written JSON file.
+
+        Raises:
+            ValueError: If a required key is missing.
+        """
+        for key in _BENCHMARK_REQUIRED_KEYS:
+            if key not in results:
+                raise ValueError(
+                    f"Missing required key '{key}' in benchmark results for "
+                    f"niche '{niche_name}' / benchmark '{benchmark_name}'"
+                )
+
+        # Compute fingerprint validity (T-04-16: flag but still store).
+        # Local import keeps benchmark_fingerprint optional at module load time.
+        fingerprint_valid = True
+        try:
+            from eval.benchmark_fingerprint import validate_fingerprint
+
+            fingerprint_valid, _missing = validate_fingerprint(results["fingerprint"])
+        except Exception:  # noqa: BLE001 - any validation failure is non-fatal
+            fingerprint_valid = False
+
+        # Build the persisted record. We do not mutate the caller's dict.
+        record = dict(results)
+        record["fingerprint_valid"] = bool(fingerprint_valid)
+        # Store the computed fingerprint hash so regression comparisons can
+        # locate the exact previous run (load_benchmark_run_by_fingerprint).
+        try:
+            from eval.benchmark_fingerprint import fingerprint_hash
+
+            record["fingerprint_hash"] = fingerprint_hash(results["fingerprint"])
+        except Exception:  # noqa: BLE001 - best-effort; absent hash is tolerated
+            record["fingerprint_hash"] = None
+
+        # Use microsecond precision in the filename timestamp so successive
+        # writes within the same second still produce distinct, lexicographically
+        # ordered filenames (later writes sort after earlier ones). This keeps
+        # ``load_benchmark_results`` glob-sort contract intact without any
+        # collision-mitigation suffix that would break ordering.
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f")
+        out_path = (
+            self._benchmarks_dir
+            / f"{niche_name}_{benchmark_name}_{timestamp}.json"
+        )
+        with out_path.open("w", encoding="utf-8") as f:
+            json.dump(record, f, indent=2)
+
+        logger.info(
+            "Recorded benchmark results niche=%s benchmark=%s fingerprint_valid=%s -> %s",
+            niche_name, benchmark_name, fingerprint_valid, out_path,
+        )
+        return out_path
+
+    def load_benchmark_results(
+        self,
+        niche_name: str,
+        benchmark_name: Optional[str] = None,
+    ) -> Optional[dict]:
+        """Load the most recent benchmark result for a niche (+ optional benchmark).
+
+        Per D-11 the artifacts/benchmarks/ directory is the source of truth.
+        Files are named ``{niche}_{benchmark}_{timestamp}.json`` and timestamps
+        sort lexicographically (``YYYYMMDD-HHMMSS``), so the lexicographic max
+        is the most recent run.
+
+        Args:
+            niche_name: Specialist niche.
+            benchmark_name: Optional benchmark filter. If ``None``, the most
+                recent result for ANY benchmark for that niche is returned.
+
+        Returns:
+            Parsed results dict, or ``None`` if no results exist.
+        """
+        if benchmark_name is not None:
+            pattern = f"{niche_name}_{benchmark_name}_*.json"
+        else:
+            pattern = f"{niche_name}_*_*.json"
+        candidates = sorted(self._benchmarks_dir.glob(pattern))
+        if not candidates:
+            return None
+
+        target = candidates[-1]
+        try:
+            with target.open("r", encoding="utf-8") as f:
+                return json.load(f)
+        except (json.JSONDecodeError, OSError) as exc:
+            logger.warning("Failed to load benchmark results %s: %s", target, exc)
+            return None
+
+    def load_all_benchmark_results(self, niche_name: str) -> List[dict]:
+        """Load ALL benchmark results for a niche, sorted by timestamp ascending.
+
+        Args:
+            niche_name: Specialist niche.
+
+        Returns:
+            List of parsed results dicts. Empty if no results exist.
+        """
+        pattern = f"{niche_name}_*_*.json"
+        candidates = sorted(self._benchmarks_dir.glob(pattern))
+        out: List[dict] = []
+        for path in candidates:
+            try:
+                with path.open("r", encoding="utf-8") as f:
+                    out.append(json.load(f))
+            except (json.JSONDecodeError, OSError) as exc:
+                logger.warning("Skipping unreadable benchmark file %s: %s", path, exc)
+        # ``candidates`` is sorted by filename; filename embeds the timestamp.
+        # Stable order is already ascending; keep explicit sort for clarity.
+        out.sort(key=lambda r: r.get("timestamp_utc", ""))
+        return out
+
+    def load_benchmark_run_by_fingerprint(
+        self,
+        niche_name: str,
+        benchmark_name: str,
+        fingerprint_hash_value: str,
+    ) -> Optional[dict]:
+        """Locate a specific run by its fingerprint hash (Plan 04-03 linkage).
+
+        WR-09: reject ``None`` / empty ``fingerprint_hash_value`` up front and
+        skip records whose own ``fingerprint_hash`` is ``None``. The earlier
+        implementation compared ``payload.get("fingerprint_hash") ==
+        fingerprint_hash_value``, so a caller passing ``None`` would match
+        EVERY record whose hash failed to compute (set to ``None`` at write
+        time), returning an arbitrary first record. ``None`` query now returns
+        ``None`` (no match) and ``None`` records are skipped rather than
+        spuriously matching.
+
+        Args:
+            niche_name: Specialist niche.
+            benchmark_name: Benchmark identifier.
+            fingerprint_hash_value: SHA256 hex digest from
+                ``benchmark_fingerprint.fingerprint_hash``.
+
+        Returns:
+            Parsed results dict whose ``fingerprint_hash`` matches, or ``None``.
+        """
+        if not fingerprint_hash_value:
+            return None
+        pattern = f"{niche_name}_{benchmark_name}_*.json"
+        for path in sorted(self._benchmarks_dir.glob(pattern)):
+            try:
+                with path.open("r", encoding="utf-8") as f:
+                    payload = json.load(f)
+            except (json.JSONDecodeError, OSError):
+                continue
+            record_hash = payload.get("fingerprint_hash")
+            if record_hash is None:
+                # Skip records whose hash failed to compute at write time
+                # rather than letting them spuriously match a None query.
+                continue
+            if record_hash == fingerprint_hash_value:
+                return payload
+        return None
 
     # ------------------------------------------------------------------
     # Internal helpers
