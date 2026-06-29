@@ -222,17 +222,30 @@ class MLXBenchmarkModel(LM):
             context, continuation = req.arguments
             full_text = context + continuation
 
-            token_ids = self._encode(full_text)
+            full_ids = self._encode(full_text)
             context_ids = self._encode(context)
 
-            if len(token_ids) > self._max_length:
-                token_ids = token_ids[:self._max_length]
-
-            context_len = len(context_ids)
+            # CR-03: long-context truncation. Keep the TAIL of full_ids so the
+            # continuation is never dropped, then recompute context_len against
+            # the (possibly truncated) full sequence. The earlier head-truncation
+            # used the untruncated context_len, producing cont_len < 0 and
+            # returning -inf for every long multiple-choice request.
+            if len(full_ids) > self._max_length:
+                token_ids = full_ids[-self._max_length:]
+            else:
+                token_ids = full_ids
+            # context_len is the number of leading tokens that belong to the
+            # context. After tail-truncation it cannot exceed len(token_ids);
+            # clamp it so the continuation always retains >= 1 token whenever
+            # the continuation itself is non-empty.
+            cont_len_total = max(0, len(full_ids) - len(context_ids))
+            context_len = min(len(context_ids), len(token_ids) - max(1, cont_len_total))
+            if context_len < 0:
+                context_len = 0
             cont_len = len(token_ids) - context_len
 
             if cont_len <= 0:
-                # Continuation could not be tokenized separately
+                # Continuation itself is empty -- no tokens to score.
                 results.append((float("-inf"), False))
                 continue
 
