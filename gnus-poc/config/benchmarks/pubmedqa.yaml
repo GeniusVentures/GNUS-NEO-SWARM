@@ -21,7 +21,7 @@ test_split: train
 output_type: multiple_choice
 doc_to_text: >-
   {{question}}
-  Context: {{context}}
+  Context: {{contexts | join("\n"}}
   Answer:
 doc_to_target: "{{final_decision}}"
 doc_to_choice: ["yes", "no", "maybe"]
