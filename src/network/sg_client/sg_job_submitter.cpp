@@ -38,18 +38,16 @@ namespace sgns::neoswarm::network
 
     struct SGJobSubmitter::Impl
     {
-        std::string m_endpoint;
         SGMessageAuthenticator& m_authenticator;
 
-        Impl( const std::string& endpoint, SGMessageAuthenticator& authenticator )
-            : m_endpoint( endpoint )
-            , m_authenticator( authenticator )
+        Impl( SGMessageAuthenticator& authenticator )
+            : m_authenticator( authenticator )
         {
         }
     };
 
-    SGJobSubmitter::SGJobSubmitter( const std::string& endpoint, SGMessageAuthenticator& authenticator )
-        : m_impl( std::make_unique<Impl>( endpoint, authenticator ) )
+    SGJobSubmitter::SGJobSubmitter( SGMessageAuthenticator& authenticator )
+        : m_impl( std::make_unique<Impl>( authenticator ) )
     {
     }
 
@@ -72,7 +70,7 @@ namespace sgns::neoswarm::network
 
         std::string taskMessage = taskJson.str();
 
-        SubmitLogger()->info( "Publishing task {} to {} ({} bytes, signed)", taskId, m_impl->m_endpoint, taskMessage.size() );
+        SubmitLogger()->info( "Publishing task {} ({} bytes, signed)", taskId, taskMessage.size() );
 
         // TODO(Phase 2 Wave 2): dispatch via GeniusSDKProcess(taskMessage)
         SubmitLogger()->warn( "GeniusSDK dispatch not yet wired — task {} prepared for submission", taskId );

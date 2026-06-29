@@ -17,6 +17,10 @@ target_include_directories(neoswarm_network PUBLIC
 
 target_link_libraries(neoswarm_network PUBLIC neoswarm_common neoswarm_security)
 
+if(TARGET sgns::GeniusSDK_shared)
+    target_link_libraries(neoswarm_network PUBLIC sgns::GeniusSDK_shared)
+endif()
+
 # nlohmann/json
 if(TARGET nlohmann_json::nlohmann_json)
     target_link_libraries(neoswarm_network PUBLIC nlohmann_json::nlohmann_json)
@@ -71,7 +75,6 @@ if(TARGET p2p::p2p)
         "${THIRDPARTY_BUILD_DIR}/libp2p/include"
         "${THIRDPARTY_BUILD_DIR}/boost/build/include"
         "${THIRDPARTY_BUILD_DIR}/fmt/include"
-        "${GENIUS_SDK_INCLUDE_DIR}"
         "${THIRDPARTY_BUILD_DIR}/soralog/include"
         "${THIRDPARTY_BUILD_DIR}/Microsoft.GSL/include"
     )

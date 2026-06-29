@@ -22,7 +22,6 @@ namespace sgns::neoswarm::network
 
     struct SGResultCollector::Impl
     {
-        std::string m_endpoint;
         SGMessageAuthenticator& m_authenticator;
         SGResultCollectorConfig m_cfg;
 
@@ -31,20 +30,15 @@ namespace sgns::neoswarm::network
         bool resultReady_ = false;
         std::vector<uint8_t> resultData_;
 
-        Impl( const std::string& endpoint,
-              SGMessageAuthenticator& authenticator,
-              SGResultCollectorConfig cfg )
-            : m_endpoint( endpoint )
-            , m_authenticator( authenticator )
+        Impl( SGMessageAuthenticator& authenticator, SGResultCollectorConfig cfg )
+            : m_authenticator( authenticator )
             , m_cfg( std::move( cfg ) )
         {
         }
     };
 
-    SGResultCollector::SGResultCollector( const std::string& endpoint,
-                                          SGMessageAuthenticator& authenticator,
-                                          SGResultCollectorConfig cfg )
-        : m_impl( std::make_unique<Impl>( endpoint, authenticator, std::move( cfg ) ) )
+    SGResultCollector::SGResultCollector( SGMessageAuthenticator& authenticator, SGResultCollectorConfig cfg )
+        : m_impl( std::make_unique<Impl>( authenticator, std::move( cfg ) ) )
     {
     }
 

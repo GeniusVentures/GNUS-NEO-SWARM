@@ -29,9 +29,7 @@ namespace sgns::neoswarm::network
     class SGResultCollector
     {
         public:
-        SGResultCollector( const std::string& endpoint,
-                           SGMessageAuthenticator& authenticator,
-                           SGResultCollectorConfig cfg = {} );
+        SGResultCollector( SGMessageAuthenticator& authenticator, SGResultCollectorConfig cfg = {} );
         ~SGResultCollector();
 
         /**

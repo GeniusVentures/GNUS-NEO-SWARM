@@ -25,7 +25,7 @@ namespace sgns::neoswarm::network
     class SGJobSubmitter
     {
         public:
-        SGJobSubmitter( const std::string& endpoint, SGMessageAuthenticator& authenticator );
+        SGJobSubmitter( SGMessageAuthenticator& authenticator );
         ~SGJobSubmitter();
 
         /**

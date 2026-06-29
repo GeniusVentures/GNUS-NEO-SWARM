@@ -29,7 +29,7 @@ namespace sgns::neoswarm::network
         std::unique_ptr<SGMessageAuthenticator> m_authenticator;
         std::unique_ptr<SGJobSubmitter> jobSubmitter_;
         std::unique_ptr<SGResultCollector> resultCollector_;
-        bool m_connected = false;
+        bool m_initialized = false;
     };
 
     SGClient::SGClient( Config cfg )
@@ -38,7 +38,10 @@ namespace sgns::neoswarm::network
         m_impl->m_cfg = std::move( cfg );
     }
 
-    SGClient::~SGClient() = default;
+    SGClient::~SGClient()
+    {
+        Disconnect();
+    }
 
     SGClient::SGClient( SGClient&& ) noexcept = default;
     SGClient& SGClient::operator=( SGClient&& ) noexcept = default;
@@ -49,37 +52,37 @@ namespace sgns::neoswarm::network
 
         m_impl->m_authenticator = std::make_unique<SGMessageAuthenticator>( identity );
 
-        ClientLogger()->info( "SGClient initialized — endpoint={}", m_impl->m_cfg.m_endpoint );
-        return outcome::success();
-    }
+        m_impl->jobSubmitter_ = std::make_unique<SGJobSubmitter>( *m_impl->m_authenticator );
 
-    outcome::result<void> SGClient::Connect()
-    {
-        if ( m_impl->m_authenticator )
+        SGResultCollectorConfig rcCfg;
+        rcCfg.result_m_timeout = m_impl->m_cfg.result_m_timeout;
+        m_impl->resultCollector_ = std::make_unique<SGResultCollector>( *m_impl->m_authenticator, rcCfg );
+
+        const char* initResult = GeniusSDKInitWithKey(
+            m_impl->m_cfg.m_sdkBasePath.c_str(),
+            m_impl->m_cfg.m_ethKey.c_str(),
+            m_impl->m_cfg.m_autoDht,
+            m_impl->m_cfg.m_enableProcessing,
+            m_impl->m_cfg.m_basePort,
+            false );
+
+        if ( initResult == nullptr )
         {
-            m_impl->jobSubmitter_ = std::make_unique<SGJobSubmitter>( m_impl->m_cfg.m_endpoint, *m_impl->m_authenticator );
-
-            SGResultCollectorConfig rcCfg;
-            rcCfg.result_m_timeout = m_impl->m_cfg.result_m_timeout;
-            m_impl->resultCollector_ = std::make_unique<SGResultCollector>( m_impl->m_cfg.m_endpoint, *m_impl->m_authenticator, rcCfg );
+            ClientLogger()->error( "GeniusSDKInitWithKey failed" );
+            return outcome::failure( Error::NetworkError );
         }
 
-        m_impl->m_connected = true;
-        ClientLogger()->info( "SGClient connected — GeniusSDK transport active, endpoint={}", m_impl->m_cfg.m_endpoint );
+        m_impl->m_initialized = true;
+        ClientLogger()->info( "SGClient initialized — SDK node started at {}", initResult );
         return outcome::success();
     }
 
     outcome::result<std::vector<uint8_t>> SGClient::SubmitJob( const std::string& gnusSchemaJson )
     {
-        if ( !m_impl->m_connected )
+        if ( !m_impl->m_initialized )
         {
-            ClientLogger()->warn( "Not connected, attempting reconnect" );
-            auto reconnectResult = Connect();
-            if ( !reconnectResult.has_value() )
-            {
-                ClientLogger()->error( "Reconnect failed — cannot submit job" );
-                return outcome::failure( Error::NetworkError );
-            }
+            ClientLogger()->error( "SubmitJob: SGClient not initialized" );
+            return outcome::failure( Error::InternalError );
         }
 
         if ( !m_impl->jobSubmitter_ || !m_impl->resultCollector_ )
@@ -88,7 +91,6 @@ namespace sgns::neoswarm::network
             return outcome::failure( Error::InternalError );
         }
 
-        // Step 1: Publish the signed job via GeniusSDK
         auto taskIdResult = m_impl->jobSubmitter_->PublishJob( gnusSchemaJson );
         if ( !taskIdResult.has_value() )
         {
@@ -99,7 +101,6 @@ namespace sgns::neoswarm::network
         std::string taskId = taskIdResult.value();
         ClientLogger()->info( "Job published as task {}", taskId );
 
-        // Step 2: Wait for the result with timeout-bounded collection
         auto result = m_impl->resultCollector_->WaitForResult( taskId, m_impl->m_cfg.result_m_timeout );
 
         if ( !result.has_value() )
@@ -114,13 +115,18 @@ namespace sgns::neoswarm::network
     {
         m_impl->jobSubmitter_.reset();
         m_impl->resultCollector_.reset();
-        m_impl->m_connected = false;
-        ClientLogger()->info( "SGClient disconnected" );
+        m_impl->m_initialized = false;
+        GeniusSDKShutdown();
+        ClientLogger()->info( "SGClient shut down — SDK node stopped" );
     }
 
     bool SGClient::IsConnected() const noexcept
     {
-        return m_impl->m_connected;
+        if ( !m_impl->m_initialized )
+        {
+            return false;
+        }
+        return GeniusSDKGetNodeState() == GENIUS_NODE_READY;
     }
 
 } // namespace sgns::neoswarm::network

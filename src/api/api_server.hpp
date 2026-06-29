@@ -61,9 +61,9 @@ namespace sgns::neoswarm::api
             std::string m_nodeKeyPassphrase = "gnus-neo-swarm-default";
             bool m_enableSgProcessing = false;
             bool m_sgProcessingNetworkMode = false;
-            std::string m_sgEndpoint = "localhost:50051";
-            std::string m_sgTlsCa;
-            std::string m_sgTlsCert;
+            std::string m_sgSdkBasePath = "./sdk";
+            std::string m_ethKey;
+            uint16_t m_sgBasePort = 40001;
         };
 
         explicit ApiServer( Config cfg );
