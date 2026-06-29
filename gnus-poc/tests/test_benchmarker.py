@@ -3,6 +3,8 @@
 import json
 from unittest.mock import MagicMock
 
+import pytest
+
 from eval.benchmarker import Benchmarker
 from eval.evaluator import SpecialistEvaluator
 
@@ -252,3 +254,256 @@ class TestBenchmarker:
         assert gate_file.exists()
         with gate_file.open() as f:
             json.load(f)  # should be valid JSON now
+
+
+# ==================================================================
+# Plan 04-03: gate_check_benchmarks, composite, SGFP4 regression, D-07 baseline
+# ==================================================================
+
+import yaml  # noqa: E402
+
+from eval.benchmarker import (  # noqa: E402
+    Benchmarker,
+    MissingBaselineError,
+)
+
+
+def _write_benchmark_result(
+    project_root,
+    niche_name,
+    mode,
+    scores,
+    quantized=True,
+    suffix="",
+    fingerprint=None,
+):
+    """Write a benchmark results JSON file matching the Plan 04-01 schema.
+
+    Args:
+        scores: dict of {benchmark_name: {"score": float}} (or {"pass@1": ..}).
+        suffix: optional filename suffix (e.g. "_unquantized").
+
+    Returns the Path written.
+    """
+    bench_dir = project_root / "artifacts" / "benchmarks"
+    bench_dir.mkdir(parents=True, exist_ok=True)
+    quant_label = "quantized" if quantized else "unquantized"
+    fname = f"{niche_name}_{mode}_{quant_label}{suffix}.json"
+    payload = {
+        "niche": niche_name,
+        "timestamp_utc": "2026-06-28T00:00:00Z",
+        "model_version": f"test-{quant_label}",
+        "mode": mode,
+        "results": scores,
+    }
+    if fingerprint is not None:
+        payload["fingerprint"] = fingerprint
+    path = bench_dir / fname
+    with path.open("w") as f:
+        json.dump(payload, f)
+    return path
+
+
+def _write_specialist_mapping(project_root, niche_name, blocking, diagnostic=None):
+    """Write a specialist_mapping.yaml with one specialist."""
+    cfg_dir = project_root / "config" / "benchmarks"
+    cfg_dir.mkdir(parents=True, exist_ok=True)
+    mapping = {
+        "specialists": {
+            niche_name: {
+                "blocking_benchmarks": list(blocking),
+                "diagnostic_benchmarks": list(diagnostic or []),
+            }
+        }
+    }
+    path = cfg_dir / "specialist_mapping.yaml"
+    with path.open("w") as f:
+        yaml.safe_dump(mapping, f)
+    return path
+
+
+def _write_benchmark_threshold_configs(project_root, thresholds):
+    """Write per-benchmark YAML threshold configs.
+
+    Args:
+        thresholds: dict of {name: {hard_floor: f, regression_max_pct: f, deviation_max_pct: f, blocking: bool}}
+    """
+    cfg_dir = project_root / "config" / "benchmarks"
+    cfg_dir.mkdir(parents=True, exist_ok=True)
+    for name, cfg in thresholds.items():
+        payload = {
+            "name": name,
+            "task_name": name,
+            "hard_floor": cfg["hard_floor"],
+            "regression_max_pct": cfg.get("regression_max_pct", 0.10),
+            "deviation_max_pct": cfg.get("deviation_max_pct", 0.20),
+            "blocking": cfg.get("blocking", True),
+        }
+        path = cfg_dir / f"{name}.yaml"
+        with path.open("w") as f:
+            yaml.safe_dump(payload, f)
+
+
+def _write_baseline(project_root, niche_name, baseline_scores):
+    """Write the internal untrained-backbone baseline scores JSON (D-07)."""
+    bench_dir = project_root / "artifacts" / "benchmarks"
+    bench_dir.mkdir(parents=True, exist_ok=True)
+    path = bench_dir / f"{niche_name}_baseline.json"
+    payload = {"niche": niche_name, "results": baseline_scores}
+    with path.open("w") as f:
+        json.dump(payload, f)
+    return path
+
+
+class TestGateCheckBenchmarks:
+    def test_backward_compat_sgfp4_gate_check_unchanged(self, tmp_path):
+        """Test 1: existing Phase 3 gate_check() behavior is unchanged."""
+        self._make_sgfp4_metrics(tmp_path, "code", mse=0.005, bitrate=3.2, t158=0.15)
+        bench = Benchmarker(project_root=tmp_path)
+        config = self._make_gate_config()
+        result = bench.gate_check("code", config)
+        assert result["passed"] is True
+        assert result["blocking"] is False
+        assert len(result["checks"]) == 3
+        assert all(c["passed"] for c in result["checks"])
+
+    def test_score_below_hard_floor_fails(self, tmp_path):
+        """Test 2: gate_check_benchmarks returns passed=False when score < hard_floor."""
+        _write_specialist_mapping(tmp_path, "medical", blocking=["medmcqa"])
+        _write_benchmark_threshold_configs(tmp_path, {"medmcqa": {"hard_floor": 0.40}})
+        _write_benchmark_result(
+            tmp_path, "medical", "canonical",
+            {"medmcqa": {"score": 0.30}},  # below 0.40 floor
+        )
+        bench = Benchmarker(project_root=tmp_path)
+        result = bench.gate_check_benchmarks("medical")
+        assert result["passed"] is False
+        medmcqa_check = next(c for c in result["checks"] if c["benchmark"] == "medmcqa")
+        assert medmcqa_check["passed"] is False
+
+    def test_diagnostic_mode_results_skipped(self, tmp_path):
+        """Test 3: gate_check_benchmarks skips diagnostic-mode results (D-03)."""
+        _write_specialist_mapping(tmp_path, "medical", blocking=["medmcqa"])
+        _write_benchmark_threshold_configs(tmp_path, {"medmcqa": {"hard_floor": 0.40}})
+        # Only a diagnostic-mode result exists -> should be skipped
+        _write_benchmark_result(
+            tmp_path, "medical", "diagnostic",
+            {"medmcqa": {"score": 0.30}},
+        )
+        bench = Benchmarker(project_root=tmp_path)
+        result = bench.gate_check_benchmarks("medical")
+        # No canonical results to evaluate -> gate passes vacuously
+        assert result["passed"] is True
+        assert "No canonical" in result.get("detail", "") or len(result["checks"]) == 0
+
+    def test_composite_passes_with_2_of_3(self, tmp_path):
+        """Test 4: composite_2_of_3 passes when 2 dims pass even if deviation fails."""
+        bench = Benchmarker(project_root=tmp_path)
+        result = bench.composite_2_of_3(
+            scores_pass=True, regression_pass=True, deviation_pass=False
+        )
+        assert result["passed"] is True
+        assert result["passed_count"] == 2
+
+    def test_composite_fails_with_1_of_3(self, tmp_path):
+        """Test 5: composite_2_of_3 fails when only 1 dim passes."""
+        bench = Benchmarker(project_root=tmp_path)
+        result = bench.composite_2_of_3(
+            scores_pass=False, regression_pass=True, deviation_pass=False
+        )
+        assert result["passed"] is False
+        assert result["passed_count"] == 1
+
+    def test_sgfp4_regression_passes_when_ci_excludes_zero(self, tmp_path):
+        """Test 6: SGFP4 regression passes when delta is small (D-09 placeholder)."""
+        _write_specialist_mapping(tmp_path, "medical", blocking=["medmcqa"])
+        # Unquantized baseline for comparison
+        _write_benchmark_result(
+            tmp_path, "medical", "canonical",
+            {"medmcqa": {"score": 0.50}},
+            quantized=False, suffix="_adapter",
+        )
+        bench = Benchmarker(project_root=tmp_path)
+        current_scores = {"medmcqa": {"score": 0.48}}  # 4% drop, within 10%
+        result = bench._sgfp4_regression_check("medical", current_scores)
+        assert result["passed"] is True
+        assert "medmcqa" in result["deltas"]
+
+    def test_sgfp4_regression_missing_baseline_passes_first_run(self, tmp_path):
+        """Test 7: SGFP4 regression passes when no unquantized baseline exists.
+
+        Per plan: 'don't block on first run'. MissingBaselineError is only for
+        the D-07 internal backbone baseline, NOT for the SGFP4 unquantized baseline.
+        """
+        _write_specialist_mapping(tmp_path, "medical", blocking=["medmcqa"])
+        bench = Benchmarker(project_root=tmp_path)
+        current_scores = {"medmcqa": {"score": 0.50}}
+        result = bench._sgfp4_regression_check("medical", current_scores)
+        assert result["passed"] is True
+        assert "skipped" in result["detail"].lower() or "no unquantized" in result["detail"].lower()
+
+    def test_missing_internal_baseline_raises(self, tmp_path):
+        """Test 7b: _load_baseline_scores raises MissingBaselineError when no baseline."""
+        _write_specialist_mapping(tmp_path, "medical", blocking=["medmcqa"])
+        bench = Benchmarker(project_root=tmp_path)
+        with pytest.raises(MissingBaselineError):
+            bench._load_baseline_scores("medical")
+
+    def test_consecutive_failure_blocks_on_third(self, tmp_path):
+        """Test 8: 1st failure = warning (passed may be False), 3rd consecutive = blocking (D-06)."""
+        _write_specialist_mapping(tmp_path, "medical", blocking=["medmcqa"])
+        _write_benchmark_threshold_configs(tmp_path, {"medmcqa": {"hard_floor": 0.40}})
+        _write_benchmark_result(
+            tmp_path, "medical", "canonical",
+            {"medmcqa": {"score": 0.30}},
+        )
+        bench = Benchmarker(project_root=tmp_path)
+
+        # First two failures: not blocking (warning only)
+        r1 = bench.gate_check_benchmarks("medical")
+        r2 = bench.gate_check_benchmarks("medical")
+        assert r1["blocking"] is False
+        assert r2["blocking"] is False
+
+        # Third consecutive failure: blocking
+        r3 = bench.gate_check_benchmarks("medical")
+        assert r3["blocking"] is True
+        assert r3["consecutive_failures"]["medmcqa"] >= 3
+
+    def test_hard_floor_precondition_overrides_composite(self, tmp_path):
+        """Test 9: hard floor failure makes overall passed=False regardless of composite."""
+        _write_specialist_mapping(tmp_path, "medical", blocking=["medmcqa", "pubmedqa"])
+        _write_benchmark_threshold_configs(tmp_path, {
+            "medmcqa": {"hard_floor": 0.40},
+            "pubmedqa": {"hard_floor": 0.50},
+        })
+        # medmcqa passes floor, pubmedqa fails floor
+        _write_benchmark_result(
+            tmp_path, "medical", "canonical",
+            {"medmcqa": {"score": 0.45}, "pubmedqa": {"score": 0.30}},
+        )
+        bench = Benchmarker(project_root=tmp_path)
+        result = bench.gate_check_benchmarks("medical")
+        assert result["passed"] is False
+        # Hard floor failure recorded
+        pubmedqa_check = next(c for c in result["checks"] if c["benchmark"] == "pubmedqa")
+        assert pubmedqa_check["passed"] is False
+
+    def test_deviation_from_baseline_exceeds_threshold(self, tmp_path):
+        """Test 10: deviation from untrained backbone > deviation_max_pct fails."""
+        _write_specialist_mapping(tmp_path, "medical", blocking=["medmcqa"])
+        _write_benchmark_threshold_configs(tmp_path, {
+            "medmcqa": {"hard_floor": 0.30, "deviation_max_pct": 0.10},
+        })
+        # Baseline (untrained backbone) = 0.50; current = 0.30 -> 40% deviation >> 10%
+        _write_baseline(tmp_path, "medical", {"medmcqa": {"score": 0.50}})
+        _write_benchmark_result(
+            tmp_path, "medical", "canonical",
+            {"medmcqa": {"score": 0.30}},
+        )
+        bench = Benchmarker(project_root=tmp_path)
+        result = bench.gate_check_benchmarks("medical")
+        # The deviation check should be present and failing
+        deviation_dim = result["composite_result"]["dimensions"]["deviation"]
+        assert deviation_dim["passed"] is False
+
