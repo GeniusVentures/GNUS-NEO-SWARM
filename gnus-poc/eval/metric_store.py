@@ -315,6 +315,15 @@ class MetricStore:
     ) -> Optional[dict]:
         """Locate a specific run by its fingerprint hash (Plan 04-03 linkage).
 
+        WR-09: reject ``None`` / empty ``fingerprint_hash_value`` up front and
+        skip records whose own ``fingerprint_hash`` is ``None``. The earlier
+        implementation compared ``payload.get("fingerprint_hash") ==
+        fingerprint_hash_value``, so a caller passing ``None`` would match
+        EVERY record whose hash failed to compute (set to ``None`` at write
+        time), returning an arbitrary first record. ``None`` query now returns
+        ``None`` (no match) and ``None`` records are skipped rather than
+        spuriously matching.
+
         Args:
             niche_name: Specialist niche.
             benchmark_name: Benchmark identifier.
@@ -324,6 +333,8 @@ class MetricStore:
         Returns:
             Parsed results dict whose ``fingerprint_hash`` matches, or ``None``.
         """
+        if not fingerprint_hash_value:
+            return None
         pattern = f"{niche_name}_{benchmark_name}_*.json"
         for path in sorted(self._benchmarks_dir.glob(pattern)):
             try:
@@ -331,7 +342,12 @@ class MetricStore:
                     payload = json.load(f)
             except (json.JSONDecodeError, OSError):
                 continue
-            if payload.get("fingerprint_hash") == fingerprint_hash_value:
+            record_hash = payload.get("fingerprint_hash")
+            if record_hash is None:
+                # Skip records whose hash failed to compute at write time
+                # rather than letting them spuriously match a None query.
+                continue
+            if record_hash == fingerprint_hash_value:
                 return payload
         return None
 
