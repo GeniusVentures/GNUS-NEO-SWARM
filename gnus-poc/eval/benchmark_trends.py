@@ -235,8 +235,19 @@ def bootstrap_ci(
     if len(samples) == 0:
         return (0.0, 0.0)
     if len(samples) > _K_MAX_INPUT_SAMPLES:
-        # Truncate deterministically to the cap (T-04-18).
-        samples = samples[:_K_MAX_INPUT_SAMPLES]
+        # WR-10: the earlier head-truncation (``samples[:cap]``) biased the CI
+        # toward the first-observed samples. If items are ordered (e.g. by
+        # difficulty or category), the CI was systematically skewed. Use a
+        # SEEDED random sample instead so the subset is representative. The
+        # seed is derived from the caller-provided ``seed`` (or a fixed
+        # default) so determinism is preserved.
+        rng_trunc = random.Random(seed if seed is not None else 0)
+        samples = rng_trunc.sample(samples, _K_MAX_INPUT_SAMPLES)
+        logger.info(
+            "bootstrap_ci input exceeded %d samples; took seeded random subset "
+            "(T-04-18 cap, WR-10 unbiased selection)",
+            _K_MAX_INPUT_SAMPLES,
+        )
 
     # Coerce to floats; drop non-numeric entries.
     numeric = []
