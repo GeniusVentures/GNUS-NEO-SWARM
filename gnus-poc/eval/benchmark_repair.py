@@ -107,8 +107,21 @@ def _build_underperforming_entries(
     Always emits an ``aggregate`` entry when the overall score is below the hard
     floor. Additionally emits one entry per failing category when per-category
     thresholds are configured.
+
+    WR-03: skip ``status == "not_implemented"`` (or ``score is None``) entries
+    before the threshold comparison. The runner writes such entries for
+    deferred benchmarks (livecodebench, medhelm, rag_pipeline_eval,
+    uspto_classification); without this guard they score ``0.0`` via
+    ``_extract_score`` and emit a spurious ``below_threshold_pct: 100.0``
+    underperformance entry, inflating severity and driving major-config
+    suggestions for benchmarks that were never run.
     """
     entries = []
+    if isinstance(results_entry, dict):
+        if results_entry.get("status") == "not_implemented":
+            return entries
+        if results_entry.get("score") is None:
+            return entries
     score = _extract_score(results_entry)
     if score < hard_floor:
         entries.append({
