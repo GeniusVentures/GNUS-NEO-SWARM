@@ -171,7 +171,10 @@ class MLXBenchmarkModel(LM):
             Log-probability as a Python float.
         """
         import mlx.core as mx
-        log_probs = mx.log_softmax(logits[0, position, :], axis=-1)
+        # mlx.core has no log_softmax — compose log(softmax()). The earlier
+        # mx.log_softmax call would raise AttributeError against a real model;
+        # mock-based tests hid it by stubbing the attribute.
+        log_probs = mx.log(mx.softmax(logits[0, position, :], axis=-1))
         return float(mx.take(log_probs, mx.array([token_id])))
 
     def _is_greedy(self, logits, position: int, token_id: int) -> bool:

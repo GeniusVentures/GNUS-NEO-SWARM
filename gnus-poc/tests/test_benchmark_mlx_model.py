@@ -239,3 +239,122 @@ class TestMLXBenchmarkModel:
 
         with pytest.raises(FileNotFoundError, match="adapter_path"):
             MLXBenchmarkModel(model_path=model_dir, adapter_path=nonexistent_adapter)
+
+
+# ---------------------------------------------------------------------------
+# Real-MLX correctness tests (CR-02 / CR-03) — verify loglikelihood indexing
+#
+# These do NOT mock mlx.core: they inject a controlled logits tensor where the
+# position-read determines the result, so an off-by-one (reading logits[pos]
+# instead of logits[pos-1]) would change the score. This is the test that was
+# missing and let CR-02 ship undetected.
+# ---------------------------------------------------------------------------
+
+
+class _FakeTokenizer:
+    """Deterministic tokenizer mapping known strings to controlled token IDs."""
+
+    def __init__(self, table):
+        self._table = table
+
+    def encode(self, text):
+        return list(self._table[text])
+
+
+def _build_model_without_load(model_fn, tokenizer, max_length):
+    """Construct an MLXBenchmarkModel bypassing mlx_lm.load.
+
+    Sets only the attributes loglikelihood touches: ``_tokenizer`` (drives
+    ``_encode``), ``_model`` (the forward callable), and ``_max_length``.
+    """
+    model = MLXBenchmarkModel.__new__(MLXBenchmarkModel)
+    model._tokenizer = tokenizer
+    model._model = model_fn
+    model._max_length = max_length
+    return model
+
+
+def _logits_favoring(positions_favor_token, seq_len, vocab_size=4):
+    """Build an mlx logits tensor (1, seq_len, vocab_size).
+
+    ``positions_favor_token`` maps sequence position -> the token id that
+    position's distribution strongly favors (all other positions favor token 0).
+    A favored position peaks on its token so log_softmax ~ 0 and argmax matches.
+    """
+    import mlx.core as mx
+
+    base = [-30.0] * vocab_size
+    base[0] = 30.0  # default: every position favors token 0
+    rows = []
+    for pos in range(seq_len):
+        row = list(base)
+        favored = positions_favor_token.get(pos, 0)
+        row[0] = -30.0
+        row[favored] = 30.0
+        rows.append(row)
+    return mx.array([rows])
+
+
+def test_loglikelihood_reads_logits_at_pos_minus_one():
+    """CR-02: logprob of continuation token at pos comes from logits[pos-1].
+
+    Setup: context "C" -> [0], full "CX" -> [0, 1]. The continuation token (id 1)
+    is at position 1, so its logprob must come from logits[0]. We make logits[0]
+    favor token 1 (high logprob, greedy) and logits[1] favor token 0.
+
+    Only the FIXED indexing (pred_pos = pos - 1) yields a high logprob and
+    is_greedy=True. The buggy logits[pos] read would score against logits[1]
+    (favoring token 0), producing a very negative logprob and is_greedy=False.
+    """
+    tokenizer = _FakeTokenizer({"C": [0], "CX": [0, 1]})
+
+    def model_fn(_x):
+        # seq_len 2: pos 0 favors token 1, pos 1 favors token 0
+        return _logits_favoring({0: 1, 1: 0}, seq_len=2)
+
+    model = _build_model_without_load(model_fn, tokenizer, max_length=32)
+
+    req = MagicMock()
+    req.arguments = ("C", "X")
+
+    logprob, is_greedy = model.loglikelihood([req])[0]
+
+    assert is_greedy is True, (
+        "continuation token must be the argmax at the position that predicts it "
+        "(logits[pos-1]); is_greedy=False indicates the wrong position was read"
+    )
+    assert logprob > -1e-4, (
+        f"logprob should be ~0 (continuation token strongly predicted); got {logprob}"
+    )
+
+
+def test_loglikelihood_long_context_does_not_return_neg_inf():
+    """CR-03: long context (len > max_length) must not collapse to -inf.
+
+    Setup: context -> 6 tokens [0]*6, full -> 7 tokens [0]*6 + [1]. With
+    max_length=4 the sequence is tail-truncated to [0,0,0,1]; the continuation
+    token (id 1) sits at position 3, predicted by logits[2]. We make logits[2]
+    favor token 1.
+
+    The pre-fix code used the untruncated context_len (6), yielding cont_len < 0
+    and returning (-inf, False) for every long request. The fix must preserve the
+    continuation and return a real, high logprob.
+    """
+    tokenizer = _FakeTokenizer({"L": [0, 0, 0, 0, 0, 0], "LX": [0, 0, 0, 0, 0, 0, 1]})
+
+    def model_fn(_x):
+        # after tail-truncation token_ids = [0,0,0,1]; token 1 at pos 3, predicted by logits[2]
+        return _logits_favoring({2: 1}, seq_len=4)
+
+    model = _build_model_without_load(model_fn, tokenizer, max_length=4)
+
+    req = MagicMock()
+    req.arguments = ("L", "X")
+
+    logprob, is_greedy = model.loglikelihood([req])[0]
+
+    assert logprob != float("-inf"), "long-context request returned -inf (CR-03 regressed)"
+    assert is_greedy is True, (
+        "continuation token must be scored from logits[pos-1] after truncation"
+    )
+    assert logprob > -1e-4, f"logprob should be ~0; got {logprob}"
