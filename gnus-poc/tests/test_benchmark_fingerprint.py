@@ -60,6 +60,9 @@ class TestComputeFingerprint:
 
         for field in REQUIRED_FIELDS:
             assert field in fp, f"missing required field: {field}"
+        # Nullable revision fields may legitimately be None per D-02
+        non_nullable = [f for f in REQUIRED_FIELDS if f not in ("task_revision", "dataset_revision")]
+        for field in non_nullable:
             assert fp[field] is not None, f"field {field} is None"
 
         assert fp["task_name"] == "medmcqa"
@@ -149,7 +152,8 @@ class TestValidateFingerprint:
         }
         is_valid, missing = validate_fingerprint(incomplete)
         assert is_valid is False
-        assert len(missing) == 10  # 11 required - 1 present
+        # 11 required fields - 2 present (harness_commit, task_name) = 9 missing
+        assert len(missing) == 9
         assert "prompt_hash" in missing
 
 
