@@ -531,12 +531,21 @@ class BenchmarkRunner:
         """Extract the primary metric score from raw lm-eval task results.
 
         Prefers metrics in order: ``acc_norm``, ``acc``, ``pass@1``, ``f1``,
-        ``exact_match``. Returns None if no metric found or results are empty.
+        ``exact_match``, ``rouge1``, ``rougeL``, ``rouge``. Returns None if no
+        metric found or results are empty.
+
+        Note (CR-05): BIGPATENT (patents blocking benchmark) declares
+        ``metric_list: [rouge1, rougeL]`` in bigpatent.yaml. Without rouge in
+        the preferred list, the patents gate always scores ``None`` -> ``0.0``
+        and fails its ``hard_floor: 0.20`` on every run.
         """
         if not task_results:
             return None
 
-        preferred_metrics = ["acc_norm", "acc", "pass@1", "f1", "exact_match"]
+        preferred_metrics = [
+            "acc_norm", "acc", "pass@1", "f1", "exact_match",
+            "rouge1", "rougeL", "rouge",
+        ]
         for metric in preferred_metrics:
             if metric in task_results:
                 value = task_results[metric]
