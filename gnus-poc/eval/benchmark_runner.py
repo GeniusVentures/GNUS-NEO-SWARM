@@ -215,6 +215,7 @@ class BenchmarkRunner:
         mode: str = "canonical",
         source: str = "huggingface",
         force_download: bool = False,
+        quantized: bool = True,
     ) -> List[Path]:
         """Run all benchmarks for a specialist niche and return output paths.
 
@@ -234,6 +235,11 @@ class BenchmarkRunner:
             source: "huggingface" (default, via datasets library) or
                     "local" (reads from data/benchmarks/).
             force_download: If True, re-download datasets even when cached.
+            quantized: If True (default), the run is the SGFP4 quantized model
+                -- entries are stamped with ``"quantized": True`` so the
+                benchmarker's canonical-quantized gate dimension (D-08) finds
+                them. Set False for the unquantized-adapter comparison run
+                that the mandatory SGFP4 regression check consumes.
 
         Returns:
             List of Paths to written results JSON files.
@@ -310,7 +316,9 @@ class BenchmarkRunner:
         for task_name in tasks:
             if task_name in not_implemented:
                 # Write not-implemented entry
-                entry = self._build_not_implemented_entry(niche, timestamp_str, mode, source, task_name)
+                entry = self._build_not_implemented_entry(
+                    niche, timestamp_str, mode, source, task_name, quantized=quantized,
+                )
             else:
                 entry = self._build_benchmark_entry(
                     niche=niche,
@@ -321,6 +329,7 @@ class BenchmarkRunner:
                     raw_results=lm_eval_results.get("results", {}),
                     gen_params=gen_params,
                     specialist_config=specialist_config,
+                    quantized=quantized,
                 )
 
             output_path = self._benchmarks_dir / f"{niche}_{task_name}_{timestamp_str}.json"
@@ -394,11 +403,20 @@ class BenchmarkRunner:
         raw_results: dict,
         gen_params: dict,
         specialist_config: dict,
+        quantized: bool = True,
     ) -> dict:
         """Build a single benchmark result entry conforming to the D-02 schema.
 
         Extracts the primary score metric and per-category breakdown from
         the raw lm-eval results dict.
+
+        Args:
+            quantized: Whether this run is the SGFP4 quantized model (True)
+                or the unquantized-adapter comparison (False). Stamped into
+                the payload so the benchmarker's D-08 gate can distinguish
+                canonical-quantized (gated) from canonical-unquantized
+                (the SGFP4 regression baseline) without relying on filename
+                tokens.
         """
         task_results = raw_results.get(task_name, {})
 
@@ -439,6 +457,7 @@ class BenchmarkRunner:
             "quantization_config": quant_config,
             "mode": mode,
             "source": source,
+            "quantized": bool(quantized),
             "fingerprint": fingerprint,
             "results": {
                 task_name: {
@@ -456,6 +475,7 @@ class BenchmarkRunner:
         mode: str,
         source: str,
         task_name: str,
+        quantized: bool = True,
     ) -> dict:
         """Build a result entry for a not-yet-implemented benchmark."""
         return {
@@ -465,6 +485,7 @@ class BenchmarkRunner:
             "quantization_config": {},
             "mode": mode,
             "source": source,
+            "quantized": bool(quantized),
             "fingerprint": {},
             "results": {
                 task_name: {
@@ -590,6 +611,13 @@ def main() -> None:
         default=False,
         help="Re-download datasets even if cached",
     )
+    parser.add_argument(
+        "--unquantized",
+        action="store_true",
+        default=False,
+        help="Stamp results as the unquantized-adapter run (quantized=False) "
+             "consumed by the SGFP4 regression check. Default: quantized=True.",
+    )
     args = parser.parse_args()
 
     runner = BenchmarkRunner()
@@ -600,6 +628,7 @@ def main() -> None:
             mode=args.mode,
             source=args.source,
             force_download=args.force_download,
+            quantized=not args.unquantized,
         )
         print(f"Benchmark {args.niche}: {len(paths)} results written")
         for p in paths:

@@ -456,16 +456,30 @@ class Benchmarker:
 
         Per D-03: diagnostic-mode results are NEVER used for gating.
 
+        The producer contract (``BenchmarkRunner.run_benchmarks`` /
+        ``MetricStore.record_benchmark_results``) writes files named
+        ``{niche}_{benchmark}_{ts}.json`` -- there is no ``canonical`` or
+        ``quantized`` token in the filename. Instead we glob the producer
+        pattern and filter by the payload ``mode`` and ``quantized`` fields.
+        ``_baseline`` / ``_comparison`` / ``_sgfp4_metrics`` sibling files
+        are excluded by stem.
+
         Args:
             niche_name: Specialist niche.
-            quantized_only: If True, restrict to quantized model results only.
+            quantized_only: If True, restrict to quantized model results only
+                (payload ``quantized`` is True or absent-but-not-explicitly-False
+                for backward compatibility).
 
         Returns:
             Parsed results dict, or None if no canonical result found.
         """
-        pattern = f"{niche_name}_canonical_*.json"
+        pattern = f"{niche_name}_*_*.json"
+        excluded_stems = ("_baseline", "_comparison", "_sgfp4_metrics")
         candidates = sorted(
-            self._benchmarks_dir.glob(pattern),
+            (
+                p for p in self._benchmarks_dir.glob(pattern)
+                if not any(stem in p.stem for stem in excluded_stems)
+            ),
             key=lambda p: p.stat().st_mtime,
             reverse=True,
         )
@@ -478,7 +492,11 @@ class Benchmarker:
             # D-03: skip diagnostic-mode results defensively
             if payload.get("mode") != "canonical":
                 continue
-            if quantized_only and "unquantized" in path.name:
+            # quantized vs unquantized comes from the payload field, not the
+            # filename. ``quantized`` defaults to True for backward compat with
+            # records written before the field existed (CR-01 reconciliation).
+            is_quantized = payload.get("quantized", True)
+            if quantized_only and is_quantized is False:
                 continue
             return payload
         return None
@@ -580,10 +598,17 @@ class Benchmarker:
         Note:
             Does NOT block on first run when no unquantized baseline exists.
         """
-        # Load unquantized adapter result (Plan 04-01 schema: *_unquantized*.json)
-        pattern = f"{niche_name}_canonical_*unquantized*.json"
+        # Load unquantized adapter result. The producer contract (CR-01)
+        # writes ``{niche}_{benchmark}_{ts}.json`` with no ``unquantized``
+        # filename token; the quantized/unquantized discriminator is the
+        # payload ``quantized`` field (written by BenchmarkRunner).
+        pattern = f"{niche_name}_*_*.json"
+        excluded_stems = ("_baseline", "_comparison", "_sgfp4_metrics")
         candidates = sorted(
-            self._benchmarks_dir.glob(pattern),
+            (
+                p for p in self._benchmarks_dir.glob(pattern)
+                if not any(stem in p.stem for stem in excluded_stems)
+            ),
             key=lambda p: p.stat().st_mtime,
             reverse=True,
         )
@@ -594,7 +619,10 @@ class Benchmarker:
                     candidate = json.load(f)
             except (json.JSONDecodeError, OSError):
                 continue
-            if candidate.get("mode") == "canonical":
+            if candidate.get("mode") != "canonical":
+                continue
+            # CR-01: identify the unquantized-adapter run by payload field.
+            if candidate.get("quantized", True) is False:
                 unquantized = candidate
                 break
 
@@ -808,17 +836,27 @@ class Benchmarker:
     def _find_previous_canonical(self, niche_name: str):
         """Find the SECOND-most-recent canonical quantized result (for regression).
 
-        Returns None if fewer than two canonical results exist.
+        Per CR-01: glob the producer pattern ``{niche}_*_*.json`` and filter by
+        the payload ``mode == "canonical"`` AND ``quantized`` field (defaulting
+        True for backward compat). ``_baseline`` / ``_comparison`` /
+        ``_sgfp4_metrics`` sibling files are excluded.
+
+        Returns None if fewer than two canonical quantized results exist.
+
+        Note (WR-07): "previous run" semantics are imperfect here -- a single
+        run writes one file per task, so ``canonical[1]`` may be a sibling task
+        from the SAME run. Grouping by ``run_id`` is the clean fix (deferred).
         """
-        pattern = f"{niche_name}_canonical_*.json"
-        candidates = [
-            p for p in sorted(
-                self._benchmarks_dir.glob(pattern),
-                key=lambda p: p.stat().st_mtime,
-                reverse=True,
-            )
-            if "unquantized" not in p.name
-        ]
+        pattern = f"{niche_name}_*_*.json"
+        excluded_stems = ("_baseline", "_comparison", "_sgfp4_metrics")
+        candidates = sorted(
+            (
+                p for p in self._benchmarks_dir.glob(pattern)
+                if not any(stem in p.stem for stem in excluded_stems)
+            ),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
         canonical = []
         for path in candidates:
             try:
@@ -826,6 +864,9 @@ class Benchmarker:
                     payload = json.load(f)
             except (json.JSONDecodeError, OSError):
                 continue
-            if payload.get("mode") == "canonical":
-                canonical.append(payload)
+            if payload.get("mode") != "canonical":
+                continue
+            if payload.get("quantized", True) is False:
+                continue
+            canonical.append(payload)
         return canonical[1] if len(canonical) >= 2 else None

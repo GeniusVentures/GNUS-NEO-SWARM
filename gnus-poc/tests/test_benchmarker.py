@@ -279,9 +279,14 @@ def _write_benchmark_result(
 ):
     """Write a benchmark results JSON file matching the Plan 04-01 schema.
 
+    Per CR-01 reconciliation: the benchmarker glob is ``{niche}_*_*.json`` and
+    filtering is by the payload ``mode`` and ``quantized`` fields (NOT by
+    filename tokens). The filename still embeds a human-readable quant label
+    for debuggability, but the contract that the gate relies on is the payload.
+
     Args:
         scores: dict of {benchmark_name: {"score": float}} (or {"pass@1": ..}).
-        suffix: optional filename suffix (e.g. "_unquantized").
+        suffix: optional filename suffix (e.g. "_adapter").
 
     Returns the Path written.
     """
@@ -294,6 +299,7 @@ def _write_benchmark_result(
         "timestamp_utc": "2026-06-28T00:00:00Z",
         "model_version": f"test-{quant_label}",
         "mode": mode,
+        "quantized": bool(quantized),
         "results": scores,
     }
     if fingerprint is not None:
