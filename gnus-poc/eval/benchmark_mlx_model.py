@@ -250,8 +250,16 @@ class MLXBenchmarkModel(LM):
             for i in range(cont_len):
                 pos = context_len + i
                 target = token_ids[pos]
-                total_logprob += self._tok_logprob(logits, pos, target)
-                if not self._is_greedy(logits, pos, target):
+                # logits[pos-1] predicts the token at pos (causal next-token
+                # convention). CR-02: reading logits[pos] would give the
+                # distribution conditioned on tokens[0..pos] -- i.e. it
+                # predicts token_ids[pos+1], not token_ids[pos].
+                pred_pos = pos - 1
+                assert pred_pos >= 0, (
+                    "loglikelihood position invariant violated: pos-1 < 0"
+                )
+                total_logprob += self._tok_logprob(logits, pred_pos, target)
+                if not self._is_greedy(logits, pred_pos, target):
                     all_greedy = False
 
             results.append((total_logprob, all_greedy))
@@ -388,11 +396,18 @@ class MLXBenchmarkModel(LM):
             total_logprob = 0.0
             all_greedy = True
 
-            # For each position i >= 1, compute logprob of token i given tokens[0:i]
+            # For each position i >= 1, compute logprob of token i given
+            # tokens[0:i] (causal next-token convention, CR-02). logits[i-1]
+            # is the distribution conditioned on tokens[0..i-1] and predicts
+            # the token at position i.
             for i in range(1, len(token_ids)):
                 target = token_ids[i]
-                total_logprob += self._tok_logprob(logits, i, target)
-                if not self._is_greedy(logits, i, target):
+                pred_pos = i - 1
+                assert pred_pos >= 0, (
+                    "loglikelihood_rolling position invariant violated: i-1 < 0"
+                )
+                total_logprob += self._tok_logprob(logits, pred_pos, target)
+                if not self._is_greedy(logits, pred_pos, target):
                     all_greedy = False
 
             results.append((total_logprob, all_greedy))
