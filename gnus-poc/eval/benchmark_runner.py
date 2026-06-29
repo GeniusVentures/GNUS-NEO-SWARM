@@ -299,16 +299,38 @@ class BenchmarkRunner:
             gen_params = dict(CANONICAL_PARAMS)
             gen_params.pop("num_fewshot", None)  # per-benchmark override
 
-        # Call simple_evaluate() if there are implemented tasks
-        lm_eval_results = {}
+        # Call simple_evaluate() if there are implemented tasks.
+        # CR-04: group tasks by their per-benchmark fewshot count
+        # (kBenchmarkFewShot) and call ``_run_lm_eval`` once per group.
+        # ``simple_evaluate()`` accepts a single scalar ``num_fewshot`` applied
+        # to ALL tasks in the call, so a heterogeneous list (e.g. medical =
+        # medmcqa@5 + pubmedqa@0 + mmlu@5) must be split by shot count -- the
+        # earlier ``setdefault`` applied only the first non-zero shot value to
+        # every task, silently breaking D-02's per-benchmark shot protocol.
+        lm_eval_results: dict = {"results": {}}
         if implemented_tasks:
-            lm_eval_results = self._run_lm_eval(
-                model=model,
-                tasks=implemented_tasks,
-                mode=mode,
-                gen_params=gen_params,
-                force_download=force_download,
-            )
+            from collections import defaultdict
+            fewshot_groups: Dict[int, List[str]] = defaultdict(list)
+            for task_name in implemented_tasks:
+                shot = kBenchmarkFewShot.get(task_name, kDefaultFewShot)
+                fewshot_groups[shot].append(task_name)
+
+            for shot, group_tasks in fewshot_groups.items():
+                if not group_tasks:
+                    continue
+                group_out = self._run_lm_eval(
+                    model=model,
+                    tasks=group_tasks,
+                    mode=mode,
+                    gen_params=gen_params,
+                    force_download=force_download,
+                    num_fewshot=shot,
+                )
+                # Merge per-task results; later groups do not overwrite earlier
+                # ones because task lists are disjoint across fewshot groups.
+                lm_eval_results.setdefault("results", {}).update(
+                    group_out.get("results", {}) if isinstance(group_out, dict) else {}
+                )
 
         # Build per-benchmark results with per-category breakdown
         output_paths: List[Path] = []
@@ -352,11 +374,19 @@ class BenchmarkRunner:
         mode: str,
         gen_params: dict,
         force_download: bool = False,
+        num_fewshot: Optional[int] = None,
     ) -> dict:
         """Invoke lm-eval simple_evaluate() with the model and task list.
 
         Per T-04-02 mitigation: lm-eval import is wrapped in try/except
         with a clear error message.
+
+        Args:
+            num_fewshot: If not None, applied to ALL tasks in this group
+                via ``eval_kwargs["num_fewshot"]``. Per CR-04, tasks must be
+                grouped by their fewshot count BEFORE calling this -- a single
+                ``simple_evaluate()`` call applies one scalar fewshot value
+                across every task in ``tasks``.
         """
         try:
             from lm_eval import simple_evaluate
@@ -373,11 +403,11 @@ class BenchmarkRunner:
             "log_samples": False,
         }
 
-        # Per-benchmark few-shot counts
-        for task_name in tasks:
-            fewshot = kBenchmarkFewShot.get(task_name, kDefaultFewShot)
-            if fewshot > 0:
-                eval_kwargs.setdefault("num_fewshot", fewshot)
+        # CR-04: apply num_fewshot unconditionally (assignment, not setdefault)
+        # so each per-fewshot group gets its own shot count. Callers must group
+        # tasks by fewshot value before invoking this method.
+        if num_fewshot is not None:
+            eval_kwargs["num_fewshot"] = num_fewshot
 
         # Canonical mode applies frozen gen params if available
         if mode == "canonical" and gen_params:
