@@ -261,8 +261,8 @@ Benchmark results across runs must be comparable to enable trend analysis. The s
 | QUANT-01 | Phase 3 | Complete |
 | QUANT-02 | Phase 3 | Complete |
 | QUANT-03 | Phase 3 | Complete |
-| BMARK-01 | Phase 4 | Pending |
-| BMARK-02 | Phase 4 | Pending |
+| BMARK-01 | Phase 4 | Complete |
+| BMARK-02 | Phase 4 | Complete |
 | BMARK-03 | Phase 4 | Pending |
 
 **Coverage: 22/22 requirements mapped — 100%**
