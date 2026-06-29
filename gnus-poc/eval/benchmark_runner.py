@@ -409,10 +409,20 @@ class BenchmarkRunner:
         if num_fewshot is not None:
             eval_kwargs["num_fewshot"] = num_fewshot
 
-        # Canonical mode applies frozen gen params if available
+        # WR-02: forward canonical frozen generation params (D-03) to
+        # simple_evaluate() via ``gen_kwargs``. lm-eval honors
+        # ``temperature`` / ``do_sample`` / ``max_gen_toks`` / ``top_p`` from
+        # this dict for ``generate_until`` tasks. ``num_fewshot`` is handled
+        # separately above (it is a top-level kwarg, not a gen-kwarg). The
+        # earlier ``pass`` block dropped these params entirely, so diagnostic
+        # and canonical runs were indistinguishable to lm-eval.
         if mode == "canonical" and gen_params:
-            # Pass gen params through model_args or other mechanism
-            pass
+            gen_kwargs = {}
+            for key in ("temperature", "do_sample", "top_p", "max_gen_toks"):
+                if key in gen_params and gen_params[key] is not None:
+                    gen_kwargs[key] = gen_params[key]
+            if gen_kwargs:
+                eval_kwargs["gen_kwargs"] = gen_kwargs
 
         try:
             results = simple_evaluate(**eval_kwargs)
