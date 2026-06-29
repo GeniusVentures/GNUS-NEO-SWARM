@@ -7,7 +7,6 @@
 #include "api_server.hpp"
 #include "common/logging.hpp"
 #include "core/engine/mnn_inference_engine.hpp"
-#include "core/tokenizer/tokenizer.hpp"
 #include "network/sg_client/super_genius_client.hpp"
 
 #include <algorithm>
@@ -135,14 +134,6 @@ namespace sgns::neoswarm::api
         engine_cfg.m_sgNetworkMode = m_cfg.m_sgProcessingNetworkMode;
         auto engine = std::make_shared<core::MNNInferenceEngine>( engine_cfg );
 
-        auto tokenizer = std::make_shared<core::SentencePieceTokenizer>();
-        std::string tok_path = m_cfg.m_modelPath;
-        auto dot_pos = tok_path.rfind( '.' );
-        if ( dot_pos != std::string::npos )
-            tok_path = tok_path.substr( 0, dot_pos );
-        tok_path += ".tokenizer.model";
-        (void)tokenizer->Load( tok_path ); // degrades gracefully if not found
-        engine->SetTokenizer( tokenizer );
 
         if ( !m_cfg.m_modelPath.empty() )
         {

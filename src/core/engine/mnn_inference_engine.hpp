@@ -61,7 +61,7 @@ namespace sgns::neoswarm::core
      *
      *   "interpreter"  — Fallback. Uses MNN::Interpreter directly for
      *                    standard single-file .mnn models. Requires the
-     *                    external SentencePieceTokenizer to be attached.
+     *                    external tokenizer to be attached.
      *
      * GPU backend (selected at runtime via Config::m_backend):
      *

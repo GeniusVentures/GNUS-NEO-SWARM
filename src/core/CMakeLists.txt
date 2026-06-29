@@ -1,7 +1,6 @@
 add_library(neoswarm_core STATIC
     fp4/fp4_codec.cpp
     engine/mnn_inference_engine.cpp
-    tokenizer/sentence_piece_tokenizer.cpp
     sgprocessing/sg_processing_bridge.cpp
     sgprocessing/tensor_interpreter.cpp
 )
@@ -27,31 +26,6 @@ endif()
 # ---------------------------------------------------------------------------
 if(TARGET MNN)
     target_link_libraries(neoswarm_core PUBLIC MNN)
-endif()
-
-# Check early if SGProcessingManager will be linked (used to skip SentencePiece)
-set(_SGPROC_LIB_DIR "${THIRDPARTY_BUILD_DIR}/SGProcessingManager/lib")
-find_library(_SGPROC_PROCESSING_BASE ProcessingBase PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
-
-# ---------------------------------------------------------------------------
-# SentencePiece tokenizer (+ Abseil transitive deps)
-# Skip when SGProcessingManager is linked (avoids protobuf duplicate symbols)
-# When skipped, the tokenizer falls back to whitespace mode — MNN's built-in
-# tokenizer (tokenizer.mtok) is used in the LLM path instead.
-# ---------------------------------------------------------------------------
-if(FALSE AND TARGET sentencepiece)
-    target_link_libraries(neoswarm_core PUBLIC sentencepiece)
-
-    # Abseil static libs bundled in the SentencePiece build tree
-    set(_SPM_BUILD_DIR "${THIRDPARTY_BUILD_DIR}/../../../sentencepiece/build")
-    file(GLOB_RECURSE _ABSL_LIBS
-        "${_SPM_BUILD_DIR}/third_party/abseil-cpp/**/*.a"
-    )
-    if(_ABSL_LIBS)
-        target_link_libraries(neoswarm_core PUBLIC ${_ABSL_LIBS})
-    endif()
-elseif(_SGPROC_PROCESSING_BASE AND TARGET sentencepiece)
-    message(STATUS "SentencePiece skipped — protobuf conflict with SGProcessingManager. Using MNN built-in tokenizer.")
 endif()
 
 # ---------------------------------------------------------------------------
