@@ -14,9 +14,10 @@ Public API:
 
 import logging
 
+from router.classifier import RouterClassifier
 from router.engine import RouterStateMachine
 from router.rules import RuleMatcher
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["RouterStateMachine", "RuleMatcher"]
+__all__ = ["RouterClassifier", "RouterStateMachine", "RuleMatcher"]
