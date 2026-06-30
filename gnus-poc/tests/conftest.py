@@ -76,3 +76,198 @@ def real_tokenizer(mock_model_path):
         pytest.skip(f"Could not load tokenizer from {mock_model_path}: {e}")
 
     return tokenizer
+
+
+# ---------------------------------------------------------------------------
+# SGFP4 v2 test fixtures
+# ---------------------------------------------------------------------------
+
+SGFP4_MAGIC = b"SGF4"
+SGFP4_VERSION = 0x02
+
+
+@pytest.fixture
+def valid_sgfp4_binary(tmp_path, tmp_project_root):
+    """Create a valid SGFP4 v2 binary file with magic header in a quantize output dir."""
+    niche = "code"
+    fp4_dir = tmp_project_root / "models" / "specialists_mlx" / niche / "fp4"
+    fp4_dir.mkdir(parents=True, exist_ok=True)
+
+    # Build a minimal SGFP4 v2 binary: magic + version + some payload bytes
+    payload = b"\x00" * 256
+    binary = SGFP4_MAGIC + bytes([SGFP4_VERSION]) + payload
+
+    sgfp4_path = fp4_dir / f"{niche}.sgfp4"
+    sgfp4_path.write_bytes(binary)
+
+    import hashlib
+    file_hash = hashlib.sha256(binary).hexdigest()
+
+    # Write manifest with matching SHA256
+    manifest = fp4_dir / "manifest.json"
+    manifest_data = {
+        "model_name": "qwen3-code-specialist",
+        "niche": niche,
+        "base_model_ref": "mlx-community/Qwen3-30B-A3B-Instruct-2507-bf16",
+        "adapter_ref": f"models/specialists_mlx/{niche}/adapter_model.safetensors",
+        "quantization_params": {"target_bits": 4, "block_size": 64, "format": "SGFP4_v2"},
+        "encoder_version": "sgfp4-v2-0.1.0",
+        "timestamp_utc": "2026-06-27T00:00:00Z",
+        "fp4_binary": {
+            "path": str(sgfp4_path),
+            "sha256": file_hash,
+            "size_bytes": len(binary),
+        },
+    }
+    import json
+    manifest.write_text(json.dumps(manifest_data, indent=2))
+
+    return fp4_dir
+
+
+@pytest.fixture
+def sgfp4_bad_magic(tmp_path, tmp_project_root):
+    """Create an SGFP4 binary file with an invalid magic header."""
+    niche = "code"
+    fp4_dir = tmp_project_root / "models" / "specialists_mlx" / niche / "fp4"
+    fp4_dir.mkdir(parents=True, exist_ok=True)
+
+    # Bad magic: BAD4 instead of SGF4
+    binary = b"BAD4" + bytes([SGFP4_VERSION]) + b"\x00" * 256
+    sgfp4_path = fp4_dir / f"{niche}.sgfp4"
+    sgfp4_path.write_bytes(binary)
+
+    import hashlib
+    file_hash = hashlib.sha256(binary).hexdigest()
+
+    import json
+    manifest = fp4_dir / "manifest.json"
+    manifest_data = {
+        "model_name": "qwen3-code-specialist",
+        "niche": niche,
+        "base_model_ref": "mlx-community/Qwen3-30B-A3B-Instruct-2507-bf16",
+        "adapter_ref": f"models/specialists_mlx/{niche}/adapter_model.safetensors",
+        "quantization_params": {"target_bits": 4},
+        "encoder_version": "sgfp4-v2-0.1.0",
+        "timestamp_utc": "2026-06-27T00:00:00Z",
+        "fp4_binary": {"sha256": file_hash},
+    }
+    manifest.write_text(json.dumps(manifest_data, indent=2))
+
+    return fp4_dir
+
+
+@pytest.fixture
+def sgfp4_sha256_mismatch(tmp_path, tmp_project_root):
+    """Create an SGFP4 v2 binary + manifest with mismatched SHA256."""
+    niche = "code"
+    fp4_dir = tmp_project_root / "models" / "specialists_mlx" / niche / "fp4"
+    fp4_dir.mkdir(parents=True, exist_ok=True)
+
+    binary = SGFP4_MAGIC + bytes([SGFP4_VERSION]) + b"\x00" * 256
+    sgfp4_path = fp4_dir / f"{niche}.sgfp4"
+    sgfp4_path.write_bytes(binary)
+
+    import json
+    manifest = fp4_dir / "manifest.json"
+    manifest_data = {
+        "model_name": "qwen3-code-specialist",
+        "niche": niche,
+        "base_model_ref": "mlx-community/Qwen3-30B-A3B-Instruct-2507-bf16",
+        "adapter_ref": f"models/specialists_mlx/{niche}/adapter_model.safetensors",
+        "quantization_params": {"target_bits": 4},
+        "encoder_version": "sgfp4-v2-0.1.0",
+        "timestamp_utc": "2026-06-27T00:00:00Z",
+        # Deliberately wrong SHA256
+        "fp4_binary": {"sha256": "0" * 64},
+    }
+    manifest.write_text(json.dumps(manifest_data, indent=2))
+
+    return fp4_dir
+
+
+@pytest.fixture
+def sgfp4_manifest_no_sha256(tmp_path, tmp_project_root):
+    """Create an SGFP4 v2 binary + manifest with fp4_binary but no sha256 field (backward compat)."""
+    niche = "code"
+    fp4_dir = tmp_project_root / "models" / "specialists_mlx" / niche / "fp4"
+    fp4_dir.mkdir(parents=True, exist_ok=True)
+
+    binary = SGFP4_MAGIC + bytes([SGFP4_VERSION]) + b"\x00" * 256
+    sgfp4_path = fp4_dir / f"{niche}.sgfp4"
+    sgfp4_path.write_bytes(binary)
+
+    import json
+    manifest = fp4_dir / "manifest.json"
+    manifest_data = {
+        "model_name": "qwen3-code-specialist",
+        "niche": niche,
+        "base_model_ref": "mlx-community/Qwen3-30B-A3B-Instruct-2507-bf16",
+        "adapter_ref": f"models/specialists_mlx/{niche}/adapter_model.safetensors",
+        "quantization_params": {"target_bits": 4},
+        "encoder_version": "sgfp4-v1-0.1.0",
+        "timestamp_utc": "2026-06-27T00:00:00Z",
+        "fp4_binary": {"path": str(sgfp4_path)},
+        # fp4_binary exists but sha256 is missing — v1 backward compat
+    }
+    manifest.write_text(json.dumps(manifest_data, indent=2))
+
+    return fp4_dir
+
+
+@pytest.fixture
+def sgfp4_v1_only(tmp_path, tmp_project_root):
+    """Create a v1-only quantize output (no .sgfp4 binary)."""
+    niche = "code"
+    fp4_dir = tmp_project_root / "models" / "specialists_mlx" / niche / "fp4"
+    fp4_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create a dummy .npz file (v1 artifact)
+    npz_path = fp4_dir / f"{niche}_w1.npz"
+    npz_path.write_bytes(b"\x00" * 128)
+
+    # Minimal manifest
+    import json
+    manifest = fp4_dir / "manifest.json"
+    manifest_data = {
+        "model_name": "qwen3-code-specialist",
+        "niche": niche,
+        "base_model_ref": "mlx-community/Qwen3-30B-A3B-Instruct-2507-bf16",
+        "adapter_ref": f"models/specialists_mlx/{niche}/adapter_model.safetensors",
+        "quantization_params": {"target_bits": 4},
+        "encoder_version": "sgfp4-v1-0.1.0",
+        "timestamp_utc": "2026-06-27T00:00:00Z",
+    }
+    manifest.write_text(json.dumps(manifest_data, indent=2))
+
+    return fp4_dir
+
+
+@pytest.fixture
+def sgfp4_missing_fields(tmp_path, tmp_project_root):
+    """Create an SGFP4 v2 output with missing QUANT-03 required fields in manifest."""
+    niche = "code"
+    fp4_dir = tmp_project_root / "models" / "specialists_mlx" / niche / "fp4"
+    fp4_dir.mkdir(parents=True, exist_ok=True)
+
+    binary = SGFP4_MAGIC + bytes([SGFP4_VERSION]) + b"\x00" * 256
+    sgfp4_path = fp4_dir / f"{niche}.sgfp4"
+    sgfp4_path.write_bytes(binary)
+
+    import hashlib
+    file_hash = hashlib.sha256(binary).hexdigest()
+
+    import json
+    manifest = fp4_dir / "manifest.json"
+    # Missing adapter_ref and encoder_version
+    manifest_data = {
+        "model_name": "qwen3-code-specialist",
+        "niche": niche,
+        "base_model_ref": "mlx-community/Qwen3-30B-A3B-Instruct-2507-bf16",
+        "quantization_params": {"target_bits": 4},
+        "timestamp_utc": "2026-06-27T00:00:00Z",
+        "fp4_binary": {"sha256": file_hash},
+    }
+    manifest.write_text(json.dumps(manifest_data, indent=2))
+
+    return fp4_dir

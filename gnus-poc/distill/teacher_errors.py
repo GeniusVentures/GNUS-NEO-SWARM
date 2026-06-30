@@ -15,3 +15,8 @@ class CircuitBreakerOpenError(Exception):
 
 class SyntheticDataError(Exception):
     pass
+
+
+class BackendNotFoundError(TeacherConfigError):
+    """Raised when no backend can be resolved for a given model name."""
+    pass

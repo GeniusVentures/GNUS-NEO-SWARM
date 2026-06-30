@@ -147,3 +147,52 @@ TEST( MessageSigning, VerifyAndStripExpiredTimestamp )
 
     EXPECT_FALSE( MessageSigning::VerifyAndStrip( payload, pubKeyHex ) );
 }
+
+TEST( MessageSigning, GenerateNonce_Returns32ByteHexString )
+{
+    std::string nonce = MessageSigning::GenerateNonce();
+    EXPECT_EQ( nonce.size(), 64 );
+    for ( char c : nonce )
+    {
+        EXPECT_TRUE( ( c >= '0' && c <= '9' ) || ( c >= 'a' && c <= 'f' ) );
+    }
+}
+
+TEST( MessageSigning, GenerateNonce_IsUnique )
+{
+    std::string n1 = MessageSigning::GenerateNonce();
+    std::string n2 = MessageSigning::GenerateNonce();
+    EXPECT_NE( n1, n2 );
+}
+
+TEST( MessageSigning, AttachSignature_ValidPayload_AppendsSigField )
+{
+    NodeIdentity ident;
+    ASSERT_TRUE( ident.Generate().has_value() );
+    MessageSigning signer( ident );
+
+    std::string payload = R"({"op":"test","data":"hello"})";
+    std::string signedPayload = signer.AttachSignature( payload );
+    EXPECT_NE( signedPayload.find( "\"sig\"" ), std::string::npos );
+    EXPECT_NE( signedPayload.find( "\"nonce\"" ), std::string::npos );
+}
+
+TEST( MessageSigning, VerifyAndStrip_MalformedJson_ReturnsFalse )
+{
+    NodeIdentity ident;
+    ASSERT_TRUE( ident.Generate().has_value() );
+    std::string pubKeyHex = PubKeyToHex( ident.PublicKey() );
+
+    std::string payload = "not json";
+    EXPECT_FALSE( MessageSigning::VerifyAndStrip( payload, pubKeyHex ) );
+}
+
+TEST( MessageSigning, VerifyAndStrip_EmptyPayload_ReturnsFalse )
+{
+    NodeIdentity ident;
+    ASSERT_TRUE( ident.Generate().has_value() );
+    std::string pubKeyHex = PubKeyToHex( ident.PublicKey() );
+    std::string payload;
+
+    EXPECT_FALSE( MessageSigning::VerifyAndStrip( payload, pubKeyHex ) );
+}

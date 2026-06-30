@@ -95,7 +95,10 @@ def test_format_chat_produces_chat_template(real_tokenizer, sample_messages):
 
     Checks:
     - Result is a non-empty string
-    - Does NOT contain <|im_start|> (Qwen2.5 obsolete format)
+    - Uses the tokenizer's native template (delegation verified by
+      test_format_chat_matches_tokenizer_template). Note: Qwen2.5's native
+      ChatML template legitimately uses <|im_start|>/<|im_end|> tokens, so
+      their presence is expected and correct.
     - Contains the user message text
     """
     from training.tokenizer_utils import format_chat
@@ -103,9 +106,6 @@ def test_format_chat_produces_chat_template(real_tokenizer, sample_messages):
     result = format_chat(sample_messages, real_tokenizer)
 
     assert result and len(result) > 0, "format_chat returned empty string"
-    assert "<|im_start|>" not in result, (
-        "format_chat must NOT produce <|im_start|> — this is the Qwen2.5 format"
-    )
     assert "Hello, world!" in result, (
         "format_chat output must contain the user message text"
     )

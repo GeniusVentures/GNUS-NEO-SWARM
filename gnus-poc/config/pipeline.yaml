@@ -1,25 +1,79 @@
 # GNUS-POC Pipeline Configuration — Global defaults
+#
+# Two-layer teacher architecture:
+#   endpoints: define WHERE (connection details — url, apiType)
+#   models:    define WHAT (model identifier — endpoint ref, model_id)
+#
+# Adding a teacher model requires only a `models` entry referencing an existing endpoint,
+# plus an API key in `.env` — no code change.
+#
+# API key environment variable naming convention:
+#   {UPPERCASE_MODEL_NAME}_API_KEY with brackets and dots replaced by underscores
+#   Examples: DEEPSEEK_V4_FAST_API_KEY, DEEPSEEK_V4_PRO[1M]_API_KEY, GLM_5_2_API_KEY
+#
 # Override per specialist in config/specialists/<niche>.yaml
 # Override per experiment in config/experiments/<exp>.yaml
 # Secrets via ${ENV_VAR} resolved at load time from .env
 
+# ---------------------------------------------------------------------------
+# Endpoints: connection details for each API backend
+# ---------------------------------------------------------------------------
+endpoints:
+  litellm:
+    url: "http://127.0.0.1:4000"
+    apiType: openai
+
+# ---------------------------------------------------------------------------
+# Models: each key is a literal model name, values map to endpoint + model_id
+# ---------------------------------------------------------------------------
+models:
+  deepseek-v4-fast:
+    endpoint: litellm
+    model_id: "deepseek-v4-fast"
+  deepseek-v4-pro[1m]:
+    endpoint: litellm
+    model_id: "deepseek-v4-pro[1m]"
+  glm-5.2:
+    endpoint: litellm
+    model_id: "glm-5.2"
+
+# ---------------------------------------------------------------------------
+# Teacher cascade settings
+# ---------------------------------------------------------------------------
+teacher:
+  level1: "deepseek-v4-fast"                  # Always-first Level 1 teacher
+  confidence_threshold: 0.7                    # Logprobs mean threshold for Level 2 escalation
+  max_retries: 3                               # Per-call retry count
+  backoff_base_seconds: 2.0                    # Initial backoff delay
+  budget_cap_usd: 5.0                          # Hard dollar limit — stops all API calls when exceeded
+  circuit_breaker_failure_threshold: 5         # Consecutive failures before circuit opens
+  circuit_breaker_recovery_timeout: 60         # Seconds before half-open probe
+
+# ---------------------------------------------------------------------------
+# Teacher benchmark table — domain -> {model_name: strength_score}
+# Used for Level 2 domain-routed teacher selection. Evolves over time as
+# evaluation data accumulates per teacher/domain pair.
+# ---------------------------------------------------------------------------
+teacher_benchmark:
+  coding: {"deepseek-v4-pro[1m]": 0.82, "glm-5.2": 0.91}
+  orchestration: {"deepseek-v4-pro[1m]": 0.88, "glm-5.2": 0.75}
+  medical: {"deepseek-v4-pro[1m]": 0.79, "glm-5.2": 0.85}
+  qa_technical: {"deepseek-v4-pro[1m]": 0.85, "glm-5.2": 0.78}
+  encyclopedic: {"deepseek-v4-pro[1m]": 0.90, "glm-5.2": 0.72}
+  patents: {"deepseek-v4-pro[1m]": 0.83, "glm-5.2": 0.70}
+
+# ---------------------------------------------------------------------------
+# Pipeline execution settings
+# ---------------------------------------------------------------------------
 pipeline:
   specialists: ["medical", "qa_technical", "code", "encyclopedic", "patents"]
+  stage_retry_count: 1                         # How many times to retry a failed stage
+  stage_backoff_seconds: 5.0                   # Delay between stage retries
 
 paths:
   data_dir: "data/specialists"
   models_dir: "models/specialists_mlx"
   artifacts_dir: "artifacts"
-
-teacher:
-  model: "deepseek-v4-pro"
-  api_key_env: "DEEPSEEK_API_KEY"          # Resolved from .env via os.getenv()
-  base_url: "https://api.deepseek.com"
-  max_tokens: 4096
-  temperature: 0.7
-  max_retries: 3
-  backoff_base_seconds: 2.0
-  budget_cap_usd: 5.0                     # Hard dollar limit — stops all API calls when exceeded
 
 training:
   base_model: "mlx-community/Qwen3-30B-A3B-Instruct-2507-bf16"
@@ -45,3 +99,54 @@ evaluation:
 fp4_export:
   target_bits: 4
   block_size: 64
+  # SGFP4 v2 adaptive macroblock error thresholds per block size (D-08)
+  error_thresholds:
+    64: { max_mse: 0.01, max_relative: 0.05 }
+    32: { max_mse: 0.005, max_relative: 0.03 }
+    16: { max_mse: 0.002, max_relative: 0.02 }
+    8:  { max_mse: 0.001, max_relative: 0.01 }
+    4:  { max_mse: 0.0005, max_relative: 0.005 }
+  # Ternary mode selection delta: prefer T158 when err_t158 <= (1.0 + delta) * err_fp4
+  ternary_delta: 0.10
+  # Minimum block size for adaptive quadtree (must be power of 2, >= 4)
+  min_block_size: 4
+  # Number of Laplacian pyramid levels for encode-side error analysis
+  laplacian_levels: 3
+  # Log mode bitmap flag reserved (Phase 5: Unsloth Integration) — default: Linear only
+  log_mode_enabled: false
+
+# ---------------------------------------------------------------------------
+# Evaluation gating — per-dimension quality thresholds with auto-gating
+#
+# Each dimension defines a numeric threshold and a consecutive-failure count
+# that triggers a blocking state (preventing promotion to next pipeline stage).
+# SGFP4 dimensions (D-09): Quantization error metrics become eval gate dimensions
+# following the Phase 2 auto-gating pattern.
+# ---------------------------------------------------------------------------
+eval_gates:
+  # -----------------------------------------------------------------------
+  # SGFP4 dimensions (Phase 3, D-09) -- UNCHANGED
+  # -----------------------------------------------------------------------
+  fp4_mse:
+    max: 0.01
+    consecutive_failures_to_block: 3
+  fp4_effective_bitrate:
+    max: 4.0
+    consecutive_failures_to_block: 2
+  fp4_t158_ratio:
+    min: 0.05
+    consecutive_failures_to_block: 2
+  # -----------------------------------------------------------------------
+  # Benchmark-specific gate dimensions (Plan 04-03)
+  #
+  # D-06: tiered gating -- 1st failure warns, 3rd consecutive blocks.
+  # D-08: hard floors are enforced per-benchmark in config/benchmarks/<name>.yaml;
+  #       the composite gate below activates only AFTER all hard floors pass.
+  # -----------------------------------------------------------------------
+  benchmark_composite:
+    description: "2-of-3 composite gate for benchmark quality (D-08)"
+    consecutive_failures_to_block: 3
+  sfgp4_regression:
+    description: "Mandatory SGFP4 unquantized-vs-quantized regression check (D-08)"
+    max_regression_pct: 0.10
+    consecutive_failures_to_block: 3

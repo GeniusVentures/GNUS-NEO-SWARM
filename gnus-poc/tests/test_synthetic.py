@@ -1,7 +1,7 @@
-"""Tests for SyntheticDataGenerator — quality filtering and output validation."""
+"""Tests for SyntheticDataGenerator — quality filtering, cascade, and direct generation."""
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -9,6 +9,13 @@ from distill.synthetic import SyntheticDataGenerator, _refusal_re
 
 
 def make_mock_response(content):
+    """Create a mock response compatible with _ResponseWrapper shape.
+
+    Produces a MagicMock with ``.choices[0].message.content``,
+    ``.usage.prompt_tokens``, and ``.usage.completion_tokens``.
+    Logprobs data is attached via ``.choices[0].logprobs.content``
+    for cascade confidence computation compatibility.
+    """
     resp = MagicMock()
     resp.choices = [MagicMock()]
     resp.choices[0].message.content = content
@@ -49,9 +56,10 @@ class TestQualityFiltering:
 
 class TestSyntheticDataGenerator:
     def test_generates_for_niche(self):
+        """Default (use_cascade=True) uses generate_with_cascade for generation."""
         mock_client = MagicMock()
-        mock_client.generate = MagicMock()
-        mock_client.generate.return_value = make_mock_response(
+        mock_client.generate_with_cascade = MagicMock()
+        mock_client.generate_with_cascade.return_value = make_mock_response(
             "Python is a high-level programming language known for its readability. " * 10
         )
 
@@ -68,6 +76,56 @@ class TestSyntheticDataGenerator:
             assert s["niche"] == "code"
             assert s["source"] == "synthetic_deepseek_v4_pro"
             assert len(s["text"]) >= 200
+        # Verify cascade was used with the correct domain mapping
+        assert mock_client.generate_with_cascade.call_count == 3
+
+    def test_cascade_generation_for_niche(self):
+        """Explicit cascade mode routes niche to correct benchmark domain."""
+        mock_client = MagicMock()
+        mock_client.generate_with_cascade = MagicMock()
+        mock_client.generate_with_cascade.return_value = make_mock_response(
+            "Python is a high-level programming language known for its readability. " * 10
+        )
+
+        gen = SyntheticDataGenerator(mock_client, use_cascade=True)
+        samples = gen.generate_for_niche(
+            niche_name="code",
+            system_prompt="You are a code specialist.",
+            user_prompts=["Explain Python."],
+            num_samples=3,
+        )
+
+        assert len(samples) == 3
+        # Verify generate_with_cascade was called with domain="coding"
+        assert mock_client.generate_with_cascade.call_count == 3
+        for call_args in mock_client.generate_with_cascade.call_args_list:
+            called_messages = call_args[0][0]
+            called_domain = call_args[1]["domain"]
+            assert len(called_messages) == 2
+            assert called_domain == "coding"
+
+    def test_direct_generation_for_niche(self):
+        """Direct mode (use_cascade=False) uses generate() with model_name."""
+        mock_client = MagicMock()
+        mock_client.generate = MagicMock()
+        mock_client.generate.return_value = make_mock_response(
+            "Python is a high-level programming language known for its readability. " * 10
+        )
+
+        gen = SyntheticDataGenerator(mock_client, use_cascade=False)
+        samples = gen.generate_for_niche(
+            niche_name="code",
+            system_prompt="You are a code specialist.",
+            user_prompts=["Explain Python."],
+            num_samples=3,
+        )
+
+        assert len(samples) == 3
+        # Verify generate was called with messages keyword arg
+        assert mock_client.generate.call_count == 3
+        for call_args in mock_client.generate.call_args_list:
+            called_messages = call_args.kwargs["messages"]
+            assert len(called_messages) == 2
 
     def test_save_to_jsonl(self, tmp_path):
         gen = SyntheticDataGenerator(MagicMock())
