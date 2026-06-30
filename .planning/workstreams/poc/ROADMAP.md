@@ -49,7 +49,13 @@ Plans:
   5. Hyperparameters from YAML config are respected at runtime; invalid combinations produce clear validation errors.
   6. Model evaluation produces accuracy, perplexity, and latency metrics (mean/P95) persisted to `artifacts/evaluations/` per run.
   7. Rules-based router classifies queries by keyword/syntax patterns and selects appropriate specialists from YAML config.
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Distillation convergence with two-tier early stopping, temperature sweep JSON output, synthetic data quality checks
+- [ ] 02-02-PLAN.md — Rules-based specialist router with GQHSM-compatible state machine, keyword/regex/syntax density matching, fallback chaining
+- [ ] 02-03-PLAN.md — Post-training adapter validation with loadability, loss, and behavioral difference checks; hyperparameter validation
+- [ ] 02-04-PLAN.md — Specialist config extensions, evaluation metric persistence via MetricStore, auto-gating with consecutive-failure tracking
 
 ### Phase 3: FP4 Quantization & Artifact Integrity
 **Goal**: SGFP4 v2 adaptive quantized export produces variable-effective-bitrate models with quadtree block partitioning (4x4 through 64x64), encode-side Laplacian error analysis, dual-mode per-block encoding (FP4_AFFINE/T158_AFFINE), superblock layout enum, and provenance manifests with SHA256 integrity.
@@ -93,7 +99,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Pipeline Hardening | 0/5 | Planned | - |
-| 2. Training & Distillation Quality | 0/? | Not started | - |
+| 2. Training & Distillation Quality | 0/4 | Planned | - |
 | 3. FP4 Quantization & Artifact Integrity | 3/3 | Complete   | 2026-06-27 |
 | 4. Benchmark Evaluation | 4/4 | Complete | 2026-06-28 |
 
