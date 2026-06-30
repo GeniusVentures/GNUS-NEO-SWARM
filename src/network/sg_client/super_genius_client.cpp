@@ -11,6 +11,8 @@
 #include "common/logging.hpp"
 #include "security/node_identity.hpp"
 #include "GeniusSDK.h"
+#include <iomanip>
+#include <sstream>
 
 namespace sgns::neoswarm::network
 {
@@ -57,6 +59,17 @@ namespace sgns::neoswarm::network
         SGResultCollectorConfig rcCfg;
         rcCfg.result_m_timeout = m_impl->m_cfg.result_m_timeout;
         m_impl->resultCollector_ = std::make_unique<SGResultCollector>( *m_impl->m_authenticator, rcCfg );
+
+        // Per D-04/D-05: Derive ETH key from NodeIdentity (single source of truth)
+        const auto& privKey = identity.GetPrivateKey();
+        std::ostringstream hexStream;
+        hexStream << "0x";
+        hexStream << std::hex << std::setfill( '0' );
+        for ( const auto byte : privKey )
+        {
+            hexStream << std::setw( 2 ) << static_cast<int>( byte );
+        }
+        m_impl->m_cfg.m_ethKey = hexStream.str();
 
         const char* initResult = GeniusSDKInitWithKey(
             m_impl->m_cfg.m_sdkBasePath.c_str(),

@@ -10,6 +10,8 @@
 
 #include <cstdio>
 #include <fstream>
+#include <iomanip>
+#include <sstream>
 #include <vector>
 
 using namespace sgns::neoswarm;
@@ -317,4 +319,37 @@ TEST( NodeIdentity, GetPrivateKey_AfterLoadEncrypted_PreservesKey )
     EXPECT_EQ( ident1.GetPeerId(), ident2.GetPeerId() );
 
     RemoveTestFile();
+}
+
+// =======================================================================
+// Private key hex encoding — Phase 2, Plan 05 (GeniusSDK init)
+// =======================================================================
+
+TEST( NodeIdentity, PrivateKeyHexEncoding_Is66CharsWith0xPrefix )
+{
+    NodeIdentity ident;
+    ASSERT_TRUE( ident.Generate().has_value() );
+
+    const auto& privKey = ident.GetPrivateKey();
+    EXPECT_EQ( privKey.size(), NodeIdentity::kPrivKeySize );
+
+    // Simulate the hex encoding used by SGClient::Initialize()
+    // Must produce "0x" + 64 hex chars (total 66) for GeniusSDKInitWithKey()
+    std::ostringstream hexStream;
+    hexStream << "0x";
+    hexStream << std::hex << std::setfill( '0' );
+    for ( const auto byte : privKey )
+    {
+        hexStream << std::setw( 2 ) << static_cast<int>( byte );
+    }
+    std::string hexKey = hexStream.str();
+
+    EXPECT_EQ( hexKey.size(), 66U );
+    EXPECT_EQ( hexKey.substr( 0, 2 ), "0x" );
+
+    // All chars after prefix must be valid hex
+    for ( size_t i = 2; i < hexKey.size(); ++i )
+    {
+        EXPECT_TRUE( std::isxdigit( static_cast<unsigned char>( hexKey[i] ) ) );
+    }
 }
