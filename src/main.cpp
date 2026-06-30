@@ -51,9 +51,8 @@ struct Args
     std::string m_knowledgePath;
     int m_maxTokens = 512;
     float m_temperature = 0.7f;
-    std::string m_sgEndpoint = "localhost:50051";
-    std::string m_sgTlsCa;
-    std::string m_sgTlsCert;
+    std::string m_sgSdkPath = "./sdk";
+    std::string m_ethKey;
     std::string config_path_;
     bool network_ = false;
     bool serve_ = false;
@@ -74,9 +73,9 @@ static void PrintHelp( const char* prog )
               << "  --db <path>              Reputation DB (default: ./reputation.db)\n"
               << "  --key <path>             Node key file (default: ./node.key)\n"
               << "  --config <path>         JSON config file (CLI flags override file values)\n"
-              << "  --sg-endpoint <host:port> SuperGenius node address (default: localhost:50051)\n"
-              << "  --sg-tls-ca <path>       TLS CA certificate bundle for SuperGenius\n"
-              << "  --sg-tls-cert <path>     TLS client certificate for SuperGenius\n"
+              << "  --eth-key <hex>          Ethereum private key for GeniusSDK identity\n"
+              << "  --sg-sdk-path <path>     GeniusSDK data directory (default: ./sdk)\n"
+              << "  --sg-base-port <n>       SDK network port (default: 40001)\n"
               << "  --network                Enable P2P networking\n"
               << "  --knowledge <path>       Grokipedia facts CSV\n"
               << "  --max-tokens <n>         Max tokens (default: 512)\n"
@@ -130,8 +129,10 @@ static void LoadConfigFile( const std::string& path, Args& args )
         args.m_maxTokens = j["max_tokens"].get<int>();
     if ( j.contains( "temperature" ) && args.m_temperature == 0.7f )
         args.m_temperature = j["temperature"].get<float>();
-    if ( j.contains( "sg_endpoint" ) && args.m_sgEndpoint == "localhost:50051" )
-        args.m_sgEndpoint = j["sg_endpoint"].get<std::string>();
+    if ( j.contains( "eth_key" ) && args.m_ethKey.empty() )
+        args.m_ethKey = j["eth_key"].get<std::string>();
+    if ( j.contains( "sg_sdk_path" ) && args.m_sgSdkPath == "./sdk" )
+        args.m_sgSdkPath = j["sg_sdk_path"].get<std::string>();
     if ( j.contains( "network" ) && !args.network_ )
         args.network_ = j["network"].get<bool>();
     if ( j.contains( "verbose" ) && !args.verbose_ )
@@ -176,12 +177,10 @@ static Args ParseArgs( int argc, char** argv )
             args.m_temperature = std::stof( next() );
         else if ( a == "--config" )
             args.config_path_ = next();
-        else if ( a == "--sg-endpoint" )
-            args.m_sgEndpoint = next();
-        else if ( a == "--sg-tls-ca" )
-            args.m_sgTlsCa = next();
-        else if ( a == "--sg-tls-cert" )
-            args.m_sgTlsCert = next();
+        else if ( a == "--eth-key" )
+            args.m_ethKey = next();
+        else if ( a == "--sg-sdk-path" )
+            args.m_sgSdkPath = next();
         else if ( a == "--network" )
             args.network_ = true;
         else if ( a == "--serve" )
@@ -290,9 +289,8 @@ int main( int argc, char** argv )
     cfg.m_enableKnowledge = true;
     (void) args.port_;
     cfg.m_nodeKeyFile = args.key_file_;
-    cfg.m_sgEndpoint = args.m_sgEndpoint;
-    cfg.m_sgTlsCa = args.m_sgTlsCa;
-    cfg.m_sgTlsCert = args.m_sgTlsCert;
+    cfg.m_sgSdkBasePath = args.m_sgSdkPath;
+    cfg.m_ethKey = args.m_ethKey;
 
     api::ApiServer server( cfg );
 

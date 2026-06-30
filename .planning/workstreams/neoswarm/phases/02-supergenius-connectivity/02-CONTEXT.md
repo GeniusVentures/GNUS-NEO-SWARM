@@ -1,118 +1,122 @@
-# Phase 2: SuperGenius Connectivity - Context
+# Phase 2: SuperGenius Connectivity — Context
 
-**Gathered:** 2026-05-28
+**Gathered:** 2026-06-24 (updated from 2026-05-28)
 **Status:** Ready for planning
 
 <domain>
 ## Phase Boundary
 
-The engine dispatches inference jobs to the SuperGenius blockchain compute network via TLS-protected, authenticated PubSub-based gRPC. A new `SuperGeniusClient` component in `src/network/sg_client/` bridges the local engine to the external SuperGenius process. Requires Phase 1 (real secp256k1 identity and message signing) to be complete.
+The engine dispatches inference jobs to the SuperGenius blockchain compute network via **GeniusSDK** — a C shared library that internally handles gRPC transport through SuperGenius's `gRPCForSuperGenius`. GNUS-NEO-SWARM does NOT use raw gRPC — all transport goes through GeniusSDK.
 
-This phase covers the network dispatch path only — local inference via `SubmitDirect` already works. The Flutter UI, streaming output, and swarm P2P are separate phases.
+The existing `SGClient` component in `src/network/sg_client/` bridges the local engine to GeniusSDK. Phase 1 (real secp256k1 identity and message signing) is complete. This phase covers wiring GeniusSDK dispatch — local inference via `SubmitDirect` already works.
 </domain>
 
 <decisions>
 ## Implementation Decisions
 
-### SuperGeniusClient API Surface
-- **D-01:** Separate component in `src/network/sg_client/` with 6 files: `SuperGeniusClient.hpp/.cpp`, `SGChannelManager.hpp/.cpp`, `SGJobSubmitter.hpp/.cpp`, `SGResultCollector.hpp/.cpp`, `SGMessageAuthenticator.hpp/.cpp`
-- **D-02:** Sync execution model — `SubmitJob(json) → outcome::result<vector<uint8_t>>`, blocking with condition_variable timeout (matches existing `ResultAggregation` pattern)
-- **D-03:** `SGProcessingBridge` becomes a thin dispatch router: `network_mode_ ? client_->SubmitJob(json) : SubmitDirect(json)`
+### Transport Architecture
+- **D-14:** GeniusSDK is the transport. `SGClient` calls `GeniusSDKProcess(jsondata)` → the SDK internally handles gRPC to SuperGenius. Zero raw gRPC calls in GNUS-NEO-SWARM.
+- **D-15:** `GeniusSDKProcess()` takes `JsonData_t` (char[2048], max 2KB). Payloads exceeding 2KB are a known constraint — decision needed on chunking or protocol change.
+- **D-16:** GeniusSDK is already linked as `GeniusSDK_shared` in cmake (`CommonBuildParameters.cmake:294-310`). No new linking needed.
 
-### gRPC Channel & Connection Management
-- **D-04:** Single persistent gRPC channel per node with HTTP/2 multiplexing, reused across all jobs (not per-job connections)
-- **D-05:** Exponential backoff reconnect: 1s → 2s → 4s → 8s → max 30s between attempts
-- **D-06:** Eager connect at `GeniusAPIServer::Initialize()` — fail-fast if SuperGenius is unreachable at startup (fail-close philosophy from Phase 1)
-- **D-07:** Health exposed via `GeniusSlmGetStatus()` with `supergenius_connected: bool` and `fallback_active: bool` fields; detailed logs for diagnostics
+### SGClient API Surface (existing, partially implemented)
+- **D-01:** Separate component in `src/network/sg_client/` with 5 files: `SGClient` (`super_genius_client.cpp/.hpp`), `SGChannelManager`, `SGJobSubmitter`, `SGResultCollector`, `SGMessageAuthenticator`
+- **D-02:** Sync execution model — `SubmitJob(json) → outcome::result<vector<uint8_t>>`, blocking with condition_variable timeout
+- **D-03:** `SGProcessingBridge` is a thin dispatch router: `m_networkMode ? SubmitNetwork(json) : SubmitDirect(json)`
 
-### Error Handling & Fallback Behavior
-- **D-08:** Auto-fallback to local MNN inference (`SubmitDirect`) when SuperGenius is unreachable
-- **D-09:** 3 retries with exponential backoff for gRPC transient errors (UNAVAILABLE, DEADLINE_EXCEEDED). Auth failures (PERMISSION_DENIED, UNAUTHENTICATED) fail immediately — no retry
-- **D-10:** Operator visibility via `GeniusSlmGetStatus()` — Flutter UI can show "Connected to GNUS Network" badge or "Local Mode" fallback indicator
+### Current State of SGClient (post-refactor)
+- `SGChannelManager` — IMPLEMENTED. gRPC channel, TLS, keepalive, health check, reconnect
+- `SGMessageAuthenticator` — IMPLEMENTED. secp256k1 signing + nonce/timestamp replay
+- `SGJobSubmitter` — STUB. Signs payload, `TODO(Phase 2): implement actual gRPC PubSub publish` → REPLACE with `GeniusSDKProcess()`
+- `SGResultCollector` — STUB. `TODO(Phase 2): implement actual gRPC PubSub subscribe` → REPLACE with SDK callback or polling
+- `SGClient` — PARTIAL. Orchestrates sub-components. `Connect()` creates channel, `SubmitJob()` signs + calls submitter, `Disconnect()` tears down.
 
-### TLS & Endpoint Configuration
-- **D-11:** `--sg-endpoint <host:port>` CLI flag, default `localhost:50051`
-- **D-12:** TLS required for non-localhost endpoints. Localhost allowed insecure with `warn`-level log message. Production: `--sg-tls-ca /etc/gnus/ca.pem`
-- **D-13:** `--sg-tls-ca <path>` and `--sg-tls-cert <path>` CLI flags for TLS configuration. gRPC uses `grpc::SslCredentials()` from CA bundle
+### Error Handling & Fallback
+- **D-08:** Auto-fallback to local MNN inference when SuperGenius unreachable
+- **D-09:** GeniusSDK errors (returned as `GeniusNodeReturnValue_t`) → map to outcome Error codes. Transient errors retry; terminal errors fail immediately.
+- **D-10:** `GeniusElmGetStatus()` reports `supergenius_connected` and `fallback_active`
 
-### OpenCode's Discretion
-- Exact PubSub message format (derived from SuperGenius proto definitions)
-- gRPC keepalive interval and timeout values
-- Channel reconnect state machine implementation details
-- `TaskResult` struct fields beyond raw bytes
-- Integration test approach against local SuperGenius node
+### TLS & Endpoint Configuration (already implemented)
+- **D-11:** `--sg-endpoint <host:port>` CLI flag — already parsed in `main.cpp`
+- **D-12:** TLS config via `SGClient::Config` with CA/cert paths
+- **D-13:** TLS fields in `ApiServer::Config` — `m_sgTlsCa`, `m_sgTlsCert`
+
+### Open Discretion
+- Exact `GeniusSDKProcess()` call pattern — how the JSON payload maps to `JsonData_t`
+- Result collection through GeniusSDK — callback, polling, or condition_variable
+- Timeout enforcement: SDK-level timeout vs engine-level timeout
+- `GeniusSDKProcess()` error code mapping to `Error` enum
 </decisions>
 
 <canonical_refs>
 ## Canonical References
 
-Downstream agents MUST read these before planning or implementing.
-
 ### Requirements
-- `.planning/REQUIREMENTS.md` § SuperGenius Connectivity — SG-01 through SG-05
+- `.planning/workstreams/neoswarm/REQUIREMENTS.md` § SuperGenius Connectivity — SG-01 through SG-05
+- SG-01 (SGClient component): ✅ done
+- SG-02 (SubmitNetwork): ❌ stubbed — needs GeniusSDK wiring
+- SG-03 (--sg-endpoint): ✅ done
+- SG-04 (TLS): ✅ done
+- SG-05 (deadline): ❌ not started
 
-### Architecture
-- `.planning/research/ARCHITECTURE.md` — Full production architecture, SuperGeniusClient design, 25-step data flow diagram, component boundaries
-- `.planning/research/SUMMARY.md` § Architecture Approach — Design decisions: PubSub, persistent channel, timeout-bounded collection
-
-### SuperGenius Interface
-- `../SuperGenius/gRPCForSuperGenius/openapi_yaml/SuperGenius-OpenAPI.yaml` — SuperGenius gRPC service definitions
-- `../SuperGenius/gRPCForSuperGenius/` — Compiled gRPC stubs for C++ client
+### GeniusSDK Interface
+- `../GeniusSDK/src/GeniusSDK.h` — C API (345 lines). Key functions:
+  - `GeniusSDKProcess(JsonData_t jsondata)` → `GeniusNodeReturnValue_t` — submits JSON for processing
+  - `GeniusSDKGetProcessingStatus()` → `GeniusProcessingStatusInfo` — polling-based status
+  - `GeniusSDKInit(base_path, ...)` — node initialization (called by SuperGenius, not us)
+  - `GeniusSDKGetNodeState()` → `GeniusNodeState_t` — node health
 
 ### Existing Code
-- `src/core/sgprocessing/SGProcessingBridge.hpp` — Current bridge interface, `SubmitNetwork()` stub at line 340
-- `src/core/sgprocessing/SGProcessingBridge.cpp` — `SubmitDirect` implementation, `BuildSchemaJson()`, `SubmitNetwork` stub
-- `src/security/NodeIdentity.hpp` — Key generation, sign/verify (hardened in Phase 1)
-- `src/security/MessageSigning.hpp` — Payload signing, nonce+timestamp replay protection (hardened in Phase 1)
-- `src/api/GeniusAPIServer.hpp` — Orchestration façade, `Config` struct where channel config must integrate
-- `src/genius_node.cpp` — CLI args parser where `--sg-endpoint`, `--sg-tls-ca`, `--sg-tls-cert` must be added
+- `src/network/sg_client/SGClient` (`super_genius_client.cpp/.hpp`) — orchestrator, already wired into ApiServer
+- `src/network/sg_client/SGJobSubmitter` — signs + builds task JSON, needs `GeniusSDKProcess()` call
+- `src/network/sg_client/SGResultCollector` — condition_variable wait, needs SDK result polling
+- `src/core/sgprocessing/SGProcessingBridge::SubmitNetwork()` — stub at line 355, returns NetworkError
+- `src/api/ApiServer::Initialize()` — creates SGClient, calls Connect(). Already wired.
+- `src/main.cpp` — parses `--sg-endpoint`, `--sg-tls-ca`, `--sg-tls-cert`
+- `src/genius_elm_chat_completions.cpp` `GeniusElmGetStatus()` — reports connectivity status
+
+### Architecture Decisions
+- ROADMAP.md: "Connectivity uses GeniusSDK + libp2p GossipSub pubsub, NOT raw gRPC"
+- ROADMAP.md: "Transport-layer gRPC lives in SuperGenius's `gRPCForSuperGenius/`"
+- STATE.md: "GeniusSDK integration pattern needs research during planning"
 
 ### Pitfalls
-- `.planning/research/PITFALLS.md` § gRPC — Default-insecure channels, TLS enforcement, replay protection requirements
+- `JsonData_t` is fixed 2KB — payload compression or chunking may be needed
+- `GeniusSDKProcess()` return values need cross-referencing with error handling
+- GeniusSDK initialization (`GeniusSDKInit`) already called by SuperGenius process — we may NOT need to call it
+- Result collection pattern unclear — GeniusSDK has no async callback API visible in header
 </canonical_refs>
 
 <code_context>
 ## Existing Code Insights
 
 ### Reusable Assets
-- `SGProcessingBridge::BuildSchemaJson()` — Already produces GNUS-compliant JSON schema; SuperGeniusClient receives this directly
-- `SGProcessingBridge::SubmitDirect()` — Local path implementation pattern for `SubmitNetwork()` to mirror
-- `ResultAggregation` (`src/network/ResultAggregation.cpp`) — Sync timeout-bounded collection via condition_variable; same pattern for collecting PubSub results
-- `NodeIdentity::Sign()` + `MessageSigning::Sign()` — Already hardened with RFC6979 nonces; SuperGeniusClient authenticates every Job via these
+- `SGClient` already wraps channel + authenticator + job submitter + result collector
+- `SGProcessingBridge::BuildSchemaJson()` already produces GNUS-compliant JSON
+- `ApiServer::Initialize()` already initializes SGClient (lines 188-213)
+- `ApiServer::RunSingleNode()` already falls back to local mode when network unavailable
+- `ResultAggregation` — condition_variable + timeout pattern for collection
 
-### Established Patterns
-- All subsystem initialization flows through `GeniusAPIServer::Initialize()` — connect SuperGeniusClient there
-- CLI args parsed in `src/genius_node.cpp` via manual `ParseArgs()` — add new flags there
-- Config structs with sensible defaults (`Config{...}`) — match this for `SuperGeniusClient::Config`
-- `outcome::result<T>` + `BOOST_OUTCOME_TRY` for all error propagation
-- C++17, Allman bracing, 4-space indent, noexcept, unique_ptr ownership
+### Integration Points (what to change)
+- `SGJobSubmitter::PublishJob()` — replace `TODO(Phase 2)` with `GeniusSDKProcess(jsondata)`
+- `SGResultCollector::WaitForResult()` — replace `TODO(Phase 2)` with SDK polling
+- `SGProcessingBridge::SubmitNetwork()` — replace `return NetworkError` with real dispatch through SGClient
+- Decision: does `SGChannelManager` become unnecessary? The SDK handles gRPC internally.
 
-### Integration Points
-- `SGProcessingBridge::SubmitNetwork()` at `src/core/sgprocessing/SGProcessingBridge.cpp:340` — the stub to replace
-- `SGProcessingBridge::Config::network_mode_` at `src/core/sgprocessing/SGProcessingBridge.hpp:38` — already exists, controls dispatch path
-- `GeniusAPIServer::Config` — add `sg_endpoint_`, `sg_tls_ca_`, `sg_tls_cert_` fields
-- `src/genius_node.cpp` `Args` struct — add `sg_endpoint_`, `sg_tls_ca_`, `sg_tls_cert_` fields
-- `src/genius_slm_chat_c.cpp` `GeniusSlmGetStatus()` — add connectivity fields to status JSON
+### What NOT to change
+- `SGMessageAuthenticator` — signing logic is separate from transport, stays
+- `ApiServer` orchestration — already wired correctly
+- `BuildSchemaJson()` — JSON schema generation stays
+- `SubmitDirect()` — local path untouched
 </code_context>
-
-<specifics>
-## Specific Ideas
-
-- SuperGenius uses PubSub room-based dispatch (`GossipPubSub`), NOT simple unary gRPC — the first implementation must join the grid channel, publish signed Task messages, and subscribe to per-job result channels
-- Every Task message must carry a secp256k1 signature so SuperGenius can map the public key to an on-chain identity
-- Result collection pattern should match the existing `ResultAggregation::Collect()` — condition_variable + timeout, no async callbacks
-- The engine should never crash or hang if SuperGenius is unreachable — graceful degradation to local mode is the expected behavior
-</specifics>
 
 <deferred>
 ## Deferred Ideas
-
-- Full libp2p P2P swarm (GossipSub, mDNS, DHT) — Phase 2 routes through SuperGenius gRPC only
+- Full libp2p P2P swarm (GossipSub, mDNS, DHT) — already partially implemented in `P2PNode`, deferred to Phase 9
 - Escrow/staking integration with GNUS token — future milestone
 - Multi-SuperGenius-node load balancing — single node for this milestone
-- gRPC reflection and service discovery — hardcoded endpoint for now
 </deferred>
 
 ---
 *Phase: 02-supergenius-connectivity*
-*Context gathered: 2026-05-28*
+*Context updated: 2026-06-24*

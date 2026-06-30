@@ -292,22 +292,71 @@ include_directories(${PROJECT_ROOT}/src)
 
 # ---------------------------------------------------------------------------
 # GeniusSDK (dynamic library — transitive deps resolved at link time)
+# Following the same pattern as GeniusSDK's SUPERGENIUS_BUILD_DIR discovery.
+# Override via -DGENIUSSDK_BUILD_DIR=... for CI or custom layouts.
 # ---------------------------------------------------------------------------
-set(GENIUS_SDK_DIR "${PROJECT_SUPER_ROOT}/GeniusSDK")
-set(GENIUS_SDK_INCLUDE_DIR "${GENIUS_SDK_DIR}/src")
-set(GENIUS_SDK_BUILD_DIR "${GENIUS_SDK_DIR}/build/${BUILD_PLATFORM_NAME}/${CMAKE_BUILD_TYPE}${ABI_SUBFOLDER_NAME}")
+if(NOT DEFINED GENIUSSDK_BUILD_DIR)
+    if(EXISTS "${PROJECT_SUPER_ROOT}/GeniusSDK")
+        set(GENIUS_SDK_DIR "${PROJECT_SUPER_ROOT}/GeniusSDK")
+    else()
+        message(STATUS "GeniusSDK not found locally — attempting to obtain from releases")
 
-find_library(GENIUS_SDK_LIB GeniusSDK_shared
-    PATHS "${GENIUS_SDK_BUILD_DIR}/GeniusSDK/lib"
-          "${GENIUS_SDK_BUILD_DIR}/src"
-    NO_DEFAULT_PATH)
+        set(GITHUB_SDK_REPO "GeniusVentures/GeniusSDK")
+        set(SDK_TARGET_BRANCH "${BUILD_PLATFORM_NAME}-develop-${CMAKE_BUILD_TYPE}")
+        if(ANDROID)
+            set(SDK_TARGET_BRANCH "${BUILD_PLATFORM_NAME}-${ANDROID_ABI}-develop-${CMAKE_BUILD_TYPE}")
+        elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND DEFINED ARCH)
+            set(SDK_TARGET_BRANCH "${BUILD_PLATFORM_NAME}-${ARCH}-develop-${CMAKE_BUILD_TYPE}")
+        endif()
 
-add_library(GeniusSDK SHARED IMPORTED)
-set_target_properties(GeniusSDK PROPERTIES
-    IMPORTED_LOCATION "${GENIUS_SDK_LIB}"
-    INTERFACE_INCLUDE_DIRECTORIES "${GENIUS_SDK_INCLUDE_DIR}"
-)
-message(STATUS "GeniusSDK: ${GENIUS_SDK_LIB}")
+        set(SDK_ARCHIVE_NAME "${BUILD_PLATFORM_NAME}-${CMAKE_BUILD_TYPE}.tar.gz")
+        set(SDK_RELEASE_URL "https://github.com/${GITHUB_SDK_REPO}/releases/download/${SDK_TARGET_BRANCH}/${SDK_ARCHIVE_NAME}")
+        set(SDK_ARCHIVE "${CMAKE_BINARY_DIR}/geniussdk-${SDK_ARCHIVE_NAME}")
+        set(SDK_EXTRACT_DIR "${PROJECT_SUPER_ROOT}/GeniusSDK")
+
+        message(STATUS "Downloading GeniusSDK from ${SDK_RELEASE_URL}")
+        execute_process(
+            COMMAND curl -L -o ${SDK_ARCHIVE} ${SDK_RELEASE_URL}
+            RESULT_VARIABLE SDK_DOWNLOAD_RESULT
+        )
+
+        if(NOT SDK_DOWNLOAD_RESULT EQUAL 0)
+            message(WARNING "Failed to download GeniusSDK from ${SDK_RELEASE_URL} — build without connectivity")
+            set(GENIUS_SDK_DIR "")
+        else()
+            file(MAKE_DIRECTORY ${SDK_EXTRACT_DIR})
+            execute_process(
+                COMMAND ${CMAKE_COMMAND} -E tar xzf ${SDK_ARCHIVE}
+                WORKING_DIRECTORY ${SDK_EXTRACT_DIR}
+                RESULT_VARIABLE SDK_EXTRACT_RESULT
+            )
+
+            if(NOT SDK_EXTRACT_RESULT EQUAL 0)
+                message(WARNING "Failed to extract GeniusSDK archive — build without connectivity")
+                set(GENIUS_SDK_DIR "")
+            else()
+                set(GENIUS_SDK_DIR "${SDK_EXTRACT_DIR}")
+                message(STATUS "GeniusSDK downloaded and extracted to ${SDK_EXTRACT_DIR}")
+            endif()
+            file(REMOVE ${SDK_ARCHIVE})
+        endif()
+    endif()
+
+    set(GENIUS_SDK_BUILD_DIR "${GENIUS_SDK_DIR}/build/${BUILD_PLATFORM_NAME}/${CMAKE_BUILD_TYPE}${ABI_SUBFOLDER_NAME}" CACHE STRING "Default GeniusSDK Build Directory")
+    cmake_path(SET GENIUS_SDK_BUILD_DIR NORMALIZE "${GENIUS_SDK_BUILD_DIR}")
+endif()
+
+if(GENIUS_SDK_DIR AND NOT "${GENIUS_SDK_DIR}" STREQUAL "")
+    set(GeniusSDK_DIR "${GENIUS_SDK_BUILD_DIR}/GeniusSDK/lib/cmake/GeniusSDK/" CACHE PATH "GeniusSDK cmake config")
+    find_package(GeniusSDK CONFIG QUIET)
+    if(NOT GeniusSDK_FOUND)
+        set(GeniusSDK_DIR "${GENIUS_SDK_BUILD_DIR}" CACHE PATH "")
+        find_package(GeniusSDK CONFIG REQUIRED)
+    endif()
+    message(STATUS "GeniusSDK: ${GENIUS_SDK_BUILD_DIR}")
+else()
+    message(STATUS "GeniusSDK not available — SuperGenius connectivity disabled")
+endif()
 
 # ============================================================================
 # Build targets

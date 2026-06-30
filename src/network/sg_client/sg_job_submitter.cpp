@@ -1,6 +1,6 @@
 /**
  * @file       sg_job_submitter.cpp
- * @brief      Publishes signed Task messages to the SuperGenius grid channel via PubSub
+ * @brief      Publishes signed Task messages via GeniusSDK dispatch
  * @date       2026-05-28
  */
 
@@ -23,7 +23,6 @@ namespace sgns::neoswarm::network
 
         std::string GenerateTaskId()
         {
-            // Simple unique task ID: timestamp + random hex
             auto now = std::chrono::steady_clock::now();
             auto ms = std::chrono::duration_cast<std::chrono::milliseconds>( now.time_since_epoch() ).count();
 
@@ -39,19 +38,16 @@ namespace sgns::neoswarm::network
 
     struct SGJobSubmitter::Impl
     {
-        std::shared_ptr<grpc::Channel> m_channel;
         SGMessageAuthenticator& m_authenticator;
-        std::string gridChannel_ = "gnus.processing.grid";
 
-        Impl( std::shared_ptr<grpc::Channel> channel, SGMessageAuthenticator& authenticator )
-            : m_channel( std::move( channel ) )
-            , m_authenticator( authenticator )
+        Impl( SGMessageAuthenticator& authenticator )
+            : m_authenticator( authenticator )
         {
         }
     };
 
-    SGJobSubmitter::SGJobSubmitter( std::shared_ptr<grpc::Channel> channel, SGMessageAuthenticator& authenticator )
-        : m_impl( std::make_unique<Impl>( std::move( channel ), authenticator ) )
+    SGJobSubmitter::SGJobSubmitter( SGMessageAuthenticator& authenticator )
+        : m_impl( std::make_unique<Impl>( authenticator ) )
     {
     }
 
@@ -59,7 +55,6 @@ namespace sgns::neoswarm::network
     {
         std::string taskId = GenerateTaskId();
 
-        // Sign the payload with nonce + timestamp + secp256k1 signature
         auto signedPayload = m_impl->m_authenticator.SignPayload( gnusSchemaJson );
         if ( !signedPayload.has_value() )
         {
@@ -67,9 +62,6 @@ namespace sgns::neoswarm::network
             return outcome::failure( signedPayload.error() );
         }
 
-        // Build the Task message with results channel
-        // Format: { "task_id": "...", "results_channel": "results/...",
-        //           "json_data": <signed_payload> }
         std::ostringstream taskJson;
         taskJson << "{"
                  << "\"task_id\":\"" << taskId << "\","
@@ -78,15 +70,10 @@ namespace sgns::neoswarm::network
 
         std::string taskMessage = taskJson.str();
 
-        // Publish to grid channel via PubSub
-        // Actual gRPC PubSub publish implementation depends on the
-        // SuperGenius gRPC service definitions
-        SubmitLogger()->info( "Publishing task {} to grid channel ({} bytes, signed)", taskId, taskMessage.size() );
-        SubmitLogger()->debug( "Task payload preview: {}...", taskMessage.substr( 0, 120 ) );
+        SubmitLogger()->info( "Publishing task {} ({} bytes, signed)", taskId, taskMessage.size() );
 
-        // TODO(Phase 2): implement actual gRPC PubSub publish via
-        // SuperGenius processing API once service stubs are linked
-        SubmitLogger()->warn( "gRPC PubSub publish not yet wired — task {} prepared for dispatch", taskId );
+        // TODO(Phase 2 Wave 2): dispatch via GeniusSDKProcess(taskMessage)
+        SubmitLogger()->warn( "GeniusSDK dispatch not yet wired — task {} prepared for submission", taskId );
 
         return taskId;
 

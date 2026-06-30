@@ -169,30 +169,22 @@ namespace sgns::neoswarm::api
         }
 
         // SuperGenius connectivity (optional — Phase 2 network dispatch)
-        if ( !m_cfg.m_sgEndpoint.empty() )
+        if ( !m_cfg.m_ethKey.empty() )
         {
             network::SGClient::Config sgCfg;
-            sgCfg.m_endpoint = m_cfg.m_sgEndpoint;
-            sgCfg.m_tlsCaPath = m_cfg.m_sgTlsCa;
-            sgCfg.m_tlsCertPath = m_cfg.m_sgTlsCert;
+            sgCfg.m_sdkBasePath = m_cfg.m_sgSdkBasePath;
+            sgCfg.m_ethKey = m_cfg.m_ethKey;
+            sgCfg.m_basePort = m_cfg.m_sgBasePort;
 
             m_sgClient = std::make_unique<network::SGClient>( std::move( sgCfg ) );
             auto initRes = m_sgClient->Initialize( *m_identity );
             if ( initRes.has_value() )
             {
-                auto connRes = m_sgClient->Connect();
-                if ( connRes.has_value() )
-                {
-                    ServerLogger()->info( "Connected to SuperGenius at {}", m_cfg.m_sgEndpoint );
-                }
-                else
-                {
-                    ServerLogger()->warn( "SuperGenius connection failed — will fall back to local mode" );
-                }
+                ServerLogger()->info( "SGClient initialized — SDK node started" );
             }
             else
             {
-                ServerLogger()->warn( "SGClient initialization failed" );
+                ServerLogger()->warn( "SGClient initialization failed — will fall back to local mode" );
             }
 
             // Wire SGClient into the engine's SGProcessingBridge

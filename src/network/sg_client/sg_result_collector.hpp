@@ -1,6 +1,6 @@
 /**
  * @file       sg_result_collector.hpp
- * @brief      Subscribes to per-job result channels and collects TaskResult messages
+ * @brief      Collects inference results via GeniusSDK polling
  * @date       2026-05-28
  */
 
@@ -14,11 +14,6 @@
 #include <string>
 #include <vector>
 
-namespace grpc
-{
-    class Channel;
-}
-
 namespace sgns::neoswarm::network
 {
     class SGMessageAuthenticator;
@@ -29,14 +24,12 @@ namespace sgns::neoswarm::network
     };
 
     /**
-     * @brief Collects inference results from SuperGenius PubSub result channels.
+     * @brief Collects inference results via GeniusSDK processing status polling.
      */
     class SGResultCollector
     {
         public:
-        SGResultCollector( std::shared_ptr<grpc::Channel> channel,
-                           SGMessageAuthenticator& authenticator,
-                           SGResultCollectorConfig cfg = {} );
+        SGResultCollector( SGMessageAuthenticator& authenticator, SGResultCollectorConfig cfg = {} );
         ~SGResultCollector();
 
         /**

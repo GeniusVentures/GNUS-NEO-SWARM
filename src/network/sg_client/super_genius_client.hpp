@@ -1,11 +1,12 @@
 /**
  * @file       super_genius_client.hpp
- * @brief      Client for SuperGenius blockchain compute network dispatch via PubSub gRPC
+ * @brief      Client for SuperGenius blockchain compute network dispatch via GeniusSDK
  * @date       2026-05-28
  *
- * Encapsulates all communication with the SuperGenius processing network.
- * Manages a persistent gRPC channel, publishes signed Task messages to the
- * grid channel via PubSub, and collects results from per-job result channels.
+ * GeniusSDK runs in-process via direct linking — every swarm node has the SDK
+ * compiled in. No remote endpoint, no gRPC channel management. Initialize() starts
+ * the SDK node; SubmitJob() dispatches through GeniusSDKProcess(); Disconnect()
+ * calls GeniusSDKShutdown().
  */
 
 #ifndef NEOSWARM_NETWORK_SG_CLIENT_SUPERGENIUSCLIENT_HPP
@@ -25,80 +26,45 @@ namespace sgns::neoswarm::security
 
 namespace sgns::neoswarm::network
 {
-    /**
-     * @brief Client that bridges GNUS NEO SWARM to the SuperGenius blockchain
-     *        compute network via PubSub-based gRPC dispatch.
-     *
-     * Methodology:
-     *   - Open a persistent gRPC channel with keepalive
-     *   - Sign every Task with the node's secp256k1 identity
-     *   - Publish to the grid channel, subscribe to per-job result channels
-     *   - Timeout-bounded result collection via condition_variable
-     *
-     * Designed as a separate component under src/network/sg_client/ with
-     * four internal sub-components: channel manager, job submitter, result
-     * collector, and message authenticator.
-     */
     class SGClient
     {
         public:
-        /**
-         * @brief Configuration for SuperGenius network connectivity.
-         */
         struct Config
         {
-            std::string m_endpoint = "localhost:50051";   ///< SuperGenius node address
-            std::string m_tlsCaPath;                    ///< TLS CA certificate bundle
-            std::string m_tlsCertPath;                  ///< TLS client certificate
-            std::chrono::seconds channel_m_timeout{ 30 }; ///< Channel creation timeout
+            std::string m_sdkBasePath = "./sdk";        ///< GeniusSDK data directory
+            std::string m_ethKey;                       ///< Ethereum private key (hex, for SDK identity)
+            uint16_t m_basePort = 40001;                ///< SDK network port
+            bool m_autoDht = true;                      ///< Enable DHT
+            bool m_enableProcessing = true;             ///< Enable job processing
             std::chrono::seconds result_m_timeout{ 300 }; ///< Inference result timeout (5 min)
         };
 
-        /**
-         * @brief Construct with configuration.
-         * @param cfg Network and timeout settings.
-         */
         explicit SGClient( Config cfg );
-
         ~SGClient();
 
-        // Non-copyable, movable
         SGClient( const SGClient& ) = delete;
         SGClient& operator=( const SGClient& ) = delete;
         SGClient( SGClient&& ) noexcept;
         SGClient& operator=( SGClient&& ) noexcept;
 
         /**
-         * @brief Initialize with the node's cryptographic identity.
+         * @brief Initialize the GeniusSDK node and set up signer.
          *
-         * Must be called before Connect(). The NodeIdentity is used for
-         * signing all Task messages dispatched to SuperGenius.
+         * Calls GeniusSDKInit() to start the SDK node in-process, and creates
+         * the SGMessageAuthenticator using the node's secp256k1 identity.
+         * After this, SubmitJob() can dispatch via GeniusSDKProcess().
          *
          * @param identity The node's secp256k1 identity.
-         * @return        outcome::success or IdentityError.
+         * @return        outcome::success or error.
          */
         outcome::result<void> Initialize( const security::NodeIdentity& identity );
 
         /**
-         * @brief Establish connection to the SuperGenius node.
-         *
-         * Creates a persistent gRPC channel with TLS, keepalive, and
-         * health checking. For localhost endpoints without TLS certs,
-         * an insecure channel is used with a WARN log.
-         *
-         * @return outcome::success or NetworkError.
-         */
-        outcome::result<void> Connect();
-
-        /**
          * @brief Submit a GNUS schema JSON job and wait for the result.
          *
-         * Signs the payload, publishes to the grid channel, subscribes to
-         * the per-job result channel, and blocks until the result arrives
-         * or the timeout expires.
-         *
-         * Blocking synchronous call — uses condition_variable internally
-         * for timeout-bounded collection.
+         * Signs the payload, dispatches via GeniusSDKProcess(), polls for
+         * completion via GeniusSDKGetProcessingStatus(), and returns the
+         * result or timeout.
          *
          * @param gnusSchemaJson  The GNUS_Schema JSON from BuildSchemaJson().
          * @return                Raw output bytes or error.
@@ -106,16 +72,15 @@ namespace sgns::neoswarm::network
         outcome::result<std::vector<uint8_t>> SubmitJob( const std::string& gnusSchemaJson );
 
         /**
-         * @brief Disconnect from the SuperGenius node.
+         * @brief Shut down the GeniusSDK node and release resources.
          *
-         * Closes the gRPC channel and resets internal state. Safe to
-         * call Connect() again after Disconnect().
+         * Calls GeniusSDKShutdown() to tear down the in-process node.
          */
         void Disconnect();
 
         /**
-         * @brief Check whether the client is currently connected.
-         * @return true if the gRPC channel is alive.
+         * @brief Check whether the SDK node is ready.
+         * @return true if GeniusSDKGetNodeState() == GENIUS_NODE_READY.
          */
         bool IsConnected() const noexcept;
 

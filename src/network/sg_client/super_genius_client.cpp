@@ -1,16 +1,16 @@
 /**
  * @file       super_genius_client.cpp
- * @brief      Bridges GNUS NEO SWARM to SuperGenius via PubSub gRPC dispatch
+ * @brief      Bridges GNUS NEO SWARM to SuperGenius via GeniusSDK dispatch
  * @date       2026-05-28
  */
 
 #include "super_genius_client.hpp"
-#include "sg_channel_manager.hpp"
 #include "sg_job_submitter.hpp"
 #include "sg_message_authenticator.hpp"
 #include "sg_result_collector.hpp"
 #include "common/logging.hpp"
 #include "security/node_identity.hpp"
+#include "GeniusSDK.h"
 
 namespace sgns::neoswarm::network
 {
@@ -27,10 +27,9 @@ namespace sgns::neoswarm::network
         Config m_cfg;
         const security::NodeIdentity* m_identity = nullptr;
         std::unique_ptr<SGMessageAuthenticator> m_authenticator;
-        std::unique_ptr<SGChannelManager> channelMgr_;
         std::unique_ptr<SGJobSubmitter> jobSubmitter_;
         std::unique_ptr<SGResultCollector> resultCollector_;
-        bool m_connected = false;
+        bool m_initialized = false;
     };
 
     SGClient::SGClient( Config cfg )
@@ -39,7 +38,10 @@ namespace sgns::neoswarm::network
         m_impl->m_cfg = std::move( cfg );
     }
 
-    SGClient::~SGClient() = default;
+    SGClient::~SGClient()
+    {
+        Disconnect();
+    }
 
     SGClient::SGClient( SGClient&& ) noexcept = default;
     SGClient& SGClient::operator=( SGClient&& ) noexcept = default;
@@ -48,77 +50,39 @@ namespace sgns::neoswarm::network
     {
         m_impl->m_identity = &identity;
 
-        // Create authenticator using the hardened NodeIdentity from Phase 1
         m_impl->m_authenticator = std::make_unique<SGMessageAuthenticator>( identity );
 
-        // Create channel manager with configured endpoint and TLS settings
-        SGChannelManager::Config chCfg;
-        chCfg.m_endpoint = m_impl->m_cfg.m_endpoint;
-        chCfg.m_tlsCaPath = m_impl->m_cfg.m_tlsCaPath;
-        chCfg.m_tlsCertPath = m_impl->m_cfg.m_tlsCertPath;
-        chCfg.m_timeout = m_impl->m_cfg.channel_m_timeout;
+        m_impl->jobSubmitter_ = std::make_unique<SGJobSubmitter>( *m_impl->m_authenticator );
 
-        m_impl->channelMgr_ = std::make_unique<SGChannelManager>( std::move( chCfg ) );
+        SGResultCollectorConfig rcCfg;
+        rcCfg.result_m_timeout = m_impl->m_cfg.result_m_timeout;
+        m_impl->resultCollector_ = std::make_unique<SGResultCollector>( *m_impl->m_authenticator, rcCfg );
 
-        ClientLogger()->info( "SGClient initialized — endpoint={}", m_impl->m_cfg.m_endpoint );
-        return outcome::success();
-    }
+        const char* initResult = GeniusSDKInitWithKey(
+            m_impl->m_cfg.m_sdkBasePath.c_str(),
+            m_impl->m_cfg.m_ethKey.c_str(),
+            m_impl->m_cfg.m_autoDht,
+            m_impl->m_cfg.m_enableProcessing,
+            m_impl->m_cfg.m_basePort,
+            false );
 
-    outcome::result<void> SGClient::Connect()
-    {
-        if ( !m_impl->channelMgr_ )
+        if ( initResult == nullptr )
         {
-            ClientLogger()->error( "Connect called before Initialize" );
-            return outcome::failure( Error::InternalError );
+            ClientLogger()->error( "GeniusSDKInitWithKey failed" );
+            return outcome::failure( Error::NetworkError );
         }
 
-        auto result = m_impl->channelMgr_->CreateChannel();
-        if ( !result.has_value() )
-        {
-            ClientLogger()->warn( "Failed to create channel to {} — SuperGenius unavailable", m_impl->m_cfg.m_endpoint );
-            return result;
-        }
-
-        auto channel = m_impl->channelMgr_->GetChannel();
-        if ( channel && m_impl->m_authenticator )
-        {
-            // Create sub-components that depend on the channel
-            m_impl->jobSubmitter_ = std::make_unique<SGJobSubmitter>( channel, *m_impl->m_authenticator );
-
-            SGResultCollectorConfig rcCfg;
-            rcCfg.result_m_timeout = m_impl->m_cfg.result_m_timeout;
-            m_impl->resultCollector_ = std::make_unique<SGResultCollector>( channel, *m_impl->m_authenticator, rcCfg );
-        }
-
-        // Verify connectivity
-        auto health = m_impl->channelMgr_->HealthCheck();
-        if ( health.has_value() && health.value() )
-        {
-            m_impl->m_connected = true;
-            ClientLogger()->info( "Connected to SuperGenius at {}", m_impl->m_cfg.m_endpoint );
-        }
-        else
-        {
-            ClientLogger()->warn( "Channel created but health check failed — may be starting up" );
-            m_impl->m_connected = true;
-        }
-
+        m_impl->m_initialized = true;
+        ClientLogger()->info( "SGClient initialized — SDK node started at {}", initResult );
         return outcome::success();
     }
 
     outcome::result<std::vector<uint8_t>> SGClient::SubmitJob( const std::string& gnusSchemaJson )
     {
-        // Verify we are connected — attempt reconnect if channel is dead
-        if ( !m_impl->m_connected || !m_impl->channelMgr_->IsConnected() )
+        if ( !m_impl->m_initialized )
         {
-            ClientLogger()->warn( "Channel not connected, attempting reconnect" );
-            auto reconnectResult = m_impl->channelMgr_->Reconnect();
-            if ( !reconnectResult.has_value() )
-            {
-                ClientLogger()->error( "Reconnect failed — cannot submit job" );
-                return outcome::failure( Error::NetworkError );
-            }
-            m_impl->m_connected = true;
+            ClientLogger()->error( "SubmitJob: SGClient not initialized" );
+            return outcome::failure( Error::InternalError );
         }
 
         if ( !m_impl->jobSubmitter_ || !m_impl->resultCollector_ )
@@ -127,7 +91,6 @@ namespace sgns::neoswarm::network
             return outcome::failure( Error::InternalError );
         }
 
-        // Step 1: Publish the signed job to the grid channel
         auto taskIdResult = m_impl->jobSubmitter_->PublishJob( gnusSchemaJson );
         if ( !taskIdResult.has_value() )
         {
@@ -138,7 +101,6 @@ namespace sgns::neoswarm::network
         std::string taskId = taskIdResult.value();
         ClientLogger()->info( "Job published as task {}", taskId );
 
-        // Step 2: Wait for the result with timeout-bounded collection
         auto result = m_impl->resultCollector_->WaitForResult( taskId, m_impl->m_cfg.result_m_timeout );
 
         if ( !result.has_value() )
@@ -153,14 +115,18 @@ namespace sgns::neoswarm::network
     {
         m_impl->jobSubmitter_.reset();
         m_impl->resultCollector_.reset();
-        m_impl->channelMgr_.reset();
-        m_impl->m_connected = false;
-        ClientLogger()->info( "SGClient disconnected" );
+        m_impl->m_initialized = false;
+        GeniusSDKShutdown();
+        ClientLogger()->info( "SGClient shut down — SDK node stopped" );
     }
 
     bool SGClient::IsConnected() const noexcept
     {
-        return m_impl->m_connected && m_impl->channelMgr_ && m_impl->channelMgr_->IsConnected();
+        if ( !m_impl->m_initialized )
+        {
+            return false;
+        }
+        return GeniusSDKGetNodeState() == GENIUS_NODE_READY;
     }
 
 } // namespace sgns::neoswarm::network
