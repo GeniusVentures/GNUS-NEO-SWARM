@@ -1,0 +1,75 @@
+# GNUS-POC Router Rules — GQHSM-compatible specialist classification
+#
+# Adding a new specialist rule requires only a new entry under `router.rules`
+# below — no code change (D-11). Rules are evaluated in priority order
+# (highest first). Each rule declares one or more triggers; a rule matches
+# when at least one trigger scores above 0 (or it is an `always_match`).
+#
+# Confidence semantics:
+#   keyword         -> fraction of patterns found in the query (0.0-1.0)
+#   regex           -> fraction of patterns with at least one match (0.0-1.0)
+#   syntax_density  -> 1.0 when the density of `chars` in the query >= threshold
+#   always_match    -> fixed 0.5 (lowest meaningful score; the default net)
+#
+# A rule is selected when its confidence >= confidence_threshold. When no rule
+# meets its threshold, the classifier falls back through each rule's `fallback`
+# specialist, finally landing on the encyclopedic default (D-12).
+
+# ---------------------------------------------------------------------------
+# Rules: ordered by priority. Higher priority wins on ties.
+# ---------------------------------------------------------------------------
+router:
+  rules:
+    - name: "code_detection"
+      priority: 10
+      triggers:
+        - type: keyword
+          patterns: ["def ", "class ", "import ", "```", "function ", "const "]
+        - type: syntax_density
+          threshold: 0.3
+          chars: ["{", "}", "(", ")", ";", "=", "=>", ":"]
+      action: select_specialist
+      specialist: code
+      confidence_threshold: 0.6
+      fallback: encyclopedic
+
+    - name: "math_detection"
+      priority: 9
+      triggers:
+        - type: syntax_density
+          threshold: 0.3
+          chars: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "*", "/", "=", "^"]
+        - type: keyword
+          patterns: ["solve", "equation", "derivative", "integral", "theorem"]
+      action: select_specialist
+      specialist: qa_technical
+      confidence_threshold: 0.6
+      fallback: encyclopedic
+
+    - name: "medical_detection"
+      priority: 8
+      triggers:
+        - type: keyword
+          patterns: ["diagnosis", "symptom", "treatment", "patient", "disease", "medication"]
+      action: select_specialist
+      specialist: medical
+      confidence_threshold: 0.6
+      fallback: encyclopedic
+
+    - name: "patent_detection"
+      priority: 7
+      triggers:
+        - type: keyword
+          patterns: ["patent", "claims ", "prior art", "invention", "USPTO"]
+      action: select_specialist
+      specialist: patents
+      confidence_threshold: 0.6
+      fallback: encyclopedic
+
+    - name: "default_encyclopedic"
+      priority: 0
+      triggers:
+        - type: always_match
+      action: select_specialist
+      specialist: encyclopedic
+      confidence_threshold: 0.0
