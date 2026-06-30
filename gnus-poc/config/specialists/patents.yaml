@@ -13,3 +13,29 @@ specialist:
   training:
     lora_rank: 16
     iterations: 1000
+
+# --- Distillation: KD convergence + two-tier early stopping (D-01, D-03, D-04) ---
+# Patents: legal text with tolerable variance, looser convergence.
+distillation:
+  alpha: 0.7
+  distill_loss_target: 3.0
+  distill_loss_warning: 3.5
+  distill_loss_hard_stop: 5.5
+  patience: 100
+  min_delta: 0.01
+
+# --- Validation: held-out test set quality gates (D-06, D-07, D-08) ---
+validation:
+  validation_loss_threshold: 3.5
+  behavioral_diff_threshold: 0.95
+  test_split_path: "data/specialists/patents/test.jsonl"
+  min_test_samples: 50
+
+# --- Evaluation: per-metric per-specialist auto-gates (D-14, D-16, D-17) ---
+evaluation:
+  gates:
+    perplexity: { max: 55.0, consecutive_failures_to_block: 3 }
+    bleu_score: { min: 0.12, consecutive_failures_to_block: 3 }
+    accuracy: { min: 0.30, consecutive_failures_to_block: 3 }
+  outlier_trigger:
+    metric_drop_percent: 50
