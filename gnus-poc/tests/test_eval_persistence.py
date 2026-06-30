@@ -344,3 +344,226 @@ class TestTrainingEvalGating:
         result = bench.gate_check_training_eval("code", config={})
         assert result["passed"] is True
 
+
+# ======================================================================
+# Task 4: AdaptiveGating — LLM-based threshold updates (D-15)
+# Gated behind adaptive_gating.enabled (default: false).
+# ======================================================================
+
+
+def _seed_run(store, niche, perplexity, bleu, accuracy):
+    """Seed one training-eval run for a niche."""
+    store.record_training_eval_metrics(
+        niche,
+        metrics={
+            "niche": niche,
+            "num_samples": 10,
+            "perplexity": perplexity,
+            "bleu_score": bleu,
+            "accuracy": accuracy,
+            "rouge_l": 0.4,
+            "latency_ms_per_token": 2.0,
+            "latency_ms_per_token_p95": 3.0,
+        },
+    )
+
+
+class _FakeTeacherResponse:
+    """Minimal stand-in for TeacherClient.generate() response wrapper."""
+
+    def __init__(self, content):
+        self.choices = [type("_C", (), {"message": type("_M", (), {"content": content})()})()]
+
+
+class _FakeTeacherClient:
+    """Fake TeacherClient that returns a canned LLM response.
+
+    ``response_factory`` is called with the prompt and must return the canned
+    response content (string). Defaults to returning a JSON suggestion that
+    tightens perplexity max from 50.0 to 45.0.
+    """
+
+    def __init__(self, response_factory=None):
+        self.calls = []
+        self._response_factory = response_factory or (lambda prompt: (
+            '{"perplexity": {"suggested_max": 45.0, "rationale": "improving trend"}}'
+        ))
+
+    def generate(self, model_name=None, messages=None, **kwargs):
+        self.calls.append({"model_name": model_name, "messages": messages})
+        prompt = ""
+        if messages:
+            prompt = " ".join(str(m.get("content", "")) for m in messages)
+        return _FakeTeacherResponse(self._response_factory(prompt))
+
+
+class TestAdaptiveGating:
+    """AdaptiveGating: D-15 LLM-based threshold suggestions, gated + safety-bounded."""
+
+    def test_adaptive_gating_disabled_returns_empty(self, tmp_path):
+        from eval.adaptive_gating import AdaptiveGating
+
+        store = MetricStore(project_root=tmp_path)
+        ag = AdaptiveGating(
+            metric_store=store,
+            config={"enabled": False},
+        )
+        result = ag.suggest_threshold_updates("code")
+        assert result["enabled"] is False
+        assert result["suggestions"] == {}
+
+    def test_adaptive_gating_insufficient_history(self, tmp_path):
+        from eval.adaptive_gating import AdaptiveGating
+
+        store = MetricStore(project_root=tmp_path)
+        # Only 2 runs — below the default min_metric_runs=3.
+        _seed_run(store, "code", perplexity=50.0, bleu=0.15, accuracy=0.40)
+        _seed_run(store, "code", perplexity=48.0, bleu=0.16, accuracy=0.42)
+        ag = AdaptiveGating(
+            metric_store=store,
+            teacher_client=_FakeTeacherClient(),
+            config={"enabled": True, "min_metric_runs": 3},
+        )
+        result = ag.suggest_threshold_updates("code")
+        assert result["enabled"] is True
+        assert result["suggestions"] == {}
+        assert result.get("reason") == "insufficient history"
+
+    def test_adaptive_gating_suggests_with_trends(self, tmp_path):
+        from eval.adaptive_gating import AdaptiveGating
+
+        store = MetricStore(project_root=tmp_path)
+        # 5 runs of improving perplexity (50 -> 40).
+        for ppl in (50.0, 47.5, 45.0, 42.5, 40.0):
+            _seed_run(store, "code", perplexity=ppl, bleu=0.20, accuracy=0.45)
+        teacher = _FakeTeacherClient()
+        ag = AdaptiveGating(
+            metric_store=store,
+            teacher_client=teacher,
+            config={
+                "enabled": True,
+                "min_metric_runs": 3,
+                "lookback_runs": 5,
+                "max_adjustment_percent": 20,
+            },
+            specialist_gates={
+                "code": {
+                    "perplexity": {"max": 50.0},
+                    "bleu_score": {"min": 0.15},
+                    "accuracy": {"min": 0.40},
+                }
+            },
+        )
+        result = ag.suggest_threshold_updates("code")
+        assert result["enabled"] is True
+        assert "perplexity" in result["suggestions"]
+        # The LLM was called at least once.
+        assert len(teacher.calls) >= 1
+        # Trends are reported.
+        assert "perplexity" in result["trends"]
+
+    def test_adaptive_gating_safety_bounds_clamp(self, tmp_path):
+        """An LLM suggestion beyond the safety bound is clamped."""
+        from eval.adaptive_gating import AdaptiveGating
+
+        store = MetricStore(project_root=tmp_path)
+        for ppl in (50.0, 47.5, 45.0, 42.5, 40.0):
+            _seed_run(store, "code", perplexity=ppl, bleu=0.20, accuracy=0.45)
+        # LLM suggests tightening perplexity max to 10.0 (80% reduction) —
+        # must be clamped to the safety bound (50% of original 50.0 = 25.0).
+        teacher = _FakeTeacherClient(
+            response_factory=lambda p: '{"perplexity": {"suggested_max": 10.0, "rationale": "aggressive"}}'
+        )
+        ag = AdaptiveGating(
+            metric_store=store,
+            teacher_client=teacher,
+            config={
+                "enabled": True,
+                "min_metric_runs": 3,
+                "safety_bound_pct": 50,
+                "safety_bound_loosen_pct": 200,
+            },
+            specialist_gates={
+                "code": {"perplexity": {"max": 50.0}},
+            },
+        )
+        result = ag.suggest_threshold_updates("code")
+        suggestion = result["suggestions"]["perplexity"]
+        # Clamped: suggested_max must be >= 50% of original (25.0).
+        assert suggestion["suggested_max"] >= 25.0
+        assert result["safety_bounds_applied"] is True
+
+    def test_adaptive_gating_requires_approval(self, tmp_path):
+        """Every suggestion dict carries requires_approval=True (human gate)."""
+        from eval.adaptive_gating import AdaptiveGating
+
+        store = MetricStore(project_root=tmp_path)
+        for ppl in (50.0, 47.0, 44.0, 42.0, 40.0):
+            _seed_run(store, "code", perplexity=ppl, bleu=0.20, accuracy=0.45)
+        ag = AdaptiveGating(
+            metric_store=store,
+            teacher_client=_FakeTeacherClient(),
+            config={"enabled": True, "min_metric_runs": 3},
+            specialist_gates={"code": {"perplexity": {"max": 50.0}}},
+        )
+        result = ag.suggest_threshold_updates("code")
+        assert result["requires_approval"] is True
+
+    def test_apply_approved_changes_writes_yaml(self, tmp_path):
+        """apply_approved_changes updates the specialist config YAML."""
+        from eval.adaptive_gating import AdaptiveGating
+        import yaml
+
+        # Build a specialist config YAML on disk for the code niche.
+        specialists_dir = tmp_path / "config" / "specialists"
+        specialists_dir.mkdir(parents=True, exist_ok=True)
+        cfg_path = specialists_dir / "code.yaml"
+        cfg_path.write_text(yaml.safe_dump({
+            "specialist": {"name": "code"},
+            "evaluation": {
+                "gates": {
+                    "perplexity": {"max": 50.0, "consecutive_failures_to_block": 3},
+                },
+                "outlier_trigger": {"metric_drop_percent": 50},
+            },
+        }))
+
+        store = MetricStore(project_root=tmp_path)
+        ag = AdaptiveGating(
+            metric_store=store,
+            teacher_client=_FakeTeacherClient(),
+            config={"enabled": True},
+            specialist_gates={"code": {"perplexity": {"max": 50.0}}},
+        )
+        suggestions = {
+            "perplexity": {
+                "current_max": 50.0,
+                "suggested_max": 45.0,
+                "rationale": "improving trend",
+            }
+        }
+        result = ag.apply_approved_changes("code", suggestions)
+        assert result["applied"] is True
+        # Re-read YAML and verify the threshold moved.
+        with cfg_path.open() as f:
+            updated = yaml.safe_load(f)
+        assert updated["evaluation"]["gates"]["perplexity"]["max"] == 45.0
+
+    def test_adaptive_gating_no_teacher_client_returns_no_suggestions(self, tmp_path):
+        """Without a teacher_client, suggestions are empty but not an error."""
+        from eval.adaptive_gating import AdaptiveGating
+
+        store = MetricStore(project_root=tmp_path)
+        for ppl in (50.0, 47.0, 44.0, 42.0, 40.0):
+            _seed_run(store, "code", perplexity=ppl, bleu=0.20, accuracy=0.45)
+        ag = AdaptiveGating(
+            metric_store=store,
+            teacher_client=None,
+            config={"enabled": True, "min_metric_runs": 3},
+            specialist_gates={"code": {"perplexity": {"max": 50.0}}},
+        )
+        result = ag.suggest_threshold_updates("code")
+        assert result["enabled"] is True
+        assert result["suggestions"] == {}
+
+
