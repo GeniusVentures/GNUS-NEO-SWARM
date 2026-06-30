@@ -181,7 +181,7 @@ TEST( MessageSigning, VerifyAndStrip_MalformedJson_ReturnsFalse )
 {
     NodeIdentity ident;
     ASSERT_TRUE( ident.Generate().has_value() );
-    std::string pubKeyHex = PubKeyToHex( ident.PublicKey() );
+    std::string pubKeyHex = PubKeyToHex( ident.GetPublicKey() );
 
     std::string payload = "not json";
     EXPECT_FALSE( MessageSigning::VerifyAndStrip( payload, pubKeyHex ) );
@@ -191,7 +191,7 @@ TEST( MessageSigning, VerifyAndStrip_EmptyPayload_ReturnsFalse )
 {
     NodeIdentity ident;
     ASSERT_TRUE( ident.Generate().has_value() );
-    std::string pubKeyHex = PubKeyToHex( ident.PublicKey() );
+    std::string pubKeyHex = PubKeyToHex( ident.GetPublicKey() );
     std::string payload;
 
     EXPECT_FALSE( MessageSigning::VerifyAndStrip( payload, pubKeyHex ) );
