@@ -742,21 +742,17 @@ def validate_adapter(model_id: str, adapter_path: str, test_samples: list,
 
 ## Open Questions
 
-1. **Phase 1 completion status**
-   - What we know: ROADMAP.md shows Phase 1 unchecked. Phase 3 and 4 are completed (marked [x]). Phase 2 depends on Phase 1 outputs (TeacherClient, cascade, checkpoint system, config loader).
-   - What's unclear: Is Phase 1 complete but the checkbox wasn't updated? Or is work proceeding out of order (Phase 3, 4 done, now Phase 2)?
-   - Recommendation: Verify Phase 1 is functional before Phase 2 planning starts. The planner should include a checkpoint to validate TeacherClient and cascade API are available.
+1. **Phase 1 completion status** — (RESOLVED 2026-06-29)
+   - Resolution: 02-03 Task 0 (pre-flight verification) verifies TeacherClient and TeacherCascade are importable at execution time. If imports fail, a clear warning is logged. Phase 2 can proceed regardless — the pre-flight check provides operator visibility into dependency status.
+   - Verification: `pytest tests/test_training_validation.py::test_phase1_interfaces_importable`
 
-2. **Test data availability for held-out validation**
-   - What we know: `train_specialists_mlx.py` prepares `{train,valid}.jsonl` from HF datasets. The HF datasets (loaded via `load_from_disk`) may or may not have a test split.
-   - What's unclear: Does each specialist's dataset at `data/specialists/{niche}/` contain a test split? If not, the validation pass needs to create a held-out set from the available data.
-   - Recommendation: Planner should add a task to verify test split existence and create one if missing.
+2. **Test data availability for held-out validation** — (RESOLVED 2026-06-29)
+   - Resolution: 02-03 Task 0 (pre-flight verification) checks test.jsonl existence per specialist, creates minimal test splits from valid.jsonl when missing (last max(10, 20%) samples), and logs all outcomes. Split sources are recorded for auditability.
+   - Verification: `pytest tests/test_training_validation.py::test_test_splits_exist`
 
-3. **LLM API threshold update mechanism (D-15)**
-   - What we know: D-15 says "LLM API can recursively update gate thresholds based on observed performance trends." This is Claude's discretion.
-   - What's unclear: Which LLM to use? What prompt? How often to update? What's the safety constraint (can it only loosen thresholds, or can it tighten them too)?
-   - Recommendation: Implement as an optional feature gated behind a config flag (`adaptive_gating.enabled: false` by default). When enabled, the LLM receives the last N evaluation results and suggests threshold adjustments. Human operator reviews and approves changes.
-
+3. **LLM API threshold update mechanism (D-15)** — (RESOLVED 2026-06-29)
+   - Resolution: 02-04 Task 4 implements AdaptiveGating module (`gnus-poc/eval/adaptive_gating.py`) per the recommendation: optional feature gated behind `adaptive_gating.enabled: false` by default. When enabled, the LLM receives the last N evaluation results and suggests threshold adjustments. Safety bounds limit changes to +/- 20% per update, capped at 50%/200% of original thresholds. Human approval always required (`require_human_approval: true`). Uses TeacherClient Phase 1 pattern for LLM API calls.
+   - Verification: `pytest tests/test_eval_persistence.py` — TestAdaptiveGating class
 ## Environment Availability
 
 | Dependency | Required By | Available | Version | Fallback |
