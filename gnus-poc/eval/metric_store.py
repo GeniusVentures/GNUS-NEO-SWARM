@@ -351,6 +351,177 @@ class MetricStore:
                 return payload
         return None
 
+    # ==================================================================
+    # Plan 02-04 (TRAIN-03): Training-evaluation metric persistence
+    #
+    # ADDITIVE to the Phase 3/4 APIs above. Writes per-run structured JSON
+    # to artifacts/evaluations/{niche}_eval_{timestamp}.json so successive
+    # training runs produce lexicographically sortable files. Separate
+    # namespace from SGFP4 metrics ({niche}_sgfp4_metrics.json) and
+    # benchmark results (artifacts/benchmarks/) — no gate family interference.
+    # ==================================================================
+
+    # Required keys for a training-eval metrics payload (Plan 02-04 schema).
+    _TRAINING_EVAL_REQUIRED_KEYS = (
+        "niche",
+        "num_samples",
+        "perplexity",
+        "bleu_score",
+        "rouge_l",
+        "latency_ms_per_token",
+    )
+
+    def record_training_eval_metrics(
+        self, niche_name: str, metrics: dict, **kwargs
+    ) -> Path:
+        """Persist a training-evaluation metrics record for a specialist niche.
+
+        Follows the same pattern as ``record_sgfp4_metrics`` /
+        ``record_benchmark_results``: validate the payload, write structured
+        JSON, return the path. Files are named
+        ``{niche}_eval_{YYYYMMDD-HHMMSS-%f}.json`` in
+        ``artifacts/evaluations/`` so timestamp-sorted globs return runs in
+        chronological order (microsecond precision prevents same-second
+        collisions, matching the benchmark-results convention).
+
+        Args:
+            niche_name: Specialist niche (e.g., ``"code"``).
+            metrics: Metrics dict from SpecialistEvaluator.evaluate(). Must
+                contain niche, num_samples, perplexity, bleu_score, rouge_l,
+                latency_ms_per_token. latency_ms_per_token_p95 is recorded
+                when present.
+            **kwargs: Reserved for future use.
+
+        Returns:
+            Path to the written JSON file.
+
+        Raises:
+            ValueError: If a required key is missing or non-numeric.
+        """
+        self._validate_training_eval_metrics(metrics, niche_name)
+
+        # Re-create the metrics dir if it was removed after construction.
+        self._metrics_dir.mkdir(parents=True, exist_ok=True)
+
+        timestamp_utc = datetime.now(timezone.utc).isoformat()
+        record = {
+            "niche": niche_name,
+            "timestamp_utc": timestamp_utc,
+            "num_samples": int(metrics["num_samples"]),
+            "perplexity": float(metrics["perplexity"]),
+            "bleu_score": float(metrics["bleu_score"]),
+            "rouge_l": float(metrics["rouge_l"]),
+            "latency_ms_per_token": float(metrics["latency_ms_per_token"]),
+        }
+        # P95 latency is optional in the evaluate() result for backward compat.
+        if "latency_ms_per_token_p95" in metrics:
+            record["latency_ms_per_token_p95"] = float(
+                metrics["latency_ms_per_token_p95"]
+            )
+
+        file_ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f")
+        out_path = self._metrics_dir / f"{niche_name}_eval_{file_ts}.json"
+        with out_path.open("w", encoding="utf-8") as f:
+            json.dump(record, f, indent=2)
+
+        logger.info(
+            "Recorded training eval metrics for niche=%s ppl=%.4f bleu=%.4f -> %s",
+            niche_name, record["perplexity"], record["bleu_score"], out_path,
+        )
+        return out_path
+
+    def load_training_eval_metrics(self, niche_name: str) -> Optional[dict]:
+        """Load the most recent training-eval metrics record for a niche.
+
+        Globs ``{niche}_eval_*.json`` in ``artifacts/evaluations/``. Timestamps
+        are lexicographically sortable (ISO-ish ``YYYYMMDD-HHMMSS-%f``), so the
+        lexicographic max is the most recent run. Fail-open on corrupt files
+        (returns None, logs warning) — same pattern as ``load_sgfp4_metrics``.
+
+        Args:
+            niche_name: Specialist niche.
+
+        Returns:
+            Parsed metrics dict, or None if no metrics file exists or every
+            candidate is corrupt.
+        """
+        pattern = f"{niche_name}_eval_*.json"
+        candidates = sorted(self._metrics_dir.glob(pattern))
+        if not candidates:
+            return None
+
+        # Walk newest-first; return the first parseable record. Corrupt files
+        # are skipped rather than aborting the whole lookup (fail-open).
+        for target in reversed(candidates):
+            try:
+                with target.open("r", encoding="utf-8") as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, OSError) as exc:
+                logger.warning(
+                    "Failed to load training eval metrics %s: %s", target, exc
+                )
+                continue
+        return None
+
+    def load_training_eval_history(self, niche_name: str) -> List[dict]:
+        """Load ALL training-eval records for a niche, oldest-first.
+
+        Used by adaptive gating (D-15) to compute per-metric trends over the
+        last N runs. Returns an empty list when no records exist.
+
+        Args:
+            niche_name: Specialist niche.
+
+        Returns:
+            List of parsed metrics dicts sorted by filename (chronological).
+        """
+        pattern = f"{niche_name}_eval_*.json"
+        candidates = sorted(self._metrics_dir.glob(pattern))
+        out: List[dict] = []
+        for path in candidates:
+            try:
+                with path.open("r", encoding="utf-8") as f:
+                    out.append(json.load(f))
+            except (json.JSONDecodeError, OSError) as exc:
+                logger.warning(
+                    "Skipping unreadable training eval file %s: %s", path, exc
+                )
+        return out
+
+    @staticmethod
+    def _validate_training_eval_metrics(metrics: dict, niche_name: str) -> None:
+        """Validate required keys and numeric types in a training-eval payload.
+
+        T-02-17 mitigation: rejects non-numeric metric values so downstream
+        gate checks never compare against a stringified float.
+
+        Args:
+            metrics: Metrics dict from SpecialistEvaluator.
+            niche_name: Niche name (for error messages).
+
+        Raises:
+            ValueError: If a required key is missing or has a non-numeric value.
+        """
+        for key in MetricStore._TRAINING_EVAL_REQUIRED_KEYS:
+            if key not in metrics:
+                raise ValueError(
+                    f"Missing required key '{key}' in training-eval metrics "
+                    f"for niche '{niche_name}'"
+                )
+        # perplexity/bleu/rouge/latency must be numeric (num_samples is int-checked later).
+        for key in (
+            "perplexity",
+            "bleu_score",
+            "rouge_l",
+            "latency_ms_per_token",
+        ):
+            value = metrics[key]
+            if not isinstance(value, (int, float)):
+                raise ValueError(
+                    f"Non-numeric value for '{key}' in training-eval metrics "
+                    f"for niche '{niche_name}': {value!r}"
+                )
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
