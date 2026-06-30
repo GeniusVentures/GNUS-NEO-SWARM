@@ -1,8 +1,11 @@
 """Tests for post-training adapter validation (Phase 2, Plan 02-03).
 
-Task 0 scaffolding: pre-flight verification of Phase 1 interface availability
-and held-out test split existence (BLOCKER 2 resolution per RESEARCH.md Open
-Questions 1 & 2).
+Covers:
+  - Task 0 pre-flight: Phase 1 interface importability and held-out test split
+    availability (BLOCKER 2 resolution per RESEARCH.md Open Questions 1 & 2).
+  - Task 1 validation: validate_adapter multi-prong adapter validity checks
+    (loadability, validation loss, behavioral difference, objective error
+    tracking) per decisions D-06 and D-08.
 
 The pre-flight tests are intentionally tolerant: if a niche has no training
 data yet, the test logs a warning rather than failing (data prep may not have
@@ -14,6 +17,7 @@ crash.
 import importlib
 import logging
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -113,3 +117,208 @@ class TestPreflightVerification:
 
         # Pre-flight never fails — it records state for operator visibility.
         assert True
+
+
+# ---------------------------------------------------------------------------
+# Task 1: validate_adapter multi-prong validity check (D-06, D-08)
+# ---------------------------------------------------------------------------
+
+
+class TestValidateAdapter:
+    """validate_adapter returns a structured validity result dict.
+
+    Covers the three D-08 checks (loadability, validation loss, behavioral
+    difference) plus objective vs. subjective error tracking. MLX calls are
+    mocked so the tests are fast and deterministic.
+    """
+
+    def test_validate_adapter_loadability_fails_on_bad_path(self):
+        from training.validation import validate_adapter
+
+        with patch("training.validation.mlx_utils.load") as mock_load:
+            mock_load.side_effect = FileNotFoundError("adapter not found")
+            result = validate_adapter(
+                model_id="test-model",
+                adapter_path="/nonexistent/adapter",
+                test_samples=[{"text": "sample"}],
+                loss_threshold=3.0,
+            )
+
+        assert result["loadable"] is False
+        assert result["load_error"] is not None
+        assert "adapter not found" in result["load_error"]
+        assert result["overall_valid"] is False
+
+    def test_validate_adapter_loadability_succeeds_with_mock(self):
+        from training.validation import validate_adapter
+
+        mock_model = MagicMock()
+        mock_tokenizer = MagicMock()
+        with patch("training.validation.mlx_utils.load") as mock_load, patch(
+            "training.validation._compute_validation_loss", return_value=2.0
+        ), patch(
+            "training.validation._compute_jaccard_similarity", return_value=0.7
+        ), patch(
+            "training.validation._track_objective_errors",
+            return_value={"objective_errors": 0, "subjective_diffs": 0},
+        ):
+            mock_load.return_value = (mock_model, mock_tokenizer)
+            result = validate_adapter(
+                model_id="test-model",
+                adapter_path="/good/adapter",
+                test_samples=[{"text": "sample"}],
+                loss_threshold=3.0,
+            )
+
+        assert result["loadable"] is True
+        assert result["load_error"] is None
+
+    def test_validation_loss_below_threshold_passes(self):
+        from training.validation import validate_adapter
+
+        mock_model = MagicMock()
+        mock_tokenizer = MagicMock()
+        with patch("training.validation.mlx_utils.load") as mock_load, patch(
+            "training.validation._compute_validation_loss", return_value=2.0
+        ), patch(
+            "training.validation._compute_jaccard_similarity", return_value=0.7
+        ), patch(
+            "training.validation._track_objective_errors",
+            return_value={"objective_errors": 0, "subjective_diffs": 0},
+        ):
+            mock_load.return_value = (mock_model, mock_tokenizer)
+            result = validate_adapter(
+                model_id="test-model",
+                adapter_path="/good/adapter",
+                test_samples=[{"text": "sample"}],
+                loss_threshold=3.0,
+            )
+
+        assert result["validation_loss"] == 2.0
+        assert result["loss_valid"] is True
+
+    def test_validation_loss_above_threshold_fails(self):
+        from training.validation import validate_adapter
+
+        mock_model = MagicMock()
+        mock_tokenizer = MagicMock()
+        with patch("training.validation.mlx_utils.load") as mock_load, patch(
+            "training.validation._compute_validation_loss", return_value=4.0
+        ), patch(
+            "training.validation._compute_jaccard_similarity", return_value=0.7
+        ), patch(
+            "training.validation._track_objective_errors",
+            return_value={"objective_errors": 0, "subjective_diffs": 0},
+        ):
+            mock_load.return_value = (mock_model, mock_tokenizer)
+            result = validate_adapter(
+                model_id="test-model",
+                adapter_path="/good/adapter",
+                test_samples=[{"text": "sample"}],
+                loss_threshold=3.0,
+            )
+
+        assert result["validation_loss"] == 4.0
+        assert result["loss_valid"] is False
+        assert result["overall_valid"] is False
+
+    def test_behavioral_diff_jaccard_below_095_passes(self):
+        from training.validation import validate_adapter
+
+        mock_model = MagicMock()
+        mock_tokenizer = MagicMock()
+        with patch("training.validation.mlx_utils.load") as mock_load, patch(
+            "training.validation._compute_validation_loss", return_value=2.0
+        ), patch(
+            "training.validation._compute_jaccard_similarity", return_value=0.7
+        ), patch(
+            "training.validation._track_objective_errors",
+            return_value={"objective_errors": 0, "subjective_diffs": 0},
+        ):
+            mock_load.return_value = (mock_model, mock_tokenizer)
+            result = validate_adapter(
+                model_id="test-model",
+                adapter_path="/good/adapter",
+                test_samples=[{"text": "sample"}],
+                loss_threshold=3.0,
+                behavioral_diff_threshold=0.95,
+            )
+
+        assert result["jaccard_similarity"] == 0.7
+        assert result["behavioral_diff"] is True
+
+    def test_behavioral_diff_jaccard_above_095_fails(self):
+        from training.validation import validate_adapter
+
+        mock_model = MagicMock()
+        mock_tokenizer = MagicMock()
+        with patch("training.validation.mlx_utils.load") as mock_load, patch(
+            "training.validation._compute_validation_loss", return_value=2.0
+        ), patch(
+            "training.validation._compute_jaccard_similarity", return_value=0.97
+        ), patch(
+            "training.validation._track_objective_errors",
+            return_value={"objective_errors": 0, "subjective_diffs": 0},
+        ):
+            mock_load.return_value = (mock_model, mock_tokenizer)
+            result = validate_adapter(
+                model_id="test-model",
+                adapter_path="/good/adapter",
+                test_samples=[{"text": "sample"}],
+                loss_threshold=3.0,
+                behavioral_diff_threshold=0.95,
+            )
+
+        assert result["jaccard_similarity"] == 0.97
+        assert result["behavioral_diff"] is False
+        assert result["overall_valid"] is False
+
+    def test_overall_valid_only_when_all_three_pass(self):
+        from training.validation import validate_adapter
+
+        # loadable=False short-circuits the other checks; overall_valid must
+        # be False even though loss and behavioral diff would otherwise pass.
+        with patch("training.validation.mlx_utils.load") as mock_load:
+            mock_load.side_effect = RuntimeError("corrupt adapter")
+            result = validate_adapter(
+                model_id="test-model",
+                adapter_path="/bad/adapter",
+                test_samples=[{"text": "sample"}],
+                loss_threshold=3.0,
+            )
+
+        assert result["loadable"] is False
+        assert result["loss_valid"] is False
+        assert result["behavioral_diff"] is False
+        assert result["overall_valid"] is False
+
+    def test_objective_error_tracking(self):
+        from training.validation import validate_adapter
+
+        mock_model = MagicMock()
+        mock_tokenizer = MagicMock()
+        with patch("training.validation.mlx_utils.load") as mock_load, patch(
+            "training.validation._compute_validation_loss", return_value=2.0
+        ), patch(
+            "training.validation._compute_jaccard_similarity", return_value=0.7
+        ), patch(
+            "training.validation._track_objective_errors",
+            return_value={"objective_errors": 2, "subjective_diffs": 1},
+        ) as mock_track:
+            mock_load.return_value = (mock_model, mock_tokenizer)
+            result = validate_adapter(
+                model_id="test-model",
+                adapter_path="/good/adapter",
+                test_samples=[
+                    {"text": "q1", "label": "expected1"},
+                    {"text": "q2", "label": "expected2"},
+                    {"text": "q3"},
+                ],
+                loss_threshold=3.0,
+            )
+
+        assert result["objective_errors"] == 2
+        assert result["subjective_diffs"] == 1
+        # _track_objective_errors receives the adapter model, tokenizer, and
+        # the full test_samples list (including the labeled ones).
+        assert mock_track.call_count == 1
