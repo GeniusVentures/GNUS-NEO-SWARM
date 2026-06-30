@@ -451,6 +451,281 @@ class Benchmarker:
         with path.open("w", encoding="utf-8") as f:
             json.dump(state, f, indent=2)
 
+    # ==================================================================
+    # Plan 02-04 (TRAIN-03): Training-eval auto-gating
+    #
+    # D-14: per-metric per-specialist thresholds (perplexity max, bleu min,
+    #       accuracy min) loaded from config/specialists/<niche>.yaml
+    #       evaluation.gates block.
+    # D-16: variance from prior run logged; > metric_drop_percent drop sets
+    #       outlier_triggered=True (notification only, does NOT block).
+    # D-17: single failure logs and continues; only N consecutive failures on
+    #       the same metric block (consecutive_failures_to_block per gate).
+    #
+    # Additive to gate_check() (SGFP4) and gate_check_benchmarks() (Phase 4).
+    # Uses a SEPARATE gate-state file so SGFP4 and benchmark counters are
+    # never disturbed.
+    # ==================================================================
+
+    def _training_gate_state_path(self, niche_name: str) -> Path:
+        """Return the training-eval gate state file path (separate from SGFP4/bench)."""
+        return self._gate_state_dir / f"{niche_name}_training_gate_state.json"
+
+    def _load_training_gate_state(self, niche_name: str) -> dict:
+        """Load training-eval gate state. Fail-open on corrupt files.
+
+        T-02-15 mitigation: corrupt state files are caught and recreated fresh.
+        The gate defaults to passing (empty state) when unreadable.
+        """
+        path = self._training_gate_state_path(niche_name)
+        if not path.exists():
+            return {}
+        try:
+            with path.open("r", encoding="utf-8") as f:
+                return json.load(f)
+        except (json.JSONDecodeError, OSError) as exc:
+            logger.warning(
+                "Training gate state %s corrupt; recreating (fail-open). Error: %s",
+                path, exc,
+            )
+            try:
+                path.unlink()
+            except OSError:
+                pass
+            return {}
+
+    def _save_training_gate_state(
+        self, niche_name: str, consecutive_failures: dict, checks: list
+    ):
+        """Persist training-eval gate state with truncated history (audit trail)."""
+        prev_state = self._load_training_gate_state(niche_name)
+        history = prev_state.get("history", [])
+        history.append({
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "consecutive_failures": dict(consecutive_failures),
+            "checks": checks,
+        })
+        if len(history) > 20:
+            history = history[-20:]
+        state = {
+            "niche": niche_name,
+            "last_check_timestamp": datetime.now(timezone.utc).isoformat(),
+            "consecutive_failures": consecutive_failures,
+            "history": history,
+        }
+        path = self._training_gate_state_path(niche_name)
+        with path.open("w", encoding="utf-8") as f:
+            json.dump(state, f, indent=2)
+
+    def _load_specialist_eval_gates(self, niche_name: str) -> dict:
+        """Load evaluation.gates + outlier_trigger for a specialist niche.
+
+        Reads config/specialists/<niche>.yaml and returns the evaluation
+        block (gates dict + outlier_trigger). Returns an empty dict when the
+        file or the evaluation block is absent.
+
+        Args:
+            niche_name: Specialist niche key.
+
+        Returns:
+            Evaluation block dict (e.g. {"gates": {...}, "outlier_trigger": ...}),
+            or {} if missing.
+        """
+        path = self._project_root / "config" / "specialists" / f"{niche_name}.yaml"
+        cfg = self._load_yaml(path)
+        return cfg.get("evaluation") or {}
+
+    def gate_check_training_eval(
+        self, niche_name: str, config: Optional[dict] = None
+    ) -> dict:
+        """Evaluate training-eval metrics against per-specialist gates.
+
+        Implements D-14 (per-metric per-specialist thresholds), D-16 (variance
+        logging + outlier notification), and D-17 (consecutive failure tracking
+        — block only after N configurable failures).
+
+        The gate config comes from the specialist YAML evaluation.gates block
+        when present; otherwise it is read from the ``config`` argument's
+        ``evaluation`` block (test injection path). Each gate dimension
+        specifies ``max`` (upper bound, e.g. perplexity) or ``min`` (lower
+        bound, e.g. bleu_score / accuracy) plus ``consecutive_failures_to_block``.
+
+        Args:
+            niche_name: Specialist niche to evaluate.
+            config: Optional specialist-config-shaped dict. When it carries an
+                ``evaluation`` block, its gates override the YAML. This is the
+                test-injection surface; production callers pass None to use the
+                YAML.
+
+        Returns:
+            Dict with: ``niche``, ``passed`` (bool), ``gates`` (per-metric
+            {passed, threshold, current, delta_from_previous}), ``blocked``
+            (bool), ``consecutive_failures`` (per-metric counters),
+            ``outlier_triggered`` (bool), and ``detail`` (str).
+        """
+        # Resolve evaluation config: injected config takes precedence (tests),
+        # otherwise load from specialist YAML.
+        if config and isinstance(config, dict) and config.get("evaluation"):
+            eval_block = config.get("evaluation") or {}
+        else:
+            eval_block = self._load_specialist_eval_gates(niche_name)
+
+        gates_cfg = eval_block.get("gates") or {}
+        outlier_drop_pct = float(
+            (eval_block.get("outlier_trigger") or {}).get("metric_drop_percent", 50)
+        )
+
+        if not gates_cfg:
+            return {
+                "niche": niche_name,
+                "passed": True,
+                "gates": {},
+                "blocked": False,
+                "consecutive_failures": {},
+                "outlier_triggered": False,
+                "detail": "No evaluation.gates configured",
+            }
+
+        # Load current + previous training-eval metrics.
+        history = self._metric_store.load_training_eval_history(niche_name)
+        if not history:
+            return {
+                "niche": niche_name,
+                "passed": True,
+                "gates": {},
+                "blocked": False,
+                "consecutive_failures": {},
+                "outlier_triggered": False,
+                "detail": "No training-eval metrics available yet",
+            }
+        current = history[-1]
+        previous = history[-2] if len(history) >= 2 else None
+
+        # Evaluate each configured gate dimension.
+        gates_result = {}
+        now_failures = {}
+        all_passed = True
+        for dim_name, dim_cfg in gates_cfg.items():
+            current_val = current.get(dim_name)
+            if current_val is None:
+                # Metric absent in the record — skip (cannot evaluate).
+                continue
+            try:
+                current_val = float(current_val)
+            except (TypeError, ValueError):
+                continue
+
+            passed = self._check_eval_dimension(dim_name, current_val, dim_cfg)
+            delta_from_previous = None
+            if previous is not None:
+                prev_val = previous.get(dim_name)
+                if prev_val is not None:
+                    try:
+                        delta_from_previous = current_val - float(prev_val)
+                    except (TypeError, ValueError):
+                        delta_from_previous = None
+
+            gates_result[dim_name] = {
+                "passed": passed,
+                "threshold": {
+                    k: v for k, v in dim_cfg.items() if k != "consecutive_failures_to_block"
+                },
+                "current": current_val,
+                "delta_from_previous": delta_from_previous,
+            }
+            if passed:
+                logger.info(
+                    "Training gate PASS niche=%s dim=%s value=%.6f",
+                    niche_name, dim_name, current_val,
+                )
+            else:
+                all_passed = False
+                logger.warning(
+                    "Training gate FAIL niche=%s dim=%s value=%.6f cfg=%s",
+                    niche_name, dim_name, current_val, dim_cfg,
+                )
+            now_failures[dim_name] = 0 if passed else 1
+
+        # D-16: outlier detection (> metric_drop_pct drop from previous run).
+        outlier_triggered = False
+        if previous is not None:
+            for dim_name, gate in gates_result.items():
+                delta = gate["delta_from_previous"]
+                if delta is None:
+                    continue
+                prev_val = previous.get(dim_name)
+                if prev_val is None or float(prev_val) == 0:
+                    continue
+                # "Drop" means the metric got worse. For max-gated metrics
+                # (perplexity), a rise is a drop in quality. For min-gated
+                # metrics (bleu, accuracy), a fall is a drop in quality.
+                dim_cfg = gates_cfg.get(dim_name, {})
+                if "min" in dim_cfg:
+                    # positive quality metric: drop = prev - cur
+                    drop_pct = 100.0 * (float(prev_val) - gate["current"]) / float(prev_val)
+                else:
+                    # inverse quality metric (perplexity): drop = cur - prev
+                    drop_pct = 100.0 * (gate["current"] - float(prev_val)) / float(prev_val)
+                if drop_pct > outlier_drop_pct:
+                    outlier_triggered = True
+                    logger.warning(
+                        "Training eval OUTLIER niche=%s dim=%s drop_pct=%.2f%% "
+                        "(threshold %.0f%%) — notification only, does not block (D-16)",
+                        niche_name, dim_name, drop_pct, outlier_drop_pct,
+                    )
+
+        # D-17: consecutive failure tracking using the shared helper.
+        prev_state = self._load_training_gate_state(niche_name)
+        consecutive_failures = self._update_consecutive_failures(prev_state, now_failures)
+
+        # Block only when a metric's counter reaches its configured threshold.
+        blocked = False
+        for dim_name, count in consecutive_failures.items():
+            dim_cfg = gates_cfg.get(dim_name, {})
+            threshold = int(dim_cfg.get("consecutive_failures_to_block", 999))
+            if count >= threshold:
+                blocked = True
+                logger.warning(
+                    "Training gate BLOCKED niche=%s dim=%s consecutive=%d (>= %d, D-17)",
+                    niche_name, dim_name, count, threshold,
+                )
+
+        # Persist gate state so counters survive process restart.
+        checks = [
+            {"dimension": dim, **body} for dim, body in gates_result.items()
+        ]
+        self._save_training_gate_state(niche_name, consecutive_failures, checks)
+
+        return {
+            "niche": niche_name,
+            "passed": all_passed,
+            "gates": gates_result,
+            "blocked": blocked,
+            "consecutive_failures": consecutive_failures,
+            "outlier_triggered": outlier_triggered,
+            "detail": "Training-eval gate evaluated",
+        }
+
+    @staticmethod
+    def _check_eval_dimension(dim_name: str, actual_value: float, dim_cfg: dict) -> bool:
+        """Check a single training-eval gate dimension.
+
+        Args:
+            dim_name: Dimension name (perplexity, bleu_score, accuracy).
+            actual_value: Measured value from training-eval metrics.
+            dim_cfg: Gate config (min and/or max + consecutive_failures_to_block).
+
+        Returns:
+            True if within threshold, False otherwise.
+        """
+        if "min" in dim_cfg:
+            if actual_value < float(dim_cfg["min"]):
+                return False
+        if "max" in dim_cfg:
+            if actual_value > float(dim_cfg["max"]):
+                return False
+        return True
+
     def _find_canonical_results(self, niche_name: str, quantized_only: bool = False):
         """Find the most recent canonical-mode benchmark results JSON for a niche.
 

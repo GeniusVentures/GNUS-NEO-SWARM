@@ -418,6 +418,14 @@ class MetricStore:
             record["latency_ms_per_token_p95"] = float(
                 metrics["latency_ms_per_token_p95"]
             )
+        # Copy through any additional numeric metric keys the caller provides
+        # (e.g. ``accuracy``). This keeps the required-key contract intact
+        # while letting gate configs reference metrics beyond the core set.
+        for key, value in metrics.items():
+            if key in record:
+                continue
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                record[key] = float(value)
 
         file_ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f")
         out_path = self._metrics_dir / f"{niche_name}_eval_{file_ts}.json"
