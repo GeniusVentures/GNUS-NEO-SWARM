@@ -196,11 +196,11 @@ TEST( NodeIdentity, PeerId_ConsistentForSameKey )
     NodeIdentity ident1;
     ASSERT_TRUE( ident1.Generate().has_value() );
     ASSERT_TRUE( ident1.SaveToFile( kTestKeyPath ).has_value() );
-    std::string peerId1 = ident1.PeerId();
+    std::string peerId1 = ident1.GetPeerId();
 
     NodeIdentity ident2;
     ASSERT_TRUE( ident2.LoadFromFile( kTestKeyPath ).has_value() );
-    std::string peerId2 = ident2.PeerId();
+    std::string peerId2 = ident2.GetPeerId();
 
     EXPECT_EQ( peerId1, peerId2 );
     EXPECT_FALSE( peerId1.empty() );
@@ -232,7 +232,7 @@ TEST( NodeIdentity, LoadEncrypted_TruncatedFile_ReturnsError )
 TEST( NodeIdentity, PeerId_WithoutKey_ReturnsEmpty )
 {
     NodeIdentity ident;
-    EXPECT_TRUE( ident.PeerId().empty() );
+    EXPECT_TRUE( ident.GetPeerId().empty() );
 }
 
 TEST( NodeIdentity, LoadFromFile_EmptyPath_ReturnsError )
@@ -247,4 +247,74 @@ TEST( NodeIdentity, SaveToFile_WithoutKey_ReturnsError )
     NodeIdentity ident;
     auto result = ident.SaveToFile( kTestKeyPath );
     EXPECT_FALSE( result.has_value() );
+}
+
+// =======================================================================
+// GetPrivateKey — Phase 2, Plan 05 (SDK wiring)
+// =======================================================================
+
+TEST( NodeIdentity, GetPrivateKey_AfterGenerate_Returns32Bytes )
+{
+    NodeIdentity ident;
+    ASSERT_TRUE( ident.Generate().has_value() );
+    ASSERT_TRUE( ident.IsLoaded() );
+
+    const auto& privKey = ident.GetPrivateKey();
+    EXPECT_EQ( privKey.size(), NodeIdentity::kPrivKeySize );
+
+    // Key must not be all zeros — verify at least one non-zero byte
+    bool hasNonZero = false;
+    for ( const auto byte : privKey )
+    {
+        if ( byte != 0 )
+        {
+            hasNonZero = true;
+            break;
+        }
+    }
+    EXPECT_TRUE( hasNonZero );
+}
+
+TEST( NodeIdentity, GetPrivateKey_AfterLoadFromFile_PreservesKey )
+{
+    RemoveTestFile();
+
+    NodeIdentity ident1;
+    ASSERT_TRUE( ident1.Generate().has_value() );
+    ASSERT_TRUE( ident1.SaveToFile( kTestKeyPath ).has_value() );
+
+    const auto& privKey1 = ident1.GetPrivateKey();
+
+    NodeIdentity ident2;
+    ASSERT_TRUE( ident2.LoadFromFile( kTestKeyPath ).has_value() );
+    ASSERT_TRUE( ident2.IsLoaded() );
+
+    const auto& privKey2 = ident2.GetPrivateKey();
+
+    EXPECT_EQ( privKey1, privKey2 );
+    EXPECT_EQ( ident1.GetPeerId(), ident2.GetPeerId() );
+
+    RemoveTestFile();
+}
+
+TEST( NodeIdentity, GetPrivateKey_AfterLoadEncrypted_PreservesKey )
+{
+    RemoveTestFile();
+
+    NodeIdentity ident1;
+    ASSERT_TRUE( ident1.Generate().has_value() );
+    ASSERT_TRUE( ident1.SaveEncrypted( kTestKeyPath, kTestPass ).has_value() );
+
+    const auto& privKey1 = ident1.GetPrivateKey();
+
+    NodeIdentity ident2;
+    ASSERT_TRUE( ident2.LoadEncrypted( kTestKeyPath, kTestPass ).has_value() );
+    ASSERT_TRUE( ident2.IsLoaded() );
+
+    const auto& privKey2 = ident2.GetPrivateKey();
+
+    EXPECT_EQ( privKey1, privKey2 );
+    EXPECT_EQ( ident1.GetPeerId(), ident2.GetPeerId() );
+
+    RemoveTestFile();
 }
