@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import logging
 import math
 import sys
 import time
@@ -12,12 +13,25 @@ from typing import Optional
 import numpy as np
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 
+logger = logging.getLogger(__name__)
+
 
 class SpecialistEvaluator:
-    def __init__(self, project_root: Optional[Path] = None):
+    def __init__(
+        self,
+        project_root: Optional[Path] = None,
+        metric_store: Optional["object"] = None,
+    ):
         if project_root is None:
             project_root = Path(__file__).resolve().parent.parent
         self._project_root = project_root
+        # Plan 02-04 (TRAIN-03): MetricStore for structured per-run persistence.
+        # Default-constructed to honor TRAIN-03 ("metrics persisted per run").
+        # Callers can inject one (e.g., pointing at a tmp project root for tests).
+        if metric_store is None:
+            from eval.metric_store import MetricStore
+            metric_store = MetricStore(project_root)
+        self._metric_store = metric_store
 
     def evaluate(self, model, tokenizer, test_samples: list, niche_name: str) -> dict:
         results = {
@@ -27,6 +41,7 @@ class SpecialistEvaluator:
             "bleu_score": None,
             "rouge_l": None,
             "latency_ms_per_token": None,
+            "latency_ms_per_token_p95": None,
         }
 
         if not test_samples:
@@ -54,8 +69,30 @@ class SpecialistEvaluator:
             results["bleu_score"] = float(np.mean(bleu_scores))
             results["rouge_l"] = float(np.mean(rouge_l_scores))
             results["latency_ms_per_token"] = float(np.mean(latencies))
+            results["latency_ms_per_token_p95"] = float(np.percentile(latencies, 95))
+            # Persist once metrics are populated. Empty-sample / no-evaluation
+            # runs are not persisted (nothing meaningful to gate on).
+            self._persist_results(niche_name, results)
 
         return results
+
+    def _persist_results(self, niche_name: str, results: dict) -> None:
+        """Persist evaluation results via MetricStore (Plan 02-04, TRAIN-03).
+
+        Persistence is best-effort: a failure to persist must NOT abort the
+        evaluation (the in-memory result is still returned to the caller).
+        """
+        if self._metric_store is None:
+            return
+        try:
+            self._metric_store.record_training_eval_metrics(
+                niche_name, metrics=results
+            )
+        except Exception as exc:  # noqa: BLE001 — fail-open, non-fatal
+            logger.warning(
+                "Failed to persist training eval metrics for niche=%s: %s",
+                niche_name, exc,
+            )
 
     def _evaluate_sample(self, model, tokenizer, text: str) -> Optional[dict]:
         try:
