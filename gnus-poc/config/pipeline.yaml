@@ -150,3 +150,20 @@ eval_gates:
     description: "Mandatory SGFP4 unquantized-vs-quantized regression check (D-08)"
     max_regression_pct: 0.10
     consecutive_failures_to_block: 3
+
+# ---------------------------------------------------------------------------
+# Adaptive Gating (D-15): LLM-based threshold evolution
+#
+# When enabled, the LLM periodically suggests gate threshold adjustments
+# based on observed performance trends. A human operator reviews and
+# approves changes before they take effect (require_human_approval).
+# Disabled by default — opt-in only.
+# ---------------------------------------------------------------------------
+adaptive_gating:
+  enabled: false
+  lookback_runs: 5
+  max_adjustment_percent: 20        # max 20% tightening or loosening per update
+  min_metric_runs: 3               # minimum historical runs before suggesting changes
+  safety_bound_pct: 50             # never tighten below 50% of original
+  safety_bound_loosen_pct: 200     # never loosen beyond 200% of original
+  require_human_approval: true     # always require human review before applying
