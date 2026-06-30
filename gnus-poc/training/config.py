@@ -94,3 +94,36 @@ class TrainingConfig:
             fine_tune_type=defaults.get("fine_tune_type", "lora"),
             optimizer=defaults.get("optimizer", "adamw"),
         )
+
+
+def validate_hyperparameters(config: TrainingConfig) -> None:
+    """Validate hyperparameter combinations before training starts (TRAIN-02).
+
+    Raises ValueError with a message naming the offending field when any
+    hyperparameter is out of its valid range. Called at config load time so
+    invalid combinations are blocked before ``mlx_lora.train_model()`` is
+    invoked (T-02-14 mitigation / WARNING 2 resolution).
+
+    Args:
+        config: The TrainingConfig to validate.
+
+    Raises:
+        ValueError: If any hyperparameter is invalid. The message names the
+            offending field and its current value.
+    """
+    if config.batch_size <= 0:
+        raise ValueError(
+            f"Invalid hyperparameter batch_size={config.batch_size}: must be > 0"
+        )
+    if config.learning_rate <= 0:
+        raise ValueError(
+            f"Invalid hyperparameter learning_rate={config.learning_rate}: must be > 0"
+        )
+    if config.lora_rank < 1:
+        raise ValueError(
+            f"Invalid hyperparameter lora_rank={config.lora_rank}: must be >= 1"
+        )
+    if config.iters <= 0:
+        raise ValueError(
+            f"Invalid hyperparameter iterations={config.iters}: must be > 0"
+        )
