@@ -1,148 +1,107 @@
 # Phase 2: SuperGenius Connectivity — Plan
 
-**Planned:** 2026-06-24
-**Context:** 02-CONTEXT.md (updated 2026-06-24)
-**Goal:** Wire GeniusSDK dispatch so the engine can send inference jobs to the SuperGenius network.
+**Planned:** 2026-06-30
+**Context:** 02-CONTEXT.md (12 decisions D-01 through D-12)
+**Goal:** Every NEO-SWARM node links GeniusSDK in-process — no gRPC API calls, everything is P2P always.
 
 ---
 
-## Architecture Decision (pre-wave)
+## Architecture
 
-GeniusSDK handles gRPC transport internally. GNUS-NEO-SWARM does NOT need `SGChannelManager` (raw gRPC channel creation) — that was built under the incorrect assumption of using gRPC directly. `SGJobSubmitter` calls `GeniusSDKProcess()` instead. `SGResultCollector` polls `GeniusSDKGetProcessingStatus()`. `SGMessageAuthenticator` stays (signing is separate from transport).
+GeniusSDK is linked directly into the binary. `SGClient::Initialize()` calls `GeniusSDKInitWithKey()` using eth key derived from NodeIdentity. `SGJobSubmitter::PublishJob()` calls `GeniusSDKProcess()`. `SGResultCollector::WaitForResult()` polls `GeniusSDKGetProcessingStatus()` with exponential backoff. `SGMessageAuthenticator` signs payloads before dispatch. No gRPC channel management — `SGChannelManager` is deleted.
 
 ---
 
-## Wave 1 — Strip raw gRPC, wire GeniusSDK header
+## Wave 1 — SGClient refactored to GeniusSDK *(merged)*
 
-**Why this wave first:** Before any dispatch can work, the SGClient must link against GeniusSDK and stop using raw gRPC channel management.
+**PR:** #79 — merged 2026-06-30
 
 **What:**
-- Remove `SGChannelManager` from SGClient — GeniusSDK handles gRPC
-- Add `#include "GeniusSDK.h"` to SGClient
-- Update `SGClient::Initialize()` — remove channel manager initialization, add GeniusSDK initialization if needed
-- Update `SGClient::Connect()` — call GeniusSDK health check instead of creating gRPC channel
-- Update `SGClient::IsConnected()` — use `GeniusSDKGetNodeState()` instead of channel state
-- Update `SGClient::Disconnect()` — remove channel teardown
-- Remove `SGChannelManager` files from `src/network/CMakeLists.txt` if they're no longer needed
+- Refactored `SGClient` Config from gRPC endpoint → SDK paths
+- `Initialize()` calls `GeniusSDKInitWithKey()` in-process
+- `SubmitJob()` routes through `GeniusSDKProcess()`
+- Stripped raw gRPC from `super_genius_client.cpp`
+- Added `--sg-endpoint`, `--sg-tls-ca`, `--sg-tls-cert` CLI flags (deprecated, removed in Wave 3)
 
-**Files:**
-- `src/network/sg_client/super_genius_client.cpp/.hpp`
-- `src/network/sg_client/sg_channel_manager.cpp/.hpp` (remove or keep as dead)
-- `src/network/CMakeLists.txt` (update if removing)
-- `src/api/api_server.cpp` (SGClient config passed from here)
-
-**Deliverable:** SGClient compiles against GeniusSDK, no raw gRPC channel code in active path.
+**Plan:** 02-01-PLAN.md
 
 ---
 
-## Wave 2 — Wire SGJobSubmitter to GeniusSDKProcess
+## Wave 2 — Core SDK wiring *(02-05-PLAN.md)*
 
-**Why this wave second:** The submitter is the actual dispatch — everything depends on it.
+**Why:** Delete dead gRPC code, expose eth key, wire dispatch and result collection to SDK API.
 
 **What:**
-- Replace `SGJobSubmitter::PublishJob()` TODO stub with `GeniusSDKProcess(jsondata)` call
-- Map `GeniusNodeReturnValue_t` to `outcome::result<...>` error codes
-- Handle `JsonData_t` (2KB char array) — truncate or reject oversized payloads
-- Sign payload via `SGMessageAuthenticator::Sign()` before dispatch
-- Log dispatch success/failure at debug level
+- Delete `sg_channel_manager.hpp/.cpp` and remove from CMakeLists.txt
+- Add `GetPrivateKey()` to NodeIdentity
+- Wire `SGJobSubmitter::PublishJob()` → `GeniusSDKProcess()` with signed payload
+- Rewire `SGResultCollector::WaitForResult()` → `GeniusSDKGetProcessingStatus()` polling with exponential backoff (100ms→1s) + 120s deadline
 
-**Files:**
-- `src/network/sg_client/sg_job_submitter.cpp/.hpp`
-
-**Deliverable:** `PublishJob()` calls GeniusSDK and returns success/error.
+**Files:** 9 files — sg_channel_manager.*, node_identity.*, super_genius_client.cpp, sg_job_submitter.*, sg_result_collector.*, network/CMakeLists.txt
 
 ---
 
-## Wave 3 — Wire SGResultCollector to GeniusSDK polling
+## Wave 3 — End-to-end integration *(02-06-PLAN.md)*
 
-**Why this wave third:** After submitting, results must come back.
+**Why:** Connect the full dispatch pipeline and migrate CLI flags.
 
 **What:**
-- Replace `SGResultCollector::WaitForResult()` TODO stub with polling loop
-- Call `GeniusSDKGetProcessingStatus()` in a loop with sleep intervals
-- Implement condition_variable + timeout pattern (matching `ResultAggregation`)
-- Return result data when processing completes or timeout expires
-- Handle error states (GENIUS_PR_STATUS_DISABLED = return error)
+- Wire `SGProcessingBridge::SubmitNetwork()` through SGClient
+- Remove gRPC CLI flags: `--sg-endpoint`, `--sg-tls-ca`, `--sg-tls-cert`
+- Add SDK CLI flags: `--sg-base-path`, `--sg-port`
+- Update `ApiServer::Config` with SDK fields
 
-**Files:**
-- `src/network/sg_client/sg_result_collector.cpp/.hpp`
-
-**Deliverable:** `WaitForResult()` polls GeniusSDK until completion or timeout.
+**Files:** 4 files — sg_processing_bridge.cpp, main.cpp, api_server.*
 
 ---
 
-## Wave 4 — Wire SubmitNetwork() end-to-end
+## Wave 4 — Deadline, status, fallback *(02-07-PLAN.md)*
 
-**Why this wave fourth:** Connects all components into the full dispatch path.
+**Why:** Production hardening — timeouts, observability, graceful degradation.
 
 **What:**
-- Replace `SGProcessingBridge::SubmitNetwork()` stub with `m_sgClient->SubmitJob(json)`
-- Wire `network_mode_` flag to select SubmitNetwork vs SubmitDirect
-- Handle the full lifecycle: build schema → sign → submit → wait for result → return
-- Verify fallback behavior: if SubmitNetwork fails, auto-fallback to SubmitDirect
+- Enforce 120s dispatch deadline
+- Expose `supergenius_connected` and `fallback_active` via `GeniusElmGetStatus()`
+- Auto-fallback to local MNN (`SubmitDirect`) on SDK failure
+- Auth failures NOT swallowed
 
-**Files:**
-- `src/core/sgprocessing/sg_processing_bridge.cpp`
-- `src/core/sgprocessing/sg_processing_bridge.hpp`
-
-**Deliverable:** `SubmitNetwork()` dispatches through GeniusSDK and returns result or timeout.
+**Files:** 6 files — super_genius_client.*, sg_processing_bridge.cpp, genius_elm_chat_completions.cpp, api_server.*
 
 ---
 
-## Wave 5 — Deadline enforcement + status reporting
+## Wave 5 — Tests *(02-08-PLAN.md)*
 
-**Why this wave last:** Non-functional requirements that complete the feature.
-
-**What:**
-- Add 120s deadline to SGClient::SubmitJob() — enforce via condition_variable timeout
-- Wire `GeniusElmGetStatus()` to report `supergenius_connected` and `fallback_active`
-- Expose `GeniusSDKGetNodeState()` through `IsSuperGeniusConnected()`
-- Verify graceful degradation: unreachable SuperGenius → local mode, no crash
-- Log connectivity changes at info level
-
-**Files:**
-- `src/network/sg_client/super_genius_client.cpp` (deadline in SubmitJob)
-- `src/genius_elm_chat_completions.cpp` (GeniusElmGetStatus)
-- `src/api/api_server.cpp` (IsSuperGeniusConnected)
-
-**Deliverable:** Jobs timeout at 120s. Status reports connectivity. Unreachable is handled gracefully.
-
----
-
-## Wave 6 — Tests
+**Why:** Prove the dispatch pipeline works end-to-end.
 
 **What:**
-- Unit tests for SGJobSubmitter with mock GeniusSDK
-- Unit tests for SGResultCollector with mock polling
-- Integration test: SubmitJob → mock SDK → result returned
-- Fallback test: SubmitNetwork fails → auto-falls back to SubmitDirect
-- Timeout test: SDK hangs → 120s deadline triggers
+- SGJobSubmitter unit tests with mock GeniusSDK
+- SGResultCollector polling tests
+- Integration test: SubmitJob → result
+- Fallback test: SubmitNetwork failure → SubmitDirect
+- Timeout test: 120s deadline triggers
 
-**Files:**
-- `test/network/test_sg_client.cpp` (new)
-- `test/integration/test_sg_connectivity.cpp` (new)
+**Files:** 4 test files + CMakeLists
 
 ---
 
 ## Summary
 
-| Wave | What | Files changed | Depends on |
-|------|------|--------------|------------|
-| 1 | Strip raw gRPC, wire GeniusSDK | SGClient, SGChannelManager, CMakeLists | Nothing |
-| 2 | Wire JobSubmitter to SDK | SGJobSubmitter | Wave 1 |
-| 3 | Wire ResultCollector to SDK | SGResultCollector | Wave 1 |
-| 4 | Wire SubmitNetwork() end-to-end | SGProcessingBridge | Wave 1-3 |
-| 5 | Deadline + status reporting | SGClient, FFI, ApiServer | Wave 4 |
-| 6 | Tests | New test files | Wave 5 |
+| Wave | Plan | What | PR |
+|------|------|------|-----|
+| 1 | 02-01 | SGClient refactored to GeniusSDK | #79 merged |
+| 2 | 02-05 | Delete SGChannelManager, GetPrivateKey(), SDK wiring | #83 (update) |
+| 3 | 02-06 | SubmitNetwork() E2E, CLI migration | New PR |
+| 4 | 02-07 | Deadline, status, fallback | New PR |
+| 5 | 02-08 | Tests | New PR |
 
 ---
 
 ## Open Questions
 
-| Question | Impact | Resolution |
-|----------|--------|------------|
-| Keep SGChannelManager? | Wave 1 | Remove — GeniusSDK handles gRPC |
-| 2KB payload limit adequate? | Wave 2 | Reject oversized payloads for now |
-| Result polling interval? | Wave 3 | 500ms polls, 120s timeout (240 polls max) |
-| SDK init needed? | Wave 1 | Check `GeniusSDKInit` — likely already called by SuperGenius |
-| `GeniusSDKProcess()` blocking? | Wave 2 | If blocking, wrap in thread + condition_variable |
+| Question | Resolution |
+|----------|------------|
+| Keep SGChannelManager? | Delete — handled by Wave 2 (D-01/D-02) |
+| Identity mapping? | Derive eth key from NodeIdentity via GetPrivateKey() (D-03/D-04/D-05) |
+| Result collection model? | Poll GeniusSDKGetProcessingStatus() + exponential backoff + 120s deadline (D-06/D-07) |
+| SDK result retrieval API? | Open — no API in SDK header. Log warning if unavailable (D-08) |
+| Config surface? | JSON config file + --sg-base-path + --sg-port CLI flags (D-09/D-10/D-11/D-12) |
