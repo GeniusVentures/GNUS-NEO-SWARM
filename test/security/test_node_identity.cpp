@@ -196,11 +196,11 @@ TEST( NodeIdentity, PeerId_ConsistentForSameKey )
     NodeIdentity ident1;
     ASSERT_TRUE( ident1.Generate().has_value() );
     ASSERT_TRUE( ident1.SaveToFile( kTestKeyPath ).has_value() );
-    std::string peerId1 = ident1.PeerId();
+    std::string peerId1 = ident1.GetPeerId();
 
     NodeIdentity ident2;
     ASSERT_TRUE( ident2.LoadFromFile( kTestKeyPath ).has_value() );
-    std::string peerId2 = ident2.PeerId();
+    std::string peerId2 = ident2.GetPeerId();
 
     EXPECT_EQ( peerId1, peerId2 );
     EXPECT_FALSE( peerId1.empty() );
@@ -232,7 +232,7 @@ TEST( NodeIdentity, LoadEncrypted_TruncatedFile_ReturnsError )
 TEST( NodeIdentity, PeerId_WithoutKey_ReturnsEmpty )
 {
     NodeIdentity ident;
-    EXPECT_TRUE( ident.PeerId().empty() );
+    EXPECT_TRUE( ident.GetPeerId().empty() );
 }
 
 TEST( NodeIdentity, LoadFromFile_EmptyPath_ReturnsError )
