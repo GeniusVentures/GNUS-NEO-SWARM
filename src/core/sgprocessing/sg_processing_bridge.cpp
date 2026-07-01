@@ -350,7 +350,7 @@ namespace sgns::neoswarm::core
     }
 
     // -----------------------------------------------------------------------
-    // SubmitNetwork — Phase 2: dispatch via SGClient
+    // SubmitNetwork — Phase 2: dispatch via GeniusSDK
     // -----------------------------------------------------------------------
     outcome::result<std::vector<uint8_t>> SGProcessingBridge::SubmitNetwork( const std::string& jsondata ) const
     {
@@ -360,9 +360,8 @@ namespace sgns::neoswarm::core
             return outcome::failure( Error::NetworkError );
         }
 
-        BridgeLogger()->debug( "Submitting job via SGClient ({} bytes)", jsondata.size() );
-        (void)jsondata;
-        return outcome::failure( Error::NetworkError );
+        BridgeLogger()->debug( "Dispatching job via GeniusSDK ({} bytes)", jsondata.size() );
+        return m_client->SubmitJob( jsondata );
     }
 
 } // namespace sgns::neoswarm::core
