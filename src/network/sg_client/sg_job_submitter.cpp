@@ -1,11 +1,10 @@
 /**
  * @file       sg_job_submitter.cpp
- * @brief      Publishes signed Task messages via GeniusSDK dispatch
+ * @brief      Dispatches GNUS schema JSON directly to GeniusSDKProcess
  * @date       2026-05-28
  */
 
 #include "sg_job_submitter.hpp"
-#include "sg_message_authenticator.hpp"
 #include "common/logging.hpp"
 #include "GeniusSDK.h"
 #include <cstring>
@@ -38,50 +37,23 @@ namespace sgns::neoswarm::network
         }
     } // namespace
 
-    struct SGJobSubmitter::Impl
-    {
-        SGMessageAuthenticator& m_authenticator;
-
-        Impl( SGMessageAuthenticator& authenticator )
-            : m_authenticator( authenticator )
-        {
-        }
-    };
-
-    SGJobSubmitter::SGJobSubmitter( SGMessageAuthenticator& authenticator )
-        : m_impl( std::make_unique<Impl>( authenticator ) )
-    {
-    }
+    SGJobSubmitter::SGJobSubmitter() = default;
 
     outcome::result<std::string> SGJobSubmitter::PublishJob( const std::string& gnusSchemaJson )
     {
         std::string taskId = GenerateTaskId();
 
-        auto signedPayload = m_impl->m_authenticator.SignPayload( gnusSchemaJson );
-        if ( !signedPayload.has_value() )
+        if ( gnusSchemaJson.size() >= 2048 )
         {
-            SubmitLogger()->error( "Failed to sign payload: {}", signedPayload.error().message() );
-            return outcome::failure( signedPayload.error() );
-        }
-
-        std::ostringstream taskJson;
-        taskJson << "{"
-                 << "\"task_id\":\"" << taskId << "\","
-                 << "\"results_channel\":\"results/" << taskId << "\","
-                 << "\"json_data\":" << signedPayload.value() << "}";
-
-        std::string taskMessage = taskJson.str();
-
-        SubmitLogger()->info( "Publishing task {} ({} bytes, signed)", taskId, taskMessage.size() );
-
-        if ( taskMessage.size() >= 2048 )
-        {
-            SubmitLogger()->error( "Task payload too large for GeniusSDK ({} bytes, max 2047)", taskMessage.size() );
+            SubmitLogger()->error( "Task payload too large for GeniusSDK ({} bytes, max 2047)",
+                                   gnusSchemaJson.size() );
             return outcome::failure( Error::InvalidArgument );
         }
 
+        SubmitLogger()->info( "Publishing task {} ({} bytes)", taskId, gnusSchemaJson.size() );
+
         JsonData_t sdkPayload;
-        std::strncpy( sdkPayload, taskMessage.c_str(), sizeof( sdkPayload ) - 1 );
+        std::strncpy( sdkPayload, gnusSchemaJson.c_str(), sizeof( sdkPayload ) - 1 );
         sdkPayload[ sizeof( sdkPayload ) - 1 ] = '\0';
 
         auto sdkResult = GeniusSDKProcess( sdkPayload );

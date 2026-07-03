@@ -54,7 +54,7 @@ namespace sgns::neoswarm::network
 
         m_impl->m_authenticator = std::make_unique<SGMessageAuthenticator>( identity );
 
-        m_impl->jobSubmitter_ = std::make_unique<SGJobSubmitter>( *m_impl->m_authenticator );
+        m_impl->jobSubmitter_ = std::make_unique<SGJobSubmitter>();
 
         SGResultCollectorConfig rcCfg;
         rcCfg.result_m_timeout = m_impl->m_cfg.result_m_timeout;
