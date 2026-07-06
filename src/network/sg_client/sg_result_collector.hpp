@@ -1,6 +1,6 @@
 /**
  * @file       sg_result_collector.hpp
- * @brief      Collects inference results via GeniusSDK polling
+ * @brief      Collects inference results via GeniusSDK processing status polling
  * @date       2026-05-28
  */
 
@@ -10,42 +10,58 @@
 #include "common/error.hpp"
 #include <chrono>
 #include <cstdint>
+#include <future>
 #include <memory>
 #include <string>
 #include <vector>
 
 namespace sgns::neoswarm::network
 {
-    class SGMessageAuthenticator;
-
     struct SGResultCollectorConfig
     {
-        std::chrono::seconds result_m_timeout{ 120 };
+        std::chrono::seconds m_resultTimeout{ 120 };
     };
 
     /**
      * @brief Collects inference results via GeniusSDK processing status polling.
+     *
+     * GeniusSDKGetProcessingStatus() reports global node status (not per-task),
+     * so the completion signal is: was PROCESSING → now IDLE.
+     *
+     * TODO: Switch to per-task status API when SDK supports it.
      */
     class SGResultCollector
     {
         public:
-        SGResultCollector( SGMessageAuthenticator& authenticator, SGResultCollectorConfig cfg = {} );
+        explicit SGResultCollector( SGResultCollectorConfig cfg = {} );
         ~SGResultCollector();
 
         /**
-         * @brief Block until a result arrives or timeout expires.
-         * @param taskId  The task ID to collect results for.
-         * @param timeout Maximum time to wait.
-         * @return        Raw output bytes or timeout/network error.
+         * @brief Poll SDK synchronously until processing completes or timeout.
+         *
+         * Blocks the calling thread. For non-blocking use, call PollForResultAsync().
+         *
+         * @return Raw output bytes on completion, or BroadcastTimeout on expiry.
          */
-        outcome::result<std::vector<uint8_t>> WaitForResult( const std::string& taskId, std::chrono::seconds timeout );
+        outcome::result<std::vector<uint8_t>> PollForResult( std::chrono::seconds timeout );
 
         /**
-         * @brief Wait for result using the configured default timeout.
-         * @param taskId  The task ID to collect results for.
-         * @return        Raw output bytes or error.
+         * @brief Poll using configured default timeout.
          */
-        outcome::result<std::vector<uint8_t>> WaitForResult( const std::string& taskId );
+        outcome::result<std::vector<uint8_t>> PollForResult();
+
+        /**
+         * @brief Non-blocking poll — returns a future that callers can wait on.
+         *
+         * Launches PollForResult() on a detached thread via std::async(std::launch::async).
+         * Does not block the calling thread.
+         */
+        std::future<outcome::result<std::vector<uint8_t>>> PollForResultAsync( std::chrono::seconds timeout );
+
+        /**
+         * @brief Non-blocking poll with default timeout.
+         */
+        std::future<outcome::result<std::vector<uint8_t>>> PollForResultAsync();
 
         private:
         struct Impl;

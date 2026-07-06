@@ -169,15 +169,14 @@ namespace sgns::neoswarm::api
         }
 
         // SuperGenius connectivity (optional — Phase 2 network dispatch)
-        if ( !m_cfg.m_ethKey.empty() )
+        if ( m_cfg.m_sgProcessingNetworkMode )
         {
             network::SGClient::Config sgCfg;
             sgCfg.m_sdkBasePath = m_cfg.m_sgSdkBasePath;
-            sgCfg.m_ethKey = m_cfg.m_ethKey;
             sgCfg.m_basePort = m_cfg.m_sgBasePort;
 
             m_sgClient = std::make_unique<network::SGClient>( std::move( sgCfg ) );
-            auto initRes = m_sgClient->Initialize( *m_identity );
+            auto initRes = m_sgClient->Initialize();
             if ( initRes.has_value() )
             {
                 ServerLogger()->info( "SGClient initialized — SDK node started" );

@@ -7,6 +7,10 @@
  * compiled in. No remote endpoint, no gRPC channel management. Initialize() starts
  * the SDK node; SubmitJob() dispatches through GeniusSDKProcess(); Disconnect()
  * calls GeniusSDKShutdown().
+ *
+ * SDK identity is managed internally — GeniusSDKInit() generates its own keypair.
+ * NEO-SWARM does NOT derive SDK keys from NodeIdentity (they serve different purposes:
+ * NodeIdentity = P2P swarm identity, SDK identity = blockchain node identity).
  */
 
 #ifndef NEOSWARM_NETWORK_SG_CLIENT_SUPERGENIUSCLIENT_HPP
@@ -19,11 +23,6 @@
 #include <string>
 #include <vector>
 
-namespace sgns::neoswarm::security
-{
-    class NodeIdentity;
-}
-
 namespace sgns::neoswarm::network
 {
     class SGClient
@@ -31,12 +30,11 @@ namespace sgns::neoswarm::network
         public:
         struct Config
         {
-            std::string m_sdkBasePath = "./sdk";        ///< GeniusSDK data directory
-            std::string m_ethKey;                       ///< Ethereum private key (hex, for SDK identity)
-            uint16_t m_basePort = 40001;                ///< SDK network port
-            bool m_autoDht = true;                      ///< Enable DHT
-            bool m_enableProcessing = true;             ///< Enable job processing
-            std::chrono::seconds result_m_timeout{ 300 }; ///< Inference result timeout (5 min)
+            std::string m_sdkBasePath = "./sdk";           ///< GeniusSDK data directory
+            uint16_t m_basePort = 40001;                   ///< SDK network port
+            bool m_autoDht = true;                         ///< Enable DHT
+            bool m_enableProcessing = true;                ///< Enable job processing
+            std::chrono::seconds m_resultTimeout{ 300 };   ///< Inference result timeout (5 min)
         };
 
         explicit SGClient( Config cfg );
@@ -48,23 +46,21 @@ namespace sgns::neoswarm::network
         SGClient& operator=( SGClient&& ) noexcept;
 
         /**
-         * @brief Initialize the GeniusSDK node and set up signer.
+         * @brief Initialize the GeniusSDK node in-process.
          *
-         * Calls GeniusSDKInit() to start the SDK node in-process, and creates
-         * the SGMessageAuthenticator using the node's secp256k1 identity.
+         * Calls GeniusSDKInit() — the SDK generates its own keypair internally
+         * for blockchain identity. NEO-SWARM's NodeIdentity is separate (swarm P2P).
          * After this, SubmitJob() can dispatch via GeniusSDKProcess().
          *
-         * @param identity The node's secp256k1 identity.
-         * @return        outcome::success or error.
+         * @return outcome::success or error.
          */
-        outcome::result<void> Initialize( const security::NodeIdentity& identity );
+        outcome::result<void> Initialize();
 
         /**
          * @brief Submit a GNUS schema JSON job and wait for the result.
          *
-         * Signs the payload, dispatches via GeniusSDKProcess(), polls for
-         * completion via GeniusSDKGetProcessingStatus(), and returns the
-         * result or timeout.
+         * Passes the raw GNUS schema JSON directly to GeniusSDKProcess().
+         * The SDK handles auth internally via its own identity.
          *
          * @param gnusSchemaJson  The GNUS_Schema JSON from BuildSchemaJson().
          * @return                Raw output bytes or error.
