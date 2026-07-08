@@ -47,6 +47,13 @@ namespace sgns::neoswarm::reputation
         outcome::result<void> Put( const NodeReputation& rep );
 
         /**
+         * @brief Atomically persist multiple reputation records.
+         * @param records  Records to store atomically.
+         * @return         outcome::success or StorageError.
+         */
+        outcome::result<void> PutBatch( const std::vector<NodeReputation>& records );
+
+        /**
          * @brief Retrieve a reputation record by identity key.
          * @param identity_key  Node identity key.
          * @return              NodeReputation or ReputationNotFound / StorageError.
