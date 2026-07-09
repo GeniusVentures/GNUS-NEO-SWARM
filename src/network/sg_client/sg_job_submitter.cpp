@@ -7,7 +7,6 @@
 #include "sg_job_submitter.hpp"
 #include "common/logging.hpp"
 #include "GeniusSDK.h"
-#include <cstring>
 #include <chrono>
 #include <iomanip>
 #include <random>
@@ -52,11 +51,7 @@ namespace sgns::neoswarm::network
 
         SubmitLogger()->info( "Publishing task {} ({} bytes)", taskId, gnusSchemaJson.size() );
 
-        JsonData_t sdkPayload;
-        std::strncpy( sdkPayload, gnusSchemaJson.c_str(), sizeof( sdkPayload ) - 1 );
-        sdkPayload[ sizeof( sdkPayload ) - 1 ] = '\0';
-
-        auto sdkResult = GeniusSDKProcess( sdkPayload );
+        auto sdkResult = GeniusSDKProcess( gnusSchemaJson.c_str() );
         if ( sdkResult != GENIUS_NODE_RET_OK )
         {
             SubmitLogger()->error( "GeniusSDKProcess failed: error code {}", static_cast<int>( sdkResult ) );
