@@ -10,6 +10,8 @@
 
 #include <cstdio>
 #include <fstream>
+#include <iomanip>
+#include <sstream>
 #include <vector>
 
 using namespace sgns::neoswarm;
@@ -247,4 +249,107 @@ TEST( NodeIdentity, SaveToFile_WithoutKey_ReturnsError )
     NodeIdentity ident;
     auto result = ident.SaveToFile( kTestKeyPath );
     EXPECT_FALSE( result.has_value() );
+}
+
+// =======================================================================
+// GetPrivateKey — Phase 2, Plan 05 (SDK wiring)
+// =======================================================================
+
+TEST( NodeIdentity, GetPrivateKey_AfterGenerate_Returns32Bytes )
+{
+    NodeIdentity ident;
+    ASSERT_TRUE( ident.Generate().has_value() );
+    ASSERT_TRUE( ident.IsLoaded() );
+
+    const auto& privKey = ident.GetPrivateKey();
+    EXPECT_EQ( privKey.size(), NodeIdentity::kPrivKeySize );
+
+    // Key must not be all zeros — verify at least one non-zero byte
+    bool hasNonZero = false;
+    for ( const auto byte : privKey )
+    {
+        if ( byte != 0 )
+        {
+            hasNonZero = true;
+            break;
+        }
+    }
+    EXPECT_TRUE( hasNonZero );
+}
+
+TEST( NodeIdentity, GetPrivateKey_AfterLoadFromFile_PreservesKey )
+{
+    RemoveTestFile();
+
+    NodeIdentity ident1;
+    ASSERT_TRUE( ident1.Generate().has_value() );
+    ASSERT_TRUE( ident1.SaveToFile( kTestKeyPath ).has_value() );
+
+    const auto& privKey1 = ident1.GetPrivateKey();
+
+    NodeIdentity ident2;
+    ASSERT_TRUE( ident2.LoadFromFile( kTestKeyPath ).has_value() );
+    ASSERT_TRUE( ident2.IsLoaded() );
+
+    const auto& privKey2 = ident2.GetPrivateKey();
+
+    EXPECT_EQ( privKey1, privKey2 );
+    EXPECT_EQ( ident1.GetPeerId(), ident2.GetPeerId() );
+
+    RemoveTestFile();
+}
+
+TEST( NodeIdentity, GetPrivateKey_AfterLoadEncrypted_PreservesKey )
+{
+    RemoveTestFile();
+
+    NodeIdentity ident1;
+    ASSERT_TRUE( ident1.Generate().has_value() );
+    ASSERT_TRUE( ident1.SaveEncrypted( kTestKeyPath, kTestPass ).has_value() );
+
+    const auto& privKey1 = ident1.GetPrivateKey();
+
+    NodeIdentity ident2;
+    ASSERT_TRUE( ident2.LoadEncrypted( kTestKeyPath, kTestPass ).has_value() );
+    ASSERT_TRUE( ident2.IsLoaded() );
+
+    const auto& privKey2 = ident2.GetPrivateKey();
+
+    EXPECT_EQ( privKey1, privKey2 );
+    EXPECT_EQ( ident1.GetPeerId(), ident2.GetPeerId() );
+
+    RemoveTestFile();
+}
+
+// =======================================================================
+// Private key hex encoding — Phase 2, Plan 05 (GeniusSDK init)
+// =======================================================================
+
+TEST( NodeIdentity, PrivateKeyHexEncoding_Is66CharsWith0xPrefix )
+{
+    NodeIdentity ident;
+    ASSERT_TRUE( ident.Generate().has_value() );
+
+    const auto& privKey = ident.GetPrivateKey();
+    EXPECT_EQ( privKey.size(), NodeIdentity::kPrivKeySize );
+
+    // Simulate the hex encoding used by SGClient::Initialize()
+    // Must produce "0x" + 64 hex chars (total 66) for GeniusSDKInitWithKey()
+    std::ostringstream hexStream;
+    hexStream << "0x";
+    hexStream << std::hex << std::setfill( '0' );
+    for ( const auto byte : privKey )
+    {
+        hexStream << std::setw( 2 ) << static_cast<int>( byte );
+    }
+    std::string hexKey = hexStream.str();
+
+    EXPECT_EQ( hexKey.size(), 66U );
+    EXPECT_EQ( hexKey.substr( 0, 2 ), "0x" );
+
+    // All chars after prefix must be valid hex
+    for ( size_t i = 2; i < hexKey.size(); ++i )
+    {
+        EXPECT_TRUE( std::isxdigit( static_cast<unsigned char>( hexKey[i] ) ) );
+    }
 }

@@ -1,12 +1,12 @@
 /**
  * @file       sg_job_submitter.cpp
- * @brief      Publishes signed Task messages via GeniusSDK dispatch
+ * @brief      Dispatches GNUS schema JSON directly to GeniusSDKProcess
  * @date       2026-05-28
  */
 
 #include "sg_job_submitter.hpp"
-#include "sg_message_authenticator.hpp"
 #include "common/logging.hpp"
+#include "GeniusSDK.h"
 #include <chrono>
 #include <iomanip>
 #include <random>
@@ -36,45 +36,29 @@ namespace sgns::neoswarm::network
         }
     } // namespace
 
-    struct SGJobSubmitter::Impl
-    {
-        SGMessageAuthenticator& m_authenticator;
-
-        Impl( SGMessageAuthenticator& authenticator )
-            : m_authenticator( authenticator )
-        {
-        }
-    };
-
-    SGJobSubmitter::SGJobSubmitter( SGMessageAuthenticator& authenticator )
-        : m_impl( std::make_unique<Impl>( authenticator ) )
-    {
-    }
+    SGJobSubmitter::SGJobSubmitter() = default;
 
     outcome::result<std::string> SGJobSubmitter::PublishJob( const std::string& gnusSchemaJson )
     {
         std::string taskId = GenerateTaskId();
 
-        auto signedPayload = m_impl->m_authenticator.SignPayload( gnusSchemaJson );
-        if ( !signedPayload.has_value() )
+        if ( gnusSchemaJson.size() >= sizeof( JsonData_t ) )
         {
-            SubmitLogger()->error( "Failed to sign payload: {}", signedPayload.error().message() );
-            return outcome::failure( signedPayload.error() );
+            SubmitLogger()->error( "Task payload too large for GeniusSDK ({} bytes, max {})",
+                                   gnusSchemaJson.size(), sizeof( JsonData_t ) - 1 );
+            return outcome::failure( Error::InvalidArgument );
         }
 
-        std::ostringstream taskJson;
-        taskJson << "{"
-                 << "\"task_id\":\"" << taskId << "\","
-                 << "\"results_channel\":\"results/" << taskId << "\","
-                 << "\"json_data\":" << signedPayload.value() << "}";
+        SubmitLogger()->info( "Publishing task {} ({} bytes)", taskId, gnusSchemaJson.size() );
 
-        std::string taskMessage = taskJson.str();
+        auto sdkResult = GeniusSDKProcess( gnusSchemaJson.c_str() );
+        if ( sdkResult != GENIUS_NODE_RET_OK )
+        {
+            SubmitLogger()->error( "GeniusSDKProcess failed: error code {}", static_cast<int>( sdkResult ) );
+            return outcome::failure( Error::NetworkError );
+        }
 
-        SubmitLogger()->info( "Publishing task {} ({} bytes, signed)", taskId, taskMessage.size() );
-
-        // TODO(Phase 2 Wave 2): dispatch via GeniusSDKProcess(taskMessage)
-        SubmitLogger()->warn( "GeniusSDK dispatch not yet wired — task {} prepared for submission", taskId );
-
+        SubmitLogger()->info( "Task {} dispatched via GeniusSDK", taskId );
         return taskId;
 
     }

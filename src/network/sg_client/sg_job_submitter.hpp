@@ -1,6 +1,6 @@
 /**
  * @file       sg_job_submitter.hpp
- * @brief      Publishes signed Task messages via GeniusSDK dispatch
+ * @brief      Dispatches GNUS schema JSON directly to GeniusSDKProcess
  * @date       2026-05-28
  */
 
@@ -14,30 +14,27 @@
 
 namespace sgns::neoswarm::network
 {
-    class SGMessageAuthenticator;
-
     /**
-     * @brief Signs and publishes Task messages via GeniusSDK.
+     * @brief Dispatches GNUS schema JSON to GeniusSDK in-process.
      *
-     * Converts GNUS schema JSON into signed Task messages, dispatches
-     * through GeniusSDKProcess(), and returns a taskId for result collection.
+     * Passes the raw GNUS schema JSON directly to GeniusSDKProcess() —
+     * the SDK handles auth internally via the eth key from InitWithKey().
+     * No custom wrapper, no external signing layer.
      */
     class SGJobSubmitter
     {
         public:
-        SGJobSubmitter( SGMessageAuthenticator& authenticator );
+        SGJobSubmitter() = default;
         ~SGJobSubmitter();
 
         /**
-         * @brief Sign and publish a GNUS schema JSON job.
+         * @brief Dispatch a GNUS schema JSON job via GeniusSDKProcess.
          * @param gnusSchemaJson  The GNUS_Schema JSON from BuildSchemaJson().
-         * @return                The generated taskId for result collection.
+         * @return                The generated taskId for result tracking.
          */
         outcome::result<std::string> PublishJob( const std::string& gnusSchemaJson );
 
         private:
-        struct Impl;
-        std::unique_ptr<Impl> m_impl;
     };
 
 } // namespace sgns::neoswarm::network

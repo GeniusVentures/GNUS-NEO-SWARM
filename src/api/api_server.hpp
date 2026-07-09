@@ -62,7 +62,6 @@ namespace sgns::neoswarm::api
             bool m_enableSgProcessing = false;
             bool m_sgProcessingNetworkMode = false;
             std::string m_sgSdkBasePath = "./sdk";
-            std::string m_ethKey;
             uint16_t m_sgBasePort = 40001;
         };
 

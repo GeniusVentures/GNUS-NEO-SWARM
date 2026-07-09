@@ -52,7 +52,6 @@ struct Args
     int m_maxTokens = 512;
     float m_temperature = 0.7f;
     std::string m_sgSdkPath = "./sdk";
-    std::string m_ethKey;
     std::string config_path_;
     bool network_ = false;
     bool serve_ = false;
@@ -73,8 +72,7 @@ static void PrintHelp( const char* prog )
               << "  --db <path>              Reputation DB (default: ./reputation.db)\n"
               << "  --key <path>             Node key file (default: ./node.key)\n"
               << "  --config <path>         JSON config file (CLI flags override file values)\n"
-              << "  --eth-key <hex>          Ethereum private key for GeniusSDK identity\n"
-              << "  --sg-sdk-path <path>     GeniusSDK data directory (default: ./sdk)\n"
+              << "  --sg-sdk-path <path>      GeniusSDK data directory (default: ./sdk)\n"
               << "  --sg-base-port <n>       SDK network port (default: 40001)\n"
               << "  --network                Enable P2P networking\n"
               << "  --knowledge <path>       Grokipedia facts CSV\n"
@@ -129,8 +127,6 @@ static void LoadConfigFile( const std::string& path, Args& args )
         args.m_maxTokens = j["max_tokens"].get<int>();
     if ( j.contains( "temperature" ) && args.m_temperature == 0.7f )
         args.m_temperature = j["temperature"].get<float>();
-    if ( j.contains( "eth_key" ) && args.m_ethKey.empty() )
-        args.m_ethKey = j["eth_key"].get<std::string>();
     if ( j.contains( "sg_sdk_path" ) && args.m_sgSdkPath == "./sdk" )
         args.m_sgSdkPath = j["sg_sdk_path"].get<std::string>();
     if ( j.contains( "network" ) && !args.network_ )
@@ -175,10 +171,8 @@ static Args ParseArgs( int argc, char** argv )
             args.m_maxTokens = std::stoi( next() );
         else if ( a == "--temperature" )
             args.m_temperature = std::stof( next() );
-        else if ( a == "--config" )
+        else         if ( a == "--config" )
             args.config_path_ = next();
-        else if ( a == "--eth-key" )
-            args.m_ethKey = next();
         else if ( a == "--sg-sdk-path" )
             args.m_sgSdkPath = next();
         else if ( a == "--network" )
@@ -290,7 +284,6 @@ int main( int argc, char** argv )
     (void) args.port_;
     cfg.m_nodeKeyFile = args.key_file_;
     cfg.m_sgSdkBasePath = args.m_sgSdkPath;
-    cfg.m_ethKey = args.m_ethKey;
 
     api::ApiServer server( cfg );
 

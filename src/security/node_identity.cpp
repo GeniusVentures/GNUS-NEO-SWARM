@@ -90,6 +90,7 @@ namespace sgns::neoswarm::security
                 size_t pub_len = kPubKeySize;
                 secp256k1_ec_pubkey_serialize( m_impl->m_ctx, m_pubKey.data(), &pub_len, &pubkey,
                                                SECP256K1_EC_COMPRESSED );
+                m_privKey = m_impl->m_privKey;
                 m_loaded = true;
                 IdentityLogger()->info( "NodeIdentity generated: peerId={}", GetPeerId() );
                 return outcome::success();
@@ -136,6 +137,7 @@ namespace sgns::neoswarm::security
         (void)secp256k1_ec_pubkey_create( m_impl->m_ctx, &pubkey, m_impl->m_privKey.data() );
         size_t pub_len = kPubKeySize;
         secp256k1_ec_pubkey_serialize( m_impl->m_ctx, m_pubKey.data(), &pub_len, &pubkey, SECP256K1_EC_COMPRESSED );
+        m_privKey = m_impl->m_privKey;
         m_loaded = true;
         return outcome::success();
     }
@@ -405,6 +407,7 @@ namespace sgns::neoswarm::security
         size_t pubLen = kPubKeySize;
         secp256k1_ec_pubkey_serialize( m_impl->m_ctx, m_pubKey.data(), &pubLen, &pubkey, SECP256K1_EC_COMPRESSED );
 
+        m_privKey = m_impl->m_privKey;
         m_loaded = true;
         IdentityLogger()->info( "NodeIdentity loaded encrypted from {}", path );
         return outcome::success();

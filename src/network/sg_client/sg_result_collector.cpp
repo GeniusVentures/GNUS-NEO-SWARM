@@ -1,14 +1,14 @@
 /**
  * @file       sg_result_collector.cpp
- * @brief      Timeout-bounded result collection via GeniusSDK polling
+ * @brief      GeniusSDK processing status polling with exponential backoff
  * @date       2026-05-28
  */
 
 #include "sg_result_collector.hpp"
-#include "sg_message_authenticator.hpp"
 #include "common/logging.hpp"
-#include <condition_variable>
-#include <mutex>
+#include "GeniusSDK.h"
+#include <future>
+#include <thread>
 
 namespace sgns::neoswarm::network
 {
@@ -22,59 +22,83 @@ namespace sgns::neoswarm::network
 
     struct SGResultCollector::Impl
     {
-        SGMessageAuthenticator& m_authenticator;
         SGResultCollectorConfig m_cfg;
 
-        std::mutex m_mutex;
-        std::condition_variable cv_;
-        bool resultReady_ = false;
-        std::vector<uint8_t> resultData_;
-
-        Impl( SGMessageAuthenticator& authenticator, SGResultCollectorConfig cfg )
-            : m_authenticator( authenticator )
-            , m_cfg( std::move( cfg ) )
+        explicit Impl( SGResultCollectorConfig cfg )
+            : m_cfg( std::move( cfg ) )
         {
         }
     };
 
-    SGResultCollector::SGResultCollector( SGMessageAuthenticator& authenticator, SGResultCollectorConfig cfg )
-        : m_impl( std::make_unique<Impl>( authenticator, std::move( cfg ) ) )
+    SGResultCollector::SGResultCollector( SGResultCollectorConfig cfg )
+        : m_impl( std::make_unique<Impl>( std::move( cfg ) ) )
     {
     }
 
-    outcome::result<std::vector<uint8_t>> SGResultCollector::WaitForResult( const std::string& taskId,
-                                                                             std::chrono::seconds timeout )
+    outcome::result<std::vector<uint8_t>> SGResultCollector::PollForResult( std::chrono::seconds timeout )
     {
-        CollectLogger()->info( "Waiting for result on results/{} (timeout={}s)", taskId, timeout.count() );
+        CollectLogger()->info( "Polling GeniusSDK for result (timeout={}s)", timeout.count() );
 
-        // TODO(Phase 2 Wave 3): poll GeniusSDKGetProcessingStatus() in a loop
-        std::unique_lock<std::mutex> lock( m_impl->m_mutex );
+        auto deadline = std::chrono::steady_clock::now() + timeout;
+        std::chrono::milliseconds backoff{ 100 };
+        constexpr std::chrono::milliseconds kMaxBackoff{ 1000 };
+        GeniusProcessingStatus_t lastStatus = GENIUS_PR_STATUS_IDLE;
+        bool wasProcessing = false;
 
-        bool gotResult = m_impl->cv_.wait_for( lock, timeout, [this] { return m_impl->resultReady_; } );
-
-        if ( !gotResult )
+        while ( std::chrono::steady_clock::now() < deadline )
         {
-            CollectLogger()->warn( "Result collection timed out for task {}", taskId );
-            return outcome::failure( Error::BroadcastTimeout );
+            // TODO: SDK team — GetProcessingStatus returns global node status,
+            // not per-task. Need GeniusSDKGetProcessingStatus(task_id) API.
+            GeniusProcessingStatusInfo info = GeniusSDKGetProcessingStatus();
+            GeniusProcessingStatus_t status = info.status;
+
+            if ( status == GENIUS_PR_STATUS_IDLE && wasProcessing )
+            {
+                CollectLogger()->info( "Processing complete (percentage={:.1f}%)",
+                                       static_cast<double>( info.percentage ) );
+                // TODO: SDK team — no result-retrieval API yet.
+                // Results flow via transaction layer. Retrieve from GetInTransactions() when available.
+                CollectLogger()->warn( "Result not retrieved — SDK result API pending" );
+                return outcome::success( std::vector<uint8_t>{} );
+            }
+
+            if ( status == GENIUS_PR_STATUS_DISABLED )
+            {
+                CollectLogger()->error( "SDK processing disabled" );
+                return outcome::failure( Error::NetworkError );
+            }
+
+            wasProcessing = ( status == GENIUS_PR_STATUS_PROCESSING );
+
+            if ( status != lastStatus )
+            {
+                CollectLogger()->debug( "SDK status: {} ({}%)", static_cast<int>( status ),
+                                        static_cast<double>( info.percentage ) );
+                lastStatus = status;
+            }
+
+            std::this_thread::sleep_for( backoff );
+            backoff = std::min( backoff * 2, kMaxBackoff );
         }
 
-        if ( m_impl->resultData_.empty() )
-        {
-            CollectLogger()->warn( "Empty result received for task {}", taskId );
-            return outcome::failure( Error::InferenceFailed );
-        }
-
-        CollectLogger()->info( "Result collected for task {} ({} bytes)", taskId, m_impl->resultData_.size() );
-
-        std::vector<uint8_t> result = std::move( m_impl->resultData_ );
-        m_impl->resultReady_ = false;
-
-        return outcome::success( result );
+        CollectLogger()->warn( "Polling timed out after {}s", timeout.count() );
+        return outcome::failure( Error::BroadcastTimeout );
     }
 
-    outcome::result<std::vector<uint8_t>> SGResultCollector::WaitForResult( const std::string& taskId )
+    outcome::result<std::vector<uint8_t>> SGResultCollector::PollForResult()
     {
-        return WaitForResult( taskId, m_impl->m_cfg.result_m_timeout );
+        return PollForResult( m_impl->m_cfg.m_resultTimeout );
+    }
+
+    std::future<outcome::result<std::vector<uint8_t>>> SGResultCollector::PollForResultAsync(
+        std::chrono::seconds timeout )
+    {
+        return std::async( std::launch::async, [ this, timeout ]() { return PollForResult( timeout ); } );
+    }
+
+    std::future<outcome::result<std::vector<uint8_t>>> SGResultCollector::PollForResultAsync()
+    {
+        return PollForResultAsync( m_impl->m_cfg.m_resultTimeout );
     }
 
     SGResultCollector::~SGResultCollector() = default;

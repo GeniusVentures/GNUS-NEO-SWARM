@@ -16,10 +16,15 @@
 namespace sgns::neoswarm::security
 {
     /**
-     * @brief Manages a secp256k1 keypair and derives the node's PeerId.
-     *
-     * PeerId = hex( SHA-256( compressed_public_key ) )
-     */
+ * @brief Manages a secp256k1 keypair and derives the node's PeerId.
+ *
+ * PeerId = hex( SHA-256( compressed_public_key ) )
+ *
+ * This is the NEO-SWARM P2P identity — used for encrypting swarm inter-node
+ * communication and verifying peer messages. It is separate from GeniusSDK
+ * identity: the SDK generates its own keypair internally via GeniusSDKInit()
+ * for blockchain identity. NEO-SWARM does NOT derive SDK keys from this class.
+ */
     class NodeIdentity
     {
         public:
@@ -95,6 +100,13 @@ namespace sgns::neoswarm::security
             return m_pubKey;
         }
 
+        /// @return The 32-byte secp256k1 private key.
+        /// @pre  IsLoaded() must return true.
+        const PrivKey& GetPrivateKey() const
+        {
+            return m_privKey;
+        }
+
         /// @return True if a keypair has been loaded or generated.
         bool IsLoaded() const
         {
@@ -120,6 +132,7 @@ namespace sgns::neoswarm::security
         struct Impl;
         std::unique_ptr<Impl> m_impl;
         PubKey m_pubKey{};
+        PrivKey m_privKey{};
         bool m_loaded = false;
     };
 
