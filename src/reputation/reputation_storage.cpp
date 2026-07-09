@@ -41,14 +41,14 @@ namespace sgns::neoswarm::reputation
         return proto.SerializeAsString();
     }
 
-    NodeReputation ReputationStorage::Deserialize( const std::string& data )
+    outcome::result<NodeReputation> ReputationStorage::Deserialize( const std::string& data )
     {
         NodeReputation r;
         genius::reputation::NodeReputationProto proto;
         if ( !proto.ParseFromString( data ) )
         {
-            StorageLogger()->error( "Corrupt protobuf record, returning empty" );
-            return r;
+            StorageLogger()->error( "Corrupt protobuf record — deserialization failed" );
+            return outcome::failure( Error::StorageError );
         }
         r.m_identityKey = proto.identity_key();
         r.m_globalScore = proto.global_score();
@@ -58,7 +58,7 @@ namespace sgns::neoswarm::reputation
         r.m_consistencyScore = proto.consistency_score();
         r.m_taskCount = proto.task_count();
         r.m_lastUpdatedMs = proto.last_updated_ms();
-        return r;
+        return outcome::success( r );
     }
 
     // -----------------------------------------------------------------------
@@ -152,7 +152,7 @@ namespace sgns::neoswarm::reputation
         {
             return outcome::failure( Error::StorageError );
         }
-        return outcome::success( Deserialize( val ) );
+        return Deserialize( val );
 
     }
 
@@ -187,7 +187,11 @@ namespace sgns::neoswarm::reputation
         auto* it = m_impl->m_db->NewIterator( rocksdb::ReadOptions() );
         for ( it->SeekToFirst(); it->Valid(); it->Next() )
         {
-            result.push_back( Deserialize( it->value().ToString() ) );
+            auto res = Deserialize( it->value().ToString() );
+            if ( res.has_value() )
+            {
+                result.push_back( res.value() );
+            }
         }
         delete it;
 

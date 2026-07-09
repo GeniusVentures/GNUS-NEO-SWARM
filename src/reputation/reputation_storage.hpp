@@ -86,7 +86,7 @@ namespace sgns::neoswarm::reputation
         bool open_ = false;
 
         static std::string Serialize( const NodeReputation& rep );
-        static NodeReputation Deserialize( const std::string& data );
+        static outcome::result<NodeReputation> Deserialize( const std::string& data );
     };
 
 } // namespace sgns::neoswarm::reputation
