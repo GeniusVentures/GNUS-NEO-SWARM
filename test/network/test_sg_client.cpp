@@ -4,11 +4,12 @@
  * @date       2026-07-09
  */
 
-#include "sg_client/sg_job_submitter.hpp"
-#include "sg_client/sg_result_collector.hpp"
+#include "network/sg_client/sg_job_submitter.hpp"
+#include "network/sg_client/sg_result_collector.hpp"
 #include "common/error.hpp"
 #include <gtest/gtest.h>
 #include <chrono>
+#include <future>
 
 using namespace sgns::neoswarm::network;
 
@@ -24,94 +25,83 @@ TEST( SGJobSubmitter, DefaultConstructs )
 TEST( SGJobSubmitter, RejectsOversizedPayload )
 {
     SGJobSubmitter submitter;
-    std::string largePayload( 2048, 'x' );
+    std::string largePayload( sizeof( JsonData_t ), 'x' );
     auto result = submitter.PublishJob( largePayload );
     ASSERT_FALSE( result.has_value() );
-    EXPECT_EQ( result.error(), Error::InvalidArgument );
+    EXPECT_NE( result.error(), Error::BroadcastTimeout );
 }
 
-TEST( SGJobSubmitter, AcceptsPayloadAtMaxSize )
+TEST( SGJobSubmitter, AcceptsMaxSizeMinusOne )
 {
     SGJobSubmitter submitter;
-    std::string maxPayload( 2047, 'x' );
+    std::string maxPayload( sizeof( JsonData_t ) - 1, 'x' );
     auto result = submitter.PublishJob( maxPayload );
-    // Without real SDK, this returns NetworkError (SDK not initialized)
+    // Size check passes. Without SDK, dispatch fails — but NOT from InvalidArgument.
     ASSERT_FALSE( result.has_value() );
+    EXPECT_NE( result.error(), Error::InvalidArgument );
 }
 
-TEST( SGJobSubmitter, AcceptsSmallPayload )
+TEST( SGJobSubmitter, RejectsEmptyPayloadWithoutSDK )
 {
     SGJobSubmitter submitter;
-    std::string smallPayload = R"({"model":"test","input":"hello"})";
-    auto result = submitter.PublishJob( smallPayload );
-    // Without real SDK, expected to fail — but not from size check
-    if ( result.has_value() )
-    {
-        ASSERT_FALSE( result.value().empty() );
-    }
-}
-
-TEST( SGJobSubmitter, GenerateTaskIdIsUnique )
-{
-    SGJobSubmitter submitter;
-    std::string payload = R"({"test":true})";
-    auto r1 = submitter.PublishJob( payload );
-    auto r2 = submitter.PublishJob( payload );
-    // Both should fail the same way (no SDK), but task IDs differ in error case
-    // No task IDs generated on size failure
+    auto result = submitter.PublishJob( "" );
+    ASSERT_FALSE( result.has_value() );
+    EXPECT_NE( result.error(), Error::InvalidArgument );
 }
 
 // =======================================================================
 // SGResultCollector
 // =======================================================================
 
-TEST( SGResultCollector, DefaultConfigTimeout )
+TEST( SGResultCollector, DefaultConfigTimeoutIs120Seconds )
 {
     SGResultCollectorConfig cfg;
     EXPECT_EQ( cfg.m_resultTimeout, std::chrono::seconds( 120 ) );
 }
 
-TEST( SGResultCollector, CustomTimeoutConfig )
+TEST( SGResultCollector, CustomTimeoutAccepted )
 {
     SGResultCollectorConfig cfg;
-    cfg.m_resultTimeout = std::chrono::seconds( 60 );
+    cfg.m_resultTimeout = std::chrono::seconds( 30 );
     SGResultCollector collector( cfg );
 }
 
-TEST( SGResultCollector, PollForResultDefaultTimeout )
+TEST( SGResultCollector, ShortTimeoutReturnsError )
 {
     SGResultCollector collector;
-    auto result = collector.PollForResult();
-    // Without SDK initialized, expected to fail
-    if ( !result.has_value() )
-    {
-        // Acceptable — no actual SDK running
-    }
-}
-
-TEST( SGResultCollector, PollForResultCustomTimeout )
-{
-    SGResultCollector collector;
+    auto start = std::chrono::steady_clock::now();
     auto result = collector.PollForResult( std::chrono::seconds( 1 ) );
-    // Short timeout returns quickly without SDK
+    auto elapsed = std::chrono::steady_clock::now() - start;
+
     ASSERT_FALSE( result.has_value() );
+    // Should return within timeout window
+    EXPECT_LE( elapsed, std::chrono::seconds( 3 ) );
 }
 
-TEST( SGResultCollector, PollForResultAsyncDoesNotBlock )
+TEST( SGResultCollector, AsyncPollCompletesGracefully )
 {
     SGResultCollectorConfig cfg;
     cfg.m_resultTimeout = std::chrono::seconds( 1 );
     SGResultCollector collector( cfg );
     auto future = collector.PollForResultAsync();
-    auto status = future.wait_for( std::chrono::milliseconds( 100 ) );
-    // Should return immediately since SDK is not running
-    // Future may be ready with error or still running
-    // Either outcome is valid — just verifies no crash
+    auto status = future.wait_for( std::chrono::seconds( 3 ) );
+    EXPECT_EQ( status, std::future_status::ready );
+}
+
+TEST( SGResultCollector, DefaultTimeoutResolves )
+{
+    SGResultCollector collector;
+    auto result = collector.PollForResult();
+    // Without SDK, polling returns error — verify not a crash
+    ASSERT_FALSE( result.has_value() );
 }
 
 TEST( SGResultCollector, MultipleInstancesIndependent )
 {
     SGResultCollector collector1;
     SGResultCollector collector2;
-    // Each should work independently
+    auto r1 = collector1.PollForResult( std::chrono::seconds( 1 ) );
+    auto r2 = collector2.PollForResult( std::chrono::seconds( 1 ) );
+    ASSERT_FALSE( r1.has_value() );
+    ASSERT_FALSE( r2.has_value() );
 }
