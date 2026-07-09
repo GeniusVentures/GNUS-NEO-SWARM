@@ -5,7 +5,6 @@ add_library(neoswarm_network STATIC
     sg_client/sg_job_submitter.cpp
 
     sg_client/sg_result_collector.cpp
-    sg_client/sg_message_authenticator.cpp
 )
 
 target_include_directories(neoswarm_network PUBLIC
