@@ -42,10 +42,10 @@ namespace sgns::neoswarm::network
     {
         std::string taskId = GenerateTaskId();
 
-        if ( gnusSchemaJson.size() >= 2048 )
+        if ( gnusSchemaJson.size() >= sizeof( JsonData_t ) )
         {
-            SubmitLogger()->error( "Task payload too large for GeniusSDK ({} bytes, max 2047)",
-                                   gnusSchemaJson.size() );
+            SubmitLogger()->error( "Task payload too large for GeniusSDK ({} bytes, max {})",
+                                   gnusSchemaJson.size(), sizeof( JsonData_t ) - 1 );
             return outcome::failure( Error::InvalidArgument );
         }
 
