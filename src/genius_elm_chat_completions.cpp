@@ -98,7 +98,8 @@ namespace
         j[ "backend" ]              = "cpu";
         j[ "node_id" ]              = "local";
         j[ "supergenius_connected" ] = g_server->IsSuperGeniusConnected();
-        j[ "fallback_active" ]      = false;
+        j[ "fallback_active" ]      = g_server->IsSuperGeniusNetworkEnabled() &&
+                                       !g_server->IsSuperGeniusConnected();
         return j.dump();
     }
 

@@ -99,6 +99,12 @@ namespace sgns::neoswarm::api
         /// @return True if connected to SuperGenius network.
         bool IsSuperGeniusConnected() const noexcept;
 
+        /// @return True if SuperGenius network mode was enabled in config.
+        bool IsSuperGeniusNetworkEnabled() const noexcept
+        {
+            return m_cfg.m_sgProcessingNetworkMode;
+        }
+
         private:
         Config m_cfg;
         std::atomic<bool> m_running{ false };
