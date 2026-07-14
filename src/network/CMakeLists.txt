@@ -14,8 +14,15 @@ target_include_directories(neoswarm_network PUBLIC
 
 target_link_libraries(neoswarm_network PUBLIC neoswarm_common neoswarm_security)
 
+# GeniusSDK — link via imported target (provides include dirs + library automatically)
 if(TARGET sgns::GeniusSDK_shared)
     target_link_libraries(neoswarm_network PUBLIC sgns::GeniusSDK_shared)
+    message(STATUS "GeniusSDK linked to neoswarm_network")
+elseif(TARGET sgns::GeniusSDK)
+    target_link_libraries(neoswarm_network PUBLIC sgns::GeniusSDK)
+    message(STATUS "GeniusSDK (static) linked to neoswarm_network")
+else()
+    message(STATUS "GeniusSDK not found — network module will build without SuperGenius connectivity")
 endif()
 
 # nlohmann/json

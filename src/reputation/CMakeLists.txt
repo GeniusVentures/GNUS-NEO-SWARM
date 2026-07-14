@@ -10,7 +10,10 @@ target_include_directories(neoswarm_reputation PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
-target_link_libraries(neoswarm_reputation PUBLIC neoswarm_common)
+target_link_libraries(neoswarm_reputation PUBLIC 
+    neoswarm_common
+    neoswarm_proto
+)
 
 if(TARGET RocksDB::rocksdb)
     target_link_libraries(neoswarm_reputation PUBLIC RocksDB::rocksdb)
