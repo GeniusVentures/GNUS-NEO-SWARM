@@ -55,6 +55,4 @@ namespace sgns::neoswarm::core
 
 } // namespace sgns::neoswarm::core
 
-} // namespace sgns::neoswarm::core
-
 #endif // NEOSWARM_CORE_TOKENIZER_TOKENIZER_HPP

@@ -36,8 +36,6 @@ namespace sgns::neoswarm::network
         }
     } // namespace
 
-    SGJobSubmitter::SGJobSubmitter() = default;
-
     outcome::result<std::string> SGJobSubmitter::PublishJob( const std::string& gnusSchemaJson )
     {
         std::string taskId = GenerateTaskId();

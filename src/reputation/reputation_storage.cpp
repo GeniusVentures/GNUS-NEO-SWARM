@@ -7,12 +7,15 @@
 #include "reputation_storage.hpp"
 #include "common/logging.hpp"
 
+#include <nlohmann/json.hpp>
+#include <sstream>
+#include <stdexcept>
+#include <unordered_map>
+
 #include <rocksdb/db.h>
 #include <rocksdb/options.h>
 #include <rocksdb/slice.h>
 #include <rocksdb/write_batch.h>
-
-#include "genius_reputation.pb.h"
 
 namespace sgns::neoswarm::reputation
 {
@@ -25,39 +28,42 @@ namespace sgns::neoswarm::reputation
     } // namespace
 
     // -----------------------------------------------------------------------
-    // Serialization — protobuf binary (genius_reputation.proto)
+    // Serialization — JSON (nlohmann/json)
     // -----------------------------------------------------------------------
     std::string ReputationStorage::Serialize( const NodeReputation& r )
     {
-        genius::reputation::NodeReputationProto proto;
-        proto.set_identity_key( r.m_identityKey );
-        proto.set_global_score( r.m_globalScore );
-        proto.set_math_score( r.m_mathScore );
-        proto.set_grammar_score( r.m_grammarScore );
-        proto.set_latency_score( r.m_latencyScore );
-        proto.set_consistency_score( r.m_consistencyScore );
-        proto.set_task_count( r.m_taskCount );
-        proto.set_last_updated_ms( r.m_lastUpdatedMs );
-        return proto.SerializeAsString();
+        nlohmann::json j;
+        j["identity_key"] = r.m_identityKey;
+        j["global_score"] = r.m_globalScore;
+        j["math_score"] = r.m_mathScore;
+        j["grammar_score"] = r.m_grammarScore;
+        j["latency_score"] = r.m_latencyScore;
+        j["consistency_score"] = r.m_consistencyScore;
+        j["task_count"] = r.m_taskCount;
+        j["last_updated_ms"] = r.m_lastUpdatedMs;
+        return j.dump();
     }
 
     outcome::result<NodeReputation> ReputationStorage::Deserialize( const std::string& data )
     {
         NodeReputation r;
-        genius::reputation::NodeReputationProto proto;
-        if ( !proto.ParseFromString( data ) )
+        try
         {
-            StorageLogger()->error( "Corrupt protobuf record — deserialization failed" );
+            nlohmann::json j = nlohmann::json::parse( data );
+            r.m_identityKey = j.value( "identity_key", "" );
+            r.m_globalScore = j.value( "global_score", 0.0 );
+            r.m_mathScore = j.value( "math_score", 0.0 );
+            r.m_grammarScore = j.value( "grammar_score", 0.0 );
+            r.m_latencyScore = j.value( "latency_score", 0.0 );
+            r.m_consistencyScore = j.value( "consistency_score", 0.0 );
+            r.m_taskCount = j.value( "task_count", 0ULL );
+            r.m_lastUpdatedMs = j.value( "last_updated_ms", 0ULL );
+        }
+        catch ( const std::exception& e )
+        {
+            StorageLogger()->error( "Corrupt reputation record: {}", e.what() );
             return outcome::failure( Error::StorageError );
         }
-        r.m_identityKey = proto.identity_key();
-        r.m_globalScore = proto.global_score();
-        r.m_mathScore = proto.math_score();
-        r.m_grammarScore = proto.grammar_score();
-        r.m_latencyScore = proto.latency_score();
-        r.m_consistencyScore = proto.consistency_score();
-        r.m_taskCount = proto.task_count();
-        r.m_lastUpdatedMs = proto.last_updated_ms();
         return outcome::success( r );
     }
 
