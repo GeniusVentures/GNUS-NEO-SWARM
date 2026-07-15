@@ -1,7 +1,5 @@
 # Add subdirectories for each module
-# Proto must be built first (generates headers needed by other modules)
-add_subdirectory(${PROJECT_ROOT}/proto ${CMAKE_CURRENT_BINARY_DIR}/proto)
-
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/proto ${CMAKE_CURRENT_BINARY_DIR}/proto)
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/common ${CMAKE_CURRENT_BINARY_DIR}/common)
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/security ${CMAKE_CURRENT_BINARY_DIR}/security)
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/core ${CMAKE_CURRENT_BINARY_DIR}/core)

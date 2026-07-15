@@ -486,7 +486,7 @@ install(TARGETS neo-swarm RUNTIME DESTINATION bin)
 install(TARGETS Genius-MOS-ELM-FFI LIBRARY DESTINATION lib)
 
 install(TARGETS
-    neoswarm_proto neoswarm_common neoswarm_core neoswarm_specialists neoswarm_router
+    neoswarm_common neoswarm_core neoswarm_specialists neoswarm_router
     neoswarm_reputation neoswarm_security neoswarm_network neoswarm_knowledge neoswarm_api
     EXPORT ${PROJECT_ROOT_NAME}Targets
     LIBRARY       DESTINATION ${CMAKE_INSTALL_LIBDIR}
