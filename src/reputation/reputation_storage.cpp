@@ -12,7 +12,7 @@
 #include <rocksdb/slice.h>
 #include <rocksdb/write_batch.h>
 
-#include "genius_reputation.pb.h"
+#include "proto/genius_reputation.pb.h"
 
 namespace sgns::neoswarm::reputation
 {

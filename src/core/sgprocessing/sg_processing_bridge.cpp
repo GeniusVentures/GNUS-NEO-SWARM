@@ -9,6 +9,8 @@
 #include "sg_processing_bridge.hpp"
 #include "common/logging.hpp"
 
+#include "network/sg_client/super_genius_client.hpp"
+
 #include <boost/asio/io_context.hpp>
 #include <nlohmann/json.hpp>
 

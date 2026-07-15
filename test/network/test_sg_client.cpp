@@ -7,11 +7,13 @@
 #include "network/sg_client/sg_job_submitter.hpp"
 #include "network/sg_client/sg_result_collector.hpp"
 #include "common/error.hpp"
+#include "GeniusSDK.h"
 #include <gtest/gtest.h>
 #include <chrono>
 #include <future>
 
 using namespace sgns::neoswarm::network;
+using namespace sgns::neoswarm;
 
 // =======================================================================
 // SGJobSubmitter

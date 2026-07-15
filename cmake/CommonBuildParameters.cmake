@@ -42,7 +42,7 @@ if (NOT DEFINED Protobuf_INCLUDE_DIR)
     set(Protobuf_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/protobuf/protobuf")
 endif()
 if (NOT DEFINED PROTOC_EXECUTABLE)
-    set(PROTOC_EXECUTABLE "${THIRDPARTY_BUILD_DIR}/protobuf/bin/protobuf${CMAKE_EXECUTABLE_SUFFIX}")
+    set(PROTOC_EXECUTABLE "${THIRDPARTY_BUILD_DIR}/protobuf/bin/protoc${CMAKE_EXECUTABLE_SUFFIX}")
 endif()
 
 find_package(Protobuf CONFIG REQUIRED )
@@ -295,9 +295,16 @@ include_directories(${PROJECT_ROOT}/src)
 # Following the same pattern as GeniusSDK's SUPERGENIUS_BUILD_DIR discovery.
 # Override via -DGENIUSSDK_BUILD_DIR=... for CI or custom layouts.
 # ---------------------------------------------------------------------------
-if(NOT DEFINED GENIUSSDK_BUILD_DIR)
+if(DEFINED GENIUSSDK_BUILD_DIR AND NOT GENIUSSDK_BUILD_DIR STREQUAL "")
+    # User provided explicit path
+    set(GENIUS_SDK_BUILD_DIR "${GENIUSSDK_BUILD_DIR}" CACHE STRING "GeniusSDK Build Directory" FORCE)
+    message(STATUS "Using provided GENIUSSDK_BUILD_DIR: ${GENIUS_SDK_BUILD_DIR}")
+else()
+    # Auto-detect from PROJECT_SUPER_ROOT
+    message(STATUS "Looking for GeniusSDK at ${PROJECT_SUPER_ROOT}/GeniusSDK")
     if(EXISTS "${PROJECT_SUPER_ROOT}/GeniusSDK")
         set(GENIUS_SDK_DIR "${PROJECT_SUPER_ROOT}/GeniusSDK")
+        message(STATUS "Found GeniusSDK source at ${GENIUS_SDK_DIR}")
     else()
         message(STATUS "GeniusSDK not found locally — attempting to obtain from releases")
 
@@ -342,11 +349,91 @@ if(NOT DEFINED GENIUSSDK_BUILD_DIR)
         endif()
     endif()
 
-    set(GENIUS_SDK_BUILD_DIR "${GENIUS_SDK_DIR}/build/${BUILD_PLATFORM_NAME}/${CMAKE_BUILD_TYPE}${ABI_SUBFOLDER_NAME}" CACHE STRING "Default GeniusSDK Build Directory")
-    cmake_path(SET GENIUS_SDK_BUILD_DIR NORMALIZE "${GENIUS_SDK_BUILD_DIR}")
+    # Compute GENIUS_SDK_BUILD_DIR from GENIUS_SDK_DIR
+    if(GENIUS_SDK_DIR AND NOT "${GENIUS_SDK_DIR}" STREQUAL "")
+        set(GENIUS_SDK_BUILD_DIR "${GENIUS_SDK_DIR}/build/${BUILD_PLATFORM_NAME}/${CMAKE_BUILD_TYPE}${ABI_SUBFOLDER_NAME}" CACHE STRING "Default GeniusSDK Build Directory")
+        cmake_path(SET GENIUS_SDK_BUILD_DIR NORMALIZE "${GENIUS_SDK_BUILD_DIR}")
+        message(STATUS "GENIUS_SDK_BUILD_DIR set to ${GENIUS_SDK_BUILD_DIR}")
+    endif()
 endif()
 
-if(GENIUS_SDK_DIR AND NOT "${GENIUS_SDK_DIR}" STREQUAL "")
+# --------------------------------------------------------------------------
+# SuperGenius (provides sgns::genius_node and other sgns:: targets)
+# GeniusSDK depends on SuperGenius, so we need to find it first
+# If GeniusSDK is provided, match its build type for SuperGenius
+# --------------------------------------------------------------------------
+if(NOT DEFINED SUPERGENIUS_BUILD_DIR AND GENIUS_SDK_BUILD_DIR)
+    # Extract build type from GeniusSDK path (e.g., .../Release -> Release)
+    get_filename_component(_SDK_BUILD_TYPE "${GENIUS_SDK_BUILD_DIR}" NAME)
+    if(EXISTS "${PROJECT_SUPER_ROOT}/SuperGenius")
+        set(SUPERGENIUS_DIR "${PROJECT_SUPER_ROOT}/SuperGenius")
+        set(SUPERGENIUS_BUILD_DIR "${SUPERGENIUS_DIR}/build/${BUILD_PLATFORM_NAME}/${_SDK_BUILD_TYPE}${ABI_SUBFOLDER_NAME}" CACHE STRING "SuperGenius Build Directory")
+        cmake_path(SET SUPERGENIUS_BUILD_DIR NORMALIZE "${SUPERGENIUS_BUILD_DIR}")
+        message(STATUS "Auto-detected SUPERGENIUS_BUILD_DIR (${_SDK_BUILD_TYPE} to match GeniusSDK): ${SUPERGENIUS_BUILD_DIR}")
+    endif()
+elseif(NOT DEFINED SUPERGENIUS_BUILD_DIR)
+    if(EXISTS "${PROJECT_SUPER_ROOT}/SuperGenius")
+        set(SUPERGENIUS_DIR "${PROJECT_SUPER_ROOT}/SuperGenius")
+        set(SUPERGENIUS_BUILD_DIR "${SUPERGENIUS_DIR}/build/${BUILD_PLATFORM_NAME}/${CMAKE_BUILD_TYPE}${ABI_SUBFOLDER_NAME}" CACHE STRING "SuperGenius Build Directory")
+        cmake_path(SET SUPERGENIUS_BUILD_DIR NORMALIZE "${SUPERGENIUS_BUILD_DIR}")
+        message(STATUS "Auto-detected SUPERGENIUS_BUILD_DIR: ${SUPERGENIUS_BUILD_DIR}")
+    endif()
+endif()
+
+if(SUPERGENIUS_BUILD_DIR AND NOT "${SUPERGENIUS_BUILD_DIR}" STREQUAL "")
+    # SuperGenius has complex transitive dependencies that may not resolve cleanly
+    # Create interface stubs for known missing targets to allow configuration
+    set(_MISSING_DEPS 
+        "ProofSystem::ProofSystem"
+        "ipfs-lite-cpp::blake2" 
+        "ipfs-lite-cpp::cid"
+        "ipfs-lite-cpp::graphsync"
+        "ipfs-lite-cpp::ipfs_merkledag_service"
+        "ipfs-lite-cpp::ipfs_datastore_rocksdb"
+        "evmrelay::evmrelay"
+        "MNN::MNN"
+        "Boost::json"
+        "Boost::unit_test_framework"
+        "xxHash::xxhash"
+        "gnus_upnp"
+        "ipfs-pubsub"
+        "TrustWalletCore"
+        "wallet_core_rs"
+        "TrezorCrypto"
+        "ProcessingBase"
+        "AsyncIOManager"
+        "rapidjson"
+        "LLVMIRReader"
+        "LLVMCore"
+        "LLVMSupport"
+        "LLVMBinaryFormat"
+    )
+    foreach(_dep ${_MISSING_DEPS})
+        if(NOT TARGET ${_dep})
+            add_library(${_dep} INTERFACE IMPORTED)
+        endif()
+    endforeach()
+    
+    set(SuperGenius_DIR "${SUPERGENIUS_BUILD_DIR}/SuperGenius/lib/cmake/SuperGenius/" CACHE PATH "SuperGenius cmake config")
+    find_package(SuperGenius CONFIG QUIET)
+    if(NOT SuperGenius_FOUND)
+        set(SuperGenius_DIR "${SUPERGENIUS_BUILD_DIR}" CACHE PATH "")
+        find_package(SuperGenius CONFIG QUIET)
+    endif()
+    
+    if(SuperGenius_FOUND)
+        message(STATUS "SuperGenius: ${SUPERGENIUS_BUILD_DIR}")
+    else()
+        message(STATUS "SuperGenius cmake config not found — GeniusSDK may have missing dependencies")
+    endif()
+else()
+    message(STATUS "SuperGenius not configured — GeniusSDK targets may have unresolved dependencies")
+endif()
+
+# --------------------------------------------------------------------------
+# GeniusSDK (depends on SuperGenius for sgns::genius_node and other targets)
+# --------------------------------------------------------------------------
+if(GENIUS_SDK_BUILD_DIR AND NOT "${GENIUS_SDK_BUILD_DIR}" STREQUAL "")
     set(GeniusSDK_DIR "${GENIUS_SDK_BUILD_DIR}/GeniusSDK/lib/cmake/GeniusSDK/" CACHE PATH "GeniusSDK cmake config")
     find_package(GeniusSDK CONFIG QUIET)
     if(NOT GeniusSDK_FOUND)

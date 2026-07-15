@@ -25,7 +25,7 @@ namespace
     std::mutex g_mutex;
     std::unique_ptr<sgns::neoswarm::api::ApiServer> g_server;
 
-    char* AllocCopy( const std::string& src )
+    char* AllocCopy( const std::string_view src )
     {
         const auto len = src.size();
         auto* dst = static_cast<char*>( std::malloc( len + 1 ) );
@@ -89,7 +89,7 @@ namespace
         std::lock_guard<std::mutex> lock( g_mutex );
         if ( !g_server )
         {
-            return kStatusJsonStub;
+            return std::string( kStatusJsonStub );
         }
 
         nlohmann::json j;
