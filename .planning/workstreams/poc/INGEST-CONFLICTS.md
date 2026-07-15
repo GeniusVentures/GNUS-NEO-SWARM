@@ -1,6 +1,6 @@
 ## Conflict Detection Report
 
-Generated: 2026-06-18 | Mode: merge | Precedence: ADR > SPEC > PRD > DOC
+Generated: 2026-06-18 | Updated: 2026-07-02 | Mode: merge | Precedence: ADR > SPEC > PRD > DOC
 
 ---
 
@@ -139,3 +139,41 @@ No ADR or PRD documents were present in the ingest set, so no ADR-vs-X or PRD-ov
 No UNKNOWN/low-confidence classifications were found -- all 16 docs carry high or medium confidence with unambiguous type assignments.
 
 The existing Architecture.md in .planning/ is a negligible stub. No existing locked decisions, requirements, or constraints needed checking against (merge mode with empty existing context).
+
+---
+
+## 2026-07-02 Update — Distillation Strategy Ingest
+
+**Ingested:** `GNUS-NEO-SWARM/.planning/distillation-process.md` (DOC, high confidence)
+**Doc count:** 16 → 17 (added 1 DOC)
+
+### BLOCKERS (0 new, 15 unchanged)
+
+No new blockers. The 15 existing navigational cross-ref cycles are unchanged by the distillation strategy document.
+
+### WARNINGS (1)
+
+[WARNING] Architecture docs need distillation strategy cross-references
+  Found: 7 docs/architecture/*.md files are directly implicated by the distillation strategy but lack distillation-aware sections
+  Impact: Without updates, the architecture docs describe the system's structure but not HOW the system learns from its own operation (the continuous self-improvement loop)
+  Files and update scopes:
+    - docs/architecture/03-model-and-router.md → Add distillation role taxonomy to ELM section
+    - docs/architecture/13-eggroll-swarm-retraining.md → Add behavioral dataset schema to EGGROLL job spec
+    - docs/architecture/16-ultra-fp4-format.md → Add distillation-aware encode path note
+    - docs/architecture/11-distributed-swarm-thinking-context.md → Cross-ref distillation dataset schemas
+    - docs/architecture/04-reputation-consensus.md → Add consensus-as-training-data note
+    - docs/architecture/06-agentic-memory-layer.md → Add memory-selection dataset note
+    - docs/architecture/14-cognitive-retaining-system.md → Cross-ref continuous learning loop
+  → Accept as deferred doc updates (not blockers for poc workstream execution)
+
+### INFO (3)
+
+[INFO] WARNING-01 (Adapter vs Standalone) RESOLVED
+  Note: PROJECT.md Decision 1 (2026-06-18) locked in adapter-based specialist architecture. Distillation strategy §14 ("Adapter First") directly reinforces this.
+
+[INFO] WARNING-02 (Quantization Policy) RESOLVED
+  Note: PROJECT.md Decision 2 (2026-06-18) defined per-specialist quantization policy. Distillation strategy §13 ("Quantization-Aware Distillation") directly reinforces this.
+
+[INFO] Distillation strategy aligns with all 3 locked PROJECT.md decisions
+  Note: §14 Adapter First → Decision 1; §13 Quantization-Aware → Decision 2; §12 Continuous Self-Improvement scope matches Decision 3 boundary.
+  No contradictions with any existing locked decisions, requirements, or constraints.

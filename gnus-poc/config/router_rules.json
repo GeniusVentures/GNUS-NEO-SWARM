@@ -1,0 +1,258 @@
+{
+  "states": [
+    {
+      "name": "pre_classify"
+    },
+    {
+      "name": "keyword_match"
+    },
+    {
+      "name": "regex_match"
+    },
+    {
+      "name": "syntax_density"
+    },
+    {
+      "name": "select_specialist"
+    },
+    {
+      "name": "fallback_chain"
+    },
+    {
+      "name": "classified"
+    }
+  ],
+  "transitions": [
+    {
+      "trigger": "begin_keyword",
+      "source": "pre_classify",
+      "dest": "keyword_match",
+      "conditions": [],
+      "unless": [],
+      "actions": []
+    },
+    {
+      "trigger": "matched_keywords",
+      "source": "keyword_match",
+      "dest": "select_specialist",
+      "conditions": [
+        "confidence_above_threshold"
+      ],
+      "unless": [],
+      "actions": [
+        "set_specialist_from_match"
+      ]
+    },
+    {
+      "trigger": "no_match",
+      "source": "keyword_match",
+      "dest": "regex_match",
+      "conditions": [],
+      "unless": [],
+      "actions": []
+    },
+    {
+      "trigger": "matched_regex",
+      "source": "regex_match",
+      "dest": "select_specialist",
+      "conditions": [
+        "confidence_above_threshold"
+      ],
+      "unless": [],
+      "actions": [
+        "set_specialist_from_match"
+      ]
+    },
+    {
+      "trigger": "no_match",
+      "source": "regex_match",
+      "dest": "syntax_density",
+      "conditions": [],
+      "unless": [],
+      "actions": []
+    },
+    {
+      "trigger": "matched_density",
+      "source": "syntax_density",
+      "dest": "select_specialist",
+      "conditions": [
+        "confidence_above_threshold"
+      ],
+      "unless": [],
+      "actions": [
+        "set_specialist_from_match"
+      ]
+    },
+    {
+      "trigger": "no_match",
+      "source": "syntax_density",
+      "dest": "fallback_chain",
+      "conditions": [],
+      "unless": [],
+      "actions": []
+    },
+    {
+      "trigger": "fallback_selected",
+      "source": "fallback_chain",
+      "dest": "select_specialist",
+      "conditions": [],
+      "unless": [],
+      "actions": [
+        "set_specialist_from_match"
+      ]
+    },
+    {
+      "trigger": "finalise",
+      "source": "select_specialist",
+      "dest": "classified",
+      "conditions": [],
+      "unless": [],
+      "actions": [
+        "log_classification"
+      ]
+    },
+    {
+      "trigger": "finalise",
+      "source": "fallback_chain",
+      "dest": "classified",
+      "conditions": [],
+      "unless": [],
+      "actions": [
+        "log_classification"
+      ]
+    }
+  ],
+  "initial": "pre_classify",
+  "rules": [
+    {
+      "name": "code_detection",
+      "priority": 10,
+      "triggers": [
+        {
+          "type": "keyword",
+          "patterns": [
+            "def ",
+            "class ",
+            "import ",
+            "```",
+            "function ",
+            "const "
+          ]
+        },
+        {
+          "type": "syntax_density",
+          "threshold": 0.3,
+          "chars": [
+            "{",
+            "}",
+            "(",
+            ")",
+            ";",
+            "=",
+            "=>",
+            ":"
+          ]
+        }
+      ],
+      "action": "select_specialist",
+      "specialist": "code",
+      "confidence_threshold": 0.6,
+      "fallback": "encyclopedic"
+    },
+    {
+      "name": "math_detection",
+      "priority": 9,
+      "triggers": [
+        {
+          "type": "syntax_density",
+          "threshold": 0.3,
+          "chars": [
+            "0",
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7",
+            "8",
+            "9",
+            "+",
+            "-",
+            "*",
+            "/",
+            "=",
+            "^"
+          ]
+        },
+        {
+          "type": "keyword",
+          "patterns": [
+            "solve",
+            "equation",
+            "derivative",
+            "integral",
+            "theorem"
+          ]
+        }
+      ],
+      "action": "select_specialist",
+      "specialist": "qa_technical",
+      "confidence_threshold": 0.6,
+      "fallback": "encyclopedic"
+    },
+    {
+      "name": "medical_detection",
+      "priority": 8,
+      "triggers": [
+        {
+          "type": "keyword",
+          "patterns": [
+            "diagnosis",
+            "symptom",
+            "treatment",
+            "patient",
+            "disease",
+            "medication"
+          ]
+        }
+      ],
+      "action": "select_specialist",
+      "specialist": "medical",
+      "confidence_threshold": 0.6,
+      "fallback": "encyclopedic"
+    },
+    {
+      "name": "patent_detection",
+      "priority": 7,
+      "triggers": [
+        {
+          "type": "keyword",
+          "patterns": [
+            "patent",
+            "claims ",
+            "prior art",
+            "invention",
+            "USPTO"
+          ]
+        }
+      ],
+      "action": "select_specialist",
+      "specialist": "patents",
+      "confidence_threshold": 0.6,
+      "fallback": "encyclopedic"
+    },
+    {
+      "name": "default_encyclopedic",
+      "priority": 0,
+      "triggers": [
+        {
+          "type": "always_match"
+        }
+      ],
+      "action": "select_specialist",
+      "specialist": "encyclopedic",
+      "confidence_threshold": 0.0
+    }
+  ]
+}

@@ -72,6 +72,8 @@ Your default mode is “tiny, surgical insertion into existing code”.
 - Always make sure to only use C++17 features and below.
     - For instance boost::coroutines only work in C++20, do NOT use it.
     - Make sure not to use other C++ versions' features above C++17
+      
+- MULTI-REPO RULES: Every Bash call starts a FRESH shell at the workspace root - cd never persists between tool calls. Never assume your cwd. Always prefix commands with `cd <submodule-path> &&` or use `git -C <path>`. Before any work, read .planning/SUBREPOS.md to find which submodule and which .planning/ directory owns the current workstream. Never write planning artifacts to the root .planning/ for submodule workstreams.
 
 ## Build Commands
 

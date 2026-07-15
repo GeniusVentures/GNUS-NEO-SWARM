@@ -4,6 +4,9 @@
     <mapping directory="$PROJECT_DIR$/.." vcs="Git" />
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/GQHSM" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/GQHSM/StateProto" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/GQHSM/qf4net" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/build" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../gendoc-template" vcs="Git" />
   </component>
 </project>

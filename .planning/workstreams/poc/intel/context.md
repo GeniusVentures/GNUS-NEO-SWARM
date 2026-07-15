@@ -553,3 +553,97 @@ Drives Targeted Retraining via weight adjustments, adapter updates, critic influ
 Personalized reasoning evolution, bias-aware critical thinking, non-echo-chamber cognition, continuous improvement without full retraining, efficient deployment on low-end GPU devices. Transforms static inference into dynamic, self-improving cognitive process.
 
 ---
+
+## Distillation Strategy — System-Level Cognitive Distillation
+
+**Source:** `GNUS-NEO-SWARM/.planning/distillation-process.md` (DOC, high confidence, ingested 2026-07-02)
+
+### Core Philosophy
+
+"Do not distill a model. Distill an entire cognitive system." The teacher demonstrates planning, verification, tool usage, routing, memory selection, consensus behavior, and synthesis — every artifact is potentially training data.
+
+### Design Principles (15 total)
+
+#### 1. Multiple Teacher Models
+Avoid dependence on any single foundation model. Classify teachers by strengths:
+- **Coding**: DeepSeek-V4-Pro
+- **Reasoning**: GLM-5.2
+- **General knowledge**: Qwen
+- **Math**: DeepSeek, OpenAI, Gemini (cost-justified)
+- **Creative**: Claude, GLM
+- **Long context**: GLM
+- **Tool use**: Claude, GPT
+
+Pipeline chooses teacher automatically. Teacher quality must be benchmark-driven, not vendor-driven.
+
+#### 2. Distill Behaviors (Not Just Q&A)
+Collect full interaction traces: Question → Planning → Tool Calls → Verification → Corrections → Final Answer. These become separate datasets: `planner.jsonl`, `verifier.jsonl`, `tool_calls.jsonl`, `routing.jsonl`, `memory_selection.jsonl`, `synthesis.jsonl`, `formatter.jsonl`.
+
+#### 3. Role-Based Distillation
+Each specialist learns different objectives:
+- **Planner**: decomposition, ordering, budgeting, routing
+- **Verifier**: contradiction detection, arithmetic verification, citation checking, code review
+- **Synthesizer**: merge outputs, remove hallucinations, confidence weighting
+- **Formatter**: schema, markdown, JSON, XML, API responses
+- **Code specialist**: patches, refactoring, debugging, optimization
+
+**Constraint**: Do not mix these datasets.
+
+#### 4. Objective vs Subjective Knowledge
+Separate datasets into:
+- **Objective**: facts, math, code, API, protocols — affect factual reasoning
+- **Subjective**: tone, style, personality, creativity, conversation — train adapters only
+
+#### 5. Distill Routing Decisions
+Every teacher invocation logs: selected teacher, reason, confidence, cost, latency, success, fallbacks. This becomes routing training data. Future routers learn from previous routing decisions.
+
+#### 6. Distill Verification
+Capture: teacher answer → verifier corrections → accepted/rejected changes → confidence. Trains future verifier specialists.
+
+#### 7. Distill Memory Selection
+Train: which memories were selected, which were ignored, why, future usefulness. Bridge Blocks become training examples.
+
+#### 8. Distill Consensus
+Swarm execution generates Expert A/B/C outputs plus the Consensus result. These become supervised examples. Future models learn consensus directly.
+
+#### 9. Distill Failure
+Failures are premium training data. Store: hallucinations, incorrect code, failed reasoning, bad routing, incorrect tools, verification catches. Often more valuable than successful generations.
+
+#### 10. Benchmark Every Specialist
+Each specialist owns separate benchmarks — never average them together:
+- **Code**: HumanEval, SWE, LiveCodeBench
+- **Math**: MATH, AIME, GSM8K
+- **Medical**: MedQA, BioASQ
+- **Finance**: Financial QA
+- **General**: MMLU, GPQA
+
+#### 11. Cost-Optimized Teacher Selection
+Prefer: `highest benchmark score / total cost` over `highest benchmark score`. The cheapest teacher producing equivalent outputs wins.
+
+#### 12. Continuous Self-Improvement
+Every production interaction can become training, verification, routing, memory, and consensus examples — subject to privacy policy. Production becomes continuous distillation.
+
+#### 13. Quantization-Aware Distillation
+Distill directly into FP16, INT8, FP8, FP4, Ultra-FP4 targets rather than training FP16 first. Teacher outputs reused to recover quality after each quantization stage.
+
+#### 14. Adapter First (Default Strategy)
+**LOCKED ALIGNMENT with PROJECT.md Decision 1:** Semantic Core + LoRA adapters instead of hundreds of independent models. Only create independent specialists when justified by benchmark gains.
+
+#### 15. Everything Produces Training Data
+Every pipeline stage emits reusable datasets: routing, planning, retrieval, memory, verification, consensus, formatting, tool use, streaming revisions, final answers. Nothing discarded — storage is cheaper than regeneration.
+
+### Impact on Existing Architecture Docs
+
+The distillation strategy directly cross-references these `docs/architecture/` files that may need updating:
+
+| Architecture Doc | Distillation Implication | Update Needed? |
+|-----------------|------------------------|----------------|
+| **03-model-and-router.md** | ELM specialist types map to distillable roles (§3); router decisions logged as training data (§5) | Add distillation role taxonomy |
+| **13-eggroll-swarm-retraining.md** | EGGROLL is the mechanism; distillation strategy defines WHAT to capture during retraining cycles | Add behavioral dataset schema to EGGROLL job spec |
+| **16-ultra-fp4-format.md** | Quantization-aware distillation (§13) directly targets SGFP4 format; teacher outputs reused per quantization stage | Add distillation-aware encode path note |
+| **11-distributed-swarm-thinking-context.md** | Specialist taxonomy maps to distillation roles; thinking trace schema overlaps with behavioral datasets (§2) | Cross-ref distillation dataset schemas |
+| **04-reputation-consensus.md** | Consensus outputs become supervised training data (§8); verifier corrections feed reputation updates | Add consensus-as-training-data note |
+| **06-agentic-memory-layer.md** | Memory selection logs become training data (§7); Bridge Blocks are training examples | Add memory-selection dataset note |
+| **14-cognitive-retaining-system.md** | Continuous self-improvement (§12) and failure capture (§9) align with HCTS targeted retraining | Cross-ref continuous learning loop |
+
+---

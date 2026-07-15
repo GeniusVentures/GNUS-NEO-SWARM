@@ -1,0 +1,16 @@
+{
+  "source_path": "GNUS-NEO-SWARM/.planning/distillation-process.md",
+  "type": "DOC",
+  "confidence": "high",
+  "title": "GNUS.ai Distillation Strategy — Key Architectural Takeaways",
+  "scope_summary": "15 design principles for system-level cognitive distillation: multi-teacher selection, behavioral capture, role-based datasets, objective/subjective separation, routing/verification/memory/consensus/failure distillation, benchmark-per-specialist, cost-optimized teacher selection, continuous self-improvement, quantization-aware distillation, adapter-first architecture, and the principle that every pipeline stage produces reusable training data.",
+  "cross_references": [
+    "docs/architecture/03-model-and-router.md (ELM specialists, router design)",
+    "docs/architecture/13-eggroll-swarm-retraining.md (EGGROLL evolutionary optimization)",
+    "docs/architecture/14-cognitive-retaining-system.md (targeted retraining, continuous learning)",
+    "docs/architecture/16-ultra-fp4-format.md (quantization format targets)",
+    "docs/architecture/11-distributed-swarm-thinking-context.md (specialist taxonomy)",
+    "docs/architecture/04-reputation-consensus.md (consensus mechanism)",
+    "docs/architecture/06-agentic-memory-layer.md (memory selection, bridge blocks)"
+  ]
+}
