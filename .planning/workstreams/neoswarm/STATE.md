@@ -75,7 +75,7 @@ Post-production cognitive system evolution. Defined in ROADMAP.md, referencing `
 
 | Phase | SPEC | PLAN | Status |
 |-------|------|------|--------|
-| 7. ELMs + Router | ✗ | ✗ | Not started |
+| 7. ELMs + Router | ✗ | ✓ | Planned (6 plans) |
 | 8. GAML Memory | ✗ | ✗ | Not started |
 | 9. Swarm Networking | ✗ | ✗ | Not started |
 | 10. AI Safety + Secure Agents | ✗ | ✗ | Not started |
