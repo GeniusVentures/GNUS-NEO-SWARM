@@ -11,7 +11,7 @@ requires:
 provides:
   - "ELMRole enum (10 values: Planner=0 through Science=9)"
   - "ELMContext, ChainStep, ExecutionChain structs in common/types.hpp"
-  - "ExecutionMode::Chain=3 execution mode"
+  - "ExecutionMode::ElmAssisted=3 execution mode"
   - "IELM abstract interface with 6 pure virtuals (GetName, GetRole, IsLoaded, Load, Process, GetConfidence)"
   - "neoswarm_elm CMake STATIC library target"
   - "PromptFeatures extensions: has_grounding_request_, has_formatting_request_"
@@ -38,7 +38,7 @@ key-files:
     - "src/elm/CMakeLists.txt — neoswarm_elm STATIC library target"
     - "src/elm/elm_stub.cpp — Wave 1 CMake compilation stub (removed in Wave 2)"
   modified:
-    - "src/common/types.hpp — ELMRole, ELMContext, ChainStep, ExecutionChain, Chain=3, PromptFeatures extensions"
+    - "src/common/types.hpp — ELMRole, ELMContext, ChainStep, ExecutionChain, ElmAssisted=3, PromptFeatures extensions"
     - "src/CMakeLists.txt — add_subdirectory for elm/"
 
 key-decisions:
@@ -75,7 +75,7 @@ completed: 2026-07-16
 ## Accomplishments
 
 - `ELMRole` enum with 10 distinct values (Planner=0 through Science=9) in `common/types.hpp`
-- `ExecutionMode::Chain=3` added for multi-step ELM chain execution
+- `ExecutionMode::ElmAssisted=3` added for multi-step ELM chain execution
 - `ELMContext` struct carrying original task, last output, step confidences, and grounding facts
 - `ChainStep` + `ExecutionChain` flat-list chain representation with reasoning string
 - `IELM` abstract interface with 6 pure virtuals including `GetRole()` and `Process(input, ELMContext)`
@@ -92,7 +92,7 @@ Each task was committed atomically:
 
 ## Files Created/Modified
 
-- `src/common/types.hpp` — Added ELMRole enum, ELMContext/ChainStep/ExecutionChain structs, Chain=3 mode, PromptFeatures grounding/formatting fields
+- `src/common/types.hpp` — Added ELMRole enum, ELMContext/ChainStep/ExecutionChain structs, ElmAssisted=3 mode, PromptFeatures grounding/formatting fields
 - `src/elm/i_elm.hpp` — IELM abstract interface (6 pure virtuals, sgns::neoswarm::elm namespace)
 - `src/elm/CMakeLists.txt` — neoswarm_elm STATIC library (PUBLIC link neoswarm_common)
 - `src/elm/elm_stub.cpp` — Wave 1 compilation stub (removed in Wave 2 when real .cpp files arrive)

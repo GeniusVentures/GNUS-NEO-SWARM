@@ -23,7 +23,7 @@ namespace sgns::neoswarm
         SingleNode = 0, ///< Mode 1 — Core LLM only, fast
         Specialist = 1, ///< Mode 2 — Core + Grammar/Math, sequential
         Swarm = 2,      ///< Mode 3 — Multiple nodes, weighted consensus
-        Chain = 3       ///< Mode 4 — Multi-step ELM chain (Phase 7+)
+        ElmAssisted = 3 ///< Mode 2 (doc 07 §9.2) — ELM-assisted sequential chain (Phase 7+)
     };
 
     // -----------------------------------------------------------------------

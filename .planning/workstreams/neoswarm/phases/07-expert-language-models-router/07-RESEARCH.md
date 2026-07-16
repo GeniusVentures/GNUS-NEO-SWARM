@@ -305,13 +305,13 @@ Process(task)
       Swarm      → RunSwarm(t, route)
 ```
 
-**Integration plan:** Add a new `ExecutionMode::Chain` value. The ELM chain path replaces the single-specialist path for multi-step routing. The switch becomes:
+**Integration plan:** Add a new `ExecutionMode::ElmAssisted` value. The ELM chain path replaces the single-specialist path for multi-step routing. The switch becomes:
 ```cpp
-case ExecutionMode::Chain:
+case ExecutionMode::ElmAssisted:
     return RunELMChain(t, route);
 ```
 
-Alternatively, keep `ExecutionMode::Specialist` for single-step (backward compat), and add `ExecutionMode::Chain` for multi-step. Decision D-09..13 says `RunELMChain` is a new method. The `ExecutionMode` enum in `common/types.hpp:20-25` needs a new value.
+Alternatively, keep `ExecutionMode::Specialist` for single-step (backward compat), and add `ExecutionMode::ElmAssisted` for multi-step. Decision D-09..13 says `RunELMChain` is a new method. The `ExecutionMode` enum in `common/types.hpp:20-25` needs a new value.
 
 ### Q3: What RuleBasedRouter + PromptAnalyzer Already Extract
 
@@ -507,7 +507,7 @@ New tests will use `neoswarm_test(test_elm elm/test_elm.cpp "neoswarm_elm;neoswa
 
 **Stub/graceful degradation:** `MNNInferenceEngine::Infer()` returns `"[stub response — no model loaded]"` when uninitialized (mnn_inference_engine.cpp:250-257). `GrammarSpecialist::Process()` returns input unchanged when not loaded (grammar_specialist.cpp:60-63). ELMs must follow the same fail-close pattern.
 
-**ExecutionMode enum collision risk:** Adding `Chain = 3` to `ExecutionMode` (types.hpp:20-25) is backward-safe — existing switch statements in Process() will hit the `default` case if a chain mode arrives before the handler is added. The planner must ensure `RunELMChain` is added before `Chain` mode is produced by the router.
+**ExecutionMode enum collision risk:** Adding `ElmAssisted = 3` to `ExecutionMode` (types.hpp:20-25) is backward-safe — existing switch statements in Process() will hit the `default` case if a chain mode arrives before the handler is added. The planner must ensure `RunELMChain` is added before `Chain` mode is produced by the router.
 
 ## Environment Availability
 
@@ -555,9 +555,9 @@ Step 2.6: AUDITED — all dependencies are code-only (no new external tools, ser
 ## Common Pitfalls
 
 ### Pitfall 1: ExecutionMode Enum Collision
-**What goes wrong:** Adding `ExecutionMode::Chain = 3` before the `Process()` switch handles it crashes or silently falls through to `InternalError` return.
+**What goes wrong:** Adding `ExecutionMode::ElmAssisted = 3` before the `Process()` switch handles it crashes or silently falls through to `InternalError` return.
 **Why it happens:** `ExecuteMode::Chain` could be produced by the router before `RunELMChain` is implemented.
-**How to avoid:** Add the `case ExecutionMode::Chain:` branch in Process() FIRST, then update the router/chain builder to produce chain mode. Or use a temporary route: during Wave 1, chain builder produces single-step chains that use the existing `Specialist` mode path.
+**How to avoid:** Add the `case ExecutionMode::ElmAssisted:` branch in Process() FIRST, then update the router/chain builder to produce chain mode. Or use a temporary route: during Wave 1, chain builder produces single-step chains that use the existing `Specialist` mode path.
 **Warning signs:** `InternalError` responses when chain mode is auto-selected.
 
 ### Pitfall 2: Shared MNNInferenceEngine State Races (Does Not Apply)
@@ -638,7 +638,7 @@ struct ELMContext {
 | # | Claim | Section | Risk if Wrong |
 |---|-------|---------|---------------|
 | A1 | `MNNInferenceEngine::mnn_llm_->response()` is safe for sequential calls on the same instance (no internal state corruption between calls) | Q8 Threading | Chain execution would produce garbled output or crash. Mitigation: MockEngine for tests; monitoring in integration tests |
-| A2 | Adding `ExecutionMode::Chain = 3` to the enum does not break binary compatibility with existing compiled tests | Q2 Integration | Test binaries would need recompilation. Mitigation: enum already has 3 values; adding a 4th is standard C++ and wire-safe for this local-only project |
+| A2 | Adding `ExecutionMode::ElmAssisted = 3` to the enum does not break binary compatibility with existing compiled tests | Q2 Integration | Test binaries would need recompilation. Mitigation: enum already has 3 values; adding a 4th is standard C++ and wire-safe for this local-only project |
 | A3 | Science ELM ships as shared-backbone-only (no trained model exists per gnus-poc scope boundary) | ELM-02 Domain ELMs | If a Science model appears, config already supports per-ELM model paths — just add to `elms` JSON |
 | A4 | `PromptFeatures` struct has no external serialization dependencies — adding fields is backward-safe | Q3 PromptAnalyzer | Risk is minimal; `PromptFeatures` is a plain struct used only in-memory within the router pipeline |
 
@@ -647,7 +647,7 @@ struct ELMContext {
 1. **Should Chain execution replace Specialist mode entirely, or coexist?**
    - What we know: D-09 says `RunELMChain` is new. Current `RunSpecialist` is a 2-step hardcoded path (Core → Specialist). A chain `[PrimaryDraft, Specialist]` achieves the same result via the chain executor.
    - What's unclear: Whether to remove `RunSpecialist` or keep as optimization shortcut for single-specialist chains.
-   - Recommendation: Keep `ExecutionMode::Specialist` for backward compat in Phase 7; route single-specialist tasks through it. Use `ExecutionMode::Chain` only for multi-step (3+) chains. Deprecate `Specialist` mode in Phase 10.
+   - Recommendation: Keep `ExecutionMode::Specialist` for backward compat in Phase 7; route single-specialist tasks through it. Use `ExecutionMode::ElmAssisted` only for multi-step (3+) chains. Deprecate `Specialist` mode in Phase 10.
 
 2. **Per-step timeout: what default value?**
    - What we know: D-05/D-11 reference chain-step timeout as OpenCode's discretion. No existing chain timeout infrastructure.

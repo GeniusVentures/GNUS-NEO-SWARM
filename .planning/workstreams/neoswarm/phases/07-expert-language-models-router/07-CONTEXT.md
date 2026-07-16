@@ -111,6 +111,7 @@ Deploy 7 role-based ELMs (Planner, Primary Draft, Verifier, Arbiter, Refiner/For
 <deferred>
 ## Deferred Ideas
 
+- PlannerELM → Planner **+ Memory Governor** extension (doc 11 §16.8.1.1 defines the full role as "Planner and Memory Governor Specialist"; the memory-governor half — retrieval prefiltering, Bridge Block selection, temporal resolution — requires GAML) — Phase 8. PlannerELM's Doxygen header must note this extension point so the missing half is not "fixed" prematurely.
 - Multi-domain parallel dispatch + arbiter-mediated synthesis of parallel outputs — Phase 9 (swarm)
 - Learned classifier router — Phase 7.5 / doc 03 §6.3 stage 2
 - Cognitive planner producing full execution graphs — Phase 8+ (needs GAML memory)

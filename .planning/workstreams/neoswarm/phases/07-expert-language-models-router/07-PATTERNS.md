@@ -617,7 +617,7 @@ enum class ELMRole : uint8_t
 **Add Chain to ExecutionMode** (line 23, after `Swarm = 2`):
 ```cpp
     Swarm = 2,  ///< Mode 3 — Multiple nodes, weighted consensus
-    Chain = 3   ///< Mode 4 — Multi-step ELM chain (Phase 7+)
+    ElmAssisted = 3   ///< Mode 2 (doc 07 §9.2) — ELM-assisted sequential chain (Phase 7+)
 ```
 
 **Struct pattern** (lines 41-49 for Task):
@@ -825,7 +825,7 @@ outcome::result<InferenceResponse> ApiServer::RunELMChain( const Task& task, con
     InferenceResponse resp;
     resp.m_output = currentOutput;
     resp.m_taskId = task.m_id;
-    resp.m_modeUsed = ExecutionMode::Chain;
+    resp.m_modeUsed = ExecutionMode::ElmAssisted;
     resp.m_routeUsed = route.m_target;
     resp.m_totalLatencyMs = total_ms;
     resp.m_success = true;
@@ -837,7 +837,7 @@ outcome::result<InferenceResponse> ApiServer::RunELMChain( const Task& task, con
 
 **Process() switch addition** (api_server.cpp:448-456, add case for Chain):
 ```cpp
-    case ExecutionMode::Chain:
+    case ExecutionMode::ElmAssisted:
         return RunELMChain( t, route );
 ```
 
@@ -1104,9 +1104,9 @@ TEST(ChainStep, DefaultConstructor_HasReasonableDefaults)
 ```cpp
 TEST(ExecutionMode, ChainValue_IsDistinct)
 {
-    EXPECT_NE( static_cast<int>( ExecutionMode::Chain ), static_cast<int>( ExecutionMode::SingleNode ) );
-    EXPECT_NE( static_cast<int>( ExecutionMode::Chain ), static_cast<int>( ExecutionMode::Specialist ) );
-    EXPECT_NE( static_cast<int>( ExecutionMode::Chain ), static_cast<int>( ExecutionMode::Swarm ) );
+    EXPECT_NE( static_cast<int>( ExecutionMode::ElmAssisted ), static_cast<int>( ExecutionMode::SingleNode ) );
+    EXPECT_NE( static_cast<int>( ExecutionMode::ElmAssisted ), static_cast<int>( ExecutionMode::Specialist ) );
+    EXPECT_NE( static_cast<int>( ExecutionMode::ElmAssisted ), static_cast<int>( ExecutionMode::Swarm ) );
 }
 ```
 
@@ -1124,12 +1124,12 @@ TEST_F( PipelineTest, ChainMode_BasicExecution )
 {
     Task task;
     task.m_prompt = "Solve this complex problem: what is 847 * 963 + 42?";
-    task.m_mode = ExecutionMode::Chain;
+    task.m_mode = ExecutionMode::ElmAssisted;
     task.m_maxTokens = 64;
 
     auto res = server_->Process( task );
     ASSERT_TRUE( res.has_value() );
-    EXPECT_EQ( res.value().m_modeUsed, ExecutionMode::Chain );
+    EXPECT_EQ( res.value().m_modeUsed, ExecutionMode::ElmAssisted );
     EXPECT_FALSE( res.value().m_taskId.empty() );
 }
 
@@ -1137,12 +1137,12 @@ TEST_F( PipelineTest, ChainMode_GeneralPrompt_SingleStep )
 {
     Task task;
     task.m_prompt = "Tell me a short story.";
-    task.m_mode = ExecutionMode::Chain;
+    task.m_mode = ExecutionMode::ElmAssisted;
     task.m_maxTokens = 32;
 
     auto res = server_->Process( task );
     ASSERT_TRUE( res.has_value() );
-    EXPECT_EQ( res.value().m_modeUsed, ExecutionMode::Chain );
+    EXPECT_EQ( res.value().m_modeUsed, ExecutionMode::ElmAssisted );
 }
 ```
 
