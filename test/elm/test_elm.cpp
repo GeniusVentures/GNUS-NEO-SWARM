@@ -4,9 +4,8 @@
  * @date       2026-07-16
  */
 
+#include "elm/domain_elm.hpp"
 #include "elm/role_elm.hpp"
-
-// #include "elm/domain_elm.hpp" — added in Task 2 RED phase
 
 #include <gtest/gtest.h>
 
@@ -121,4 +120,66 @@ TEST( RoleELM, Process_NullEngine_ReturnsInputUnchanged )
     ASSERT_TRUE( result.has_value() );
     EXPECT_EQ( result.value(), "hello" );
     EXPECT_FLOAT_EQ( elm.GetConfidence(), 0.0f );
+}
+
+// -----------------------------------------------------------------------
+// DomainELM tests
+// -----------------------------------------------------------------------
+
+TEST( DomainELM, Process_SharedBackbone_ReturnsResponse )
+{
+    auto engine = std::make_shared<MockEngine>();
+    elm::DomainELM elm( ELMRole::Code, engine );
+    ASSERT_TRUE( elm.Load( "" ).has_value() );
+    ASSERT_TRUE( elm.IsLoaded() );
+
+    ELMContext ctx;
+    ctx.m_originalTask = "write a function";
+    auto result = elm.Process( "int main()", ctx );
+    ASSERT_TRUE( result.has_value() );
+    EXPECT_NE( result.value().find( "int main" ), std::string::npos );
+    EXPECT_GT( elm.GetConfidence(), 0.0f );
+}
+
+TEST( DomainELM, Process_NoEngine_ReturnsInputUnchanged )
+{
+    elm::DomainELM elm( ELMRole::Code, nullptr );
+
+    ELMContext ctx;
+    auto result = elm.Process( "some code", ctx );
+    ASSERT_TRUE( result.has_value() );
+    EXPECT_EQ( result.value(), "some code" );
+    EXPECT_FLOAT_EQ( elm.GetConfidence(), 0.0f );
+}
+
+TEST( DomainELM, GetRole_ReturnsConfiguredRole )
+{
+    auto engine = std::make_shared<MockEngine>();
+    elm::DomainELM elm( ELMRole::Math, engine );
+    EXPECT_EQ( elm.GetRole(), ELMRole::Math );
+}
+
+TEST( DomainELM, IsLoaded_InitiallyFalse )
+{
+    elm::DomainELM elm( ELMRole::Science, nullptr );
+    EXPECT_FALSE( elm.IsLoaded() );
+}
+
+TEST( DomainELM, GetName_ReturnsCorrectName )
+{
+    auto engine = std::make_shared<MockEngine>();
+    elm::DomainELM codeElm( ELMRole::Code, engine );
+    EXPECT_EQ( codeElm.GetName(), "Code" );
+
+    elm::DomainELM mathElm( ELMRole::Math, engine );
+    EXPECT_EQ( mathElm.GetName(), "Math" );
+}
+
+TEST( DomainELM, Load_EmptyPath_UsesSharedEngine )
+{
+    auto engine = std::make_shared<MockEngine>();
+    elm::DomainELM elm( ELMRole::Science, engine );
+    auto result = elm.Load( "" );
+    ASSERT_TRUE( result.has_value() );
+    EXPECT_TRUE( elm.IsLoaded() );
 }

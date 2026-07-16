@@ -1,5 +1,6 @@
 add_library(neoswarm_elm STATIC
     role_elm.cpp
+    domain_elm.cpp
 )
 
 target_include_directories(neoswarm_elm PUBLIC
