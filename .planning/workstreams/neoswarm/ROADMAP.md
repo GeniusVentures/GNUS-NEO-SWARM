@@ -168,7 +168,7 @@ These phases evolve GNUS-NEO-SWARM from a production-hardened single-node infere
 
 ### Phases
 
-- [ ] **Phase 7: Expert Language Models + Router** — Role-based and domain-specific ELM orchestration with rule-based routing
+- [~] **Phase 7: Expert Language Models + Router** — Role-based and domain-specific ELM orchestration with rule-based routing
 - [ ] **Phase 8: Agentic Memory (GAML v1)** — Structured long-term memory with bridge blocks, facts, policies, CRDT convergence
 - [ ] **Phase 9: Swarm Networking + Distributed Execution** — Multi-node execution with reputation-weighted consensus
 - [ ] **Phase 10: AI Safety + Secure Agent Architecture** — Node-local safety, policy profiles, Tool Intermediary boundary
@@ -193,7 +193,7 @@ These phases evolve GNUS-NEO-SWARM from a production-hardened single-node infere
 **Plans:** 6 plans in 6 waves
 
 Plans:
-- [ ] 07-01-PLAN.md — Core types (ELMRole, ELMContext, ExecutionChain) + IELM interface + CMake scaffolding
+- [x] 07-01-PLAN.md — Core types (ELMRole, ELMContext, ExecutionChain) + IELM interface + CMake scaffolding
 - [ ] 07-02-PLAN.md — RoleELM (7 shared-backbone role templates) + DomainELM (Math/Code/Science, dual engine mode)
 - [ ] 07-03-PLAN.md — SpecialistAdapter (legacy Grammar→Refiner, Math→Math) + GroundingELM (knowledge pipeline) + ToolSupportELM (stub)
 - [ ] 07-04-PLAN.md — PromptAnalyzer extension (grounding/formatting features) + ELMChainBuilder (6 heuristic triggers)

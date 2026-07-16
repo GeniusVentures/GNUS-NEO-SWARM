@@ -52,6 +52,12 @@ Requirements for production readiness milestone. Each maps to roadmap phases.
 - [ ] **TEST-03**: Knowledge module tests — FactValidation accuracy, KnowledgeRetrieval relevance
 - [ ] **TEST-04**: Network integration tests — two P2PNode instances exchange a task, ResultAggregation timeout
 
+### ELM (Phase 7 Expert Language Models + Router)
+
+- [x] **ELM-03**: ELMRole enum (10 values: Planner=0 through Science=9) + ELMContext struct in common/types.hpp (07-01)
+- [x] **ELM-05**: ChainStep + ExecutionChain structs for flat sequential ELM chains (07-01)
+- [x] **ELM-core**: IELM abstract interface with 6 pure virtuals: GetName, GetRole, IsLoaded, Load, Process(input, ELMContext), GetConfidence (07-01)
+
 ### Network (Promoted from v2)
 
 - [x] **NET-01**: libp2p P2P network with GossipSub pubsub (implemented: `P2PNode` in `src/network/p2p_node.*` — Noise encryption, Yamux multiplexing)
@@ -126,11 +132,14 @@ Which phases cover which requirements. Updated 2026-06-18 after refactor.
 | TEST-03 | Phase 6 | Pending |
 | TEST-04 | Phase 6 | Pending |
 | NET-01 | Phase 2 | ✅ Done (libp2p GossipSub) |
+| ELM-03 | Phase 7 | ✅ Done (07-01) |
+| ELM-05 | Phase 7 | ✅ Done (07-01) |
+| ELM-core | Phase 7 | ✅ Done (07-01) |
 
 **Coverage:**
-- v1 requirements: 27 total (26 original + NET-01 promoted)
-- Done: 16 (59%)
-- Pending: 11 (41%)
+- v1 requirements: 30 total (26 original + NET-01 promoted + 3 ELM Phase 7)
+- Done: 19 (63%)
+- Pending: 11 (37%)
 - Unmapped: 0
 
 ---

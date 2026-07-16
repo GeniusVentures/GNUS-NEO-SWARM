@@ -19,7 +19,7 @@ Progress: [████████░░░░░░░░░░░░░░] 5
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7 (Phase 1: 3 source-complete, + Phase 2: 0)
+- Total plans completed: 8 (Phase 1: 3 source-complete, Phase 7: 1)
 - Refactor work: 22 commits across 6 phases (Phase 1,2a,2b,5,6,7 cleanup)
 
 **By Phase:**
@@ -34,6 +34,7 @@ Progress: [████████░░░░░░░░░░░░░░] 5
 | 6. Testing & Validation | 0/TBD | - | Needs plans |
 
 **Recent Trend:**
+- 2026-07-16: Phase 7 Wave 1 complete — ELM core types, IELM interface, CMake scaffolding (3 tasks, ~5 min)
 - 2026-06-22: Workstream bifurcation — C++ docs moved from root .planning/ into neoswarm/
 - 2026-06-18: Full SuperGenius coding-standards refactor complete — 24 source files, 10 roadmap phases
 - 2026-06-18: .planning/ documentation overhaul — ROADMAP corrected for GeniusSDK/libp2p, REQUIREMENTS re-verified, MLX artifacts purged
@@ -75,7 +76,7 @@ Post-production cognitive system evolution. Defined in ROADMAP.md, referencing `
 
 | Phase | SPEC | PLAN | Status |
 |-------|------|------|--------|
-| 7. ELMs + Router | ✗ | ✓ | Planned (6 plans) |
+| 7. ELMs + Router | ✗ | ✓ | Active (1/6 plans done) |
 | 8. GAML Memory | ✗ | ✗ | Not started |
 | 9. Swarm Networking | ✗ | ✗ | Not started |
 | 10. AI Safety + Secure Agents | ✗ | ✗ | Not started |
@@ -96,6 +97,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-18
-Stopped at: REFACTOR_ROADMAP complete, .planning/ documentation updated, ready for Phase 2 planning
+Last session: 2026-07-16
+Stopped at: Completed 07-01-PLAN.md (ELM core types, IELM interface, CMake scaffolding)
 Resume file: None
