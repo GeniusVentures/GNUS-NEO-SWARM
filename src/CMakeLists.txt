@@ -7,5 +7,6 @@ add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/reputation ${CMAKE_CURRENT_BINARY_DIR
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/knowledge ${CMAKE_CURRENT_BINARY_DIR}/knowledge)
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/router ${CMAKE_CURRENT_BINARY_DIR}/router)
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/specialists ${CMAKE_CURRENT_BINARY_DIR}/specialists)
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/elm ${CMAKE_CURRENT_BINARY_DIR}/elm)
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/network ${CMAKE_CURRENT_BINARY_DIR}/network)
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/api ${CMAKE_CURRENT_BINARY_DIR}/api)

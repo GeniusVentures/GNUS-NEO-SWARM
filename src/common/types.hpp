@@ -10,6 +10,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace sgns::neoswarm
@@ -21,7 +22,8 @@ namespace sgns::neoswarm
     {
         SingleNode = 0, ///< Mode 1 — Core LLM only, fast
         Specialist = 1, ///< Mode 2 — Core + Grammar/Math, sequential
-        Swarm = 2       ///< Mode 3 — Multiple nodes, weighted consensus
+        Swarm = 2,      ///< Mode 3 — Multiple nodes, weighted consensus
+        ElmAssisted = 3 ///< Mode 2 (doc 07 §9.2) — ELM-assisted sequential chain (Phase 7+)
     };
 
     // -----------------------------------------------------------------------
@@ -33,6 +35,23 @@ namespace sgns::neoswarm
         CorePlusMath = 1,
         CorePlusGrammar = 2,
         CorePlusCode = 3 ///< Future
+    };
+
+    // -----------------------------------------------------------------------
+    // ELM roles (doc 03 §5.2.1) — Phase 7
+    // -----------------------------------------------------------------------
+    enum class ELMRole : uint8_t
+    {
+        Planner = 0,      ///< Analyses task, determines execution plan
+        PrimaryDraft = 1, ///< Core draft generation (shared backbone)
+        Verifier = 2,     ///< Reviews outputs for correctness
+        Arbiter = 3,      ///< Resolves conflicts between outputs
+        Refiner = 4,      ///< Polishes formatting, style, grammar
+        Grounding = 5,    ///< Fact-checks against knowledge base
+        ToolSupport = 6,  ///< Tool-call formatting (stub in Phase 7)
+        Math = 7,         ///< Domain ELM — math
+        Code = 8,         ///< Domain ELM — code
+        Science = 9       ///< Domain ELM — science (shared-backbone only)
     };
 
     // -----------------------------------------------------------------------
@@ -87,6 +106,8 @@ namespace sgns::neoswarm
         size_t token_count_ = 0;
         bool has_math_keywords_ = false;
         bool has_grammar_request_ = false;
+        bool has_grounding_request_ = false;    ///< factual verification request detected (Phase 7)
+        bool has_formatting_request_ = false;   ///< structure/style formatting request detected (Phase 7)
     };
 
     // -----------------------------------------------------------------------
@@ -127,6 +148,33 @@ namespace sgns::neoswarm
         std::string m_source;
         std::string m_content;
         float m_relevanceScore = 0.0f;
+    };
+
+    // -----------------------------------------------------------------------
+    // ELM execution context (Phase 7 — doc 03 §5.2.1)
+    // -----------------------------------------------------------------------
+    struct ELMContext
+    {
+        std::string m_originalTask;                                   ///< the user's original prompt
+        std::string m_lastOutput;                                     ///< output of the immediately prior step
+        std::vector<std::pair<ELMRole, float>> m_stepConfidences;     ///< (role, confidence) per completed step
+        std::vector<KnowledgeFact> m_groundingFacts;                  ///< facts from GroundingELM, if any
+    };
+
+    // -----------------------------------------------------------------------
+    // Chain step and execution chain (Phase 7 — doc 03 §6.2)
+    // -----------------------------------------------------------------------
+    struct ChainStep
+    {
+        ELMRole m_role = ELMRole::PrimaryDraft;
+        std::optional<std::string> m_domain; ///< e.g. "math", "code" — for domain ELMs
+    };
+
+    struct ExecutionChain
+    {
+        std::vector<ChainStep> m_steps;
+        std::string m_reasoning;          ///< why this chain was chosen
+        float m_chainConfidence = 0.0f;   ///< builder's confidence in this chain
     };
 
     // -----------------------------------------------------------------------
