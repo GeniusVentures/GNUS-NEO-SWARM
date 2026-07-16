@@ -1,13 +1,11 @@
 /**
  * @file       domain_elm.cpp
- * @brief      DomainELM stub implementation — TDD RED phase
+ * @brief      DomainELM implementation — optional dedicated model with shared-backbone fallback
  * @date       2026-07-16
- *
- * STUB — Process() returns input unchanged with confidence=0.
- * Replaced with full implementation in the GREEN phase.
  */
 
 #include "domain_elm.hpp"
+#include "core/engine/mnn_inference_engine.hpp"
 #include "common/logging.hpp"
 
 #include <string>
@@ -47,42 +45,116 @@ namespace sgns::neoswarm::elm
     }
 
     // -----------------------------------------------------------------------
-    // SelectEngine
+    // SelectEngine — dual-mode: own engine if loaded, shared otherwise
     // -----------------------------------------------------------------------
     core::InferenceEngine* DomainELM::SelectEngine() const noexcept
     {
-        // STUB: always returns nullptr (GREEN phase will implement dual-mode)
-        return nullptr;
+        if ( m_ownsEngine && m_ownEngine )
+        {
+            return m_ownEngine.get();
+        }
+        return m_sharedEngine.get();
     }
 
     // -----------------------------------------------------------------------
-    // Load — STUB (returns error)
+    // Load — dual-mode logic (D-02, D-04)
     // -----------------------------------------------------------------------
-    outcome::result<void> DomainELM::Load( const std::string& /*model_path*/ )
+    outcome::result<void> DomainELM::Load( const std::string& model_path )
     {
-        // STUB: will be replaced in GREEN phase
-        DomainLogger()->warn( "DomainELM::Load — STUB (GREEN phase will implement)" );
-        return outcome::failure( Error::ModelLoadFailed );
+        if ( !model_path.empty() )
+        {
+            // Per D-02: load dedicated model file into own engine
+            m_ownEngine = std::make_unique<core::MNNInferenceEngine>();
+            BOOST_OUTCOME_TRY( m_ownEngine->LoadModel( model_path ) );
+            m_ownsEngine = true;
+            m_loaded = true;
+            DomainLogger()->info( "DomainELM loaded own model: {} ({})", m_name, model_path );
+            return outcome::success();
+        }
+
+        // Per D-01: use shared backbone
+        if ( !m_sharedEngine )
+        {
+            // Per D-04: no engine available — fail
+            DomainLogger()->warn( "DomainELM::Load — no engine available for {}", m_name );
+            return outcome::failure( Error::ModelLoadFailed );
+        }
+
+        // Shared engine is already loaded by ApiServer
+        m_loaded = true;
+        m_ownsEngine = false;
+        DomainLogger()->info( "DomainELM using shared backbone: {}", m_name );
+        return outcome::success();
     }
 
     // -----------------------------------------------------------------------
-    // BuildPrompt — STUB (returns empty)
+    // BuildPrompt — 3 domain-specific [INST] templates
     // -----------------------------------------------------------------------
-    std::string DomainELM::BuildPrompt( const std::string& /*input*/, const ELMContext& /*context*/ ) const
+    std::string DomainELM::BuildPrompt( const std::string& input, const ELMContext& /*context*/ ) const
     {
-        // STUB: will be replaced with domain-specific templates in GREEN phase
-        return "";
+        switch ( m_role )
+        {
+        case ELMRole::Math:
+            return "[INST] You are a Math specialist. Solve the following problem step by step. "
+                   "Show your work. Provide the final answer clearly.\n\n"
+                   "Problem: " +
+                   input + "\n\nSolution: [/INST]";
+
+        case ELMRole::Code:
+            return "[INST] You are a Code specialist. Write clean, correct, well-commented code to solve "
+                   "the following task. "
+                   "Include error handling and edge cases.\n\n"
+                   "Task: " +
+                   input + "\n\nCode: [/INST]";
+
+        case ELMRole::Science:
+            return "[INST] You are a Science specialist. Explain the following scientific concept clearly "
+                   "and accurately. "
+                   "Include relevant principles, evidence, and consensus view where applicable.\n\n"
+                   "Topic: " +
+                   input + "\n\nExplanation: [/INST]";
+
+        default:
+            return "[INST] Respond to the following:\n\n" + input + "\n\nResponse: [/INST]";
+        }
     }
 
     // -----------------------------------------------------------------------
-    // Process — STUB (returns input unchanged, confidence=0)
+    // Process — dual-engine selection + confidence
     // -----------------------------------------------------------------------
-    outcome::result<std::string> DomainELM::Process( const std::string& input, const ELMContext& /*context*/ )
+    outcome::result<std::string> DomainELM::Process( const std::string& input, const ELMContext& context )
     {
-        // STUB: fail-close — return input unchanged with zero confidence
-        DomainLogger()->warn( "DomainELM::Process — STUB (GREEN phase will implement)" );
-        m_lastConfidence = 0.0f;
-        return outcome::success( input );
+        if ( !m_loaded )
+        {
+            DomainLogger()->warn( "DomainELM not loaded — returning input unchanged" );
+            m_lastConfidence = 0.0f;
+            return outcome::success( input );
+        }
+
+        auto* engine = SelectEngine();
+        if ( !engine )
+        {
+            DomainLogger()->warn( "DomainELM::Process — no engine available" );
+            m_lastConfidence = 0.0f;
+            return outcome::success( input );
+        }
+
+        Task task;
+        task.m_id = m_name + "-" + std::to_string( std::hash<std::string>{}( input ) );
+        task.m_prompt = BuildPrompt( input, context );
+        task.m_maxTokens = static_cast<uint32_t>( input.size() + 128 );
+        task.m_temperature = 0.2f;
+
+        auto res = engine->Infer( task );
+        if ( !res.has_value() )
+        {
+            DomainLogger()->warn( "DomainELM inference failed — returning input unchanged" );
+            m_lastConfidence = 0.0f;
+            return outcome::success( input );
+        }
+
+        m_lastConfidence = 1.0f - std::min( res.value().m_perplexity / 10.0f, 1.0f );
+        return outcome::success( res.value().m_output );
     }
 
 } // namespace sgns::neoswarm::elm
