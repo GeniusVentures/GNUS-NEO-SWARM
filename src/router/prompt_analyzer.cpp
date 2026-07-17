@@ -161,6 +161,56 @@ namespace sgns::neoswarm::router
     }
 
     // -----------------------------------------------------------------------
+    // HasGroundingRequest
+    // -----------------------------------------------------------------------
+    bool PromptAnalyzer::HasGroundingRequest( const std::string& prompt ) const
+    {
+        static const std::vector<std::string> kGroundingKeywords = {
+            "is it true", "verify", "according to", "fact check", "factual",
+            "evidence", "source", "citation", "is this correct", "fact-check",
+            "validate", "cross-reference", "confirm that", "is it accurate" };
+
+        std::string lower = prompt;
+        std::transform( lower.begin(), lower.end(), lower.begin(),
+                        []( unsigned char c ) { return std::tolower( c ); } );
+
+        for ( const auto& kw : kGroundingKeywords )
+        {
+            if ( lower.find( kw ) != std::string::npos )
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // -----------------------------------------------------------------------
+    // HasFormattingRequest
+    // -----------------------------------------------------------------------
+    bool PromptAnalyzer::HasFormattingRequest( const std::string& prompt ) const
+    {
+        static const std::vector<std::string> kFormattingKeywords = {
+            "format as", "make this look", "structure this", "organize",
+            "write as", "rewrite in", "convert to", "summarize",
+            "bullet", "outline", "markdown", "json format",
+            "table", "list", "diagram", "flowchart", "presentation",
+            "professional", "polish this", "clean up" };
+
+        std::string lower = prompt;
+        std::transform( lower.begin(), lower.end(), lower.begin(),
+                        []( unsigned char c ) { return std::tolower( c ); } );
+
+        for ( const auto& kw : kFormattingKeywords )
+        {
+            if ( lower.find( kw ) != std::string::npos )
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // -----------------------------------------------------------------------
     // Analyze
     // -----------------------------------------------------------------------
     PromptFeatures PromptAnalyzer::Analyze( const std::string& prompt ) const
@@ -172,6 +222,8 @@ namespace sgns::neoswarm::router
         f.token_count_ = CountTokens( prompt );
         f.has_math_keywords_ = HasMathKeywords( prompt );
         f.has_grammar_request_ = HasGrammarRequest( prompt );
+        f.has_grounding_request_ = HasGroundingRequest( prompt );
+        f.has_formatting_request_ = HasFormattingRequest( prompt );
         return f;
     }
 
