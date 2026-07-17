@@ -1,6 +1,6 @@
 /**
  * @file       elm_chain_builder.hpp
- * @brief      ELMChainBuilder stub — will be implemented in GREEN phase
+ * @brief      Maps RouteDecision + PromptFeatures to ExecutionChain (doc 03 §6.2)
  * @date       2026-07-17
  */
 
@@ -12,6 +12,13 @@
 
 namespace sgns::neoswarm::elm
 {
+    /**
+     * @brief Stateless chain builder that maps routing decisions and prompt features
+     *        to an ordered ExecutionChain using 6 heuristic triggers (doc 03 §6.2).
+     *
+     * Per D-11, this is a separate class from RuleBasedRouter. The router continues
+     * producing RouteDecision; the chain builder translates that into an ExecutionChain.
+     */
     class ELMChainBuilder
     {
         public:
@@ -26,6 +33,12 @@ namespace sgns::neoswarm::elm
         ELMChainBuilder();
         explicit ELMChainBuilder( Config cfg );
 
+        /**
+         * @brief Build an ExecutionChain from a route decision and prompt features.
+         * @param decision   The route decision produced by the router.
+         * @param features   Prompt features extracted by PromptAnalyzer.
+         * @return           ExecutionChain on success, or error.
+         */
         outcome::result<ExecutionChain> Build( const RouteDecision& decision, const PromptFeatures& features );
 
         private:
