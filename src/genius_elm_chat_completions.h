@@ -81,6 +81,20 @@ extern "C"
      */
     NEOSWARM_ELM_CHAT_C_API char* GeniusElmGetStatus( void ) NEOSWARM_ELM_CHAT_C_NOEXCEPT;
 
+    /**
+     * \brief Shuts down the Genius ELM engine.
+     *
+     * Destroys the ApiServer instance and releases all associated resources.
+     * Must be called before program exit to ensure clean teardown of the
+     * inference engine, networking stack, and other subsystems before the
+     * C runtime finalizes static destructors.
+     *
+     * Thread-safe via global mutex.
+     *
+     * \return 0 on success, -1 if shutdown fails.
+     */
+    NEOSWARM_ELM_CHAT_C_API int GeniusElmShutdown( void ) NEOSWARM_ELM_CHAT_C_NOEXCEPT;
+
 #if defined( __cplusplus )
 }
 #endif

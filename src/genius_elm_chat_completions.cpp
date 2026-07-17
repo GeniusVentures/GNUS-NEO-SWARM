@@ -216,4 +216,11 @@ extern "C"
     {
         return AllocCopy( BuildStatusJson() );
     }
+
+    NEOSWARM_ELM_CHAT_C_API int GeniusElmShutdown( void ) NEOSWARM_ELM_CHAT_C_NOEXCEPT
+    {
+        std::lock_guard<std::mutex> lock( g_mutex );
+        g_server.reset();
+        return 0;
+    }
 } // extern "C"
