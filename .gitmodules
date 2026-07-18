@@ -3,4 +3,4 @@
 	url = ../cmaketemplate.git
 [submodule "GQHSM"]
 	path = GQHSM
-	url = ../Super-Genius/GQHSM
+	url = ../../Super-Genius/GQHSM
