@@ -1,0 +1,17 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/frozen-mtp-and-vtg.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "23 Frozen Micro-MTP and VTG Edge Inference",
+  "summary": "Defines the GNUS edge-inference form of Frozen Multi-Token Prediction (Micro-MTP), a compact speculative decoding approach using a frozen backbone with a small attached MTP head verified locally.",
+  "scope": ["Frozen Micro-MTP", "Multi-Token Prediction", "VTG (Verified Transition Graph)", "EGGROLL", "Semantic Core", "ELM", "speculative decoding", "edge inference", "GNUS nodes", "confidence scheduling", "local verification", "candidate record", "node capability advertisement"],
+  "cross_refs": [
+    "./objective-memory-vtg.md",
+    "./speculative-decoding-and-vtg.md",
+    "https://research.google/blog/accelerating-gemini-nano-models-on-pixel-with-frozen-multi-token-prediction/"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

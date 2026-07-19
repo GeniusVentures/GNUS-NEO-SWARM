@@ -1,0 +1,29 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/speculative-decoding-and-vtg.md",
+  "type": "SPEC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "22 Speculative Decoding and VTG Candidate Scheduling",
+  "summary": "Defines the micro-speculation architecture for speculative decoding in GNUS, including drafter backends, confidence scheduling, VTG integration, and swarm-level optimization via EGGROLL.",
+  "scope": [
+    "speculative decoding",
+    "VTG (Verified Transition Graph)",
+    "micro-speculation",
+    "micro drafter",
+    "confidence scheduler",
+    "local verifier",
+    "EGGROLL",
+    "Frozen Micro-MTP",
+    "micro-diffusion block drafter",
+    "tiny causal tree drafting",
+    "node capability advertisement",
+    "swarm outcome events"
+  ],
+  "cross_refs": [
+    "./objective-memory-vtg.md",
+    "./frozen-mtp-and-vtg.md"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "Content has strong SPEC signals (JSON schemas for capability advertisement and outcome events, concrete operational parameters, algorithmic descriptions) but also significant architectural prose and design principles typical of DOC. Classified as SPEC based on presence of technical contracts and schemas."
+}

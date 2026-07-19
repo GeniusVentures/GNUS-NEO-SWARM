@@ -1,0 +1,25 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/eggroll-swarm-retraining.md",
+  "type": "SPEC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "18. EGGROLL Swarm Retraining Architecture",
+  "summary": "Defines how GeniusCognitiveSystem extends into distributed retraining using EGGROLL-style evolutionary optimization mapped onto GNUS.ai swarm infrastructure.",
+  "scope": [
+    "EGGROLL swarm retraining",
+    "GeniusCognitiveSystem",
+    "GNUS.ai",
+    "processing rooms",
+    "beehives",
+    "deterministic perturbation reconstruction",
+    "fitness packets",
+    "adapters",
+    "experts",
+    "reputation system",
+    "retraining coordination"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": "Classified as SPEC based on content signals: defines concrete technical contracts (core training primitive with required fields in 18.6), JSON schemas (fitness packet in 18.11), protocols (seed derivation in 18.9), and execution models (worker steps in 18.10). No frontmatter type tag, no ADR filename convention, no PRD-style user stories present."
+}

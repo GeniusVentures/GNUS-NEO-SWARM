@@ -62,6 +62,40 @@ Requirements for production readiness milestone. Each maps to roadmap phases.
 
 - [x] **NET-01**: libp2p P2P network with GossipSub pubsub (implemented: `P2PNode` in `src/network/p2p_node.*` — Noise encryption, Yamux multiplexing)
 
+## Cognitive Phase Requirements (Phases 8–11)
+
+Requirements derived from `docs/architecture/` ingest (2026-07-18). Maps to cognitive phases 8-11 in ROADMAP.md.
+
+### GAML Memory (Phase 8)
+
+- [ ] **GAML-01**: Structured memory object model — bridge blocks, facts, policies, events, tenant operational
+- [ ] **GAML-02**: Memory Governor — retrieval prefiltering, relevance selection, temporal resolution
+- [ ] **GAML-03**: Ingestion pipeline — fact extraction, context mapping, write evaluation with provenance scoring
+- [ ] **GAML-04**: RocksDB local persistence + CRDT-backed replication via IPFS-lite
+
+### Swarm Networking + Reputation Consensus (Phase 9)
+
+- [ ] **REP-01**: 5-component reputation formula — accuracy, latency, consistency, safety, validation (per `reputation-consensus.md`)
+- [ ] **REP-02**: Weighted consensus with dual output selection modes (accuracy-prioritized, latency-prioritized)
+- [ ] **REP-03**: Byzantine tolerance via reputation decay, consistency penalties, exclusion gates
+- [ ] **SWARM-01**: Requestor-Orchestrator model — task broadcast, signed result collection, consensus finalization
+- [ ] **SWARM-02**: Role-aware reputation scoring — Planner, Math, Verification, Formatting, Grounding, Safety
+
+### AI Safety + Secure Agent Architecture (Phase 10)
+
+- [ ] **SAFE-01**: Node-local safety screening — no centralized gateway, reputation-enforced
+- [ ] **SAFE-02**: Safety profiles — versioned, cryptographically signed, IPFS-distributed
+- [ ] **SAFE-03**: Tool Intermediary boundary — dry-run → sanitize → capability check → approval → attestation → side-effect gate
+- [ ] **SAFE-04**: 100% tool execution attestation; zero direct side-effect paths from ELM workers
+- [ ] **SAFE-05**: Node trust tier routing (A-D tiers) for capability-scoped execution
+
+### Advanced Cognition (Phase 11)
+
+- [ ] **COG-01**: EGGROLL evolutionary optimization of ELM adapters using swarm execution traces
+- [ ] **COG-02**: Epistemic arbitration — evidence-chain-based arbitration beyond weighted voting (GQHSM-based)
+- [ ] **COG-03**: Hierarchical Critical Thinking — multi-pass critique with escalating scrutiny levels
+- [ ] **COG-04**: Cognitive OS extensions — task scheduling, resource allocation, cognitive budget management
+
 ## v2 Requirements
 
 Deferred to future release. Tracked but not in current roadmap.

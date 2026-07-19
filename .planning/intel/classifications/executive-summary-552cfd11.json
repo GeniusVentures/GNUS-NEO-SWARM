@@ -1,0 +1,29 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/executive-summary.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "1. Executive Summary",
+  "summary": "High-level overview of the GeniusCognitiveSystem distributed cognitive architecture covering system objectives, component roles, and swarm execution model.",
+  "scope": [
+    "GeniusCognitiveSystem",
+    "Executive Controller",
+    "Execution Integrity System",
+    "GAML",
+    "Bridge Blocks",
+    "Semantic Core",
+    "ELMs",
+    "Specialist Cognition",
+    "Verification",
+    "Arbitration",
+    "Synthesis",
+    "Swarm Execution",
+    "Memory Governor",
+    "Context Assembly",
+    "Learning and Distillation Feedback"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

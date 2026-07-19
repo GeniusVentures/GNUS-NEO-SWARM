@@ -1,0 +1,13 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/exploratory/sloth-integration.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "Unsloth Integration Exploration",
+  "summary": "Explores integrating the Unsloth library into the GeniusLLM training pipeline for LoRA-based distillation and FP4/FP8 efficient training.",
+  "scope": ["Unsloth", "GeniusLLM", "LoRA adapters", "FP4 Ultra", "TurboQuant", "EGGROLL Swarm Retraining", "Teacher-Parent-Specialist pipeline", "distillation", "adapter merging", "Sparse-V kernels", "Surprise-gated memory"],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

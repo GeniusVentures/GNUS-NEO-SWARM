@@ -1,0 +1,13 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/distributed-swarm-thinking-context.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "16 Distributed Swarm Thinking Context Architecture",
+  "summary": "Architectural design for extending GeniusCognitiveSystem into a distributed swarm reasoning system with memory-guided context, specialist orchestration, and inspectable reasoning traces.",
+  "scope": ["GeniusCognitiveSystem", "swarm reasoning", "thinking context", "Bridge Blocks", "memory governor", "router", "specialist taxonomy", "semantic core", "verification", "synthesis", "grounding", "consensus", "reputation", "FP4 Ultra quantization", "Turbo Quant", "Sparse-V", "thinking trace schema", "execution patterns"],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

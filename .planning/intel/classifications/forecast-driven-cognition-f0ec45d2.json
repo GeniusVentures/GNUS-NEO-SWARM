@@ -1,0 +1,27 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/forecast-driven-cognition.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "26. Forecast-Driven Cognition and Predictive Prefetching",
+  "summary": "Defines Forecast-Driven Cognition architecture for GCS, describing how the system predicts future cognitive requirements and prepares resources in advance across ACE, CES, GAML, ELMs, and EGGROLL.",
+  "scope": [
+    "Forecast-Driven Cognition (FDC)",
+    "Anticipatory Cognition Engine (ACE)",
+    "Cognitive Execution Scheduler (CES)",
+    "GAML memory system",
+    "EGGROLL learning system",
+    "ELMs and micro-experts",
+    "Personal Forecast Models (PFM)",
+    "Anticipatory Distillation",
+    "Bidirectional Voice Communication",
+    "Distributed GNUS Node execution",
+    "Forecast Graph",
+    "Multi-Hypothesis Forecasting",
+    "Confidence-Based Preparation Policy"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

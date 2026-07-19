@@ -284,10 +284,10 @@ Phase 11: Advanced Cognition ◄────────── Phases 7–10
 | Phase | SPEC | PLAN | Status |
 |-------|------|------|--------|
 | 7. ELMs + Router | ✗ | ✓ | Planned (6 plans, 6 waves) |
-| 8. GAML Memory | ✗ | ✗ | Not started |
-| 9. Swarm Networking | ✗ | ✗ | Not started |
-| 10. AI Safety + Secure Agents | ✗ | ✗ | Not started |
-| 11. Advanced Cognition | ✗ | ✗ | Not started |
+| 8. GAML Memory | ✗ | ✗ | Requirements traced (GAML-01–04) |
+| 9. Swarm Networking | ✗ | ✗ | Requirements traced (REP-01–03, SWARM-01–02) |
+| 10. AI Safety + Secure Agents | ✗ | ✗ | Requirements traced (SAFE-01–05) |
+| 11. Advanced Cognition | ✗ | ✗ | Requirements traced (COG-01–04) |
 
 ### Key Architectural Constraints
 
