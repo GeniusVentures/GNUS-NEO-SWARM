@@ -290,11 +290,11 @@ class TestFP4ExporterV2:
         exporter = FP4Exporter()
         weights = np.random.randn(128, 128).astype(np.float32) * 0.1
         binary, stats = exporter.export_weights(weights, "test", adaptive=True)
-        # After magic(4) + version(1) + num_sb(4) = 9 bytes
+        # Paper Sec 6.1: magic(4) + version(1) + num_sb(4) + pad(7) = 16 bytes
         num_sb = struct.unpack_from("<I", binary, 5)[0]
         assert num_sb == 4
         # Read offset table
-        offset_base = 9
+        offset_base = 16
         offsets = []
         for i in range(num_sb):
             off = struct.unpack_from("<I", binary, offset_base + i * 4)[0]
@@ -386,3 +386,112 @@ class TestFP4ExporterThreatModel:
             # The superblock header is just layout & 0x7
             sb_header = np.uint32(layout_val & 0x7)
             assert sb_header < 8  # fits in 3 bits
+
+
+# ---------------------------------------------------------------------------
+# Spec conformance tests (paper Sec 6 framing + reference decoder round-trip)
+# ---------------------------------------------------------------------------
+
+class TestV2SpecConformance:
+    """The v2 stream must be decodable by an independent implementation
+    built purely from the paper's normative framing (Sec 6.1/6.2)."""
+
+    def test_v2_header_pad_and_record_alignment(self):
+        """Sec 6.1: 7 zero pad bytes; records 16B-aligned, 16B-multiple size."""
+        exporter = FP4Exporter()
+        rng = np.random.default_rng(0)
+        weights = (rng.standard_normal((128, 128)) * 0.1).astype(np.float32)
+        binary, stats = exporter.export_weights(weights, "test", adaptive=True)
+
+        assert binary[9:16] == b"\x00" * 7
+        B = struct.unpack_from("<I", binary, 5)[0]
+        offsets = [struct.unpack_from("<I", binary, 16 + 4 * i)[0]
+                   for i in range(B)]
+        for off in offsets:
+            assert off % 16 == 0, f"record offset {off} not 16B aligned"
+        record_region = 16 + 4 * B
+        ends = offsets[1:] + [len(binary) - record_region]
+        for off, end in zip(offsets, ends):
+            assert (end - off) % 16 == 0, "record size not a 16B multiple"
+
+    def test_v1_reference_decoder_roundtrip(self):
+        """v1 container decodes via the independent reference decoder."""
+        from quantize.sgfp4_decoder import decode_v1
+        exporter = FP4Exporter()
+        rng = np.random.default_rng(1)
+        weights = (rng.standard_normal((128, 192)) * 2.0).astype(np.float32)
+        binary, _ = exporter.export_weights(weights, "test")
+        decoded = decode_v1(binary, 128, 192)
+        mse = float(np.mean((weights - decoded) ** 2))
+        assert mse < 1.0
+
+    def test_v2_reference_decoder_roundtrip_uniform(self):
+        """v2 uniform-layout container decodes via reference decoder."""
+        from quantize.sgfp4_decoder import decode_v2
+        exporter = FP4Exporter()
+        rng = np.random.default_rng(2)
+        weights = (rng.standard_normal((128, 128)) * 0.05).astype(np.float32)
+        binary, stats = exporter.export_weights(weights, "test", adaptive=True)
+        decoded = decode_v2(binary, 128, 128)
+        mse = float(np.mean((weights - decoded) ** 2))
+        assert mse < 0.01
+
+    def test_v2_uniform_16_raster_order_roundtrip(self):
+        """Uniform-16 leaves must be stored in row-major raster order
+        (Sec 6.2) — verified end-to-end through the reference decoder."""
+        from quantize.sgfp4_decoder import decode_v2
+        from quantize.fp4_exporter import LAYOUT_UNIFORM_16
+        exporter = FP4Exporter()
+        rng = np.random.default_rng(3)
+        weights = (rng.standard_normal((64, 64)) * 2.0).astype(np.float32)
+        binary, stats = exporter.export_weights(
+            weights, "test", adaptive=True,
+            thresholds={64: {"max_mse": 0.0, "max_relative": 0.0},
+                        32: {"max_mse": 0.0, "max_relative": 0.0}},
+            min_block_size=16,
+        )
+        assert stats["layout_distribution"][LAYOUT_UNIFORM_16] == 1
+        decoded = decode_v2(binary, 64, 64)
+        mse = float(np.mean((weights - decoded) ** 2))
+        assert mse < 1.0
+
+    def test_v2_mixed_layout_roundtrip_via_split_map(self):
+        """LAYOUT_MIXED record must carry a split map that lets the
+        reference decoder rebuild the quadtree (Sec 6.2)."""
+        from quantize.sgfp4_decoder import decode_v2
+        from quantize.fp4_exporter import LAYOUT_MIXED
+        exporter = FP4Exporter()
+        rng = np.random.default_rng(4)
+        weights = (rng.standard_normal((64, 64)) * 0.01).astype(np.float32)
+        weights[:32, :32] = rng.standard_normal((32, 32)).astype(np.float32)
+        thresholds = {s: {"max_mse": 1e-4, "max_relative": 1.0}
+                      for s in (64, 32, 16, 8, 4)}
+        binary, stats = exporter.export_weights(
+            weights, "test", adaptive=True, thresholds=thresholds)
+        assert stats["layout_distribution"][LAYOUT_MIXED] == 1
+        decoded = decode_v2(binary, 64, 64)
+        mse = float(np.mean((weights - decoded) ** 2))
+        assert mse < 1.0
+
+    def test_build_split_map_known_tree(self):
+        """Split map for a hand-built tree matches the Sec 6.2 bit rules,
+        and round-trips through the reference parser."""
+        from quantize.sgfp4_decoder import _parse_split_map
+        # Root split; TL/TR/BR are 32x32 leaves; BL splits into four 16x16.
+        blocks = [
+            {"y": 0, "x": 0, "size": 32},
+            {"y": 0, "x": 32, "size": 32},
+            {"y": 32, "x": 0, "size": 16},
+            {"y": 32, "x": 16, "size": 16},
+            {"y": 48, "x": 0, "size": 16},
+            {"y": 48, "x": 16, "size": 16},
+            {"y": 32, "x": 32, "size": 32},
+        ]
+        sm = FP4Exporter._build_split_map(blocks)
+        assert len(sm) == 12
+        word0, word1, word2 = struct.unpack("<3I", sm)
+        # Bits in DFS order: 1(root) 0(TL) 0(TR) 1(BL) 0 0 0 0 0(BR)
+        assert word0 == (1 << 0) | (1 << 3)
+        assert word1 == 0 and word2 == 0
+        leaves = _parse_split_map(sm)
+        assert leaves == [(b["y"], b["x"], b["size"]) for b in blocks]
