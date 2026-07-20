@@ -128,7 +128,7 @@ namespace sgns::neoswarm::elm
         {
             DomainLogger()->warn( "DomainELM not loaded — returning input unchanged" );
             m_lastConfidence = 0.0f;
-            return outcome::success( input );
+            return input;  // fail-close per CONTEXT D-04: return input unchanged on error
         }
 
         auto* engine = SelectEngine();
@@ -136,7 +136,7 @@ namespace sgns::neoswarm::elm
         {
             DomainLogger()->warn( "DomainELM::Process — no engine available" );
             m_lastConfidence = 0.0f;
-            return outcome::success( input );
+            return input;  // fail-close per CONTEXT D-04: return input unchanged on error
         }
 
         Task task;
@@ -150,7 +150,7 @@ namespace sgns::neoswarm::elm
         {
             DomainLogger()->warn( "DomainELM inference failed — returning input unchanged" );
             m_lastConfidence = 0.0f;
-            return outcome::success( input );
+            return input;  // fail-close per CONTEXT D-04: return input unchanged on error
         }
 
         m_lastConfidence = 1.0f - std::min( res.value().m_perplexity / 10.0f, 1.0f );

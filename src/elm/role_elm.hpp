@@ -50,17 +50,14 @@ namespace sgns::neoswarm::elm
 
         outcome::result<void> Load( const std::string& model_path ) override;
         outcome::result<std::string> Process( const std::string& input, const ELMContext& context ) override;
-        float GetConfidence() const override
-        {
-            return m_lastConfidence;
-        }
+
+        // GetConfidence() inherited from IELM — m_lastConfidence is set in Process()
 
         private:
         ELMRole m_role;
         std::string m_name;
         std::shared_ptr<core::InferenceEngine> m_engine;
         bool m_loaded = false;
-        float m_lastConfidence = 0.0f;
 
         /**
          * @brief Build the role-specific [INST] prompt template around the input.
