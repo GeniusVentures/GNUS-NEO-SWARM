@@ -49,7 +49,7 @@ namespace sgns::neoswarm::elm
         {
             GroundingLogger()->warn( "GroundingELM not loaded — returning input unchanged" );
             m_lastConfidence = 0.0f;
-            return outcome::success( input );
+            return input;  // fail-close per CONTEXT D-04: return input unchanged on error
         }
 
         // Stage 1: Retrieve facts (copy AugmentPrompt pattern: api_server.cpp:308-312)
@@ -58,7 +58,7 @@ namespace sgns::neoswarm::elm
         {
             GroundingLogger()->debug( "GroundingELM — no facts retrieved, returning input" );
             m_lastConfidence = 0.5f;
-            return outcome::success( input );
+            return input;  // fail-close per CONTEXT D-04: return input unchanged on error
         }
         std::vector<KnowledgeFact> facts = std::move( factsRes.value() );
 
@@ -85,7 +85,7 @@ namespace sgns::neoswarm::elm
         {
             GroundingLogger()->warn( "GroundingELM inference failed — returning input unchanged" );
             m_lastConfidence = 0.0f;
-            return outcome::success( input );
+            return input;  // fail-close per CONTEXT D-04: return input unchanged on error
         }
 
         std::string output = res.value().m_output;

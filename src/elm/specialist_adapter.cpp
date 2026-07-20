@@ -40,7 +40,7 @@ namespace sgns::neoswarm::elm
         if ( !m_specialist )
         {
             m_lastConfidence = 0.0f;
-            return outcome::success( input );
+            return input;  // fail-close per CONTEXT D-04: return input unchanged on error
         }
         auto result = m_specialist->Process( input );
         if ( result.has_value() )
@@ -50,7 +50,7 @@ namespace sgns::neoswarm::elm
         else
         {
             m_lastConfidence = 0.0f;
-            return outcome::success( input );
+            return input;  // fail-close per CONTEXT D-04: return input unchanged on error
         }
         return result;
     }
