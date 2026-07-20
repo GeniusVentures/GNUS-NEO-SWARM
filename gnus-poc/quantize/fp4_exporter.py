@@ -1,7 +1,7 @@
 """FP4 Ultra binary exporter — SGFP4 v1 (fixed 64x64) and v2 (adaptive quadtree).
 
 Container layout v1: headers[B] | offsets[B] | codes_blob[B*2048]
-Container layout v2: magic[4] | version[1] | num_superblocks[4] |
+Container layout v2: magic[4] | version[1] | num_superblocks[4] | pad[7] |
                      superblock_offsets[B] | superblock_data[0..B-1]
 
 v1 (fixed, backward compatible):
@@ -303,12 +303,17 @@ class FP4Exporter:
     ) -> Tuple[bytes, dict]:
         """SGFP4 v2 adaptive quadtree export.
 
-        Binary format:
-            magic[4] | version[1] | num_superblocks[4] |
+        Binary format (paper Sec 6.1):
+            magic[4] | version[1] | num_superblocks[4] | pad[7] |
             superblock_offsets[B] | superblock_data[0..B-1]
 
-        Each superblock:
-            superblock_header[4] | block_headers[N*4] | payloads[var]
+        Each superblock record (paper Sec 6.2), 16-byte aligned and zero
+        padded to a 16-byte multiple:
+            sb_header[4] | split_map[12] (LAYOUT_MIXED only) |
+            block_headers[N*4] | pad[0-15] | payloads[N] (each 16B-padded)
+
+        Leaf storage order: row-major raster for uniform layouts; pre-order
+        DFS (matching the split map) for LAYOUT_MIXED.
         """
         O, I = weights.shape
         tiles_y = math.ceil(O / MACROBLOCK_SIZE)
@@ -367,6 +372,15 @@ class FP4Exporter:
         current_offset = 0
 
         for idx, (layout, blocks) in enumerate(superblock_layouts):
+            # Leaf storage order (paper Sec 6.2): uniform layouts are stored
+            # in row-major raster order of the tile grid; LAYOUT_MIXED keeps
+            # the pre-order DFS order that matches the split map.
+            if layout == LAYOUT_MIXED:
+                split_map = self._build_split_map(blocks)
+            else:
+                split_map = b""
+                blocks = sorted(blocks, key=lambda b: (b["y"], b["x"]))
+
             # Superblock header: uint32 with layout enum + reserved
             sb_header = np.uint32(layout & 0x7)
 
@@ -385,6 +399,16 @@ class FP4Exporter:
                 bh = np.uint32((int(bh) & 0xFFFFFFF0) | flags)
                 block_headers.append(bh)
 
+            # Header section: sb_header | split_map | block_headers, then
+            # zero pad to a 16-byte boundary so payloads (and therefore all
+            # absolute addresses) stay aligned (paper Sec 6.2)
+            header_section = (
+                sb_header.tobytes()
+                + split_map
+                + b"".join(bh.tobytes() for bh in block_headers)
+            )
+            header_section += b"\x00" * ((-len(header_section)) % ALIGNMENT)
+
             # Per-block payloads with 16-byte alignment per RESEARCH.md Pitfall 3
             payload_chunks = []
             for blk in blocks:
@@ -395,22 +419,22 @@ class FP4Exporter:
                     payload_bytes = payload_bytes + b'\x00' * (aligned_size - len(payload_bytes))
                 payload_chunks.append(payload_bytes)
 
-            # Assemble superblock data
-            sb_data = (
-                sb_header.tobytes()
-                + b"".join(bh.tobytes() for bh in block_headers)
-                + b"".join(payload_chunks)
-            )
+            # Assemble superblock data; pad record to a 16-byte multiple so
+            # every record offset stays 16-byte aligned (paper Sec 6.1)
+            sb_data = header_section + b"".join(payload_chunks)
+            sb_data += b"\x00" * ((-len(sb_data)) % ALIGNMENT)
 
             superblock_offsets[idx] = current_offset
             superblock_data_chunks.append(sb_data)
             current_offset += len(sb_data)
 
-        # Assemble full binary
+        # Assemble full binary: magic | version | B | 7B pad to 16-byte
+        # boundary | offset table | records (paper Sec 6.1)
         binary = (
             SGFP4_MAGIC
             + struct.pack("<B", SGFP4_VERSION_V2)
             + struct.pack("<I", B)
+            + b"\x00" * 7
             + superblock_offsets.tobytes()
             + b"".join(superblock_data_chunks)
         )
@@ -669,6 +693,60 @@ class FP4Exporter:
                 return LAYOUT_FULL_4x4
 
         return LAYOUT_MIXED
+
+    @staticmethod
+    def _build_split_map(blocks: List[dict]) -> bytes:
+        """Serialize the quadtree structure as a 12-byte split bitmap.
+
+        Per paper Sec 6.2: visiting nodes in pre-order DFS with quadrant
+        order TL, TR, BL, BR, one bit per node of size >= 8 records whether
+        that node is split (1) or a leaf (0). Nodes of size 4 cannot split
+        and contribute no bit. Bit k of the map is bit (k mod 32) of word
+        floor(k/32); upper bits are zero.
+
+        Args:
+            blocks: Leaf block dicts (with y, x, size) in pre-order DFS
+                    order, as emitted by QuadtreeEncoder.encode().
+
+        Returns:
+            12 bytes: three little-endian uint32 words.
+        """
+        bits: List[int] = []
+        idx = [0]
+
+        def walk(y: int, x: int, size: int):
+            if size == 4:
+                # 4x4 nodes cannot split and contribute no bit; the leaf
+                # must be here.
+                blk = blocks[idx[0]]
+                assert (blk["y"], blk["x"], blk["size"]) == (y, x, 4), (
+                    f"split-map walk expected 4x4 leaf at ({y},{x}), "
+                    f"got {blk}"
+                )
+                idx[0] += 1
+                return
+            blk = blocks[idx[0]]
+            if (blk["y"], blk["x"], blk["size"]) == (y, x, size):
+                bits.append(0)  # leaf
+                idx[0] += 1
+                return
+            bits.append(1)  # split
+            half = size // 2
+            for dy in (0, half):
+                for dx in (0, half):
+                    walk(y + dy, x + dx, half)
+
+        walk(0, 0, MACROBLOCK_SIZE)
+        assert idx[0] == len(blocks), (
+            f"split map consumed {idx[0]} of {len(blocks)} leaves"
+        )
+        assert len(bits) <= 85, f"split map needs {len(bits)} bits (max 85)"
+
+        words = [0, 0, 0]
+        for k, bit in enumerate(bits):
+            if bit:
+                words[k // 32] |= 1 << (k % 32)
+        return struct.pack("<3I", *words)
 
     # ==================================================================
     # Manifest generation (v2 only)
