@@ -3,8 +3,8 @@
   "type": "SPEC",
   "confidence": "high",
   "manifest_override": false,
-  "title": "17 Secure Agent Architecture for the GNUS.ai Decentralized Cognitive System",
-  "summary": "Specifies the secure agent execution architecture including routing, Semantic Core and ELM execution, structured memory, grounding, verification, tool intermediation, and reputation-weighted consensus for the GNUS.ai decentralized cognitive system.",
+  "title": "18 Secure Agent Architecture for the GNUS.ai Decentralized Cognitive System",
+  "summary": "Specifies the secure agent execution architecture within the GNUS.ai decentralized cognitive system, covering routing, Semantic Core and ELM execution, structured memory, verification, secure tool intermediation, and reputation-weighted consensus.",
   "scope": [
     "Secure agent architecture",
     "Router and Planner Service",

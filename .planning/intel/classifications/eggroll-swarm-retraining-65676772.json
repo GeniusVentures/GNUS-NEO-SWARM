@@ -1,0 +1,25 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/eggroll-swarm-retraining.md",
+  "type": "SPEC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "EGGROLL Swarm Retraining Architecture",
+  "summary": "Defines a swarm-native retraining layer for GeniusCognitiveSystem using EGGROLL-style evolutionary optimization with deterministic perturbation reconstruction, compact fitness communication, and reputation-gated promotion.",
+  "scope": [
+    "EGGROLL Swarm Retraining",
+    "GeniusCognitiveSystem",
+    "GNUS.ai Processing Rooms",
+    "Beehives",
+    "Expert Adapters",
+    "Deterministic Perturbation Reconstruction",
+    "Fitness Packets",
+    "Reputation System",
+    "IPFS-lite",
+    "Worker Execution Model",
+    "Hierarchical Swarm Aggregation"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": "Document defines architectural design principles, execution models, fitness packet format, and a phased rollout plan -- placing it between SPEC and DOC. Classified as SPEC because it prescribes how the retraining layer should be built, though it lacks formal API contracts or protocol definitions. No markdown links to other doc files found."
+}

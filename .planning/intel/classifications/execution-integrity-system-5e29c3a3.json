@@ -1,20 +1,21 @@
 {
   "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/execution-integrity-system.md",
   "type": "SPEC",
-  "confidence": "medium",
+  "confidence": "high",
   "manifest_override": false,
-  "title": "27. Execution Integrity System (EIS)",
-  "summary": "Defines the Execution Integrity System subsystem for verifying distributed computation honesty through execution contracts, determinism classes, checkpoint-band matching, and teacher-forced spot-check protocols.",
+  "title": "29. Execution Integrity System (EIS)",
+  "summary": "Defines the GCS subsystem that verifies distributed computation was executed faithfully according to declared execution contracts using determinism classes, checkpoint-band matching, and teacher-forced spot-check protocols.",
   "scope": [
     "Execution Integrity System (EIS)",
-    "execution contracts",
-    "determinism classes",
-    "checkpoint-band matching",
-    "teacher-forced spot-check protocol",
+    "Execution Contracts (model hash, adapter version hash, SGFP4 container hash, kernel manifest ID, determinism class, sampling seed, checkpoint schedule, execution profile)",
+    "Determinism Classes (Class A Reference-integer, Class B Bounded-drift, Class C Non-deterministic)",
+    "Checkpoint-Band Matching (comparison domains, FP12-width representation, epsilon exception rates)",
+    "Teacher-Forced Spot-Check Protocol (VRF-based position sampling, O(prefill) cost profile, sampling-consistency check)",
     "SGFP4 kernel specification",
     "GAML / Cognitive Asset Model",
-    "reputation-weighted consensus",
-    "speculative decoding"
+    "Reputation-Weighted Consensus",
+    "Speculative Decoding",
+    "Kernel registration invariants and drift monitoring"
   ],
   "cross_refs": [
     "SGFP4 container/kernel spec",
@@ -25,5 +26,5 @@
   ],
   "locked": false,
   "precedence": null,
-  "notes": "Document sits in docs/architecture/ with no PRD/ADR/SPEC path signals. Has 'Status: Draft for review' frontmatter suggesting ADR lineage but lacks Context/Decision/Consequences structure. Content defines technical implementation contracts (determinism classes A/B/C, checkpoint-band comparison domains, teacher-forced protocol steps, execution contract field requirements) that systems must honor -- these are SPEC-level constraints. Classified SPEC over DOC because the technical contract definitions carry more weight than the prose-heavy architecture exposition. Confidence medium due to mixed signals."
+  "notes": ""
 }

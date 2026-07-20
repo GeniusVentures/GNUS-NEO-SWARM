@@ -1,12 +1,14 @@
 # Context
 
-> Running notes extracted from DOC-classified source documents (14 found). DOC is lowest precedence in the default ordering (ADR > SPEC > PRD > DOC). Entries are grouped by topic with source attribution.
+> Running notes extracted from DOC-classified source documents. DOC is lowest precedence in the default ordering (ADR > SPEC > PRD > DOC). Entries are grouped by topic with source attribution.
+>
+> **2026-07-19 ingest update:** Re-ingested 14 changed documents. EGGROLL Swarm Retraining and SGFP4 Format moved to constraints.md (reclassified as SPEC). New DOC entries added for Agent/Module Development Inventory, GCS Capability System, Local Cognitive Second Brain Mode, and README navigation index.
 
 ---
 
 ## System Identity and Objectives
 
-**Source:** `docs/architecture/01-executive-summary.md`
+**Source:** `docs/architecture/executive-summary.md`
 
 GeniusCognitiveSystem is a distributed, modular, reputation-weighted cognitive system built on GNUS.ai infrastructure, with Genius Expert Language Model (Genius ELM) as the semantic core inference engine.
 
@@ -20,7 +22,7 @@ Secondary goals: energy-efficient inference; scalability across nodes; future co
 
 ## System Architecture Overview
 
-**Source:** `docs/architecture/02-system-overview.md`
+**Source:** `docs/architecture/system-overview.md`
 
 ### Layer Model (7 layers)
 
@@ -36,7 +38,7 @@ Secondary goals: energy-efficient inference; scalability across nodes; future co
 
 - MNN: Model runtime for optimized deep learning inference.
 - Vulkan/MoltenVK: GPU acceleration (MoltenVK for Apple platforms).
-- Ultra FP4 codec: Weight compression via adaptive format with 64x64 macroblocks, fixed 2048-byte payloads, per-block affine decode, dual-mode (FP4_AFFINE / T158_AFFINE) selection.
+- SGFP4 codec: Weight compression via adaptive format with 64x64 macroblocks, fixed 2048-byte payloads, per-block affine decode, dual-mode (FP4_AFFINE / T158_AFFINE) selection.
 - CUDA/Vulkan shaders: Tile-based decode and matmul.
 
 ### Distributed Layer
@@ -59,36 +61,17 @@ Secondary goals: energy-efficient inference; scalability across nodes; future co
 
 Two main cognitive classes: Semantic Core (broad reasoning, synthesis, default response) and Expert Language Models / ELMs (narrower specialized units for expertise, verification, structure, grounding, action).
 
-**Source:** `docs/architecture/15-epistemic-arbitration-and-cognitive-os.md`
-
-### Cognitive OS Extension (7th layer)
-
-The Epistemic Arbitration Layer sits between consensus and final synthesis, providing formal, configurable reasoning over how viable outputs should be judged, challenged, and synthesized. The Requestor Node (already the temporary orchestrator and consensus coordinator) is extended into the system's Epistemic Arbiter.
-
-Runtime: GQHSM (data-driven hierarchical state machine) -- JSON-defined machines with generic callback registration, tiny shared-library framework plugins, future WASM-compatible.
-
-Supported framework families:
-- Sanskrit epistemology (Nyaya/pramana-based): Samshaya (doubt) -> Pramana (knowledge sources) -> Pancha Avayava (inferential construction) -> Tarka (challenge/debate) -> Hetvabhasa (fallacy detection) -> Nirnaya (final judgment).
-- Kripke modal reasoning: World construction -> Accessibility checks -> Modal evaluation -> Contradiction pressure -> Fixed-point resolution -> World selection.
-- Hybrid: Sequential or parallel combination of Sanskrit and Kripke branches.
-
-Generic callbacks: initializeContext, classifyProblem, gatherKnowledgeSources, constructReasoningModel, critiqueAndValidate, performInference, resolveAndSynthesize, computeEpistemicWeights, emitTrace, finalizeOutput.
-
-Guard callbacks: hasSufficientReputation, hasValidKnowledgeSources, hasNoCriticalContradictions, isHybridMergeReady, requiresHumanReview.
-
-Plugin ABI: `GQHSM_RegisterEpistemicPlugin(Registry&, EpistemicContext&)`, `GQHSM_GetPluginName()`, `GQHSM_GetPluginVersion()`, `GQHSM_GetSupportedFrameworks()`.
-
 ---
 
 ## Model and Router Design
 
-**Source:** `docs/architecture/03-model-and-router.md`
+**Source:** `docs/architecture/model-and-router.md`
 
 ### Semantic Core
 
 Central reasoning substrate for foundational responses. Optimized for high-throughput distributed inference. Selected from high-performing, medium-sized model families suitable for quantized distributed deployment.
 
-Quantized using Ultra FP4 adaptive format: 64x64 macroblocks, fixed 2048-byte payloads, per-block affine decode (scale + bias in packed FP16 header), dual-mode per block (FP4_AFFINE: 4-bit signed codes; T158_AFFINE: ternary ~1.58-bit class). GPU-decoded in shared memory at inference time via Vulkan/MoltenVK with MNN runtime.
+Quantized using SGFP4 adaptive format: 64x64 macroblocks, fixed 2048-byte payloads, per-block affine decode (scale + bias in packed FP16 header), dual-mode per block (FP4_AFFINE: 4-bit signed codes; T158_AFFINE: ternary ~1.58-bit class). GPU-decoded in shared memory at inference time via Vulkan/MoltenVK with MNN runtime.
 
 ### Expert Language Models (ELMs)
 
@@ -114,13 +97,13 @@ Critical initial processing point for client requests. Responsibilities: classif
 - Low complexity -> Semantic Core only
 - High complexity/uncertainty -> multi-stage path (planner, verifier, arbiter, swarm)
 
-**Future Router Evolution:** Heuristic MVP -> Lightweight classifier router (compact learned routing model) -> Cognitive planner (task decomposition into multi-step workflows). Future routing should incorporate latency budget, policy constraints, privacy mode, prior expert success, disagreement risk, tenant boundary requirements.
+**Future Router Evolution:** Heuristic MVP -> Lightweight classifier router (compact learned routing model) -> Cognitive planner (task decomposition into multi-step workflows).
 
 ---
 
 ## Execution Modes and Performance Targets
 
-**Source:** `docs/architecture/07-execution-and-performance.md`
+**Source:** `docs/architecture/execution-and-performance.md`
 
 ### Four Execution Modes
 
@@ -140,16 +123,14 @@ Critical initial processing point for client requests. Responsibilities: classif
 - Tokens/sec: >= INT4 baseline where comparable.
 - Memory usage: <= practical low-bit deployment envelope.
 - Grounded quality: >= baseline single-model factual reliability.
-- Verification/formatting quality: measurable improvement.
 - Multi-node scaling: near-linear up to initial swarm targets where network conditions permit.
 - Tool safety overhead: bounded and separately reported from inference latency.
-- Customization efficiency: choose lowest-cost path among retrieval, memory, private ELM invocation, and swarm consensus that satisfies quality and policy.
 
 ---
 
 ## Grounding and Retrieval
 
-**Source:** `docs/architecture/05-grounding.md`
+**Source:** `docs/architecture/grounding.md`
 
 ### Grokipedia Role
 
@@ -175,13 +156,13 @@ Public grounding, private tenant grounding, hybrid grounding. May be invoked dur
 
 Deployed as dedicated Grounding ELM or grounding service invoked only when needed.
 
-**Note on retrieval limitations:** Retrieval helps the system know WHAT information to use; it does not teach HOW to reason, format, triage, or act in tenant-specific workflows. Retrieval, structured memory, and private ELM adaptation are complementary.
+**Note on retrieval limitations:** Retrieval helps the system know WHAT information to use; it does not teach HOW to reason, format, triage, or act in tenant-specific workflows.
 
 ---
 
 ## Agentic Memory Layer (GAML v1)
 
-**Source:** `docs/architecture/06-agentic-memory-layer.md`
+**Source:** `docs/architecture/agentic-memory-layer.md`
 
 ### Purpose
 
@@ -228,7 +209,7 @@ Transforms GeniusCognitiveSystem v1 from Distributed Inference Engine into Distr
 
 ## Distributed Swarm Thinking Context
 
-**Source:** `docs/architecture/11-distributed-swarm-thinking-context.md`
+**Source:** `docs/architecture/distributed-swarm-thinking-context.md`
 
 ### Purpose
 
@@ -246,7 +227,7 @@ Extends the architecture with a swarm-native thinking context model explaining h
 - Memory-guided context instead of brute-force long context
 - Inspectable swarm thinking (structured record of experts called, context used, outputs produced, how final answer formed)
 - Reputation-aware specialization (role-specific and domain-specific reputation)
-- Quantization-aware modularity (specialist boundaries chosen for efficient FP4 Ultra / Turbo Quant / Sparse-V application)
+- Quantization-aware modularity (specialist boundaries chosen for efficient SGFP4 / Turbo Quant / Sparse-V application)
 
 ### Thinking Context Model
 
@@ -258,11 +239,6 @@ High-level event and artifact record including: routing decisions, memory blocks
 
 **Domain Specialists:** Numeric, Symbolic Math, Tool and Execution, Code, Domain Grounding/Workflow.
 
-### Recommended Evolution
-
-- Near-term: Semantic Core + Planner/Memory Governor + Numeric Specialist + Math Verifier + Refiner/Formatter + Grounding Specialist.
-- Medium-term: Add Primary Draft role, Symbolic Math, Verifier, Synthesizer/Arbiter, Tool/Execution, Code Specialist.
-
 ### Execution Patterns
 
 - Core-only response (simple requests)
@@ -270,17 +246,11 @@ High-level event and artifact record including: routing decisions, memory blocks
 - Distributed swarm execution (parallel draft + review + synthesis)
 - Streaming draft with delayed refinement
 
-### Thinking Trace Schema
-
-Suggested fields: request ID, user query, routing decision, selected Bridge Blocks, selected facts/policies, grounding sources, chosen primary expert, draft latency, secondary expert outputs, synthesis actions, final answer ID, reputation updates triggered.
-
-### Adapter and Distillation Open Questions (see WARNINGS)
+### Adapter and Distillation Open Questions (see INGEST-CONFLICTS.md WARNINGS)
 
 The architecture does not yet lock in: which specialists are full models vs adapters, how adapters are composed/switched, whether synthesis/verifier/planner roles use shared or independent backbones, what teacher data is used for each specialist, what evaluation sets measure each specialist role.
 
-**Recommended documentation additions:** specify adapter-vs-model decisions, adapter composition/switching, backbone sharing, teacher data, role-specific evaluation sets.
-
-### Quantization Open Questions (see WARNINGS)
+### Quantization Open Questions (see INGEST-CONFLICTS.md WARNINGS)
 
 Undefined: which specialists should share a backbone vs remain separate models, whether adapter composition should be preferred over multiple standalone specialists, whether role and domain specialists should use the same quantization policy, how reputation should interact with quantization-induced quality drift.
 
@@ -288,29 +258,29 @@ Undefined: which specialists should share a backbone vs remain separate models, 
 
 ## Execution Roadmap and Risks
 
-**Source:** `docs/architecture/08-roadmap-and-risks.md`
+**Source:** `docs/architecture/roadmap-and-risks.md`
 
 ### Phase 1 -- Semantic Core Foundations
 
-Base model selection, FP4 v3 quantization pipeline, validate activation error, deploy across initial nodes. Deliverable: `genius-core-alpha`.
+Base model selection, SGFP4 quantization pipeline, validate activation error, deploy across initial nodes.
 
 ### Phase 2 -- Experts + Router/Planner
 
-Initial role-based expert integration, initial domain-specialist integration, routing and planning logic implementation, grounding path selection, memory governor introduction. Deliverable: `genius-modular-alpha`.
+Initial role-based expert integration, initial domain-specialist integration, routing and planning logic implementation, grounding path selection, memory governor introduction.
 
 ### Phase 3 -- Reputation, Memory, and Consensus
 
-Implement reputation storage, weighted consensus and arbiter path, CRDT sync, structured memory retrieval and write governance, multi-node task execution. Deliverable: `genius-swarm-beta`.
+Implement reputation storage, weighted consensus and arbiter path, CRDT sync, structured memory retrieval and write governance, multi-node task execution.
 
 ### Phase 4 -- Grounding, Private Customization, Secure Agent Path, Benchmarks
 
-Grokipedia retrieval integration, private grounding support, private memory and private ELM customization path, tool intermediary and attestation path, stress test, publish benchmark comparison. Deliverable: `GeniusCognitiveSystem v1 Beta`.
+Grokipedia retrieval integration, private grounding support, private memory and private ELM customization path, tool intermediary and attestation path, stress test, publish benchmark comparison.
 
 ### Risk Analysis
 
 | Risk | Mitigation |
 |------|-----------|
-| FP4 underperforms | Fallback to INT4 or adjusted quantization policy |
+| SGFP4 underperforms | Fallback to INT4 or adjusted quantization policy |
 | Reputation gaming | Require minimum history and verifier-aware scoring |
 | Swarm latency high | Limit swarm width, prefer smallest effective cognitive set |
 | Routing instability | Keep rule-based v1, phase in learned routing carefully |
@@ -322,7 +292,7 @@ Grokipedia retrieval integration, private grounding support, private memory and 
 
 ## Future Compatibility and Strategic Positioning
 
-**Source:** `docs/architecture/09-future-and-positioning.md`
+**Source:** `docs/architecture/future-and-positioning.md`
 
 ### Future Compatibility
 
@@ -338,7 +308,7 @@ Aligns with: Superhuman Adaptable Intelligence (SAI), specialization over monoli
 
 ## AI Safety Philosophy
 
-**Source:** `docs/architecture/10-ai-safety.md`
+**Source:** `docs/architecture/ai-safety.md`
 
 ### Safety Model
 
@@ -353,7 +323,7 @@ No centralized safety gateway. Safety enforcement is: node-local, reputation-enf
 
 ### Safety Profile Declaration
 
-Each node advertises: model_version, safety_profile_hash, region_profile, reputation_score. Profiles are versioned, cryptographically signed, distributed via IPFS, immutable once adopted. No GeoIP enforcement -- region profile is node-declared, filtered by client preference.
+Each node advertises: model_version, safety_profile_hash, region_profile, reputation_score. Profiles are versioned, cryptographically signed, distributed via IPFS, immutable once adopted.
 
 ### Safety in Swarm Mode
 
@@ -361,146 +331,9 @@ All nodes run local safety checks -> Orchestrator verifies safety flags -> Polic
 
 ---
 
-## Ultra FP4 Adaptive Quantization Format
+## Targeted Retraining and Hierarchical Critical Thinking Specialists (2026-07-19 update)
 
-**Source:** `docs/architecture/16-ultra-fp4-format.md`
-
-### Design Goals
-
-Runs everywhere (Vulkan, MoltenVK, MNN-compatible); consistent answers across devices; fast decode (per-workgroup branching, vectorized bit-unpack, fixed per-block payloads); simple paging (all macroblocks use same 2048-byte payload).
-
-### Macroblocks (Tiling)
-
-Weight tensors of shape [O, I] partitioned into 64x64 macroblocks. Zero-padded to multiple of 64. Each block maps to row-major grid coordinates.
-
-### Container Layout
-
-Three parallel arrays + shape metadata:
-- `headers[B]` (uint32): Packed half2 scale + bias per block (high 16 bits = scale_fp16, low 16 bits = bias_fp16).
-- `offsets[B]` (uint32): Byte offset into codes blob, with low 4 bits as per-block mode flags.
-- `codes_blob[]` (bytes): B * 2048 bytes, concatenated fixed-size per-block payloads, 16-byte aligned.
-
-### Per-Block Mode Flags (low 4 bits of offsets)
-
-- Bit 0 (0x1): MODE -- 0 = FP4_AFFINE, 1 = T158_AFFINE
-- Bit 1 (0x2): ERROR_HINT -- 0 = L2-selected, 1 = Pyramid-selected
-- Bits 2-3: reserved
-
-### Quantization Modes
-
-**FP4_AFFINE (MODE=0):** 4-bit signed codes q in [-8, 7], two's complement nibbles. 8 codes per uint32, 4096 codes total = 2048 bytes. Decode: w_hat = S * q + Bias.
-
-**T158_AFFINE (MODE=1):** Ternary codes t in {-1, 0, +1} as 2-bit symbols (00=0, 01=+1, 10=-1, 11 reserved). 16 codes per uint32. Active data in uint32[0..255] (1024 bytes); uint32[256..511] zero-filled. Decode: w_hat = S * t + Bias. Ternary codebook with affine scale/bias stays in ~1.58-bit class.
-
-### Adaptive Mode Selection (Encoding)
-
-Encoder evaluates both modes per block, chooses better one. Selection rule: prefer ternary when err_t158 <= (1.0 + delta) * err_fp4 (typical delta 0.05-0.20). Error metric: default L2 norm; optional pyramid-weighted error preserves low-frequency structure.
-
-### GPU Decode Procedure
-
-Per block: unpack S, Bias from header; decode flags4 and baseBytes from offset; load 512 uint32 from codes_blob; branch on mode; unpack nibbles/2-bit symbols; compute w = S * code + Bias; write decoded 64x64 block to padded tensor; crop to (O, I). Single GPU workgroup per macroblock.
-
----
-
-## EGGROLL Swarm Retraining Architecture
-
-**Source:** `docs/architecture/13-eggroll-swarm-retraining.md`
-
-### Purpose
-
-Adds a swarm-native retraining layer to GeniusCognitiveSystem using deterministic perturbation reconstruction, compact fitness aggregation, and reputation-gated promotion mapped onto GNUS.ai processing-room infrastructure. Retraining is a first-class GNUS.ai operating system primitive.
-
-### Architectural Position
-
-Five major architectural roles: Semantic Core + Experts (inference), Router + Swarm Thinking Context (execution/reasoning), GAML (memory), Reputation + Consensus (trust/output selection), EGGROLL Swarm Retraining (specialist refresh/adaptation).
-
-EGGROLL complements current design rather than replacing it: Adapter-style specialization remains valid; Expert-based routed execution remains inference strategy; EGGROLL becomes distributed retraining and expert-refresh mechanism.
-
-### Why EGGROLL Fits GNUS.ai
-
-Traditional distributed backpropagation assumes tightly coupled GPUs, high-bandwidth gradient exchange, large optimizer state sync, low-latency datacenter networking -- does not match GNUS.ai. EGGROLL fits because workers: receive model version reference, reconstruct low-rank perturbation from deterministic seed, evaluate local fitness, return only compact fitness values and metadata. Converts retraining into inference-like workload with minimal per-step network payload.
-
-### Design Principles
-
-1. Locality First: Training within local beehives/sub-swarms that already hold relevant artifacts.
-2. Deterministic Reconstruction over Tensor Shipment: Low-rank perturbations from deterministic seeds.
-3. Compact Fitness over Gradient Exchange: Compact fitness signals, validation metadata, attestations.
-4. Adapter-Oriented Evolution: Preferred first targets are expert adapters or specialist micro-models.
-5. Reputation-Gated Promotion: Validation, safety checks, and reputation-aware acceptance required before promotion.
-6. Hierarchical Swarm Aggregation: Local room coordinators to higher-level aggregators.
-
-### Core Training Primitive
-
-`base model reference + target adapter reference + deterministic perturbation seed + task shard + reward function -> compact fitness packet`
-
-Required job fields: target model version/base model CID, target adapter CID/expert artifact ID, perturbation rank, perturbation scale/sigma, perturbation seed/seed range, task shard reference, reward/objective definition, validation policy, safety policy hash, promotion policy.
-
-### GNUS Processing Room Mapping
-
-Processing room host -> local retraining coordinator. Worker peers -> perturbation evaluators. Data chunk/sub-block -> task shard or seed assignment. Processing result -> compact fitness packet. Room lifecycle -> one training generation.
-
-### Beehives (Locality-Aware Sub-Swarms)
-
-Share cached model artifacts, cached adapter artifacts, domain-specific task shards, geographic/network proximity, hardware similarity, policy/privacy boundary. May specialize around: model family, domain specialist, language/region, application domain, user-data enclave, hardware class.
-
-### Deterministic Perturbation Reconstruction
-
-`seed = H(model_version, adapter_version, layer_id, worker_id, generation_id, perturbation_id)`. Enables reproducible evaluation, auditability, replay for dispute resolution, compact job descriptions, lower storage overhead, selective fraud checking.
-
-### Worker Execution Model
-
-1. Resolve base model and adapter artifacts from local cache or IPFS-lite.
-2. Reconstruct perturbation from assigned seed and rank.
-3. Apply perturbation to target adapter/expert parameters.
-4. Execute assigned task shard locally.
-5. Compute fitness according to declared reward function.
-6. Package fitness output, latency, and attestation metadata.
-7. Return compact result packet to room coordinator.
-
-### Fitness Packet Design
-
-```json
-{
-  "training_job_id": "uuid",
-  "worker_node": "node_id",
-  "artifact_target": "math_verifier_adapter_v3",
-  "seed_range": [100000, 100255],
-  "fitness_values": "packed_or_scalar_payload",
-  "latency_ms": 123,
-  "validation_flags": {"self_check_passed": true, "policy_hash_match": true},
-  "result_signature": "ed25519"
-}
-```
-
-### Aggregation Model
-
-Local coordinator aggregates worker fitness packets: verify signatures and policy compatibility, reconstruct perturbations from seeds, weight valid worker fitness, reject malformed/suspicious results, compute generation-level update candidates, run validation checks before publication. Hierarchical: worker -> room host -> beehive aggregator -> broader promotion/merge layer.
-
-### Reputation Extensions for Retraining
-
-New dimensions: Trainer_score, Validation_score, Adapter_promotion_score, Domain_trainer_score (by specialist area). Redundancy mechanisms: sampled assignment redundancy, challenge tasks, hidden validation shards, consistency checks, reputation penalties for deviation, minimum reputation thresholds for high-value jobs.
-
-### Embedded Retraining Loop
-
-Normal inference path: Route -> Execute -> Aggregate -> Ground/Safety/Memory evaluate -> Final response. Learning event creation when: exact correctness known, verifier disagreement identifies recoverable failure, grounding validation identifies contradiction, formatting/schema checks fail, user feedback strongly positive/negative, repeated workflow success creates strong pattern. Retraining targets: planner, router, numeric specialist, math verifier, formatter, grounding specialist, code specialist, synthesizer/arbiter.
-
-### Best Initial Retraining Targets
-
-1. Numeric Specialist / Math Verifier (exact-match correctness, symbolic verification success, arithmetic consistency)
-2. Router / Planner Specialist (quality improvement vs baseline, latency-adjusted utility, specialist selection accuracy)
-3. Formatter / Schema Specialist (JSON validity, schema compliance, formatting correctness, user preference match)
-4. Grounding Specialist (factual agreement, contradiction reduction, citation alignment)
-5. Code Specialist (test pass rate, compile success, static analysis success, minimal-diff acceptance)
-
-### Rollout Plan
-
-Phase 1: Single-Machine Proof (deterministic perturbation, specialist adapter target, compact fitness, validation loop). Phase 2: Local Beehive (10-50 peers, one room host, local task shards). Phase 3: GNUS Processing Room Integration (training-room lifecycle, IPFS-lite artifact addressing, gRPC/libp2p coordination, signed results). Phase 4: Reputation and Redundancy (duplicate assignments, challenge tasks, trainer scores, suspicious worker quarantine). Phase 5: Hierarchical Swarm Aggregation (beehive aggregators, cross-beehive promotion, canary rollout).
-
----
-
-## Targeted Retraining and Hierarchical Critical Thinking Specialists
-
-**Source:** `docs/architecture/14-cognitive-retaining-system.md`
+**Source:** `docs/architecture/cognitive-retaining-system.md`
 
 ### Targeted Retraining
 
@@ -548,8 +381,162 @@ Each interaction generates a Cognitive Training Event:
 
 Drives Targeted Retraining via weight adjustments, adapter updates, critic influence tuning, routing refinement, arbitration refinement.
 
-### System Outcome
+---
 
-Personalized reasoning evolution, bias-aware critical thinking, non-echo-chamber cognition, continuous improvement without full retraining, efficient deployment on low-end GPU devices. Transforms static inference into dynamic, self-improving cognitive process.
+## Epistemic Arbitration and Cognitive OS Extensions (2026-07-19 update, reclassified DOC)
+
+**Source:** `docs/architecture/epistemic-arbitration-and-cognitive-os.md`
+
+> **Reclassification note:** Previously classified as SPEC; reclassified as DOC because technical details (JSON machine config, callback registry, plugin ABI, trace format) serve illustrative rather than contractual purposes.
+
+### Cognitive OS Extension
+
+The Epistemic Arbitration Layer sits between consensus and final synthesis, providing formal, configurable reasoning over how viable outputs should be judged, challenged, and synthesized. The Requestor Node (already the temporary orchestrator and consensus coordinator) is extended into the system's Epistemic Arbiter.
+
+Runtime: GQHSM (data-driven hierarchical state machine) -- JSON-defined machines with generic callback registration, tiny shared-library framework plugins, future WASM-compatible.
+
+### Supported Framework Families
+
+- **Sanskrit epistemology (Nyaya/pramana-based):** Samshaya (doubt) -> Pramana (knowledge sources) -> Pancha Avayava (inferential construction) -> Tarka (challenge/debate) -> Hetvabhasa (fallacy detection) -> Nirnaya (final judgment).
+- **Kripke modal reasoning:** World construction -> Accessibility checks -> Modal evaluation -> Contradiction pressure -> Fixed-point resolution -> World selection.
+- **Hybrid:** Sequential or parallel combination of Sanskrit and Kripke branches.
+
+### Generic Callbacks
+
+initializeContext, classifyProblem, gatherKnowledgeSources, constructReasoningModel, critiqueAndValidate, performInference, resolveAndSynthesize, computeEpistemicWeights, emitTrace, finalizeOutput.
+
+### Guard Callbacks
+
+hasSufficientReputation, hasValidKnowledgeSources, hasNoCriticalContradictions, isHybridMergeReady, requiresHumanReview.
+
+### Plugin ABI
+
+`GQHSM_RegisterEpistemicPlugin(Registry&, EpistemicContext&)`, `GQHSM_GetPluginName()`, `GQHSM_GetPluginVersion()`, `GQHSM_GetSupportedFrameworks()`.
 
 ---
+
+## Agent and Module Development Inventory (2026-07-19 new)
+
+**Source:** `docs/architecture/agent-module-development-inventory.md`
+
+### Purpose
+
+Consolidates the agents, deterministic services, runtime modules, data stores, adapters, user interfaces, security boundaries, and distributed infrastructure required across the GeniusCognitiveSystem architecture. Translates architecture documents into an implementation inventory decomposable into workstreams, milestones, repositories, service interfaces, schemas, tests, deployment targets, and operational ownership.
+
+### Component Classes
+
+| Class | Description |
+|-------|-------------|
+| **Agent** | Model-assisted or adaptive component that interprets context, makes bounded judgments, proposes actions, or produces structured cognitive output |
+| **Deterministic Service** | Component with reproducible decisions from explicit inputs, schemas, policies, and state |
+| **Runtime Module** | Compute, inference, storage, networking, cryptographic, indexing, or execution module used by services/agents |
+| **Connector Adapter** | Protocol/provider-specific adapter exposing external/local operations as canonical GCS capabilities |
+| **Data Service** | Structured store, graph, index, artifact registry, queue, event log, or replicated state service |
+| **Control Surface** | User, administrator, developer, reviewer, or operator interface |
+
+### Covered Workstreams
+
+Executive Controller, Semantic Core, ELMs, GAML Cognitive Memory, Objective Memory and VTG, Secure Tool Intermediary, Capability System and Connectors, Forecast-Driven Cognition (ACE/CES), Grounding and Verification, Arbitration and Synthesis, Execution Integrity System (EIS), EGGROLL Adaptive Learning, Reputation and Consensus, Distributed GNUS Infrastructure, OpenAI-Compatible API, Local Cognitive Second Brain, Deployment Profiles.
+
+### Implementation Philosophy
+
+A component may be implemented as a deterministic library, in-process service, model-assisted function, local daemon, private node service, distributed GNUS service, constrained WASM module, role-based ELM, domain-specific ELM, or user-facing application. Prefer the smallest implementation that satisfies required behavior, trust boundary, performance target, and deployment model.
+
+---
+
+## GCS Capability System (2026-07-19 new)
+
+**Source:** `docs/architecture/capability-system.md`
+
+### Purpose
+
+Provides a protocol-neutral way for GeniusCognitiveSystem to discover, describe, govern, route, execute, and evaluate external and local capabilities.
+
+Core architectural rule:
+
+> GCS reasons about capabilities, not connector protocols. Connectors expose capabilities, and every capability is translated into a canonical internal contract before execution.
+
+MCP is one supported connector protocol. It is not the internal authority model.
+
+### Architectural Position
+
+```
+External/Local Systems (MCP, REST, GraphQL, gRPC, local APIs, OS services, DBs, WASM, GNUS network services)
+    -> Connector Adapters
+    -> Capability Discovery and Translation
+    -> Canonical Capability Contract
+    -> Router/Planner + Policy Evaluation
+    -> Tool Intermediary
+    -> Sandboxed and Attested Execution
+    -> Sanitized Result -> Verification, GAML Write, Reputation Update
+```
+
+### Core Concepts
+
+**Capability:** An operation available to GCS independent of transport protocol (e.g., `email.message.read`, `calendar.event.create`, `database.query.readonly`).
+
+**Connector:** Implements communication with a provider or local system. One connector may expose many capabilities; one capability may have multiple connectors.
+
+**Canonical Capability Contract:** Internal representation normalizing a capability before execution -- schema, constraints, required permissions, expected output shape.
+
+**Connector Lifecycle:** Registration (declare capabilities, credentials, rate limits) -> Discovery (query available capabilities) -> Translation (external operation -> canonical contract) -> Execution (Tool Intermediary path) -> Result sanitization -> Reputation update.
+
+### Credential Handling
+
+Connectors declare credential requirements in their manifest. Credentials never exposed directly to expert/ELM reasoning. Tool Intermediary mediates credential access.
+
+### Capability Routing
+
+When multiple connectors expose the same capability, routing prefers: local connectors over remote, lower-latency over higher, higher-reputation over lower, policy-compatible over incompatible.
+
+---
+
+## Local Cognitive Second Brain Mode (2026-07-19 new)
+
+**Source:** `docs/architecture/local-cognitive-second-brain.md`
+
+### Purpose
+
+Defines Local Cognitive Second Brain Mode for GCS -- private, user-owned memory and reasoning on a local device, workstation, SMB appliance, enterprise node, or private GNUS subnet.
+
+Core architectural rule:
+
+> The local second brain is a GCS agent mode backed by GAML, executed by local or private ELMs, coordinated by the orchestration layer, and improved over time through EGGROLL adaptation signals.
+
+### Five GCS Components
+
+- **Orchestration Layer:** Control plane -- decides local vs private vs public execution, memory scope, ELM/agent/tool selection.
+- **GAML:** Structured memory substrate -- stores facts, claims, commitments, decisions, deadlines, tasks, preferences, project state, contradictions, reasoning traces.
+- **Local or Private ELMs:** Reasoning engine executing within the privacy boundary.
+- **Second Brain Agent:** Behavior layer providing proactive assistance, meeting preparation, commitment tracking, contradiction detection.
+- **EGGROLL:** Adaptation loop improving second-brain behavior over time.
+
+### Privacy Modes
+
+- **Strictly Local:** All data stays on device; no external network access.
+- **Private Subnet:** Data shared within a configured private GNUS subnet.
+- **Enterprise:** Tenant-scoped with enterprise policy enforcement.
+
+### Memory Lifecycle
+
+Ingestion (structured extraction from conversations, documents, meetings) -> Storage (GAML objects with privacy scope) -> Retrieval (context-aware multi-hop reasoning) -> Writeback (version-aware updates with provenance) -> Contradiction Detection (flagging conflicting facts or commitments).
+
+### Human-Readable Memory Mirror
+
+Optional local file tree or dashboard exposing second-brain state in human-readable form for transparency and user oversight.
+
+---
+
+## Architecture Documentation Index
+
+**Source:** `docs/architecture/README.md`
+
+Navigation index and overview landing page for the Genius Cognitive System architecture documentation, covering product requirements, technical design, and system architecture blueprint across 30+ chapters.
+
+---
+
+## Sloth Integration Exploration
+
+**Source:** `docs/architecture/exploratory/sloth-integration.md`
+
+Explores integrating the Unsloth library into the GeniusLLM training pipeline for LoRA-based distillation and FP4/FP8 efficient training. Covers Teacher-Parent-Specialist pipeline, adapter merging, Sparse-V kernels, and surprise-gated memory integration.

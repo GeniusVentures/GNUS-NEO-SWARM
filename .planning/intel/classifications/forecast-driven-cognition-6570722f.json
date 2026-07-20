@@ -1,0 +1,13 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/forecast-driven-cognition.md",
+  "type": "SPEC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "28. Forecast-Driven Cognition and Predictive Prefetching",
+  "summary": "Defines Forecast-Driven Cognition (FDC) for GCS — a subsystem that predicts future cognitive requirements (intent, memory, experts, tools, nodes) and prepares resources in advance to reduce conversational and workflow latency.",
+  "scope": ["Forecast-Driven Cognition (FDC)", "Anticipatory Cognition Engine (ACE)", "Cognitive Execution Scheduler (CES)", "GAML", "EGGROLL", "ELMs", "Personal Forecast Models (PFM)", "Anticipatory Distillation", "Bidirectional Voice Communication", "GNUS Nodes", "Forecast Graph", "Confidence-Based Preparation Policy", "Multi-Hypothesis Forecasting"],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": "Classified as SPEC based on concrete implementation requirements (section 28.22), defined component interfaces (ACE, CES, GAML forecast-candidate/prefetch/commit interfaces), and architectural contracts spanning integration with GAML, EGGROLL, ELMs, and GNUS nodes. Lacks traditional SPEC hallmarks (endpoint tables, formal schemas, OpenAPI) — straddles DOC/SPEC boundary. Confidence set to medium."
+}

@@ -2,7 +2,9 @@
 
 > Extracted from PRD-classified source documents. Empty for this ingest because no documents were classified as PRD.
 
-**No requirements recorded.** The 16 architecture documents describe system design (DOC) and technical specifications (SPEC); none are product requirement documents (PRD).
+**No requirements recorded.** The 27 architecture documents describe system design (DOC) and technical specifications (SPEC); none are product requirement documents (PRD).
+
+Last updated: 2026-07-19 ingest (27 docs, 10 SPEC + 17 DOC; 0 PRD).
 
 ## Placeholder for future PRDs
 
