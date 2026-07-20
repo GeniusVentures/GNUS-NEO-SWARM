@@ -7,21 +7,35 @@
 #include "genius_elm_chat_completions.h"
 #include <gtest/gtest.h>
 
-TEST( GeniusElmFFI, InitWithNullptrSucceeds )
+class GeniusElmFFI : public ::testing::Test
+{
+protected:
+    void TearDown() override
+    {
+        // Destroy ApiServer before GTest global teardown — see FIX-01:
+        // ApiServer::~ApiServer() calls Stop() which touches asio::io_context
+        // internals and libp2p stack; if left to static destruction after
+        // __cxa_finalize, pthread primitives have already been cleaned up
+        // and a "pthread lock: Invalid argument" abort occurs at process exit.
+        (void)GeniusElmShutdown();
+    }
+};
+
+TEST_F( GeniusElmFFI, InitWithNullptrSucceeds )
 {
     // GeniusElmInit(nullptr, nullptr) should initialize in stub mode
     int result = GeniusElmInit( nullptr, nullptr );
     EXPECT_EQ( result, 0 );
 }
 
-TEST( GeniusElmFFI, StringFreeNullptrDoesNotCrash )
+TEST_F( GeniusElmFFI, StringFreeNullptrDoesNotCrash )
 {
     // Freeing nullptr should not crash
     GeniusElmStringFree( nullptr );
     SUCCEED();
 }
 
-TEST( GeniusElmFFI, GetStatusReturnsValidJson )
+TEST_F( GeniusElmFFI, GetStatusReturnsValidJson )
 {
     int result = GeniusElmInit( nullptr, nullptr );
     EXPECT_EQ( result, 0 );
@@ -38,7 +52,7 @@ TEST( GeniusElmFFI, GetStatusReturnsValidJson )
     GeniusElmStringFree( status );
 }
 
-TEST( GeniusElmFFI, ChatCompletionsReturnsValidJson )
+TEST_F( GeniusElmFFI, ChatCompletionsReturnsValidJson )
 {
     int result = GeniusElmInit( nullptr, nullptr );
     EXPECT_EQ( result, 0 );
@@ -55,7 +69,7 @@ TEST( GeniusElmFFI, ChatCompletionsReturnsValidJson )
     GeniusElmStringFree( response );
 }
 
-TEST( GeniusElmFFI, ChatCompletionsWithNullDoesNotCrash )
+TEST_F( GeniusElmFFI, ChatCompletionsWithNullDoesNotCrash )
 {
     int result = GeniusElmInit( nullptr, nullptr );
     EXPECT_EQ( result, 0 );
@@ -71,7 +85,7 @@ TEST( GeniusElmFFI, ChatCompletionsWithNullDoesNotCrash )
     GeniusElmStringFree( response );
 }
 
-TEST( GeniusElmFFI, MultipleInitCallsSucceed )
+TEST_F( GeniusElmFFI, MultipleInitCallsSucceed )
 {
     // Calling GeniusElmInit multiple times should succeed each time
     EXPECT_EQ( GeniusElmInit( nullptr, nullptr ), 0 );
@@ -79,7 +93,7 @@ TEST( GeniusElmFFI, MultipleInitCallsSucceed )
     EXPECT_EQ( GeniusElmInit( nullptr, nullptr ), 0 );
 }
 
-TEST( GeniusElmFFI, ChatCompletionsWithoutInitSucceeds )
+TEST_F( GeniusElmFFI, ChatCompletionsWithoutInitSucceeds )
 {
     // Chat should lazy-init if GeniusElmInit was never called
     const char* request = R"({"messages":[{"role":"user","content":"test"}]})";
