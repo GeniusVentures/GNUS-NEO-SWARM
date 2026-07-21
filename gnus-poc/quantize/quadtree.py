@@ -23,6 +23,8 @@ from typing import Callable, Dict, List
 
 import numpy as np
 
+from quantize.sgfp4_format import CodeMode
+
 
 # Maximum recursion depth (64 -> 32 -> 16 -> 8 -> 4)
 _kMaxRecursionDepth = 4
@@ -130,9 +132,16 @@ class QuadtreeEncoder:
         fp4_result = self._fit_fp4(region)
         t158_result = self._fit_t158(region)
 
-        # Compute Laplacian-weighted error for both modes
-        fp4_reconstructed = self._reconstruct(region, fp4_result)
-        t158_reconstructed = self._reconstruct(region, t158_result)
+        # Compute Laplacian-weighted error for both modes. Each mode must be
+        # reconstructed with its OWN codebook (FP4 nibble codes vs ternary
+        # thresholding) or the dual-mode decision scores T158 against the
+        # wrong error surface.
+        fp4_reconstructed = self._reconstruct(
+            region, fp4_result, mode=CodeMode.FP4_AFFINE
+        )
+        t158_reconstructed = self._reconstruct(
+            region, t158_result, mode=CodeMode.T158_AFFINE
+        )
 
         fp4_error = self._laplacian.compute(region, fp4_reconstructed, block_size=size)
         t158_error = self._laplacian.compute(region, t158_reconstructed, block_size=size)
@@ -148,11 +157,11 @@ class QuadtreeEncoder:
         if t158_preferred:
             selected = t158_result
             selected_error = t158_error
-            mode = 1  # MODE_T158_AFFINE
+            mode = CodeMode.T158_AFFINE
         else:
             selected = fp4_result
             selected_error = fp4_error
-            mode = 0  # MODE_FP4_AFFINE
+            mode = CodeMode.FP4_AFFINE
 
         max_mse = threshold.get("max_mse", 0.0005)
 
@@ -211,14 +220,35 @@ class QuadtreeEncoder:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _reconstruct(region: np.ndarray, result: dict) -> np.ndarray:
-        """Reconstruct a region from encode result for error computation."""
+    def _reconstruct(
+        region: np.ndarray,
+        result: dict,
+        mode: CodeMode = CodeMode.FP4_AFFINE,
+    ) -> np.ndarray:
+        """Reconstruct a region from encode result for error computation.
+
+        Args:
+            region: 2D array of original weights.
+            result: Encode result dict with scale/bias.
+            mode: CodeMode.FP4_AFFINE (round-to-nearest nibble codes) or
+                  CodeMode.T158_AFFINE (ternary threshold codes). Using the
+                  wrong mode's codebook here systematically distorts the
+                  dual-mode selection error comparison.
+        """
         flat = region.ravel().astype(np.float32)
-        n = flat.size
         scale = result["scale"]
         bias = result["bias"]
-        # Reconstruct using same method as encode
-        codes = np.clip(np.round((flat - bias) / scale), -8, 7).astype(np.int8)
+        if mode == CodeMode.T158_AFFINE:
+            # T158: threshold at tau = S/2 (matches the ternary encoder and
+            # _t158_has_outlier)
+            centered = flat - bias
+            tau = 0.5 * scale
+            codes = np.zeros(flat.size, dtype=np.int8)
+            codes[centered > tau] = 1
+            codes[centered < -tau] = -1
+        else:
+            # FP4: round-to-nearest, clip to [-8, 7]
+            codes = np.clip(np.round((flat - bias) / scale), -8, 7).astype(np.int8)
         return (scale * codes.astype(np.float32) + bias).reshape(region.shape)
 
     @staticmethod

@@ -1,7 +1,7 @@
 """FP4 Ultra binary exporter — SGFP4 v1 (fixed 64x64) and v2 (adaptive quadtree).
 
 Container layout v1: headers[B] | offsets[B] | codes_blob[B*2048]
-Container layout v2: magic[4] | version[1] | num_superblocks[4] |
+Container layout v2: magic[4] | version[1] | num_superblocks[4] | pad[7] |
                      superblock_offsets[B] | superblock_data[0..B-1]
 
 v1 (fixed, backward compatible):
@@ -32,30 +32,48 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
+from quantize.sgfp4_format import (
+    ALIGNMENT,
+    FP16_MAX,
+    HEADER_CLEAR_FLAGS_MASK,
+    LEAF_MODE_MASK,
+    MACROBLOCK_SIZE,
+    MIN_LEAF_SIZE,
+    OFFSET_FLAG_MASK,
+    PAYLOAD_BYTES,
+    PAYLOAD_U32,
+    SB_HEADER_LAYOUT_MASK,
+    SGFP4_MAGIC,
+    SGFP4_VERSION_V2,
+    SPLIT_MAP_BYTES,
+    SPLIT_MAP_MAX_BITS,
+    SPLIT_MAP_WORDS,
+    UINT32_BITS,
+    V2_HEADER_PAD_BYTES,
+    CodeMode,
+    Layout,
+)
+
 
 # ---------------------------------------------------------------------------
-# Constants
+# Backward-compatible aliases (std. §4.1: scoped enums are the canonical
+# names; plain-int aliases kept for existing callers and tests)
 # ---------------------------------------------------------------------------
 
-MACROBLOCK_SIZE = 64          # Superblock outer size (always 64 in both v1 and v2)
-PAYLOAD_BYTES = 2048          # v1 fixed payload size
-PAYLOAD_U32 = PAYLOAD_BYTES // 4
-ALIGNMENT = 16
+MODE_FP4_AFFINE = CodeMode.FP4_AFFINE
+MODE_T158_AFFINE = CodeMode.T158_AFFINE
 
-MODE_FP4_AFFINE = 0
-MODE_T158_AFFINE = 1
+LAYOUT_UNIFORM_64 = Layout.UNIFORM_64
+LAYOUT_UNIFORM_32 = Layout.UNIFORM_32
+LAYOUT_UNIFORM_16 = Layout.UNIFORM_16
+LAYOUT_UNIFORM_8 = Layout.UNIFORM_8
+LAYOUT_MIXED = Layout.MIXED
+LAYOUT_FULL_4x4 = Layout.FULL_4X4
 
-# v2 magic header bytes
-SGFP4_MAGIC = b'SGF4'
-SGFP4_VERSION_V2 = 0x02
 
-# v2 layout enum constants (D-02)
-LAYOUT_UNIFORM_64 = 0    # one 64x64 block
-LAYOUT_UNIFORM_32 = 1    # four 32x32 blocks
-LAYOUT_UNIFORM_16 = 2    # sixteen 16x16 blocks
-LAYOUT_UNIFORM_8  = 3    # sixty-four 8x8 blocks
-LAYOUT_MIXED      = 4    # mixed quadtree
-LAYOUT_FULL_4x4   = 5    # full 4x4 stamps (256 blocks)
+def _zero_pad(data: bytes, alignment: int = ALIGNMENT) -> bytes:
+    """Append zero bytes until len(data) is a multiple of alignment."""
+    return data + b"\x00" * ((-len(data)) % alignment)
 
 # Default v2 thresholds (per RESEARCH.md Pattern 4 / D-08)
 DEFAULT_V2_THRESHOLDS = {
@@ -252,12 +270,15 @@ class FP4Exporter:
                     mode = MODE_FP4_AFFINE
                     selected = fp4_result
 
-                scale = float(np.clip(selected["scale"], -65504, 65504))
-                bias = float(np.clip(selected["bias"], -65504, 65504))
+                scale = float(np.clip(selected["scale"], -FP16_MAX, FP16_MAX))
+                bias = float(np.clip(selected["bias"], -FP16_MAX, FP16_MAX))
                 headers[block_idx] = self._pack_half2(scale, bias)
 
                 assert current_offset % ALIGNMENT == 0
-                offsets[block_idx] = (current_offset & ~0xF) | (mode & 0xF)
+                offsets[block_idx] = (
+                    (current_offset & ~OFFSET_FLAG_MASK)
+                    | (int(mode) & OFFSET_FLAG_MASK)
+                )
 
                 block_payload = selected["payload"]
                 assert len(block_payload) == PAYLOAD_U32
@@ -303,12 +324,17 @@ class FP4Exporter:
     ) -> Tuple[bytes, dict]:
         """SGFP4 v2 adaptive quadtree export.
 
-        Binary format:
-            magic[4] | version[1] | num_superblocks[4] |
+        Binary format (paper Sec 6.1):
+            magic[4] | version[1] | num_superblocks[4] | pad[7] |
             superblock_offsets[B] | superblock_data[0..B-1]
 
-        Each superblock:
-            superblock_header[4] | block_headers[N*4] | payloads[var]
+        Each superblock record (paper Sec 6.2), 16-byte aligned and zero
+        padded to a 16-byte multiple:
+            sb_header[4] | split_map[12] (LAYOUT_MIXED only) |
+            block_headers[N*4] | pad[0-15] | payloads[N] (each 16B-padded)
+
+        Leaf storage order: row-major raster for uniform layouts; pre-order
+        DFS (matching the split map) for LAYOUT_MIXED.
         """
         O, I = weights.shape
         tiles_y = math.ceil(O / MACROBLOCK_SIZE)
@@ -367,50 +393,62 @@ class FP4Exporter:
         current_offset = 0
 
         for idx, (layout, blocks) in enumerate(superblock_layouts):
+            # Leaf storage order (paper Sec 6.2): uniform layouts are stored
+            # in row-major raster order of the tile grid; LAYOUT_MIXED keeps
+            # the pre-order DFS order that matches the split map.
+            if layout == Layout.MIXED:
+                split_map = self._build_split_map(blocks)
+            else:
+                split_map = b""
+                blocks = sorted(blocks, key=lambda b: (b["y"], b["x"]))
+
             # Superblock header: uint32 with layout enum + reserved
-            sb_header = np.uint32(layout & 0x7)
+            sb_header = np.uint32(int(layout) & SB_HEADER_LAYOUT_MASK)
 
             # Per-block headers
             block_headers = []
             for blk in blocks:
                 bh = self._pack_half2(
-                    float(np.clip(blk["scale"], -65504, 65504)),
-                    float(np.clip(blk["bias"], -65504, 65504)),
+                    float(np.clip(blk["scale"], -FP16_MAX, FP16_MAX)),
+                    float(np.clip(blk["bias"], -FP16_MAX, FP16_MAX)),
                 )
                 # 4 LSB offset flags per D-06:
                 #   bit 0 = mode (FP4=0, T158=1)
                 #   bit 1 = log mode (reserved=0 per D-05)
                 #   bits 2-3 = reserved (0)
-                flags = (blk["mode"] & 0x1)
-                bh = np.uint32((int(bh) & 0xFFFFFFF0) | flags)
+                flags = int(blk["mode"]) & LEAF_MODE_MASK
+                bh = np.uint32((int(bh) & HEADER_CLEAR_FLAGS_MASK) | flags)
                 block_headers.append(bh)
 
-            # Per-block payloads with 16-byte alignment per RESEARCH.md Pitfall 3
-            payload_chunks = []
-            for blk in blocks:
-                payload_bytes = blk["payload"].tobytes()
-                # 16-byte alignment
-                aligned_size = (len(payload_bytes) + (ALIGNMENT - 1)) & ~(ALIGNMENT - 1)
-                if aligned_size > len(payload_bytes):
-                    payload_bytes = payload_bytes + b'\x00' * (aligned_size - len(payload_bytes))
-                payload_chunks.append(payload_bytes)
-
-            # Assemble superblock data
-            sb_data = (
+            # Header section: sb_header | split_map | block_headers, then
+            # zero pad to a 16-byte boundary so payloads (and therefore all
+            # absolute addresses) stay aligned (paper Sec 6.2)
+            header_section = _zero_pad(
                 sb_header.tobytes()
+                + split_map
                 + b"".join(bh.tobytes() for bh in block_headers)
-                + b"".join(payload_chunks)
             )
+
+            # Per-block payloads with 16-byte alignment per RESEARCH.md Pitfall 3
+            payload_chunks = [
+                _zero_pad(blk["payload"].tobytes()) for blk in blocks
+            ]
+
+            # Assemble superblock data; pad record to a 16-byte multiple so
+            # every record offset stays 16-byte aligned (paper Sec 6.1)
+            sb_data = _zero_pad(header_section + b"".join(payload_chunks))
 
             superblock_offsets[idx] = current_offset
             superblock_data_chunks.append(sb_data)
             current_offset += len(sb_data)
 
-        # Assemble full binary
+        # Assemble full binary: magic | version | B | 7B pad to 16-byte
+        # boundary | offset table | records (paper Sec 6.1)
         binary = (
             SGFP4_MAGIC
             + struct.pack("<B", SGFP4_VERSION_V2)
             + struct.pack("<I", B)
+            + b"\x00" * V2_HEADER_PAD_BYTES
             + superblock_offsets.tobytes()
             + b"".join(superblock_data_chunks)
         )
@@ -638,37 +676,92 @@ class FP4Exporter:
             return n_weights // 16
 
     @staticmethod
-    def _classify_layout(blocks: List[dict]) -> int:
+    def _classify_layout(blocks: List[dict]) -> Layout:
         """Classify superblock layout from quadtree output blocks (D-02).
 
         Args:
             blocks: List of block dicts from QuadtreeEncoder.encode().
 
         Returns:
-            Layout enum value (0-5).
+            Layout enum member.
         """
         sizes = [b["size"] for b in blocks]
         unique_sizes = set(sizes)
 
         if len(unique_sizes) == 1:
             size = sizes[0]
-            expected_count = (64 // size) * (64 // size)
+            expected_count = (MACROBLOCK_SIZE // size) * (MACROBLOCK_SIZE // size)
             if len(blocks) != expected_count:
                 # All same size but wrong count — treat as mixed
-                return LAYOUT_MIXED
+                return Layout.MIXED
 
             if size == 64:
-                return LAYOUT_UNIFORM_64
+                return Layout.UNIFORM_64
             elif size == 32:
-                return LAYOUT_UNIFORM_32
+                return Layout.UNIFORM_32
             elif size == 16:
-                return LAYOUT_UNIFORM_16
+                return Layout.UNIFORM_16
             elif size == 8:
-                return LAYOUT_UNIFORM_8
-            elif size == 4:
-                return LAYOUT_FULL_4x4
+                return Layout.UNIFORM_8
+            elif size == MIN_LEAF_SIZE:
+                return Layout.FULL_4X4
 
-        return LAYOUT_MIXED
+        return Layout.MIXED
+
+    @staticmethod
+    def _build_split_map(blocks: List[dict]) -> bytes:
+        """Serialize the quadtree structure as a 12-byte split bitmap.
+
+        Per paper Sec 6.2: visiting nodes in pre-order DFS with quadrant
+        order TL, TR, BL, BR, one bit per node of size >= 8 records whether
+        that node is split (1) or a leaf (0). Nodes of size 4 cannot split
+        and contribute no bit. Bit k of the map is bit (k mod 32) of word
+        floor(k/32); upper bits are zero.
+
+        Args:
+            blocks: Leaf block dicts (with y, x, size) in pre-order DFS
+                    order, as emitted by QuadtreeEncoder.encode().
+
+        Returns:
+            12 bytes: three little-endian uint32 words.
+        """
+        bits: List[int] = []
+        leaf_index = 0
+
+        def walk(y: int, x: int, size: int) -> None:
+            nonlocal leaf_index
+            blk = blocks[leaf_index]
+            if size == MIN_LEAF_SIZE:
+                # 4x4 nodes cannot split and contribute no bit; the leaf
+                # must be here.
+                assert (blk["y"], blk["x"], blk["size"]) == (y, x, MIN_LEAF_SIZE), (
+                    f"split-map walk expected 4x4 leaf at ({y},{x}), got {blk}"
+                )
+                leaf_index += 1
+                return
+            if (blk["y"], blk["x"], blk["size"]) == (y, x, size):
+                bits.append(0)  # leaf
+                leaf_index += 1
+                return
+            bits.append(1)  # split
+            half = size // 2
+            for dy in (0, half):
+                for dx in (0, half):
+                    walk(y + dy, x + dx, half)
+
+        walk(0, 0, MACROBLOCK_SIZE)
+        assert leaf_index == len(blocks), (
+            f"split map consumed {leaf_index} of {len(blocks)} leaves"
+        )
+        assert len(bits) <= SPLIT_MAP_MAX_BITS, (
+            f"split map needs {len(bits)} bits (max {SPLIT_MAP_MAX_BITS})"
+        )
+
+        words = [0] * SPLIT_MAP_WORDS
+        for k, bit in enumerate(bits):
+            if bit != 0:
+                words[k // UINT32_BITS] |= 1 << (k % UINT32_BITS)
+        return struct.pack("<3I", *words)
 
     # ==================================================================
     # Manifest generation (v2 only)
