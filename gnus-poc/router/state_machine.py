@@ -419,6 +419,13 @@ _ROUTER_CLASSIFIER_DEFINITION: Dict[str, Any] = {
     ],
     "transitions": [
         {
+            "name": "t_begin",
+            "eventSignal": "begin_classification",
+            "source": "pre_classify",
+            "target": "keyword_match",
+            "evaluationOrderPriority": 0,
+        },
+        {
             "name": "t_kw_hit",
             "eventSignal": "keyword_hit",
             "source": "keyword_match",
@@ -497,7 +504,7 @@ def create_router_state_machine(
     """Create a pre-configured router classification state machine.
 
     Uses the built-in ``_ROUTER_CLASSIFIER_DEFINITION`` (7 states,
-    9 transitions) matching the GQHSM-compatible JSON schema.
+    10 transitions) matching the GQHSM-compatible JSON schema.
 
     Args:
         rule_handlers: Optional dict mapping callback names to callables.

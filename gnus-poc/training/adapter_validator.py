@@ -83,6 +83,10 @@ class AdapterValidator:
         # Check for all-zero weights (T-02-05)
         if has_safetensors:
             all_zero = self._check_all_zero_weights(weights_path)
+            if all_zero is None:
+                result.loadability_error = "adapter_model.safetensors could not be parsed (truncated or malformed)"
+                result.errors.append(result.loadability_error)
+                return result
             if all_zero:
                 result.all_zero_weights = True
                 result.loadability_error = "All adapter tensor norms are near-zero"
@@ -114,6 +118,11 @@ class AdapterValidator:
             diff_pct = self._compute_behavioral_diff(test_path, base_model_id, adapter_dir)
             result.behavioral_diff_pct = diff_pct
             result.behavioral_diff_passed = diff_pct >= self._behavioral_diff_threshold
+            if not result.behavioral_diff_passed:
+                result.errors.append(
+                    "Behavioral diff below threshold or inference unavailable "
+                    "(real base-vs-adapter inference deferred to a later phase)"
+                )
         else:
             result.behavioral_diff_pct = None
             result.behavioral_diff_passed = False
@@ -130,8 +139,21 @@ class AdapterValidator:
     # --- Internal helpers ---
 
     @staticmethod
-    def _check_all_zero_weights(safetensors_path: Path) -> bool:
-        """Check if all tensors in a safetensors file have near-zero norms."""
+    def _check_all_zero_weights(safetensors_path: Path) -> Optional[bool]:
+        """Check if all tensors in a safetensors file have near-zero norms.
+
+        Returns True when every tensor norm is near-zero, False when any tensor
+        has a non-trivial norm, and None when the file cannot be parsed
+        (truncated or malformed safetensors).
+        """
+        try:
+            import numpy as np
+        except ImportError:
+            return None
+
+        # safetensors dtype -> numpy dtype; BF16 decoded via ml_dtypes or bit-shift fallback
+        dtype_map = {"F64": np.float64, "F32": np.float32, "F16": np.float16}
+
         try:
             with open(safetensors_path, "rb") as f:
                 header_len = struct.unpack("<Q", f.read(8))[0]
@@ -147,15 +169,37 @@ class AdapterValidator:
                     data_len = offsets[1] - offsets[0]
                     f.seek(8 + header_len + offsets[0])
                     raw = f.read(data_len)
-                    if dtype == "F32":
-                        import numpy as np
-                        arr = np.frombuffer(raw, dtype=np.float32).reshape(shape)
-                        norm = float(np.linalg.norm(arr))
-                        if norm > 1e-8:
-                            return False
+                    if len(raw) != data_len:
+                        return None  # truncated tensor payload
+                    arr = AdapterValidator._decode_tensor(raw, dtype, shape, dtype_map, np)
+                    if arr is None:
+                        continue  # unsupported dtype — skip rather than misreport
+                    norm = float(np.linalg.norm(arr))
+                    if norm > 1e-8:
+                        return False
             return True
         except Exception:
-            return False
+            return None
+
+    @staticmethod
+    def _decode_tensor(raw: bytes, dtype: str, shape: list, dtype_map: dict, np):
+        """Decode raw safetensors bytes into a numeric numpy array.
+
+        Supports F64/F32/F16 via numpy and BF16 via ml_dtypes (or a uint16
+        bit-shift fallback). Returns None for unsupported dtypes.
+        """
+        np_dtype = dtype_map.get(dtype)
+        if np_dtype is not None:
+            return np.frombuffer(raw, dtype=np_dtype).reshape(shape)
+        if dtype == "BF16":
+            try:
+                import ml_dtypes
+                return np.frombuffer(raw, dtype=ml_dtypes.bfloat16).reshape(shape).astype(np.float32)
+            except ImportError:
+                # Fallback: BF16 is the top 16 bits of F32 — left-shift into F32
+                u16 = np.frombuffer(raw, dtype=np.uint16).reshape(shape)
+                return (u16.astype(np.uint32) << 16).view(np.float32)
+        return None
 
     @staticmethod
     def _check_all_zero_npz(npz_path: Path) -> bool:
@@ -203,35 +247,14 @@ class AdapterValidator:
             return float("inf")
 
     def _compute_behavioral_diff(self, test_data_path: Path, base_model_id: str, adapter_dir: Path) -> float:
-        """Compute token overlap percentage between base and adapter inference output."""
-        try:
-            samples = []
-            with open(test_data_path, "r") as f:
-                for line in f:
-                    line = line.strip()
-                    if line:
-                        samples.append(json.loads(line))
+        """Compute output divergence between base model and adapter.
 
-            if not samples:
-                return 0.0
-
-            diffs = []
-            for sample in samples[: self._num_inference_prompts]:
-                text = sample.get("text", "")
-                if text and len(text) >= 50:
-                    # Simulate behavioral diff: base model output would be the same text
-                    # (since we can't actually run inference without MLX/GPU).
-                    # A real adapter changes output — we simulate a small change.
-                    words = text.lower().split()
-                    unique_words = set(words)
-                    diversity = len(unique_words) / max(len(words), 1)
-                    # Simulated diff: unique vocabulary diversity as proxy
-                    diff = diversity * 100.0  # percentage scale
-                    diffs.append(diff)
-
-            return sum(diffs) / len(diffs) if diffs else 0.0
-        except Exception:
-            return 0.0
+        Real base-vs-adapter inference requires MLX model loading, which is
+        deferred to a later phase. Until then this check fails closed: it
+        returns 0.0 so ``behavioral_diff_passed`` is False and the adapter is
+        not promoted on the strength of a proxy metric (TRAIN-01).
+        """
+        return 0.0
 
 
 # ---------------------------------------------------------------------------

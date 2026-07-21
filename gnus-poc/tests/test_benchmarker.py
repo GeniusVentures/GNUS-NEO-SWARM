@@ -630,12 +630,12 @@ def test_find_canonical_results_quantized_discriminator(tmp_path):
     assert payload["quantized"] is False
 
 
-class TestGateCheck:
-    """Tests for Benchmarker.gate_check() auto-gating (D-14, D-17)."""
+class TestGateCheckEval:
+    """Tests for Benchmarker.gate_check_eval() auto-gating (D-14, D-17)."""
 
-    def test_gate_check_all_pass(self, tmp_path):
+    def test_gate_check_eval_all_pass(self, tmp_path):
         bench = Benchmarker(project_root=tmp_path)
-        result = bench.gate_check(
+        result = bench.gate_check_eval(
             "test",
             {"perplexity": 12.0, "bleu_score": 0.45},
             {"ppl_max": 50.0, "bleu_min": 0.15, "consecutive_failures": 3},
@@ -645,9 +645,9 @@ class TestGateCheck:
         assert result["gates"]["bleu_score"]["passed"] is True
         assert result["blocking_gates"] == []
 
-    def test_gate_check_single_failure_does_not_block(self, tmp_path):
+    def test_gate_check_eval_single_failure_does_not_block(self, tmp_path):
         bench = Benchmarker(project_root=tmp_path)
-        result = bench.gate_check(
+        result = bench.gate_check_eval(
             "test",
             {"perplexity": 99.0, "bleu_score": 0.02},
             {"ppl_max": 50.0, "bleu_min": 0.15, "consecutive_failures": 3},
@@ -658,7 +658,7 @@ class TestGateCheck:
         assert result["gates"]["perplexity"]["consecutive_failures"] == 1
         assert result["gates"]["bleu_score"]["consecutive_failures"] == 1
 
-    def test_gate_check_blocks_after_consecutive_failures(self, tmp_path):
+    def test_gate_check_eval_blocks_after_consecutive_failures(self, tmp_path):
         from eval.metric_store import EvalMetrics
         from eval.metric_store import MetricStore
 
@@ -681,7 +681,7 @@ class TestGateCheck:
             ))
 
         bench = Benchmarker(project_root=tmp_path, metric_store=store)
-        result = bench.gate_check(
+        result = bench.gate_check_eval(
             "test",
             {"perplexity": 80.0, "bleu_score": 0.05},
             {"ppl_max": 50.0, "bleu_min": 0.15, "consecutive_failures": 3},
@@ -692,9 +692,9 @@ class TestGateCheck:
         assert "bleu_score" in result["blocking_gates"]
         assert result["gates"]["perplexity"]["consecutive_failures"] == 3
 
-    def test_gate_check_default_thresholds(self, tmp_path):
+    def test_gate_check_eval_default_thresholds(self, tmp_path):
         bench = Benchmarker(project_root=tmp_path)
-        result = bench.gate_check("test", {"perplexity": 35.0, "bleu_score": 0.30})
+        result = bench.gate_check_eval("test", {"perplexity": 35.0, "bleu_score": 0.30})
         assert result["blocked"] is False
 
     def test_count_consecutive_failures_no_prior(self):
@@ -732,12 +732,12 @@ class TestGateCheck:
             },
             {
                 "gates_passed": {
-                    "perplexity": {"passed": True},  # streak broken here
+                    "perplexity": {"passed": False},
                 },
             },
             {
                 "gates_passed": {
-                    "perplexity": {"passed": False},
+                    "perplexity": {"passed": True},  # streak broken here (most recent)
                 },
             },
         ]

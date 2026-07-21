@@ -106,7 +106,7 @@ class Benchmarker:
     # Gate checking (new — D-09: SGFP4 metrics as eval gate dimensions)
     # ------------------------------------------------------------------
 
-    def gate_check_sgfp4(self, niche_name: str, config: dict = None) -> dict:
+    def gate_check(self, niche_name: str, config: dict = None) -> dict:
         """Evaluate SGFP4 quantization metrics against configurable thresholds.
 
         Follows the Phase 2 auto-gating pattern: each gate dimension has a
@@ -948,7 +948,7 @@ class Benchmarker:
     # Auto-gating (Phase 2: D-14, D-17)
     # ------------------------------------------------------------------
 
-    def gate_check(
+    def gate_check_eval(
         self,
         niche_name: str,
         current_metrics: Dict[str, Any],

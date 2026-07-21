@@ -153,20 +153,23 @@ class TestSyntheticDataGenerator:
         mock_client = MagicMock()
         mock_client.generate_with_cascade = MagicMock()
         # First two responses are same after normalization (different whitespace collapses)
-        content_a = "Python is a high-level programming language.  Extra   spaces. " * 8
-        content_b = "Python is a high-level programming language. Extra spaces." * 8  # same after normalize
+        content_a = "Python is a high-level programming language. Extra spaces. " * 8
+        content_b = "Python is a high-level programming language.  Extra   spaces. " * 8  # same after normalize
         content_c = "Java is a different programming language entirely, with distinct syntax. " * 8
         mock_client.generate_with_cascade.side_effect = [
             make_mock_response(content_a),
             make_mock_response(content_b),
             make_mock_response(content_c),
+            make_mock_response(content_b),  # dup of a again
+            make_mock_response(content_c),  # dup of c
+            make_mock_response(content_a),  # dup of a
         ]
 
         gen = SyntheticDataGenerator(mock_client, use_cascade=True)
         samples = gen.generate_for_niche(
             niche_name="encyclopedic",
             system_prompt="You are a helpful assistant.",
-            user_prompts=["Explain programming languages."],
+            user_prompts=["Explain programming languages."] * 3,
             num_samples=3,
         )
 

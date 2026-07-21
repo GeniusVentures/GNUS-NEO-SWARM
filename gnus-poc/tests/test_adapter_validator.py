@@ -76,6 +76,37 @@ def _write_all_zero_safetensors(path: Path, keys_and_shapes: dict):
             f.write(chunk)
 
 
+def _write_bf16_safetensors(path: Path, keys_and_shapes: dict, fill: float):
+    """
+    Write a valid .safetensors file with BF16 tensors filled with `fill`.
+    BF16 bytes are the top 16 bits of the F32 representation.
+    """
+    import struct
+
+    import numpy as np
+
+    metadata = {}
+    data_chunks = []
+
+    for key, shape in keys_and_shapes.items():
+        arr = np.full(shape, fill, dtype=np.float32)
+        bf16_bytes = (arr.view(np.uint32) >> 16).astype(np.uint16).tobytes()
+        offset = sum(len(c) for c in data_chunks)
+        metadata[key] = {"dtype": "BF16", "shape": list(shape), "data_offsets": [offset, offset + len(bf16_bytes)]}
+        data_chunks.append(bf16_bytes)
+
+    header = json.dumps(metadata, separators=(",", ":"))
+    header_bytes = header.encode("utf-8")
+    header_len = struct.pack("<Q", len(header_bytes))
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "wb") as f:
+        f.write(header_len)
+        f.write(header_bytes)
+        for chunk in data_chunks:
+            f.write(chunk)
+
+
 def _write_test_jsonl(path: Path, lines: list):
     """Write a list of {'text': ...} dicts to a JSONL file."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -304,3 +335,103 @@ def test_missing_adapter_file_handled_gracefully(valid_test_data):
         or "adapter" in e.lower()
         for e in result.errors
     )
+
+
+# ---------------------------------------------------------------------------
+# Test 8: Malformed safetensors rejected as not loadable (P1: parse error ≠ non-zero)
+# ---------------------------------------------------------------------------
+
+def test_malformed_safetensors_rejected(tmp_path, valid_test_data):
+    """A truncated/malformed safetensors file must fail loadability with a parse
+    error, not be treated as a valid non-zero adapter."""
+    adapter_dir = tmp_path / "adapters" / "broken"
+    adapter_dir.mkdir(parents=True)
+    (adapter_dir / "adapter_config.json").write_text(json.dumps({"model": "test-model"}))
+    # Truncated garbage that cannot parse as safetensors
+    (adapter_dir / "adapter_model.safetensors").write_bytes(b"\x05\x00garbage")
+
+    validator = AdapterValidator()
+    result = validator.validate(
+        niche="broken",
+        adapter_path=str(adapter_dir),
+        test_data_path=valid_test_data,
+        base_model_id="test-model",
+    )
+
+    assert result.loadable is False
+    assert result.all_zero_weights is False
+    assert result.all_checks_passed is False
+    assert any("parse" in e.lower() or "malformed" in e.lower() or "truncated" in e.lower()
+               for e in result.errors)
+
+
+# ---------------------------------------------------------------------------
+# Test 9: Non-zero BF16 adapter is loadable (P1: F16/BF16 not skipped)
+# ---------------------------------------------------------------------------
+
+def test_nonzero_bf16_adapter_is_loadable(tmp_path, valid_test_data):
+    """A valid BF16 adapter with non-zero weights must NOT be flagged inert."""
+    adapter_dir = tmp_path / "adapters" / "bf16_specialist"
+    safetensors_path = adapter_dir / "adapter_model.safetensors"
+    _write_bf16_safetensors(safetensors_path, {"lora_A.weight": (4, 64), "lora_B.weight": (64, 4)}, fill=0.5)
+    (adapter_dir / "adapter_config.json").write_text(json.dumps({"model": "test-model"}))
+
+    validator = AdapterValidator()
+    with mock.patch.object(AdapterValidator, "_compute_validation_loss") as mock_loss:
+        mock_loss.return_value = 2.0
+        result = validator.validate(
+            niche="bf16_specialist",
+            adapter_path=str(adapter_dir),
+            test_data_path=valid_test_data,
+            base_model_id="test-model",
+        )
+
+    assert result.all_zero_weights is False
+    assert result.loadable is True
+
+
+# ---------------------------------------------------------------------------
+# Test 10: All-zero BF16 adapter detected as inert
+# ---------------------------------------------------------------------------
+
+def test_all_zero_bf16_adapter_is_inert(tmp_path, valid_test_data):
+    """A BF16 adapter whose weights are all zero must be flagged inert."""
+    adapter_dir = tmp_path / "adapters" / "bf16_inert"
+    safetensors_path = adapter_dir / "adapter_model.safetensors"
+    _write_bf16_safetensors(safetensors_path, {"lora_A.weight": (4, 64)}, fill=0.0)
+    (adapter_dir / "adapter_config.json").write_text(json.dumps({"model": "test-model"}))
+
+    validator = AdapterValidator()
+    result = validator.validate(
+        niche="bf16_inert",
+        adapter_path=str(adapter_dir),
+        test_data_path=valid_test_data,
+        base_model_id="test-model",
+    )
+
+    assert result.all_zero_weights is True
+    assert result.loadable is False
+
+
+# ---------------------------------------------------------------------------
+# Test 11: Behavioral diff fails closed without real inference (P1: no proxy pass)
+# ---------------------------------------------------------------------------
+
+def test_behavioral_diff_fails_closed_without_inference(valid_adapter_dir, valid_test_data):
+    """Without real base-vs-adapter inference, the behavioral-diff check must
+    fail closed (diff 0.0, check False) rather than pass on a proxy metric."""
+    validator = AdapterValidator(behavioral_diff_threshold=5.0)
+
+    with mock.patch.object(AdapterValidator, "_compute_validation_loss") as mock_loss:
+        mock_loss.return_value = 2.0
+        result = validator.validate(
+            niche="test_specialist",
+            adapter_path=valid_adapter_dir,
+            test_data_path=valid_test_data,
+            base_model_id="test-model",
+        )
+
+    assert result.loadable is True
+    assert result.behavioral_diff_pct == 0.0
+    assert result.behavioral_diff_passed is False
+    assert result.all_checks_passed is False

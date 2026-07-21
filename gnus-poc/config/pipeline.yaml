@@ -106,7 +106,7 @@ evaluation:
   metrics: ["accuracy", "perplexity", "latency"]
 
   # -- Phase 2: Evaluation gates per specialist --
-  gates:
+  eval_gates:
     perplexity:
       max: 50.0
       consecutive_failures_to_block: 3
