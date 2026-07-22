@@ -84,7 +84,12 @@ FP16_MAX = 65504.0              # FP16 clip bound at encode time
 
 LEAF_FLAG_MASK = 0xF            # low 4 bits of the packed word carry flags
 LEAF_MODE_MASK = 0x1            # bit 0: mode
-LEAF_RESERVED_MASK = 0xE        # bits 1-3: reserved, written 0
+# bit 1: ERROR_HINT per SGFP4 paper (0 = L2-selected, 1 = Pyramid-selected).
+# Informative only. NOTE: this conflicts with Phase 3 D-05, which reserved
+# bit 1 for a deferred "log mode"; the paper's ERROR_HINT semantics win and
+# log mode will need a different carrier when it lands in Phase 5.
+LEAF_ERROR_HINT_MASK = 0x2
+LEAF_RESERVED_MASK = 0xC        # bits 2-3: reserved, written 0
 BETA_TRUNC_MASK = 0xFFF0        # decoder recovers beta = half(h & mask)
 HEADER_CLEAR_FLAGS_MASK = 0xFFFFFFF0
 

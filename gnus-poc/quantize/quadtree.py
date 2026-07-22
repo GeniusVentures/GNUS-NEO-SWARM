@@ -23,6 +23,7 @@ from typing import Callable, Dict, List
 
 import numpy as np
 
+from quantize.laplacian import pyramid_levels_for_size
 from quantize.sgfp4_format import CodeMode
 
 
@@ -35,6 +36,10 @@ _kT158MaxPerWeightErrorScale = 5.0
 # Hysteresis constants per RESEARCH.md Pitfall 1
 _kHysteresisImprovement = 0.8   # 20% improvement required for child split
 _kHysteresisSlack = 1.1         # 10% slack before forcing split
+
+# Below this signal power the relative-error gate is skipped (division by
+# ~zero would make the gate meaningless); absolute max_mse still applies.
+_kRelativeEpsilon = 1e-12
 
 
 class QuadtreeEncoder:
@@ -164,6 +169,26 @@ class QuadtreeEncoder:
             mode = CodeMode.FP4_AFFINE
 
         max_mse = threshold.get("max_mse", 0.0005)
+        max_relative = threshold.get("max_relative")
+
+        # Normalize the selected error to an absolute-threshold-equivalent by
+        # enforcing BOTH the absolute (max_mse) and relative (max_relative)
+        # gates: relative error = error / mean(original^2). Scaling by the
+        # relative gate converts it into max_mse units so hysteresis and
+        # slack apply uniformly to the stricter of the two thresholds.
+        # A missing or non-positive max_relative disables the relative gate.
+        if max_relative is not None and max_relative > 0.0:
+            signal_power = float(np.mean(region.astype(np.float64) ** 2))
+            if signal_power > _kRelativeEpsilon:
+                relative_equivalent = max_mse * (
+                    (selected_error / signal_power) / max_relative
+                )
+                gate_error = max(selected_error, relative_equivalent)
+            else:
+                # Near-zero signal: relative gate is meaningless, absolute only
+                gate_error = selected_error
+        else:
+            gate_error = selected_error
 
         # Apply hysteresis
         effective_threshold = max_mse
@@ -171,11 +196,11 @@ class QuadtreeEncoder:
             effective_threshold = max_mse * _kHysteresisImprovement
 
         # Accept block if error within threshold or at minimum block size
-        accept = selected_error <= effective_threshold
+        accept = gate_error <= effective_threshold
 
         if not accept and size > self._min_block_size:
             # Check hysteresis slack: accept if within 10% of threshold
-            if selected_error <= max_mse * _kHysteresisSlack:
+            if gate_error <= max_mse * _kHysteresisSlack:
                 accept = True
 
         if size <= self._min_block_size:
@@ -196,6 +221,8 @@ class QuadtreeEncoder:
                 "scale": scale,
                 "bias": bias,
                 "error": selected_error,
+                # SGFP4 paper ERROR_HINT: 1 = Pyramid-selected, 0 = L2-selected
+                "error_hint": 1 if pyramid_levels_for_size(size) > 0 else 0,
             }]
 
         # Split into 4 children
