@@ -78,11 +78,8 @@ neoswarm_test(test_knowledge_retrieval knowledge/test_knowledge_retrieval.cpp  "
 neoswarm_test(test_common_types        common/test_types.cpp                   "neoswarm_common")
 
 # Phase 7 — ELM tests
-<<<<<<< HEAD
 neoswarm_test(test_elm                 elm/test_elm.cpp                        "neoswarm_elm;neoswarm_core;neoswarm_common;neoswarm_network")
-=======
 neoswarm_test(test_chain_builder       elm/test_chain_builder.cpp              "neoswarm_elm;neoswarm_common")
->>>>>>> 6c9133a (test(07-04): add failing tests for ELMChainBuilder heuristic triggers)
 
 
 # Benchmarks (not part of CTest — run manually)

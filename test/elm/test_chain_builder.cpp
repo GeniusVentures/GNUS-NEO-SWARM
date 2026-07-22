@@ -177,55 +177,48 @@ TEST( ELMChainBuilder, Build_EveryTrigger_SetsReasoning )
         PromptFeatures f;
         f.numeric_density_ = 0.5f;
         auto r = builder.Build( decision, f );
-        ASSERT_TRUE( r.has_value() );
-        EXPECT_FALSE( r.value().m_reasoning.empty() );
+        EXPECT_FALSE( r.m_reasoning.empty() );
     }
     // Code syntax
     {
         PromptFeatures f;
         f.has_code_syntax_ = true;
         auto r = builder.Build( decision, f );
-        ASSERT_TRUE( r.has_value() );
-        EXPECT_FALSE( r.value().m_reasoning.empty() );
+        EXPECT_FALSE( r.m_reasoning.empty() );
     }
     // Grounding
     {
         PromptFeatures f;
         f.has_grounding_request_ = true;
         auto r = builder.Build( decision, f );
-        ASSERT_TRUE( r.has_value() );
-        EXPECT_FALSE( r.value().m_reasoning.empty() );
+        EXPECT_FALSE( r.m_reasoning.empty() );
     }
     // Formatting
     {
         PromptFeatures f;
         f.has_formatting_request_ = true;
         auto r = builder.Build( decision, f );
-        ASSERT_TRUE( r.has_value() );
-        EXPECT_FALSE( r.value().m_reasoning.empty() );
+        EXPECT_FALSE( r.m_reasoning.empty() );
     }
     // Low complexity
     {
         PromptFeatures f;
         f.complexity_ = 1.0f;
         auto r = builder.Build( decision, f );
-        ASSERT_TRUE( r.has_value() );
-        EXPECT_FALSE( r.value().m_reasoning.empty() );
+        EXPECT_FALSE( r.m_reasoning.empty() );
     }
     // High complexity
     {
         PromptFeatures f;
         f.complexity_ = 6.0f;
         auto r = builder.Build( decision, f );
-        ASSERT_TRUE( r.has_value() );
-        EXPECT_FALSE( r.value().m_reasoning.empty() );
+        EXPECT_FALSE( r.m_reasoning.empty() );
     }
     // Default
     {
         PromptFeatures f;
         f.complexity_ = 3.0f;
         auto r = builder.Build( decision, f );
-        ASSERT_TRUE( r.has_value() );
-        EXPECT_FALSE( r.value().m_reasoning.empty() );
+        EXPECT_FALSE( r.m_reasoning.empty() );
     }
 }
