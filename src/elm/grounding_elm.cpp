@@ -47,18 +47,18 @@ namespace sgns::neoswarm::elm
         // Fail-close: no knowledge pipeline
         if ( !m_loaded || !m_knowledge || !m_engine )
         {
-            GroundingLogger()->warn( "GroundingELM not loaded — returning input unchanged" );
+            GroundingLogger()->warn( "GroundingELM not loaded" );
             m_lastConfidence = 0.0f;
-            return input;  // fail-close per CONTEXT D-04: return input unchanged on error
+            return outcome::failure( Error::ModelLoadFailed );
         }
 
         // Stage 1: Retrieve facts (copy AugmentPrompt pattern: api_server.cpp:308-312)
         auto factsRes = m_knowledge->Retrieve( input );
         if ( !factsRes.has_value() || factsRes.value().empty() )
         {
-            GroundingLogger()->debug( "GroundingELM — no facts retrieved, returning input" );
-            m_lastConfidence = 0.5f;
-            return input;  // fail-close per CONTEXT D-04: return input unchanged on error
+            GroundingLogger()->debug( "GroundingELM — no facts retrieved" );
+            m_lastConfidence = 0.0f;
+            return outcome::failure( Error::KnowledgeUnavailable );
         }
         std::vector<KnowledgeFact> facts = std::move( factsRes.value() );
 
@@ -83,9 +83,9 @@ namespace sgns::neoswarm::elm
         auto res = m_engine->Infer( task );
         if ( !res.has_value() )
         {
-            GroundingLogger()->warn( "GroundingELM inference failed — returning input unchanged" );
+            GroundingLogger()->warn( "GroundingELM inference failed" );
             m_lastConfidence = 0.0f;
-            return input;  // fail-close per CONTEXT D-04: return input unchanged on error
+            return outcome::failure( Error::InferenceFailed );
         }
 
         std::string output = res.value().m_output;
