@@ -1,7 +1,6 @@
 """Tests for SpecialistEvaluator, MetricStore, ThresholdAdapter, and evaluation persistence."""
 
 import json
-import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -92,9 +91,9 @@ class TestMetricStore:
 
     # --- Behavior 3: load_prior retrieves prior runs for trend analysis ---
     def test_load_prior_retrieves_runs(self, metric_store, sample_metrics):
-        # Persist two runs for the same niche
+        # Persist two runs for the same niche (distinct hardcoded timestamps
+        # make filenames unique and correctly sorted — no sleep needed)
         metric_store.persist(sample_metrics)
-        time.sleep(0.01)
         m2 = EvalMetrics(
             niche="medical",
             timestamp_utc="2026-06-21T13:00:00+00:00",
@@ -117,6 +116,41 @@ class TestMetricStore:
     def test_load_prior_empty_for_unknown_niche(self, metric_store):
         prior = metric_store.load_prior("nonexistent")
         assert prior == []
+
+    def test_load_prior_excludes_sgfp4_artifacts(self, metric_store, sample_metrics):
+        """SGFP4 metric artifacts share the evaluations directory but are not
+        eval runs — load_prior must not return them as prior baselines."""
+        import json
+        metric_store.persist(sample_metrics)
+        # Simulate an SGFP4 artifact written by record_sgfp4_metrics
+        sgfp4_path = metric_store._eval_dir / "medical_sgfp4_metrics.json"
+        sgfp4_path.write_text(json.dumps({"niche": "medical", "fp4_mse": 0.005}))
+
+        prior = metric_store.load_prior("medical")
+        assert len(prior) == 1
+        assert prior[0]["perplexity"] == 12.5
+        assert all("fp4_mse" not in run for run in prior)
+
+    def test_build_prompt_accepts_evaluator_metric_names(self, metric_store):
+        """ThresholdAdapter._build_prompt must read the metric names produced
+        by SpecialistEvaluator.evaluate()/EvalMetrics, not default to zeros."""
+        from eval.threshold_adapter import ThresholdAdapter
+        from unittest.mock import MagicMock
+
+        adapter = ThresholdAdapter(teacher_client=MagicMock(), config={"enabled": False})
+        current = {
+            "perplexity": 12.5,
+            "bleu_score": 0.45,
+            "rouge_l": 0.55,
+            "latency_ms_per_token": 2.3,
+        }
+        prompt = adapter._build_prompt("medical", current, {}, [])
+        assert "12.500" in prompt       # perplexity formatted {ppl:.3f}
+        assert "0.4500" in prompt       # bleu formatted {bleu:.4f}
+        assert "0.5500" in prompt       # rouge_l formatted {rouge_l:.4f}
+        assert "2.30" in prompt         # latency formatted {latency:.2f}
+        # Fictitious zero-metric run must not appear
+        assert "Perplexity: 0.000" not in prompt
 
     # --- Behavior 4: compute_deltas produces metric deltas ---
     def test_compute_deltas_basic(self, metric_store, sample_metrics):

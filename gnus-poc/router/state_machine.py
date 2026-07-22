@@ -292,7 +292,21 @@ class RouterStateMachine:
             conditions: List[Callable[..., bool]] = []
             if trans.get("guardCondition"):
                 guard = self._handlers.get(trans["guardCondition"])
-                if guard is not None:
+                if guard is None:
+                    # Fail closed: a declared guard with no registered handler
+                    # must block the transition, not silently drop the guard
+                    # (otherwise guarded transitions become unconditional).
+                    guard_name = trans["guardCondition"]
+
+                    def _missing_guard(*_args, _guard_name=guard_name, **_kwargs) -> bool:
+                        logger.warning(
+                            "Guard '%s' has no registered handler; blocking transition",
+                            _guard_name,
+                        )
+                        return False
+
+                    conditions.append(_missing_guard)
+                else:
                     conditions.append(guard)
 
             transitions_list.append(

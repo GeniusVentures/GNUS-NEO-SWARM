@@ -238,15 +238,27 @@ class ThresholdAdapter:
             prior_json = json.dumps(prior_runs, indent=2)
             prior_text = f"```json\n{prior_json}\n```"
 
+        # Accept both shorthand keys (ppl/bleu/latency) and the metric names
+        # produced by SpecialistEvaluator.evaluate()/EvalMetrics (perplexity,
+        # bleu_score, latency_ms_per_token / latency_ms_mean) so metric values
+        # are not shadowed by a key-name mismatch. Note: a None value (empty
+        # sample set) still falls through to the default.
+        def _first(*keys, default=0.0):
+            for k in keys:
+                v = current_metrics.get(k)
+                if v is not None:
+                    return v
+            return default
+
         return THRESHOLD_EVALUATION_PROMPT.format(
             niche=niche,
             current_ppl_max=current_thresholds.get("ppl_max", 50.0),
             current_bleu_min=current_thresholds.get("bleu_min", 0.15),
             current_consecutive_failures=current_thresholds.get("consecutive_failures", 3),
-            ppl=current_metrics.get("ppl", 0.0),
-            bleu=current_metrics.get("bleu", 0.0),
-            rouge_l=current_metrics.get("rouge_l", 0.0),
-            latency=current_metrics.get("latency", 0.0),
+            ppl=_first("ppl", "perplexity"),
+            bleu=_first("bleu", "bleu_score"),
+            rouge_l=_first("rouge_l"),
+            latency=_first("latency", "latency_ms_per_token", "latency_ms_mean"),
             prior_runs=prior_text,
         )
 

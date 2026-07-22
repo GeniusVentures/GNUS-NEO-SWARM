@@ -140,6 +140,12 @@ class MetricStore:
         prior: List[Dict[str, Any]] = []
         pattern = f"{niche}_*.json"
         for f in sorted(self._eval_dir.glob(pattern)):
+            # SGFP4 artifacts ({niche}_sgfp4_metrics.json) share this directory
+            # but lack EvalMetrics fields (gates_passed, scalar metrics). Loading
+            # them as prior eval runs would corrupt consecutive-failure gating
+            # and trend deltas — exclude them.
+            if f.stem.endswith("_sgfp4_metrics"):
+                continue
             try:
                 raw = f.read_text(encoding="utf-8")
                 data = json.loads(raw)
