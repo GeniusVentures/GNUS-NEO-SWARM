@@ -1,0 +1,28 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/openai-compatible-api-router-and-gcs-job-queue.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "26 OpenAI-Compatible API Router and GCS Job Queue Architecture",
+  "summary": "Specifies an OpenAI-compatible API router for GCS that translates OpenAI API calls into signed GNUS.ai distributed queue jobs, supporting streaming, node registration, job claims, leases, metering, and routing policies.",
+  "scope": [
+    "GCS API Router",
+    "GCS Gateway Node",
+    "GCS Worker Nodes",
+    "OpenAI-Compatible API Surface",
+    "GNUS.ai Democratized Queue",
+    "API Request Job",
+    "Processing Chunk Job",
+    "Cloudflare Edge",
+    "Pub/Sub Channels",
+    "CRDT Keyspace",
+    "Node Registration and Heartbeat",
+    "Job Claims, Locks, and Leases",
+    "Streaming Proxy (SSE)",
+    "Metering and Settlement"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

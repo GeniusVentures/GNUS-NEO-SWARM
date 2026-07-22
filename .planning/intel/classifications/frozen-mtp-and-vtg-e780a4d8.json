@@ -1,0 +1,16 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/frozen-mtp-and-vtg.md",
+  "type": "SPEC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "25 Frozen Micro-MTP and VTG Edge Inference",
+  "summary": "Defines the Frozen Micro-MTP approach for attaching small multi-token prediction heads to frozen Semantic Core or ELM backbones on constrained GNUS edge nodes.",
+  "scope": ["Frozen Micro-MTP", "VTG (Verified Transition Graph)", "EGGROLL", "Semantic Core", "ELM", "speculative decoding", "edge inference", "multi-token prediction", "GNUS nodes", "Router", "local verification"],
+  "cross_refs": [
+    "./objective-memory-vtg.md",
+    "./speculative-decoding-and-vtg.md"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "Borderline between SPEC and DOC. Classified as SPEC (higher precedence) because the document defines technical parameters (MTP head budget 5-50MB, speculative depth 1-4 tokens), JSON schemas for candidate records and capability advertisements, a formal commitment rule (verified after acceptance by local verifier path), and implementation phases. However, the content is primarily explanatory prose with illustrative schemas rather than formal API contracts, so confidence is medium."
+}

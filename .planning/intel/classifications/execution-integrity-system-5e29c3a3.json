@@ -1,0 +1,30 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/execution-integrity-system.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "29. Execution Integrity System (EIS)",
+  "summary": "Defines the GCS subsystem that verifies distributed computation was executed faithfully according to declared execution contracts using determinism classes, checkpoint-band matching, and teacher-forced spot-check protocols.",
+  "scope": [
+    "Execution Integrity System (EIS)",
+    "Execution Contracts (model hash, adapter version hash, SGFP4 container hash, kernel manifest ID, determinism class, sampling seed, checkpoint schedule, execution profile)",
+    "Determinism Classes (Class A Reference-integer, Class B Bounded-drift, Class C Non-deterministic)",
+    "Checkpoint-Band Matching (comparison domains, FP12-width representation, epsilon exception rates)",
+    "Teacher-Forced Spot-Check Protocol (VRF-based position sampling, O(prefill) cost profile, sampling-consistency check)",
+    "SGFP4 kernel specification",
+    "GAML / Cognitive Asset Model",
+    "Reputation-Weighted Consensus",
+    "Speculative Decoding",
+    "Kernel registration invariants and drift monitoring"
+  ],
+  "cross_refs": [
+    "SGFP4 container/kernel spec",
+    "Reputation-weighted consensus",
+    "Speculative decoding",
+    "GAML / Cognitive Asset Model",
+    "Executive Controller"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

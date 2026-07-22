@@ -1,3 +1,6 @@
 [submodule "build"]
 	path = build
 	url = ../cmaketemplate.git
+[submodule "GQHSM"]
+	path = GQHSM
+	url = ../../Super-Genius/GQHSM

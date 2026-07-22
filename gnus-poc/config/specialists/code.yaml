@@ -1,0 +1,23 @@
+# Code specialist — uses Qwen3-Coder base model (different from default)
+
+specialist:
+  name: "code"
+  base_model: "mlx-community/Qwen3-Coder-30B-A3B-Instruct-bf16"
+  niche_sources: ["GitHub", "StackOverflow", "Programming Language Documentation"]
+  system_prompt: "You are a programming and code documentation specialist."
+  synthetic_prompts:
+    - "Explain how to implement a thread-safe singleton pattern in Python."
+    - "Document the time complexity of common sorting algorithms."
+    - "Write a code review for a pull request implementing a REST API endpoint."
+    - "Explain the difference between async/await and threading for concurrent I/O."
+  training:
+    lora_rank: 16
+    iterations: 1000
+    distill_loss_target: 2.5
+    val_loss_threshold: 3.0
+
+  eval_gates:
+    perplexity:
+      max: 50.0
+    bleu_score:
+      min: 0.15

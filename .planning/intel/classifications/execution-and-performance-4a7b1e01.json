@@ -1,0 +1,27 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/execution-and-performance.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "9. Execution and Performance - Execution Modes and Performance Targets",
+  "summary": "Architectural reference describing the four execution modes (Single Node, ELM-Assisted, Swarm, Agent), execution strategy principles, and performance targets including tokens/sec, memory, quality, and scaling metrics.",
+  "scope": [
+    "Execution Modes",
+    "Single Node Mode",
+    "ELM-Assisted Mode",
+    "Swarm Mode",
+    "Agent Mode",
+    "Performance Targets",
+    "Tokens per Second",
+    "Memory Usage",
+    "Grounded Quality",
+    "Multi-node Scaling",
+    "Tool Safety Overhead",
+    "Customization Efficiency",
+    "Execution Strategy Principles"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

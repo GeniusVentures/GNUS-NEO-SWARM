@@ -1,0 +1,23 @@
+# Patent specialist — USPTO and technical innovation disclosures
+
+specialist:
+  name: "patents"
+  base_model: "mlx-community/Qwen3-30B-A3B-Instruct-2507-bf16"
+  niche_sources: ["USPTO", "Patent Applications", "Technical Innovation Disclosures"]
+  system_prompt: "You are a patent and technical innovation specialist."
+  synthetic_prompts:
+    - "Explain the patent application process for a software invention."
+    - "Summarize the key claims in a patent for a novel battery technology."
+    - "Describe the prior art landscape for CRISPR gene editing."
+    - "Draft an abstract for a patent on a distributed machine learning system."
+  training:
+    lora_rank: 16
+    iterations: 1000
+    distill_loss_target: 3.0
+    val_loss_threshold: 3.5
+
+  eval_gates:
+    perplexity:
+      max: 50.0
+    bleu_score:
+      min: 0.15

@@ -1,0 +1,13 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/local-cognitive-second-brain.md",
+  "type": "DOC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "27. Local Cognitive Second Brain Mode",
+  "summary": "Defines Local Cognitive Second Brain Mode for GCS, providing private user-owned memory and reasoning on local devices backed by GAML, local ELMs, the orchestration layer, and EGGROLL adaptation.",
+  "scope": ["GeniusCognitiveSystem", "Local Cognitive Second Brain Mode", "GAML", "Orchestration Layer", "Local ELMs", "Second Brain Agent", "EGGROLL", "Context Packet Assembly", "Memory Lifecycle", "Human-Readable Memory Mirror", "Privacy Modes"],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": "Contains an Implementation Requirements section (27.16) that lists concrete 'should include' items, creating a weak PRD signal, but the document's overwhelmingly architectural/prose character and lack of user stories, acceptance criteria, or success metrics places it firmly in DOC territory."
+}

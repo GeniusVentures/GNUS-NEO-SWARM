@@ -1,0 +1,52 @@
+# Specialist-to-benchmark mapping per D-05 (Phase 04-02 Task 2).
+#
+# Each specialist has:
+#   blocking_benchmarks:   domain-specific quality gates that block promotion.
+#                          A specialist must pass ALL blocking benchmarks to
+#                          pass the quality gate (D-08 hard floor).
+#   diagnostic_benchmarks: informational only — surfaced for trend analysis,
+#                          never gated. Per D-04, MMLU runs as a universal
+#                          diagnostic baseline for every specialist.
+#
+# Deferred benchmarks (not_implemented per RESEARCH.md OQ1/OQ2/OQ3):
+# - livecodebench:    test-case-pass-rate eval for code (Phase 5)
+# - medhelm:          medical LLM evaluation subset (Phase 5)
+# - rag_pipeline_eval: encyclopedic RAG quality eval (Phase 5)
+# - uspto_classification: patent classification from USPTO bulk data (Phase 5)
+#
+# The benchmark_runner.py (Plan 04-01) skips unimplemented benchmarks with
+# status "not_implemented" in results JSON — they do NOT fail the run.
+specialists:
+  code:
+    blocking_benchmarks:
+      - humaneval
+      # - livecodebench    # deferred: Phase 5 (RESEARCH.md OQ2)
+    diagnostic_benchmarks:
+      - mmlu
+
+  medical:
+    blocking_benchmarks:
+      - medmcqa
+      - pubmedqa
+      # - medhelm          # deferred: Phase 5 (RESEARCH.md OQ2)
+    diagnostic_benchmarks:
+      - mmlu
+
+  qa_technical:
+    blocking_benchmarks:
+      - gpqa
+    diagnostic_benchmarks:
+      - mmlu
+
+  encyclopedic:
+    blocking_benchmarks: []
+      # - rag_pipeline_eval # deferred: Phase 5 (RESEARCH.md OQ1)
+    diagnostic_benchmarks:
+      - mmlu
+
+  patents:
+    blocking_benchmarks:
+      - bigpatent
+      # - uspto_classification  # deferred: Phase 5 (RESEARCH.md OQ3)
+    diagnostic_benchmarks:
+      - mmlu

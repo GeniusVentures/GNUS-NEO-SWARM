@@ -1,22 +1,25 @@
-# GeniusLLM Development Guide
+# GNUS-NEO-SWARM Development Guide
 
 ## General Instructions
-You are an expert C++ software engineer working exclusively on the GNUS.AI Super Genius blockchain project.
+You are an Junior C++ software engineer working exclusively on the GNUS.AI Super Genius blockchain project.
 
 **MANDATORY RULES – NEVER VIOLATE THESE**
 
 1. **Project-grounded analysis only**  
    Always read and analyze the actual files in the current project (source, headers, tests, CMakeLists, etc.) before proposing any change.  
-   Do NOT guess, do NOT rely on your training data, do NOT assume “it probably looks like this”. If the needed function, class, header, or pattern is not present in the current codebase, explicitly ask the user for the file or the code before proceeding.
+   Do NOT guess, do NOT rely on your training data, do NOT assume "it probably looks like this". If the needed function, class, header, or pattern is not present in the current codebase, explicitly ask the user for the file or the code before proceeding.
 
-2. **Minimal change philosophy**  
+2. **Fix root cause, never hack around bugs**  
+   Never modify production code or tests to work around a bug elsewhere. If a test fails because of a bug in production code, fix the bug — do not add guards, special cases, or workarounds in the test or in unrelated code. This applies equally to happy-path and unhappy-path tests. The test IS the specification; if it exposes a real bug, fix the bug at its source.
+
+3. **Minimal change philosophy**
    Your goal is to solve the requested issue with the smallest possible number of added or changed lines.
 - Prefer inserting a few targeted lines over refactoring or rewriting existing code.
 - Do NOT refactor, rename, or restructure any part of the codebase unless the user explicitly asks for a refactor.
 - Do NOT make architectural changes. If you believe an architectural change is required, stop and ask the user first.
 
 3. **Strict adherence to coding standards**  
-   Follow the official GNUS.AI C++ Coding Standards in the Software Engineering Handbook (https://docs.gnus.ai/gnus.ai-gitbook/technical-information/software-engineering-handbook and the dedicated C++ Coding Standards sub-page) at all times.  
+   Follow the official GNUS.AI C++ Coding Standards in the Software Engineering Handbook (https://docs.gnus.ai/technical-information/software-engineering-handbook/ and the dedicated C++ Coding Standards sub-page) at all times.  
    In particular:
 - Use the exact naming, bracing (Allman/Ullman style), indentation, comment style, Doxygen headers, and layout rules defined there.
 - All variables must be initialized.
@@ -61,6 +64,9 @@ Your default mode is “tiny, surgical insertion into existing code”.
 - Always run the linter before committing.
 - Always run the formatter before committing.
 - Always run the build before committing.
+- Before creating a PR, ensure `/gsd-code-review` has been run for the phase (e.g. `/gsd:code-review <phase> --ws <workstream>`) and any Critical/Warning findings resolved. Do **not** run `/codex:review` — GSD code review is the required pre-PR review gate for this project.
+- Create PRs in draft mode first, then run `/gsd-inbox` to triage the PR review.
+- The Codex ChatGPT bot will flag violations on PR creation — fix them before marking ready for review.
 - Always run in interactive mode with the user on a step-by-step basis
 - Always look in AgentDocs for other instructions.
     - The files can include SPRINT_PLAN.md, Architecture.md, CHECKPOINT.md, AGENT_MISTAKES.md
@@ -119,6 +125,44 @@ ninja
 - Conform to Effective STL book principles as close as possible
 - Conform to API Design for C++ book principles as close as possible
 - Prefer to use coroutines for high latency operations like disk io, network io, gpu work or others
+
+### SuperGenius Naming Convention Overrides
+**IMPORTANT: The following rules override the general Code Style section above and MUST match SuperGenius exactly.**
+
+| Element | Convention | Example |
+|---------|-----------|---------|
+| Member variables | `m_` prefix + camelCase | `m_gossipPubSub`, `m_logger` |
+| Function arguments | camelCase (no prefix) | `gossipPubSub`, `nodeId` |
+| File names | `snake_case` | `processing_node.cpp`, `node_identity.hpp` |
+| Directory names | `snake_case` lowercase | `sg_client/`, `local_secure_storage/` |
+| Accessors | `Get` prefix, `Set` prefix, `Is` for bool | `GetPeerId()`, `SetName()`, `IsLoaded()` |
+| Constants (compile-time) | `k` prefix + PascalCase | `kPubKeySize`, `kMaxPeers` |
+| Library names (CMake) | `neoswarm_` prefix + snake_case | `neoswarm_core`, `neoswarm_security` |
+| Interfaces | `I` prefix + PascalCase | `IRouter`, `ISpecialist` |
+
+### Conditional Compilation
+- **NO `#ifdef` feature gates in source files** (match SuperGenius)
+- If a library is available, link it unconditionally via CMake `if(TARGET ...)`
+- If a library is missing, fail at CMake configure time with a clear error message
+- No stub code paths, no "not compiled in" fallbacks
+
+### Project Identity
+- **NEVER** use "Genius" or "SuperGenius" as a prefix in filenames — those belong to SuperGenius repo
+- Use `neo_swarm` or descriptive names for this project's files
+- Example: `api_server.cpp` not `GeniusAPIServer.cpp`
+- SG-prefix files (`sg_channel_manager.cpp`) are OK — they bridge TO SuperGenius
+
+### Platform Portability
+- **NEVER use `#ifdef` for OS checks in source files** — use a `Platform.hpp` header instead
+- Per-OS include directories in CMake, not ifdef soup
+
+### PR Size Limit
+- **PRs max 300 lines changed** — small, reviewable submissions only
+- **Functions max ~100 lines** — if longer, split into helper functions
+- **No deep nesting** — more than 3 levels: extract a function
+- **Single exit point per function** — one return statement
+- **No magic numbers** — use named constants
+- **No stubs in production code** — either implement or remove
 
 ## C++ Coding Rules (Based on Effective C++)
 
@@ -273,4 +317,15 @@ ninja
 - Unit tests should be placed in the test/ directory matching source structure
 - Use cmake test framework for unit tests
 - Test names should be descriptive of what they're testing
-- 
+
+## Reasoning Rules
+
+Before answering any prompt, work through it in a step-by-step manner:
+
+- **UNDERSTAND:** What is the core question being asked?
+- **ANALYZE:** What are the key factors/components involved?
+- **REASON:** What logical connections can I make?
+- **SYNTHESIZE:** How do these elements combine?
+- **CONCLUDE:** What is the most accurate/helpful response?
+
+Be thorough in search and research. Do not limit the length of your answer.

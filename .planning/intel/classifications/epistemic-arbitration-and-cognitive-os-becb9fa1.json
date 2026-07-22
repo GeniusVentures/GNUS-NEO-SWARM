@@ -1,0 +1,13 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/epistemic-arbitration-and-cognitive-os.md",
+  "type": "DOC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "Data-Driven Epistemic Arbitration and Cognitive OS Extensions",
+  "summary": "Describes a proposed Epistemic Arbitration Layer for the Genius Cognitive System, extending the Requestor Node with GQHSM-driven reasoning frameworks, pluggable epistemologies, and structured arbitration traces.",
+  "scope": ["Epistemic Arbitration Layer", "Cognitive OS", "Requestor Node", "GQHSM", "Sanskrit epistemology", "Kripke modal reasoning", "Plugin architecture", "JSON machine definitions", "Semantic Core", "GAML", "HCTS"],
+  "cross_refs": ["https://github.com/Super-Genius/GQHSM"],
+  "locked": false,
+  "precedence": null,
+  "notes": "Contains illustrative technical sketches (JSON machine config example, callback registry, plugin ABI stub, trace output format) that resemble SPEC elements, but the document's primary character is explanatory architecture documentation — design rationale, principles, component relationships, and aspirational direction. No formal API contracts, SLOs, or protocol definitions. Previously classified as SPEC; reclassified as DOC because technical details serve illustrative rather than contractual purposes."
+}

@@ -1,0 +1,24 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/reputation-consensus.md",
+  "type": "SPEC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "7 Reputation-Based Consensus System",
+  "summary": "Technical specification for the reputation-based consensus system including data model, update formulas, weighted consensus algorithm, message types, liveness model, Byzantine tolerance, and participation rules.",
+  "scope": [
+    "Reputation Consensus System",
+    "Reputation Data Model",
+    "Weighted Consensus Algorithm",
+    "Consensus Engine Architecture",
+    "Swarm Execution Flow",
+    "Consensus Message Types",
+    "Liveness Model",
+    "Byzantine Tolerance",
+    "Reputation-Gated Participation",
+    "Genesis Anchor Model"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

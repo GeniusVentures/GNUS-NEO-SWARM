@@ -1,0 +1,53 @@
+# GNUS-POC Router Rules — GQHSM-compatible specialist classification
+#
+# Rules are evaluated in priority order (lower number = higher priority).
+# Each rule has:
+#   name:     Human-readable identifier
+#   priority: Tie-breaking priority (lower = higher priority, must be unique)
+#   type:     keyword | regex | syntax_density
+#   specialist: Target specialist name (must match pipeline.specialists in pipeline.yaml)
+#   execution_mode: How the specialist runs (e.g., local_lora)
+#   is_default: True for the catch-all rule (highest priority, always last resort)
+#
+# Keyword rules: patterns are matched case-insensitively as substrings.
+# Regex rules: patterns are Python re patterns, matched against the full query.
+# Syntax density rules: measure token composition (e.g., >30% numeric → math path).
+#
+# Adding a rule requires only a YAML entry — no Python code changes.
+
+rules:
+  # -- Code / programming detection (high priority) --
+  - name: "code_keyword"
+    priority: 10
+    type: keyword
+    patterns: ["def ", "class ", "import ", "function", "return ", "lambda "]
+    specialist: "code"
+    execution_mode: "local_lora"
+
+  - name: "code_regex"
+    priority: 15
+    type: regex
+    patterns:
+      - '\b(def|class|import|from)\s+\w+'
+      - '\b(function|lambda|return)\b'
+      - '```[\s\S]*```'
+    specialist: "code"
+    execution_mode: "local_lora"
+
+  # -- Math / numeric density detection --
+  - name: "math_syntax"
+    priority: 20
+    type: syntax_density
+    category: "numeric"
+    threshold: 0.3
+    specialist: "qa_technical"
+    execution_mode: "local_lora"
+
+  # -- Catch-all default (always last resort) --
+  - name: "default_encyclopedic"
+    priority: 100
+    type: keyword
+    patterns: []
+    specialist: "encyclopedic"
+    execution_mode: "local_lora"
+    is_default: true

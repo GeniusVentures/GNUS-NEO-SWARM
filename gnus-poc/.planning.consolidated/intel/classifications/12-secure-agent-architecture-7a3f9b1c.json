@@ -1,0 +1,27 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/12-secure-agent-architecture.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "17 Secure Agent Architecture for the GNUS.ai Decentralized Cognitive System",
+  "summary": "Specifies the secure agent execution architecture including routing, Semantic Core/ELM execution, structured memory, grounding, tool intermediation, and reputation-weighted consensus for the GNUS decentralized cognitive system.",
+  "scope": [
+    "Secure Agent Architecture",
+    "Router and Planner Service",
+    "Semantic Core and ELM Services",
+    "Verification / Arbitration / Synthesis Service",
+    "Structured Memory Service",
+    "Grounding Service",
+    "Tool Intermediary Service",
+    "Task Settlement and Attestations",
+    "Privacy and Secure Collaboration"
+  ],
+  "cross_refs": [
+    "docs/architecture/11-distributed-swarm-thinking-context.md",
+    "docs/architecture/INDEX.md",
+    "docs/architecture/13-eggroll-swarm-retraining.md"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

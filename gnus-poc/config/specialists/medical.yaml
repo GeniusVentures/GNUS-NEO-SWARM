@@ -1,0 +1,24 @@
+# Medical specialist — overrides for pipeline.yaml defaults
+
+specialist:
+  name: "medical"
+  base_model: "mlx-community/Qwen3-30B-A3B-Instruct-2507-bf16"
+  niche_sources: ["PubMed Abstracts", "PubMed Central", "NIH ExPorter"]
+  system_prompt: "You are a medical research specialist."
+  synthetic_prompts:
+    - "Explain the mechanism of action for a novel drug target in oncology."
+    - "Summarize recent advances in CRISPR-based gene therapy."
+    - "Describe the pathophysiology of a common autoimmune disorder."
+    - "Review the clinical trial results for a recently approved immunotherapy."
+    - "Explain the diagnostic criteria for a rare genetic disease."
+  training:
+    lora_rank: 16
+    iterations: 1000
+    distill_loss_target: 2.0
+    val_loss_threshold: 2.5
+
+  eval_gates:
+    perplexity:
+      max: 50.0
+    bleu_score:
+      min: 0.15

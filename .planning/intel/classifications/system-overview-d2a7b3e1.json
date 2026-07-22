@@ -1,0 +1,30 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/system-overview.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "System Architecture Overview",
+  "summary": "High-level architectural overview of the GNUS Cognitive System covering compute, distributed, security layers, and the layered cognitive stack.",
+  "scope": [
+    "GNUS Cognitive System",
+    "Semantic Core",
+    "Expert Language Models",
+    "Execution Integrity System",
+    "Compute Layer",
+    "Distributed Layer",
+    "Security Layer",
+    "SGFP4 Adaptive Quantization Format",
+    "Layered Cognitive Stack",
+    "libp2p",
+    "IPFS-lite",
+    "RocksDB",
+    "CRDTs",
+    "gRPC"
+  ],
+  "cross_refs": [
+    "docs/architecture/sgfp4-format.md"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

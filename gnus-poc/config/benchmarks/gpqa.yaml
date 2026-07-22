@@ -1,0 +1,15 @@
+# Per-benchmark config: GPQA.
+#
+# Per D-04/D-05: blocking benchmark for the `qa_technical` specialist
+# (graduate-level STEM reasoning). Per D-02: 0-shot (zeroshot variant).
+# Per D-08: hard_floor = 0.25 (4-choice MC random baseline).
+name: gpqa
+task_name: gpqa_main_n_shot
+num_fewshot: 0
+output_type: multiple_choice
+blocking: true
+description: "GPQA graduate-level science reasoning (zeroshot)"
+hard_floor: 0.25
+regression_max_pct: 0.10
+deviation_max_pct: 0.20
+dataset_revision: null

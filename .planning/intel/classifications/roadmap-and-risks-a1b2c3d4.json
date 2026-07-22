@@ -1,0 +1,22 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/roadmap-and-risks.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "11 Execution Roadmap & 12 Risk Analysis",
+  "summary": "Phased execution roadmap from semantic core through v1 beta release, with a risk analysis table covering technical risks and their mitigations.",
+  "scope": [
+    "Genius Cognitive System",
+    "FP4 quantization",
+    "expert routing",
+    "reputation system",
+    "swarm consensus",
+    "memory governance",
+    "grounding",
+    "tool execution"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

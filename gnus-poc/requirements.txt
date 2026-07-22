@@ -1,0 +1,40 @@
+# GNUS-POC ELM Training & Distillation Pipeline dependencies
+# Install: pip install -r requirements.txt
+
+# MLX training (Apple Silicon)
+mlx>=0.14.0
+mlx-lm>=0.14.0
+mlx-metal>=0.14.0
+
+# Data processing
+torch>=2.0.0
+transformers>=4.40.0
+datasets>=2.14.0
+numpy>=1.24.0
+scikit-learn>=1.3.0
+nltk>=3.8.0
+tqdm>=4.65.0
+
+# API & config
+openai>=1.12.0
+anthropic>=0.49.0
+tenacity>=8.2.0
+python-dotenv>=1.0.0
+PyYAML>=6.0.0
+rich>=13.0.0
+
+# Evaluation & tracking
+mlflow>=2.8.0
+lm-eval>=0.4.12
+# lm-eval 0.4.12 uses TypedDict `extra_items`, which requires typing_extensions>=4.14.
+# Older typing_extensions (e.g. 4.12.x) raises TypeError on `from lm_eval import simple_evaluate`.
+typing_extensions>=4.14.0
+
+# State machine (router engine)
+transitions>=0.9.0
+
+# Testing
+pytest>=8.0.0
+pytest-mock>=3.12.0
+pytest-cov>=4.1.0
+pytest-timeout>=2.2.0

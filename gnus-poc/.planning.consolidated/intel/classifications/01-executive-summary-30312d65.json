@@ -1,0 +1,13 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/01-executive-summary.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "1. Executive Summary",
+  "summary": "Executive summary of the GeniusCognitiveSystem, a distributed modular reputation-weighted cognitive system built on GNUS.ai infrastructure with Genius ELM as the semantic core.",
+  "scope": ["GeniusCognitiveSystem", "Genius ELM", "Genius Expert Language Model", "GNUS nodes", "Grokipedia", "semantic core", "reputation-weighted consensus", "structured memory"],
+  "cross_refs": ["./INDEX.md", "./02-system-overview.md"],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

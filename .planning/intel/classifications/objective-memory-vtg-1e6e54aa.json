@@ -1,0 +1,27 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/objective-memory-vtg.md",
+  "type": "SPEC",
+  "confidence": "medium",
+  "manifest_override": false,
+  "title": "23 Objective Memory and Verified Transition Graph (VTG)",
+  "summary": "Defines the Objective Memory layer and Verified Transition Graph as a verified cognitive execution substrate that records reusable low-entropy transitions discovered during inference for the GeniusCognitiveSystem.",
+  "scope": [
+    "Objective Memory",
+    "Verified Transition Graph (VTG)",
+    "GAML",
+    "Semantic Core",
+    "Expert Language Models (ELMs)",
+    "Router",
+    "Planner",
+    "Epistemic Arbitration",
+    "EGGROLL",
+    "Swarm Thinking Context",
+    "HCTS",
+    "Memory Governor",
+    "GeniusCognitiveSystem"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": "Classified as SPEC due to concrete data model definitions (edge schema, state identity hashing), implementation phases, integration contracts, and storage model. Path (docs/architecture/) and prose-heavy style are weak DOC/SIGNAL; no ADR frontmatter or PRD user stories present."
+}

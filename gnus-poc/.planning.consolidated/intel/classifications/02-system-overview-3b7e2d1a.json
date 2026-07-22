@@ -1,0 +1,41 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/02-system-overview.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "3 System Architecture Overview",
+  "summary": "Architectural overview of the GeniusCognitiveSystem describing compute, distributed, and security layers and their component technologies.",
+  "scope": [
+    "GeniusCognitiveSystem",
+    "GNUS nodes",
+    "Compute Layer",
+    "Distributed Layer",
+    "Security Layer",
+    "MNN model runtime",
+    "Vulkan/MoltenVK GPU acceleration",
+    "Ultra FP4 codec",
+    "CUDA/Vulkan shaders",
+    "libp2p",
+    "IPFS-lite",
+    "RocksDB",
+    "CRDTs",
+    "gRPC",
+    "libsecp256k1",
+    "ed25519",
+    "OpenSSL",
+    "wallet-core",
+    "Semantic Core",
+    "Expert Language Models (ELMs)",
+    "Tool Intermediary",
+    "Layered Cognitive Stack"
+  ],
+  "cross_refs": [
+    "./16-ultra-fp4-format.md",
+    "./01-executive-summary.md",
+    "./INDEX.md",
+    "./03-model-and-router.md"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "source_hash is approximate (SHA-256 unavailable in execution context; slug is unique so collision risk is nil)"
+}

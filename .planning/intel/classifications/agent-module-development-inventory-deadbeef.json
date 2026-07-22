@@ -1,0 +1,33 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/agent-module-development-inventory.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "Agent and Module Development Inventory",
+  "summary": "A structured inventory cataloguing all agents, deterministic services, runtime modules, data stores, connectors, user interfaces, and distributed infrastructure components required for the GeniusCognitiveSystem, organized into logical workstreams for implementation planning.",
+  "scope": [
+    "GeniusCognitiveSystem",
+    "Executive Controller",
+    "Semantic Core",
+    "Expert Language Models (ELMs)",
+    "GAML Cognitive Memory",
+    "Objective Memory and VTG",
+    "Secure Tool Intermediary",
+    "Capability System and Connectors",
+    "Forecast-Driven Cognition (ACE/CES)",
+    "Grounding and Verification",
+    "Arbitration and Synthesis",
+    "Execution Integrity System (EIS)",
+    "EGGROLL Adaptive Learning",
+    "Reputation and Consensus",
+    "Distributed GNUS Infrastructure",
+    "OpenAI-Compatible API",
+    "Local Cognitive Second Brain",
+    "Deployment Profiles",
+    "Workstreams and Milestones"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

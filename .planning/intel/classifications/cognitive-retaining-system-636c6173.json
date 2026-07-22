@@ -1,0 +1,21 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/cognitive-retaining-system.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "Targeted Retraining and Hierarchical Critical Thinking Specialists",
+  "summary": "Describes the Targeted Retraining framework and Hierarchical Critical Thinking Specialist (HCTS) architecture for continuously improving personalized cognition without full model retraining.",
+  "scope": [
+    "Targeted Retraining",
+    "Hierarchical Critical Thinking Specialists",
+    "EGGROLL Optimization",
+    "Cognitive Resistance Layer",
+    "Cognitive Twin",
+    "Bias-Aware Reasoning",
+    "Continuous Learning Loop"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

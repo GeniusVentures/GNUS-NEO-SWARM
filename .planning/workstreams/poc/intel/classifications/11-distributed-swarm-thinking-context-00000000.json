@@ -1,0 +1,33 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/11-distributed-swarm-thinking-context.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "Distributed Swarm Thinking Context Architecture",
+  "summary": "Describes a swarm-native thinking context model for GeniusCognitiveSystem covering routing, memory, experts, synthesis, verification, and user-visible reasoning traces.",
+  "scope": [
+    "GeniusCognitiveSystem",
+    "Swarm thinking context model",
+    "Bridge Blocks",
+    "Memory Governor",
+    "Router",
+    "Planner Specialist",
+    "Primary Draft Specialist",
+    "Verifier Specialist",
+    "Synthesizer/Arbiter Specialist",
+    "Refiner and Formatter Specialist",
+    "Grounding Specialist",
+    "Domain specialists (Numeric, Symbolic Math, Tool/Execution, Code)",
+    "Thinking trace schema",
+    "Consensus and reputation",
+    "FP4 Ultra / Turbo Quant / Sparse-V quantization"
+  ],
+  "cross_refs": [
+    "./10-ai-safety.md",
+    "./INDEX.md",
+    "./12-secure-agent-architecture.md"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "SHA-256 hash unavailable (Bash tool not enabled); used placeholder 00000000 for filename."
+}

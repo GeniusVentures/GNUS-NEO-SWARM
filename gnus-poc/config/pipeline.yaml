@@ -1,0 +1,192 @@
+# GNUS-POC Pipeline Configuration — Global defaults
+#
+# Two-layer teacher architecture:
+#   endpoints: define WHERE (connection details — url, apiType)
+#   models:    define WHAT (model identifier — endpoint ref, model_id)
+#
+# Adding a teacher model requires only a `models` entry referencing an existing endpoint,
+# plus an API key in `.env` — no code change.
+#
+# API key environment variable naming convention:
+#   {UPPERCASE_MODEL_NAME}_API_KEY with brackets and dots replaced by underscores
+#   Examples: DEEPSEEK_V4_FAST_API_KEY, DEEPSEEK_V4_PRO[1M]_API_KEY, GLM_5_2_API_KEY
+#
+# Override per specialist in config/specialists/<niche>.yaml
+# Override per experiment in config/experiments/<exp>.yaml
+# Secrets via ${ENV_VAR} resolved at load time from .env
+
+# ---------------------------------------------------------------------------
+# Endpoints: connection details for each API backend
+# ---------------------------------------------------------------------------
+endpoints:
+  litellm:
+    url: "http://127.0.0.1:4000"
+    apiType: openai
+
+# ---------------------------------------------------------------------------
+# Models: each key is a literal model name, values map to endpoint + model_id
+# ---------------------------------------------------------------------------
+models:
+  deepseek-v4-fast:
+    endpoint: litellm
+    model_id: "deepseek-v4-fast"
+  deepseek-v4-pro[1m]:
+    endpoint: litellm
+    model_id: "deepseek-v4-pro[1m]"
+  glm-5.2:
+    endpoint: litellm
+    model_id: "glm-5.2"
+
+# ---------------------------------------------------------------------------
+# Teacher cascade settings
+# ---------------------------------------------------------------------------
+teacher:
+  level1: "deepseek-v4-fast"                  # Always-first Level 1 teacher
+  confidence_threshold: 0.7                    # Logprobs mean threshold for Level 2 escalation
+  max_retries: 3                               # Per-call retry count
+  backoff_base_seconds: 2.0                    # Initial backoff delay
+  budget_cap_usd: 5.0                          # Hard dollar limit — stops all API calls when exceeded
+  circuit_breaker_failure_threshold: 5         # Consecutive failures before circuit opens
+  circuit_breaker_recovery_timeout: 60         # Seconds before half-open probe
+
+# ---------------------------------------------------------------------------
+# Teacher benchmark table — domain -> {model_name: strength_score}
+# Used for Level 2 domain-routed teacher selection. Evolves over time as
+# evaluation data accumulates per teacher/domain pair.
+# ---------------------------------------------------------------------------
+teacher_benchmark:
+  coding: {"deepseek-v4-pro[1m]": 0.82, "glm-5.2": 0.91}
+  orchestration: {"deepseek-v4-pro[1m]": 0.88, "glm-5.2": 0.75}
+  medical: {"deepseek-v4-pro[1m]": 0.79, "glm-5.2": 0.85}
+  qa_technical: {"deepseek-v4-pro[1m]": 0.85, "glm-5.2": 0.78}
+  encyclopedic: {"deepseek-v4-pro[1m]": 0.90, "glm-5.2": 0.72}
+  patents: {"deepseek-v4-pro[1m]": 0.83, "glm-5.2": 0.70}
+
+# ---------------------------------------------------------------------------
+# Pipeline execution settings
+# ---------------------------------------------------------------------------
+pipeline:
+  specialists: ["medical", "qa_technical", "code", "encyclopedic", "patents"]
+  stage_retry_count: 1                         # How many times to retry a failed stage
+  stage_backoff_seconds: 5.0                   # Delay between stage retries
+
+paths:
+  data_dir: "data/specialists"
+  models_dir: "models/specialists_mlx"
+  artifacts_dir: "artifacts"
+
+training:
+  base_model: "mlx-community/Qwen3-30B-A3B-Instruct-2507-bf16"
+  batch_size: 4
+  iterations: 1000
+  learning_rate: 1e-5
+  lora_rank: 16
+  lora_dropout: 0.05
+  lora_scale: 20.0
+  num_layers: 16
+  val_batches: 25
+  steps_per_report: 50
+  steps_per_eval: 200
+  save_every: 200
+  fine_tune_type: "lora"
+  optimizer: "adamw"
+  seed: 42
+  min_example_length: 200              # Minimum character length for synthetic/generated examples
+
+  # -- Phase 2: KD training convergence (per-specialist defaults) --
+  distill_loss_target: 2.5        # Per-specialist default; overridden in config/specialists/<niche>.yaml
+  distill_loss_warning: 3.0       # Log warning and continue training
+  distill_loss_hard_stop: 5.0     # Halt training entirely
+  patience: 100                   # Steps without improvement before declaring convergence
+  min_delta: 0.01                 # Minimum loss improvement to reset patience counter
+  val_loss_threshold: 3.0         # Per-specialist default validation loss threshold
+
+evaluation:
+  test_split: "test"
+  metrics: ["accuracy", "perplexity", "latency"]
+
+  # -- Phase 2: Evaluation gates per specialist --
+  eval_gates:
+    perplexity:
+      max: 50.0
+      consecutive_failures_to_block: 3
+    bleu_score:
+      min: 0.15
+      consecutive_failures_to_block: 3
+
+# -- Phase 2: Outlier trigger for human review notification --
+# Logs a notification when a metric degrades > N% from prior run.
+# Does NOT block pipeline execution.
+outlier_trigger:
+  metric_drop_percent: 50
+
+# -- Phase 2: LLM-based adaptive thresholding --
+# LLM API recommends threshold adjustments based on observed trends.
+# Recommendations are logged; auto-applied only when confidence > confidence_minimum
+# and change < max_adjustment_percent.
+adaptive_thresholding:
+  enabled: false
+  confidence_minimum: 0.9
+  max_adjustment_percent: 20
+
+# -- Phase 2: Rules-based specialist router (GQHSM-compatible) --
+router:
+  engine: "transitions"
+  confidence_threshold: 0.5
+  default_specialist: "encyclopedic"
+  rules_path: "config/router_rules.yaml"
+
+fp4_export:
+  target_bits: 4
+  block_size: 64
+  # SGFP4 v2 adaptive macroblock error thresholds per block size (D-08)
+  error_thresholds:
+    64: { max_mse: 0.01, max_relative: 0.05 }
+    32: { max_mse: 0.005, max_relative: 0.03 }
+    16: { max_mse: 0.002, max_relative: 0.02 }
+    8:  { max_mse: 0.001, max_relative: 0.01 }
+    4:  { max_mse: 0.0005, max_relative: 0.005 }
+  # Ternary mode selection delta: prefer T158 when err_t158 <= (1.0 + delta) * err_fp4
+  ternary_delta: 0.10
+  # Minimum block size for adaptive quadtree (must be power of 2, >= 4)
+  min_block_size: 4
+  # Number of Laplacian pyramid levels for encode-side error analysis
+  laplacian_levels: 3
+  # Log mode bitmap flag reserved (Phase 5: Unsloth Integration) — default: Linear only
+  log_mode_enabled: false
+
+# ---------------------------------------------------------------------------
+# Evaluation gating — per-dimension quality thresholds with auto-gating
+#
+# Each dimension defines a numeric threshold and a consecutive-failure count
+# that triggers a blocking state (preventing promotion to next pipeline stage).
+# SGFP4 dimensions (D-09): Quantization error metrics become eval gate dimensions
+# following the Phase 2 auto-gating pattern.
+# ---------------------------------------------------------------------------
+eval_gates:
+  # -----------------------------------------------------------------------
+  # SGFP4 dimensions (Phase 3, D-09) -- UNCHANGED
+  # -----------------------------------------------------------------------
+  fp4_mse:
+    max: 0.01
+    consecutive_failures_to_block: 3
+  fp4_effective_bitrate:
+    max: 4.0
+    consecutive_failures_to_block: 2
+  fp4_t158_ratio:
+    min: 0.05
+    consecutive_failures_to_block: 2
+  # -----------------------------------------------------------------------
+  # Benchmark-specific gate dimensions (Plan 04-03)
+  #
+  # D-06: tiered gating -- 1st failure warns, 3rd consecutive blocks.
+  # D-08: hard floors are enforced per-benchmark in config/benchmarks/<name>.yaml;
+  #       the composite gate below activates only AFTER all hard floors pass.
+  # -----------------------------------------------------------------------
+  benchmark_composite:
+    description: "2-of-3 composite gate for benchmark quality (D-08)"
+    consecutive_failures_to_block: 3
+  sfgp4_regression:
+    description: "Mandatory SGFP4 unquantized-vs-quantized regression check (D-08)"
+    max_regression_pct: 0.10
+    consecutive_failures_to_block: 3

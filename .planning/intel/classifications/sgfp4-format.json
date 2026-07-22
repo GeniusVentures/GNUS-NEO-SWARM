@@ -1,0 +1,13 @@
+{
+  "source_path": "/Users/Shared/SSDevelopment/Development/GeniusVentures/GeniusNetwork/GeniusCogntiveSystem/docs/architecture/sgfp4-format.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "22 SGFP4 Adaptive Quantization Format",
+  "summary": "Defines the SGFP4 weight compression format for GPU-friendly decode with mixed-bit adaptive encoding across FP4 (4-bit) and T158 ternary (~1.58-bit) modes per 64x64 macroblock.",
+  "scope": ["SGFP4", "weight compression", "quantization format", "FP4_AFFINE", "T158_AFFINE", "macroblocks", "GPU decode", "adaptive encoding", "half2 scale/bias headers", "flags-in-offsets"],
+  "cross_refs": ["./model-and-router.md", "./system-overview.md", "./execution-and-performance.md"],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}
