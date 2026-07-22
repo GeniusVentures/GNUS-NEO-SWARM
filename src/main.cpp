@@ -148,7 +148,7 @@ static void LoadConfigFile( const std::string& path, Args& args )
     {
         for ( const auto& e : j["elms"] )
         {
-            ElmConfigEntry entry;
+            Args::ElmConfigEntry entry;
             if ( e.contains( "role" ) )
             {
                 entry.role = e["role"].get<std::string>();
@@ -323,7 +323,7 @@ int main( int argc, char** argv )
     // ELM configuration (Phase 7+)
     for ( const auto& entry : args.m_elmConfigs )
     {
-        api::ApiServer::ElmEntry cfgEntry;
+        api::ApiServer::Config::ElmEntry cfgEntry;
         cfgEntry.role = entry.role;
         cfgEntry.model = entry.model;
         cfgEntry.eager = entry.eager;
