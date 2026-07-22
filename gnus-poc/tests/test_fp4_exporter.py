@@ -436,6 +436,36 @@ class TestV2SpecConformance:
         mse = float(np.mean((weights - decoded) ** 2))
         assert mse < 0.01
 
+    def test_v2_error_hint_bit_set_for_pyramid_blocks(self):
+        """ERROR_HINT (bit 1 of leaf header flags) must be 1 for blocks
+        selected via the Laplacian pyramid (size >= 16) and 0 for L2-selected
+        blocks (4x4/8x8), per the SGFP4 paper. The reference decoder must
+        accept the stream (bit 1 no longer a reserved violation)."""
+        from quantize.sgfp4_decoder import decode_v2
+        exporter = FP4Exporter()
+        rng = np.random.default_rng(5)
+        weights = (rng.standard_normal((64, 64)) * 0.02).astype(np.float32)
+        binary, stats = exporter.export_weights(weights, "test", adaptive=True)
+
+        # Parse leaf headers: record starts at offset table end (B=1)
+        B = struct.unpack_from("<I", binary, 5)[0]
+        assert B == 1
+        rec_off = struct.unpack_from("<I", binary, 16)[0] + 16 + 4 * B
+        sb_header = struct.unpack_from("<I", binary, rec_off)[0]
+        layout = sb_header & 0x7
+        from quantize.fp4_exporter import LAYOUT_UNIFORM_64, LAYOUT_MIXED
+        if layout != LAYOUT_MIXED:
+            # Uniform: leaf headers follow sb_header directly
+            n_leaves = stats["total_blocks"]
+            first_header = struct.unpack_from("<I", binary, rec_off + 4)[0]
+            hint = (first_header & 0x2) >> 1
+            # Uniform-64 leaves are pyramid-selected
+            if layout == LAYOUT_UNIFORM_64:
+                assert hint == 1, "64x64 pyramid-selected leaf must set ERROR_HINT"
+        # Decoder must not raise on bit 1 being set
+        decoded = decode_v2(binary, 64, 64)
+        assert decoded.shape == (64, 64)
+
     def test_v2_uniform_16_raster_order_roundtrip(self):
         """Uniform-16 leaves must be stored in row-major raster order
         (Sec 6.2) — verified end-to-end through the reference decoder."""

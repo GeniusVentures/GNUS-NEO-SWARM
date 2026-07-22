@@ -5,7 +5,7 @@ import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 from eval.evaluator import SpecialistEvaluator
 from eval.metric_store import MetricStore
@@ -27,6 +27,7 @@ class Benchmarker:
         project_root: Optional[Path] = None,
         evaluator: Optional[SpecialistEvaluator] = None,
         config: Optional[dict] = None,
+        metric_store: Optional[MetricStore] = None,
     ):
         if project_root is None:
             project_root = Path(__file__).resolve().parent.parent
@@ -35,7 +36,7 @@ class Benchmarker:
         self._benchmarks_dir = project_root / "artifacts" / "benchmarks"
         self._benchmarks_dir.mkdir(parents=True, exist_ok=True)
         self._config = config or {}
-        self._metric_store = MetricStore(project_root)
+        self._metric_store = metric_store or MetricStore(project_root)
         self._gate_state_dir = project_root / "artifacts" / ".gate_state"
         self._gate_state_dir.mkdir(parents=True, exist_ok=True)
 
@@ -942,3 +943,143 @@ class Benchmarker:
             return None
         # runs is ordered most-recent-first; index 1 is the previous run.
         return list(runs.values())[1]
+
+    # ------------------------------------------------------------------
+    # Auto-gating (Phase 2: D-14, D-17)
+    # ------------------------------------------------------------------
+
+    def gate_check_eval(
+        self,
+        niche_name: str,
+        current_metrics: Dict[str, Any],
+        gate_thresholds: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Determine whether a specialist should be gated based on consecutive failures.
+
+        Loads prior evaluation runs for the niche via ``MetricStore`` and
+        counts consecutive failures for each gate metric.  Blocks the
+        pipeline only when the consecutive-failure count reaches the
+        configured threshold (D-17: single failures log and continue).
+
+        Args:
+            niche_name: Specialist niche identifier.
+            current_metrics: Dict with metric keys matching evaluation
+                output (e.g. ``"perplexity"``, ``"bleu_score"``).
+            gate_thresholds: Dict with per-gate thresholds and failure
+                limits.  Format::
+
+                    {
+                        "ppl_max": 50.0,
+                        "bleu_min": 0.15,
+                        "consecutive_failures": 3,
+                    }
+
+                Defaults to reasonable values if not provided.
+
+        Returns:
+            Dict with:
+            - ``blocked``: ``True`` if any gate has hit its consecutive
+              failure limit.
+            - ``gates``: per-gate status dicts with ``passed``,
+              ``consecutive_failures``, ``threshold``, ``value``.
+            - ``blocking_gates``: list of gate names that triggered the block.
+        """
+        if gate_thresholds is None:
+            gate_thresholds = {
+                "ppl_max": 50.0,
+                "bleu_min": 0.15,
+                "consecutive_failures": 3,
+            }
+
+        consecutive_limit = int(gate_thresholds.get("consecutive_failures", 3))
+
+        # Load prior runs to count consecutive failures
+        prior_runs = self._metric_store.load_prior(niche_name)
+
+        gates: Dict[str, Dict[str, Any]] = {}
+        blocking_gates: List[str] = []
+
+        # --- Perplexity gate ---
+        ppl = current_metrics.get("perplexity")
+        ppl_max = float(gate_thresholds.get("ppl_max", 50.0))
+        ppl_passed = (ppl is not None and ppl <= ppl_max)
+        ppl_consecutive = self._count_consecutive_failures(
+            prior_runs, "perplexity", ppl_passed
+        )
+        gates["perplexity"] = {
+            "passed": ppl_passed,
+            "consecutive_failures": ppl_consecutive,
+            "threshold": ppl_max,
+            "value": ppl if ppl is not None else 0.0,
+        }
+        if ppl_consecutive >= consecutive_limit:
+            blocking_gates.append("perplexity")
+
+        # --- BLEU score gate ---
+        bleu = current_metrics.get("bleu_score")
+        bleu_min = float(gate_thresholds.get("bleu_min", 0.15))
+        bleu_passed = (bleu is not None and bleu >= bleu_min)
+        bleu_consecutive = self._count_consecutive_failures(
+            prior_runs, "bleu_score", bleu_passed
+        )
+        gates["bleu_score"] = {
+            "passed": bleu_passed,
+            "consecutive_failures": bleu_consecutive,
+            "threshold": bleu_min,
+            "value": bleu if bleu is not None else 0.0,
+        }
+        if bleu_consecutive >= consecutive_limit:
+            blocking_gates.append("bleu_score")
+
+        blocked = len(blocking_gates) > 0
+        if blocked:
+            logger.warning(
+                "Auto-gate BLOCKED for %s: %s (threshold=%d consecutive failures)",
+                niche_name,
+                blocking_gates,
+                consecutive_limit,
+            )
+        else:
+            logger.debug("Auto-gate passed for %s", niche_name)
+
+        return {
+            "blocked": blocked,
+            "gates": gates,
+            "blocking_gates": blocking_gates,
+        }
+
+    @staticmethod
+    def _count_consecutive_failures(
+        prior_runs: List[Dict[str, Any]],
+        metric_key: str,
+        current_passed: bool,
+    ) -> int:
+        """Count consecutive failures for a metric, including the current run.
+
+        Walks prior runs from most recent to oldest, counting how many
+        consecutive runs failed the gate (gates_passed[metric].passed == False).
+        Adds 1 for the current run if it also failed.
+
+        Args:
+            prior_runs: List of prior-run dicts (earliest first).
+            metric_key: Gate key (e.g. ``"perplexity"``, ``"bleu_score"``).
+            current_passed: Whether the current run passed this gate.
+
+        Returns:
+            Number of consecutive failures (0 if the current run passed).
+        """
+        if current_passed:
+            return 0
+
+        consecutive = 1  # current run failed
+
+        # Walk from most recent to oldest
+        for run in reversed(prior_runs):
+            gates = run.get("gates_passed", {})
+            gate = gates.get(metric_key, {})
+            if not gate.get("passed", True):
+                consecutive += 1
+            else:
+                break  # streak broken
+
+        return consecutive

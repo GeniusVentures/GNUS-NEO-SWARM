@@ -13,3 +13,11 @@ specialist:
   training:
     lora_rank: 16
     iterations: 1000
+    distill_loss_target: 2.5
+    val_loss_threshold: 3.0
+
+  eval_gates:
+    perplexity:
+      max: 50.0
+    bleu_score:
+      min: 0.15

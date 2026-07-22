@@ -255,14 +255,14 @@ Benchmark results across runs must be comparable to enable trend analysis. The s
 | DIST-03 | Phase 2 | Pending |
 | TRAIN-01 | Phase 2 | Pending |
 | TRAIN-02 | Phase 2 | Pending |
-| TRAIN-03 | Phase 2 | Pending |
-| ROUTE-01 | Phase 2 | Pending |
-| ROUTE-02 | Phase 2 | Pending |
-| QUANT-01 | Phase 3 | Complete |
-| QUANT-02 | Phase 3 | Complete |
-| QUANT-03 | Phase 3 | Complete |
-| BMARK-01 | Phase 4 | Complete |
-| BMARK-02 | Phase 4 | Complete |
-| BMARK-03 | Phase 4 | Complete |
+| TRAIN-03 | Phase 2 | Complete |
+| ROUTE-01 | Phase 2 | Complete |
+| ROUTE-02 | Phase 2 | Complete |
+| QUANT-01 | Phase 3 | Pending |
+| QUANT-02 | Phase 3 | Pending |
+| QUANT-03 | Phase 3 | Pending |
+| BMARK-01 | Phase 4 | Pending |
+| BMARK-02 | Phase 4 | Pending |
+| BMARK-03 | Phase 4 | Pending |
 
 **Coverage: 22/22 requirements mapped — 100%**

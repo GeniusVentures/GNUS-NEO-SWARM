@@ -100,3 +100,51 @@ class TestLaplacianWeightedError:
         err = lap.compute(original, reconstructed, block_size=64)
         assert isinstance(err, float)
         assert err >= 0.0
+
+    def test_true_laplacian_band_smooth_residual_is_zero(self):
+        """A perfectly smooth (Gaussian-constant) residual has ~zero band error.
+
+        In a true Laplacian pyramid the band (smooth - gaussian(smooth))
+        vanishes for a residual that the Gaussian leaves unchanged. The old
+        implementation measured the raw residual at every level, so a large
+        smooth residual produced a large error — this test pins the fix.
+        """
+        from scipy.ndimage import gaussian_filter
+
+        lap = LaplacianWeightedError(sigma=2.0)
+        # Residual that is essentially invariant under sigma=2 Gaussian
+        y, x = np.mgrid[0:32, 0:32]
+        smooth_residual = (0.5 * np.sin(2 * np.pi * y / 32.0)
+                           * np.sin(2 * np.pi * x / 32.0)).astype(np.float32)
+        original = np.zeros((32, 32), dtype=np.float32)
+        reconstructed = original - smooth_residual  # residual = smooth_residual
+
+        err = lap.compute(original, reconstructed, block_size=32)
+        plain_mse = float(np.mean(smooth_residual ** 2))
+        # True band error must be far below the raw residual MSE
+        assert err < plain_mse * 0.2, (
+            f"Laplacian band error {err} should be much smaller than plain "
+            f"MSE {plain_mse} for a smooth residual"
+        )
+
+    def test_gaussian_prefilter_before_decimation(self):
+        """Multi-level path must filter before decimating (no aliasing).
+
+        If decimation happened without an anti-aliasing pre-filter, a
+        high-frequency residual would alias into lower levels and inflate
+        the measured error; the true pyramid attenuates it.
+        """
+        lap = LaplacianWeightedError()
+        # High-frequency checkerboard residual — aliases badly if decimated raw
+        y, x = np.mgrid[0:64, 0:64]
+        checker = ((y + x) % 2).astype(np.float32) * 2.0 - 1.0  # +-1
+        original = np.zeros((64, 64), dtype=np.float32)
+        reconstructed = original - checker
+
+        err = lap.compute(original, reconstructed, block_size=64)
+        plain_mse = float(np.mean(checker ** 2))
+        # The Gaussian band-pass attenuates checkerboard heavily
+        assert err < plain_mse, (
+            f"Pyramid error {err} should be below plain MSE {plain_mse} for "
+            f"a high-frequency residual (pre-filter must attenuate, not alias)"
+        )

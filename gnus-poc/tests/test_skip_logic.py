@@ -112,8 +112,8 @@ class TestCheckpointValidator:
 
         cv = CheckpointValidator(tmp_project_root)
 
-        # Passes: 10 rows (the minimum default)
-        lines = [json.dumps({"response": f"Test {i}"}) for i in range(10)]
+        # Passes: 10 rows (the minimum default), each with text >= 200 chars
+        lines = [json.dumps({"text": f"Test {i} " + "x" * 200}) for i in range(10)]
         (synth_dir / "code.jsonl").write_text("\n".join(lines))
         result = cv.validate_stage("code", "synthetic_data")
         assert result.passed is True, f"Expected passed with 10 rows: {result.checks}"

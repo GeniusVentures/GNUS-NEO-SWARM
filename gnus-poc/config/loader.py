@@ -115,6 +115,9 @@ class ConfigLoader:
         self._validate_teacher_benchmark()
         self._validate_pipeline_specialists()
         self._validate_fp4_export()
+        self._validate_training_convergence()
+        self._validate_eval_gates()
+        self._validate_router_config()
 
     def _validate_endpoints(self) -> None:
         endpoints = self._global_config.get("endpoints")
@@ -196,6 +199,122 @@ class ConfigLoader:
                         f"{prefix}.{model_name}",
                         f"score must be a number, got {type(score).__name__}",
                     )
+
+    def _validate_training_convergence(self) -> None:
+        training = self._global_config.get("training")
+        if not isinstance(training, dict):
+            return
+
+        target = training.get("distill_loss_target")
+        if target is not None:
+            if not isinstance(target, (int, float)) or target <= 0:
+                raise ConfigValidationError(
+                    "training.distill_loss_target", "must be a number > 0"
+                )
+
+        warning = training.get("distill_loss_warning")
+        if warning is not None and target is not None:
+            if not isinstance(warning, (int, float)) or warning < target:
+                raise ConfigValidationError(
+                    "training.distill_loss_warning",
+                    f"must be >= distill_loss_target ({target})",
+                )
+
+        hard_stop = training.get("distill_loss_hard_stop")
+        if hard_stop is not None and warning is not None:
+            if not isinstance(hard_stop, (int, float)) or hard_stop <= warning:
+                raise ConfigValidationError(
+                    "training.distill_loss_hard_stop",
+                    f"must be > distill_loss_warning ({warning})",
+                )
+
+        patience = training.get("patience")
+        if patience is not None:
+            if not isinstance(patience, int) or patience <= 0:
+                raise ConfigValidationError(
+                    "training.patience", "must be an integer > 0"
+                )
+
+        min_delta = training.get("min_delta")
+        if min_delta is not None:
+            if not isinstance(min_delta, (int, float)) or min_delta <= 0:
+                raise ConfigValidationError(
+                    "training.min_delta", "must be a number > 0"
+                )
+
+        val_loss = training.get("val_loss_threshold")
+        if val_loss is not None:
+            if not isinstance(val_loss, (int, float)) or val_loss <= 0:
+                raise ConfigValidationError(
+                    "training.val_loss_threshold", "must be a number > 0"
+                )
+
+    def _validate_eval_gates(self) -> None:
+        evaluation = self._global_config.get("evaluation")
+        if not isinstance(evaluation, dict):
+            return
+
+        gates = evaluation.get("eval_gates")
+        if gates is None:
+            return
+        if not isinstance(gates, dict):
+            raise ConfigValidationError("evaluation.eval_gates", "must be a dictionary")
+
+        for gate_name, gate_config in gates.items():
+            prefix = f"evaluation.eval_gates.{gate_name}"
+            if not isinstance(gate_config, dict):
+                raise ConfigValidationError(prefix, "must be a dictionary")
+            has_max = "max" in gate_config
+            has_min = "min" in gate_config
+            if not has_max and not has_min:
+                raise ConfigValidationError(prefix, "must have 'max' or 'min'")
+            if has_max and not isinstance(gate_config["max"], (int, float)):
+                raise ConfigValidationError(f"{prefix}.max", "must be a number")
+            if has_min and not isinstance(gate_config["min"], (int, float)):
+                raise ConfigValidationError(f"{prefix}.min", "must be a number")
+            cfb = gate_config.get("consecutive_failures_to_block")
+            if cfb is not None:
+                if not isinstance(cfb, int) or cfb <= 0:
+                    raise ConfigValidationError(
+                        f"{prefix}.consecutive_failures_to_block", "must be an integer > 0"
+                    )
+
+        outlier = evaluation.get("outlier_trigger")
+        if outlier is not None and isinstance(outlier, dict):
+            drop_pct = outlier.get("metric_drop_percent")
+            if drop_pct is not None:
+                if not isinstance(drop_pct, (int, float)) or drop_pct < 0 or drop_pct > 100:
+                    raise ConfigValidationError(
+                        "evaluation.outlier_trigger.metric_drop_percent",
+                        "must be a number between 0 and 100",
+                    )
+
+    def _validate_router_config(self) -> None:
+        router = self._global_config.get("router")
+        if not isinstance(router, dict):
+            return
+
+        ct = router.get("confidence_threshold")
+        if ct is not None:
+            if not isinstance(ct, (int, float)) or ct < 0 or ct > 1:
+                raise ConfigValidationError(
+                    "router.confidence_threshold", "must be a number between 0 and 1"
+                )
+
+        default_spec = router.get("default_specialist")
+        if default_spec is not None:
+            specialists = self._global_config.get("pipeline", {}).get("specialists", [])
+            if default_spec not in specialists:
+                raise ConfigValidationError(
+                    "router.default_specialist",
+                    f"'{default_spec}' not in pipeline.specialists: {', '.join(specialists)}",
+                )
+
+        fce = router.get("fallback_chain_enabled")
+        if fce is not None and not isinstance(fce, bool):
+            raise ConfigValidationError(
+                "router.fallback_chain_enabled", "must be a boolean"
+            )
 
     def _validate_pipeline_specialists(self) -> None:
         pipeline = self._global_config.get("pipeline")
@@ -347,6 +466,18 @@ class ConfigLoader:
         if isinstance(spec_training, dict):
             for key, value in spec_training.items():
                 effective.setdefault("training", {})[key] = value
+
+        # Phase 2: distill_loss_target and val_loss_threshold surfaced from specialist level
+        for phase2_key in ("distill_loss_target", "val_loss_threshold"):
+            if phase2_key in spec_block:
+                effective.setdefault("training", {})[phase2_key] = spec_block[phase2_key]
+
+        # Phase 2: per-specialist eval_gates deep-merged into evaluation.eval_gates
+        spec_gates = spec_block.get("eval_gates")
+        if isinstance(spec_gates, dict):
+            effective_gates = effective.setdefault("evaluation", {}).setdefault("eval_gates", {})
+            for gate_name, gate_config in spec_gates.items():
+                effective_gates[gate_name] = gate_config
 
         # system_prompt and synthetic_prompts — surfaced as top-level specialist keys
         if "system_prompt" in spec_block:

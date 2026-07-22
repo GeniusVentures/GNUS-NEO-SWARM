@@ -91,10 +91,50 @@ training:
   fine_tune_type: "lora"
   optimizer: "adamw"
   seed: 42
+  min_example_length: 200              # Minimum character length for synthetic/generated examples
+
+  # -- Phase 2: KD training convergence (per-specialist defaults) --
+  distill_loss_target: 2.5        # Per-specialist default; overridden in config/specialists/<niche>.yaml
+  distill_loss_warning: 3.0       # Log warning and continue training
+  distill_loss_hard_stop: 5.0     # Halt training entirely
+  patience: 100                   # Steps without improvement before declaring convergence
+  min_delta: 0.01                 # Minimum loss improvement to reset patience counter
+  val_loss_threshold: 3.0         # Per-specialist default validation loss threshold
 
 evaluation:
   test_split: "test"
   metrics: ["accuracy", "perplexity", "latency"]
+
+  # -- Phase 2: Evaluation gates per specialist --
+  eval_gates:
+    perplexity:
+      max: 50.0
+      consecutive_failures_to_block: 3
+    bleu_score:
+      min: 0.15
+      consecutive_failures_to_block: 3
+
+# -- Phase 2: Outlier trigger for human review notification --
+# Logs a notification when a metric degrades > N% from prior run.
+# Does NOT block pipeline execution.
+outlier_trigger:
+  metric_drop_percent: 50
+
+# -- Phase 2: LLM-based adaptive thresholding --
+# LLM API recommends threshold adjustments based on observed trends.
+# Recommendations are logged; auto-applied only when confidence > confidence_minimum
+# and change < max_adjustment_percent.
+adaptive_thresholding:
+  enabled: false
+  confidence_minimum: 0.9
+  max_adjustment_percent: 20
+
+# -- Phase 2: Rules-based specialist router (GQHSM-compatible) --
+router:
+  engine: "transitions"
+  confidence_threshold: 0.5
+  default_specialist: "encyclopedic"
+  rules_path: "config/router_rules.yaml"
 
 fp4_export:
   target_bits: 4

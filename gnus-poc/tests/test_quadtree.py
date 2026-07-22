@@ -246,3 +246,81 @@ class TestQuadtreeEncoder:
                     f"T158 should be rejected for block at ({y},{x}) size {sz} "
                     f"due to outlier weight"
                 )
+
+    def test_max_relative_threshold_forces_split(self):
+        """A lenient max_mse with a strict max_relative must still split.
+
+        Regression: previously max_relative was never read, so a block whose
+        relative error exceeded the gate was accepted on max_mse alone.
+        """
+        thresholds = {
+            64: {"max_mse": 1e9, "max_relative": 1e-9},   # absolute lenient, relative strict
+            32: {"max_mse": 1e9, "max_relative": 1e-9},
+            16: {"max_mse": 1e9, "max_relative": 1e-9},
+            8:  {"max_mse": 1e9, "max_relative": 1e-9},
+            4:  {"max_mse": 1e9, "max_relative": 1e-9},
+        }
+        encoder = QuadtreeEncoder(
+            thresholds=thresholds,
+            ternary_delta=0.10,
+            fit_fp4=_make_fit_fp4(),
+            fit_t158=_make_fit_t158(),
+            laplacian=LaplacianWeightedError(),
+        )
+        superblock = np.random.randn(64, 64).astype(np.float32)
+        blocks = encoder.encode(superblock)
+        # Strict relative gate must force splits all the way to 4x4
+        assert all(b["size"] == 4 for b in blocks)
+
+    def test_max_relative_lenient_allows_large_blocks(self):
+        """With both gates lenient, large blocks are accepted (no regression)."""
+        thresholds = {
+            64: {"max_mse": 1e9, "max_relative": 1e9},
+            32: {"max_mse": 1e9, "max_relative": 1e9},
+        }
+        encoder = QuadtreeEncoder(
+            thresholds=thresholds,
+            ternary_delta=0.10,
+            fit_fp4=_make_fit_fp4(),
+            fit_t158=_make_fit_t158(),
+            laplacian=LaplacianWeightedError(),
+        )
+        superblock = np.random.randn(64, 64).astype(np.float32) * 0.01
+        blocks = encoder.encode(superblock)
+        assert len(blocks) == 1
+        assert blocks[0]["size"] == 64
+
+    def test_max_relative_disabled_when_non_positive(self):
+        """max_relative <= 0 disables the relative gate (absolute only)."""
+        thresholds = {
+            64: {"max_mse": 1e9, "max_relative": 0.0},
+        }
+        encoder = QuadtreeEncoder(
+            thresholds=thresholds,
+            ternary_delta=0.10,
+            fit_fp4=_make_fit_fp4(),
+            fit_t158=_make_fit_t158(),
+            laplacian=LaplacianWeightedError(),
+        )
+        superblock = np.random.randn(64, 64).astype(np.float32)
+        blocks = encoder.encode(superblock)
+        assert len(blocks) == 1
+        assert blocks[0]["size"] == 64
+
+    def test_error_hint_matches_pyramid_use(self):
+        """ERROR_HINT is 1 for pyramid-selected blocks (size >= 16), 0 for L2."""
+        encoder = QuadtreeEncoder(
+            thresholds=DEFAULT_THRESHOLDS,
+            ternary_delta=0.10,
+            fit_fp4=_make_fit_fp4(),
+            fit_t158=_make_fit_t158(),
+            laplacian=LaplacianWeightedError(),
+        )
+        superblock = np.random.randn(64, 64).astype(np.float32) * 5.0
+        blocks = encoder.encode(superblock)
+        for b in blocks:
+            expected = 1 if b["size"] >= 16 else 0
+            assert b["error_hint"] == expected, (
+                f"Block size {b['size']} has error_hint {b['error_hint']}, "
+                f"expected {expected}"
+            )

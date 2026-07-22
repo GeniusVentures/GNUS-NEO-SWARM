@@ -629,3 +629,117 @@ def test_find_canonical_results_quantized_discriminator(tmp_path):
     assert payload is not None, "unquantized canonical file must be discoverable (quantized_only=False)"
     assert payload["quantized"] is False
 
+
+class TestGateCheckEval:
+    """Tests for Benchmarker.gate_check_eval() auto-gating (D-14, D-17)."""
+
+    def test_gate_check_eval_all_pass(self, tmp_path):
+        bench = Benchmarker(project_root=tmp_path)
+        result = bench.gate_check_eval(
+            "test",
+            {"perplexity": 12.0, "bleu_score": 0.45},
+            {"ppl_max": 50.0, "bleu_min": 0.15, "consecutive_failures": 3},
+        )
+        assert result["blocked"] is False
+        assert result["gates"]["perplexity"]["passed"] is True
+        assert result["gates"]["bleu_score"]["passed"] is True
+        assert result["blocking_gates"] == []
+
+    def test_gate_check_eval_single_failure_does_not_block(self, tmp_path):
+        bench = Benchmarker(project_root=tmp_path)
+        result = bench.gate_check_eval(
+            "test",
+            {"perplexity": 99.0, "bleu_score": 0.02},
+            {"ppl_max": 50.0, "bleu_min": 0.15, "consecutive_failures": 3},
+        )
+        # Both fail, but only 1 consecutive failure (no prior runs)
+        assert result["blocked"] is False
+        assert result["gates"]["perplexity"]["passed"] is False
+        assert result["gates"]["perplexity"]["consecutive_failures"] == 1
+        assert result["gates"]["bleu_score"]["consecutive_failures"] == 1
+
+    def test_gate_check_eval_blocks_after_consecutive_failures(self, tmp_path):
+        from eval.metric_store import EvalMetrics
+        from eval.metric_store import MetricStore
+
+        store = MetricStore(project_root=tmp_path)
+        # Persist two prior runs that both failed perplexity
+        for i in range(2):
+            store.persist(EvalMetrics(
+                niche="test",
+                timestamp_utc=f"2026-06-21T1{i}:00:00+00:00",
+                num_samples=50,
+                perplexity=80.0,
+                bleu_score=0.05,
+                rouge_l=0.30,
+                latency_ms_mean=3.0,
+                latency_ms_p95=6.0,
+                gates_passed={
+                    "perplexity": {"passed": False, "threshold": 50.0, "value": 80.0},
+                    "bleu_score": {"passed": False, "threshold": 0.15, "value": 0.05},
+                },
+            ))
+
+        bench = Benchmarker(project_root=tmp_path, metric_store=store)
+        result = bench.gate_check_eval(
+            "test",
+            {"perplexity": 80.0, "bleu_score": 0.05},
+            {"ppl_max": 50.0, "bleu_min": 0.15, "consecutive_failures": 3},
+        )
+        # This is the 3rd consecutive failure -- should block
+        assert result["blocked"] is True
+        assert "perplexity" in result["blocking_gates"]
+        assert "bleu_score" in result["blocking_gates"]
+        assert result["gates"]["perplexity"]["consecutive_failures"] == 3
+
+    def test_gate_check_eval_default_thresholds(self, tmp_path):
+        bench = Benchmarker(project_root=tmp_path)
+        result = bench.gate_check_eval("test", {"perplexity": 35.0, "bleu_score": 0.30})
+        assert result["blocked"] is False
+
+    def test_count_consecutive_failures_no_prior(self):
+        from eval.benchmarker import Benchmarker
+
+        assert Benchmarker._count_consecutive_failures([], "perplexity", True) == 0
+        assert Benchmarker._count_consecutive_failures([], "perplexity", False) == 1
+
+    def test_count_consecutive_failures_with_prior(self):
+        from eval.benchmarker import Benchmarker
+
+        prior = [
+            {
+                "gates_passed": {
+                    "perplexity": {"passed": False},
+                },
+            },
+            {
+                "gates_passed": {
+                    "perplexity": {"passed": False},
+                },
+            },
+        ]
+        # Current run failed, prior two also failed = 3 consecutive
+        assert Benchmarker._count_consecutive_failures(prior, "perplexity", False) == 3
+
+    def test_count_consecutive_failures_streak_broken(self):
+        from eval.benchmarker import Benchmarker
+
+        prior = [
+            {
+                "gates_passed": {
+                    "perplexity": {"passed": False},
+                },
+            },
+            {
+                "gates_passed": {
+                    "perplexity": {"passed": False},
+                },
+            },
+            {
+                "gates_passed": {
+                    "perplexity": {"passed": True},  # streak broken here (most recent)
+                },
+            },
+        ]
+        # Current run failed, but most recent prior passed = only 1 consecutive
+        assert Benchmarker._count_consecutive_failures(prior, "perplexity", False) == 1

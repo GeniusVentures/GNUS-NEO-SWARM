@@ -14,11 +14,40 @@ Phase 3 SGFP4 API without altering it.
 
 import json
 import logging
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
+
+
+# --- Metric keys that compute_deltas compares against prior runs (Phase 2) ---
+_DELTA_METRICS = ("perplexity", "bleu_score", "rouge_l", "latency_ms_mean", "latency_ms_p95", "num_samples")
+
+
+@dataclass
+class EvalMetrics:
+    """Single-run evaluation metrics for a specialist (Phase 2: D-14).
+
+    All fields are required for schema validation.  ``gates_passed`` maps
+    gate name -> ``{"passed": bool, "threshold": float, "value": float}``.
+    """
+
+    niche: str
+    timestamp_utc: str
+    num_samples: int
+    perplexity: float
+    bleu_score: float
+    rouge_l: float
+    latency_ms_mean: float
+    latency_ms_p95: float
+    gates_passed: Dict[str, Dict[str, Any]]
+    version: str = "1.0"
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Return dict suitable for JSON serialization (alias for asdict)."""
+        return asdict(self)
 
 
 # Required keys for a benchmark results payload (Plan 04-01 schema, D-02).
@@ -55,6 +84,143 @@ class MetricStore:
         # Plan 04-04 (D-11): benchmark results live in artifacts/benchmarks/
         self._benchmarks_dir = project_root / "artifacts" / "benchmarks"
         self._benchmarks_dir.mkdir(parents=True, exist_ok=True)
+        # Phase 2 (D-14): evaluation runs persist under artifacts/evaluations/
+        self._eval_dir = self._metrics_dir
+
+    # ------------------------------------------------------------------
+    # Phase 2: Evaluation persistence (D-14, D-17)
+    # ------------------------------------------------------------------
+
+    REQUIRED_FIELDS = (
+        "niche",
+        "timestamp_utc",
+        "num_samples",
+        "perplexity",
+        "bleu_score",
+        "rouge_l",
+        "latency_ms_mean",
+        "latency_ms_p95",
+        "gates_passed",
+        "version",
+    )
+
+    def persist(self, metrics: EvalMetrics) -> Path:
+        """Validate and write evaluation metrics to a timestamped JSON file.
+
+        Args:
+            metrics: Fully populated ``EvalMetrics`` instance.
+
+        Returns:
+            Path to the written artifact file.
+
+        Raises:
+            ValueError: If ``metrics`` fails schema validation.
+        """
+        data = metrics.to_dict()
+        self._validate(data)
+        ts = metrics.timestamp_utc.replace(":", "").replace("-", "").replace("+", "")
+        out_path = self._eval_dir / f"{metrics.niche}_{ts}.json"
+        out_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        logger.info("Evaluation persisted: %s", out_path)
+        return out_path
+
+    def load_prior(self, niche: str) -> List[Dict[str, Any]]:
+        """Load all prior evaluation runs for a niche, sorted by filename.
+
+        Corrupt or unparseable JSON files are logged as warnings and
+        silently skipped (mitigation for T-02-08).
+
+        Args:
+            niche: Specialist niche name (e.g. ``"medical"``).
+
+        Returns:
+            List of prior-run dicts, earliest first.  Empty if no prior
+            runs exist or all files were corrupt.
+        """
+        prior: List[Dict[str, Any]] = []
+        pattern = f"{niche}_*.json"
+        for f in sorted(self._eval_dir.glob(pattern)):
+            # SGFP4 artifacts ({niche}_sgfp4_metrics.json) share this directory
+            # but lack EvalMetrics fields (gates_passed, scalar metrics). Loading
+            # them as prior eval runs would corrupt consecutive-failure gating
+            # and trend deltas — exclude them.
+            if f.stem.endswith("_sgfp4_metrics"):
+                continue
+            try:
+                raw = f.read_text(encoding="utf-8")
+                data = json.loads(raw)
+                prior.append(data)
+            except (json.JSONDecodeError, OSError) as exc:
+                logger.warning(
+                    "Skipping corrupt evaluation file %s: %s",
+                    f.name,
+                    exc,
+                )
+        return prior
+
+    def compute_deltas(
+        self,
+        current: Dict[str, Any],
+        prior_runs: List[Dict[str, Any]],
+    ) -> Dict[str, Dict[str, float]]:
+        """Compute percentage deltas between current run and most recent prior run.
+
+        Uses the last entry in ``prior_runs`` (most recent) as the baseline.
+        Positive delta means the metric *increased* from prior to current.
+        For metrics where lower is better (perplexity, latency), a negative
+        delta represents improvement.  For metrics where higher is better
+        (BLEU, ROUGE-L), a positive delta represents improvement.
+
+        Args:
+            current: Dict representation of current ``EvalMetrics``.
+            prior_runs: List of prior-run dicts from ``load_prior()``.
+
+        Returns:
+            Dict keyed by metric name, each with keys:
+            ``prior_value``, ``current_value``, ``delta_abs``, ``delta_pct``.
+            Empty dict when ``prior_runs`` is empty.
+        """
+        if not prior_runs:
+            return {}
+
+        baseline = prior_runs[-1]  # most recent
+        deltas: Dict[str, Dict[str, float]] = {}
+
+        for metric in _DELTA_METRICS:
+            prior_val = baseline.get(metric)
+            current_val = current.get(metric)
+
+            if prior_val is None or current_val is None:
+                continue
+            if not isinstance(prior_val, (int, float)) or not isinstance(current_val, (int, float)):
+                continue
+
+            prior_float = float(prior_val)
+            current_float = float(current_val)
+            abs_delta = current_float - prior_float
+            pct = (abs_delta / prior_float * 100.0) if prior_float != 0.0 else 0.0
+
+            deltas[metric] = {
+                "prior_value": prior_float,
+                "current_value": current_float,
+                "delta_abs": round(abs_delta, 6),
+                "delta_pct": round(pct, 4),
+            }
+
+        return deltas
+
+    def _validate(self, data: Dict[str, Any]) -> None:
+        """Raise ``ValueError`` if ``data`` is missing any required fields.
+
+        Args:
+            data: Metrics dict to validate.
+
+        Raises:
+            ValueError: When required fields are missing.
+        """
+        missing = [k for k in self.REQUIRED_FIELDS if k not in data]
+        if missing:
+            raise ValueError(f"Missing required eval fields: {missing}")
 
     # ------------------------------------------------------------------
     # Public API

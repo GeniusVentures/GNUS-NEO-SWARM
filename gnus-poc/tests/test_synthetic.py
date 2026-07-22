@@ -48,6 +48,13 @@ class TestQualityFiltering:
         content = "Python is a programming language. " * 20
         assert gen._passes_quality(content, ["python"])
 
+    def test_rejects_empty_or_whitespace_only(self):
+        """Empty string and whitespace-only content are rejected before min_length check."""
+        gen = SyntheticDataGenerator(MagicMock())
+        assert not gen._passes_quality("", None)
+        assert not gen._passes_quality("   ", None)
+        assert not gen._passes_quality("\n\t  \n", None)
+
     def test_refusal_patterns_reject_correctly(self):
         for phrase in ["I cannot assist", "I'm unable to help", "as an AI assistant",
                        "I don't have that", "sorry, I cannot", "can't generate that"]:
@@ -59,9 +66,10 @@ class TestSyntheticDataGenerator:
         """Default (use_cascade=True) uses generate_with_cascade for generation."""
         mock_client = MagicMock()
         mock_client.generate_with_cascade = MagicMock()
-        mock_client.generate_with_cascade.return_value = make_mock_response(
-            "Python is a high-level programming language known for its readability. " * 10
-        )
+        mock_client.generate_with_cascade.side_effect = [
+            make_mock_response(f"Python is a high-level programming language known for its readability. Call {i}. " * 10)
+            for i in range(5)
+        ]
 
         gen = SyntheticDataGenerator(mock_client)
         samples = gen.generate_for_niche(
@@ -83,9 +91,10 @@ class TestSyntheticDataGenerator:
         """Explicit cascade mode routes niche to correct benchmark domain."""
         mock_client = MagicMock()
         mock_client.generate_with_cascade = MagicMock()
-        mock_client.generate_with_cascade.return_value = make_mock_response(
-            "Python is a high-level programming language known for its readability. " * 10
-        )
+        mock_client.generate_with_cascade.side_effect = [
+            make_mock_response(f"Python is a high-level programming language known for its readability. Call {i}. " * 10)
+            for i in range(5)
+        ]
 
         gen = SyntheticDataGenerator(mock_client, use_cascade=True)
         samples = gen.generate_for_niche(
@@ -108,9 +117,10 @@ class TestSyntheticDataGenerator:
         """Direct mode (use_cascade=False) uses generate() with model_name."""
         mock_client = MagicMock()
         mock_client.generate = MagicMock()
-        mock_client.generate.return_value = make_mock_response(
-            "Python is a high-level programming language known for its readability. " * 10
-        )
+        mock_client.generate.side_effect = [
+            make_mock_response(f"Python is a high-level programming language known for its readability. Call {i}. " * 10)
+            for i in range(5)
+        ]
 
         gen = SyntheticDataGenerator(mock_client, use_cascade=False)
         samples = gen.generate_for_niche(
@@ -137,6 +147,36 @@ class TestSyntheticDataGenerator:
         assert out.exists()
         lines = out.read_text().strip().split("\n")
         assert len(lines) == 1
+
+    def test_dedup_rejects_duplicate_normalized_content(self):
+        """When the same content (after normalization) is generated twice, only the first is kept."""
+        mock_client = MagicMock()
+        mock_client.generate_with_cascade = MagicMock()
+        # First two responses are same after normalization (different whitespace collapses)
+        content_a = "Python is a high-level programming language. Extra spaces. " * 8
+        content_b = "Python is a high-level programming language.  Extra   spaces. " * 8  # same after normalize
+        content_c = "Java is a different programming language entirely, with distinct syntax. " * 8
+        mock_client.generate_with_cascade.side_effect = [
+            make_mock_response(content_a),
+            make_mock_response(content_b),
+            make_mock_response(content_c),
+            make_mock_response(content_b),  # dup of a again
+            make_mock_response(content_c),  # dup of c
+            make_mock_response(content_a),  # dup of a
+        ]
+
+        gen = SyntheticDataGenerator(mock_client, use_cascade=True)
+        samples = gen.generate_for_niche(
+            niche_name="encyclopedic",
+            system_prompt="You are a helpful assistant.",
+            user_prompts=["Explain programming languages."] * 3,
+            num_samples=3,
+        )
+
+        # Only 2 unique samples after dedup (a and c; b is a dup of a)
+        assert len(samples) == 2
+        assert samples[0]["text"] == content_a
+        assert samples[1]["text"] == content_c
 
     def test_empty_niche_yields_no_samples(self):
         mock_client = MagicMock()

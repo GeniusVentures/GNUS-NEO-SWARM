@@ -68,27 +68,82 @@ class Distiller:
         teacher_logprobs: list,
         target_ids: list,
         temperatures: Optional[list] = None,
+        convergence_config: Optional["ConvergenceConfig"] = None,
     ) -> dict:
         if temperatures is None:
             temperatures = [1.0, 2.0, 4.0, 6.0, 8.0, 10.0]
 
-        results = {}
+        temperatures_final_loss = {}
         best_temp = temperatures[0]
         best_loss = float("inf")
 
+        # Convergence-tracking structures (populated when convergence_config is set)
+        temperatures_detail: dict = {}
+        convergence_detail: dict = {}
+        first_loss = None
+
         for temp in temperatures:
             self._temperature = temp
-            loss = self.compute_distillation_loss(student_logits, teacher_logprobs, target_ids)
-            results[str(temp)] = round(loss, 6)
-            if loss < best_loss:
-                best_loss = loss
-                best_temp = temp
 
-        return {
-            "temperatures": results,
+            if convergence_config is None:
+                # Simple single-pass mode (Phase 1 backward compatible)
+                loss = self.compute_distillation_loss(student_logits, teacher_logprobs, target_ids)
+                rounded_loss = round(loss, 6)
+                temperatures_final_loss[str(temp)] = rounded_loss
+                if first_loss is None:
+                    first_loss = rounded_loss
+                if loss < best_loss:
+                    best_loss = loss
+                    best_temp = temp
+            else:
+                # Convergence-tracking mode: run iterative refinement per temperature
+                from distill.convergence import ConvergenceTracker
+
+                tracker = ConvergenceTracker(convergence_config)
+                losses = []
+                statuses = []
+                max_steps = convergence_config.patience + 50
+                for _step in range(max_steps):
+                    loss = self.compute_distillation_loss(student_logits, teacher_logprobs, target_ids)
+                    losses.append(float(round(loss, 6)))
+                    status = tracker.step(loss)
+                    statuses.append(status)
+                    if status in ("converged", "hard_stop"):
+                        break
+
+                final_loss = losses[-1]
+                temperatures_detail[str(temp)] = {
+                    "final_loss": round(final_loss, 6),
+                    "best_loss": round(tracker.state.best_loss, 6),
+                    "steps_run": len(losses),
+                    "converged": tracker.state.converged,
+                    "hard_stopped": tracker.state.hard_stopped,
+                }
+                convergence_detail[str(temp)] = {
+                    "loss_curve": [round(l, 6) for l in losses],
+                    "status_log": statuses,
+                }
+                temperatures_final_loss[str(temp)] = round(final_loss, 6)
+                if first_loss is None:
+                    first_loss = round(final_loss, 6)
+                if final_loss < best_loss:
+                    best_loss = final_loss
+                    best_temp = temp
+
+        result = {
             "best_temperature": best_temp,
             "best_loss": round(best_loss, 6),
         }
+
+        if convergence_config is None:
+            result["temperatures"] = temperatures_final_loss
+        else:
+            result["temperatures"] = temperatures_detail
+            result["convergence"] = convergence_detail
+
+        result["first_loss"] = first_loss
+        result["temperatures_final_loss"] = dict(temperatures_final_loss)
+        return result
 
 
 if __name__ == "__main__":
