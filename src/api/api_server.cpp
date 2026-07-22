@@ -7,6 +7,11 @@
 #include "api_server.hpp"
 #include "common/logging.hpp"
 #include "core/engine/mnn_inference_engine.hpp"
+#include "elm/role_elm.hpp"
+#include "elm/domain_elm.hpp"
+#include "elm/grounding_elm.hpp"
+#include "elm/tool_support_elm.hpp"
+#include "elm/specialist_adapter.hpp"
 #include "network/sg_client/super_genius_client.hpp"
 
 #include <algorithm>
@@ -29,6 +34,24 @@ namespace sgns::neoswarm::api
             auto now = std::chrono::steady_clock::now().time_since_epoch().count();
             auto tid = std::hash<std::thread::id>{}( std::this_thread::get_id() );
             return "task-" + std::to_string( now ) + "-" + std::to_string( tid & 0xFFFF );
+        }
+
+        static ELMRole ParseELMRole( const std::string& roleStr )
+        {
+            static const std::unordered_map<std::string, ELMRole> kRoleMap = {
+                { "planner",       ELMRole::Planner },
+                { "primarydraft",  ELMRole::PrimaryDraft },
+                { "verifier",      ELMRole::Verifier },
+                { "arbiter",       ELMRole::Arbiter },
+                { "refiner",       ELMRole::Refiner },
+                { "grounding",     ELMRole::Grounding },
+                { "toolsupport",   ELMRole::ToolSupport },
+                { "math",          ELMRole::Math },
+                { "code",          ELMRole::Code },
+                { "science",       ELMRole::Science },
+            };
+            auto it = kRoleMap.find( roleStr );
+            return ( it != kRoleMap.end() ) ? it->second : ELMRole::PrimaryDraft;
         }
     } // namespace
 
@@ -117,6 +140,79 @@ namespace sgns::neoswarm::api
             (void)m_knowledge->Load();
             m_contextInj = std::make_unique<knowledge::ContextInjection>();
             m_factVal = std::make_unique<knowledge::FactValidation>( m_knowledge );
+        }
+
+        // 8. ELM subsystem (Phase 7+)
+        m_chainBuilder = std::make_unique<elm::ELMChainBuilder>();
+        m_promptAnalyzer = std::make_unique<router::PromptAnalyzer>();
+
+        // Register role-based ELMs (shared backbone — D-01)
+        m_elmRegistry[ELMRole::Planner] = std::make_shared<elm::RoleELM>( ELMRole::Planner, m_coreEngine );
+        m_elmRegistry[ELMRole::PrimaryDraft] = std::make_shared<elm::RoleELM>( ELMRole::PrimaryDraft, m_coreEngine );
+        m_elmRegistry[ELMRole::Verifier] = std::make_shared<elm::RoleELM>( ELMRole::Verifier, m_coreEngine );
+        m_elmRegistry[ELMRole::Arbiter] = std::make_shared<elm::RoleELM>( ELMRole::Arbiter, m_coreEngine );
+
+        // Refiner wraps GrammarSpecialist via adapter (D-06)
+        if ( m_grammarSpec )
+        {
+            m_elmRegistry[ELMRole::Refiner] = std::make_shared<elm::SpecialistAdapter>(
+                m_grammarSpec, ELMRole::Refiner, "Refiner/Formatter" );
+        }
+        else
+        {
+            // Fallback: shared-backbone Refiner if no grammar specialist
+            m_elmRegistry[ELMRole::Refiner] = std::make_shared<elm::RoleELM>( ELMRole::Refiner, m_coreEngine );
+        }
+
+        // Domain ELMs (Math via adapter, Code/Science as DomainELM)
+        if ( m_mathSpec )
+        {
+            m_elmRegistry[ELMRole::Math] = std::make_shared<elm::SpecialistAdapter>(
+                m_mathSpec, ELMRole::Math, "Math" );
+        }
+        else
+        {
+            m_elmRegistry[ELMRole::Math] = std::make_shared<elm::DomainELM>( ELMRole::Math, m_coreEngine );
+        }
+        m_elmRegistry[ELMRole::Code] = std::make_shared<elm::DomainELM>( ELMRole::Code, m_coreEngine );
+        m_elmRegistry[ELMRole::Science] = std::make_shared<elm::DomainELM>( ELMRole::Science, m_coreEngine );
+
+        // GroundingELM — wraps knowledge pipeline (D-17)
+        if ( m_cfg.m_enableKnowledge && m_knowledge )
+        {
+            m_elmRegistry[ELMRole::Grounding] = std::make_shared<elm::GroundingELM>(
+                m_coreEngine, m_knowledge,
+                std::make_unique<knowledge::ContextInjection>(),
+                std::make_unique<knowledge::FactValidation>( m_knowledge ) );
+            (void)m_elmRegistry[ELMRole::Grounding]->Load( "" );
+        }
+        else
+        {
+            // Fallback: shared-backbone Grounding if knowledge unavailable
+            m_elmRegistry[ELMRole::Grounding] = std::make_shared<elm::RoleELM>( ELMRole::Grounding, m_coreEngine );
+        }
+
+        // ToolSupportELM — stub (D-18)
+        m_elmRegistry[ELMRole::ToolSupport] = std::make_shared<elm::ToolSupportELM>();
+
+        // Load eager ELMs from config (D-16)
+        for ( const auto& elmCfg : m_cfg.m_elmConfigs )
+        {
+            if ( elmCfg.eager && !elmCfg.model.empty() )
+            {
+                // Parse role string to ELMRole enum
+                auto role = ParseELMRole( elmCfg.role );
+                auto it = m_elmRegistry.find( role );
+                if ( it != m_elmRegistry.end() && it->second )
+                {
+                    auto loadRes = it->second->Load( elmCfg.model );
+                    if ( !loadRes.has_value() )
+                    {
+                        ServerLogger()->warn( "Failed to eagerly load ELM '{}': model={}",
+                                              elmCfg.role, elmCfg.model );
+                    }
+                }
+            }
         }
 
         ServerLogger()->info( "ApiServer initialized (node={})", m_identity->GetPeerId() );
@@ -420,6 +516,124 @@ namespace sgns::neoswarm::api
     }
 
     // -----------------------------------------------------------------------
+    // RunELMChain
+    // -----------------------------------------------------------------------
+    outcome::result<InferenceResponse> ApiServer::RunELMChain( const Task& task, const RouteDecision& route )
+    {
+        auto t0 = std::chrono::steady_clock::now();
+
+        std::vector<KnowledgeFact> facts;
+        Task augTask = task;
+        augTask.m_prompt = AugmentPrompt( task.m_prompt, facts );
+
+        // Extract prompt features for chain builder
+        PromptFeatures features;
+        if ( m_promptAnalyzer )
+        {
+            features = m_promptAnalyzer->Analyze( augTask.m_prompt );
+        }
+
+        // Build execution chain
+        ExecutionChain chain = m_chainBuilder->Build( route, features );
+        if ( chain.m_steps.empty() )
+        {
+            ServerLogger()->warn( "Chain builder produced empty chain — falling back to single node" );
+            return RunSingleNode( task, route );
+        }
+
+        // Initialise ELM context
+        ELMContext context;
+        context.m_originalTask = task.m_prompt;
+        context.m_groundingFacts = facts;
+        context.m_stepConfidences.reserve( chain.m_steps.size() );
+
+        std::string currentOutput = augTask.m_prompt;
+        float aggregateConfidence = 1.0f;
+
+        // Execute chain steps sequentially (D-09, D-13)
+        for ( const auto& step : chain.m_steps )
+        {
+            // Look up ELM by role
+            auto it = m_elmRegistry.find( step.m_role );
+            if ( it == m_elmRegistry.end() || !it->second )
+            {
+                ServerLogger()->warn( "ELM not found for role {} — skipping step",
+                                      static_cast<int>( step.m_role ) );
+                continue;
+            }
+
+            auto elm = it->second;
+
+            // Lazy-load if not loaded (D-16)
+            if ( !elm->IsLoaded() )
+            {
+                // Check config for a model path for this role
+                std::string modelPath;
+                for ( const auto& cfg : m_cfg.m_elmConfigs )
+                {
+                    if ( ParseELMRole( cfg.role ) == step.m_role && !cfg.model.empty() )
+                    {
+                        modelPath = cfg.model;
+                        break;
+                    }
+                }
+                if ( !modelPath.empty() )
+                {
+                    (void)elm->Load( modelPath );
+                }
+            }
+
+            if ( !elm->IsLoaded() )
+            {
+                ServerLogger()->warn( "ELM {} not loaded — skipping step", elm->GetName() );
+                continue;
+            }
+
+            // Execute this step
+            auto stepRes = elm->Process( currentOutput, context );
+            if ( !stepRes.has_value() )
+            {
+                ServerLogger()->warn( "ELM {} failed — stopping chain", elm->GetName() );
+                break;
+            }
+
+            currentOutput = stepRes.value();
+            float stepConf = elm->GetConfidence();
+            context.m_stepConfidences.push_back( { step.m_role, stepConf } );
+            aggregateConfidence = std::min( aggregateConfidence, stepConf );
+
+            ServerLogger()->debug( "Chain step {}: role={} conf={:.2f}",
+                                   elm->GetName(), static_cast<int>( step.m_role ), stepConf );
+        }
+
+        auto t1 = std::chrono::steady_clock::now();
+        double totalMs = std::chrono::duration<double, std::milli>( t1 - t0 ).count();
+
+        // Fact validation
+        if ( m_factVal && m_factVal->IsAvailable() && !facts.empty() )
+        {
+            auto valResult = m_factVal->Validate( currentOutput, facts );
+            if ( !valResult.passed_ )
+            {
+                ServerLogger()->warn( "Chain fact validation failed: {}", valResult.suggestion_ );
+            }
+        }
+
+        InferenceResponse resp;
+        resp.m_output = currentOutput;
+        resp.m_taskId = task.m_id;
+        resp.m_modeUsed = ExecutionMode::ElmAssisted;
+        resp.m_routeUsed = route.m_target;
+        resp.m_totalLatencyMs = totalMs;
+        resp.m_success = true;
+        resp.m_perplexity = 1.0f - aggregateConfidence;
+
+        ServerLogger()->info( "Chain complete: {} steps, {}ms, agg_conf={:.2f}",
+                              chain.m_steps.size(), totalMs, aggregateConfidence );
+        return outcome::success( std::move( resp ) );
+    }
+
+    // -----------------------------------------------------------------------
     // Process
     // -----------------------------------------------------------------------
     outcome::result<InferenceResponse> ApiServer::Process( const Task& task )
@@ -453,6 +667,8 @@ namespace sgns::neoswarm::api
                 return RunSpecialist( t, route );
             case ExecutionMode::Swarm:
                 return RunSwarm( t, route );
+            case ExecutionMode::ElmAssisted:
+                return RunELMChain( t, route );
         }
         return outcome::failure( Error::InternalError );
     }
