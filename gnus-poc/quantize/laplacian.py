@@ -13,6 +13,11 @@ Adapts pyramid levels to block size (per RESEARCH.md Pitfall 2):
 
 Uses scipy.ndimage.gaussian_filter for Gaussian smoothing with
 configurable sigma and mode parameters.
+
+Spec conformance: the residual pyramid is a true Laplacian pyramid -- each
+level is Gaussian-filtered BEFORE decimation (anti-aliasing), and each
+level's error is measured on the Laplacian band (smooth - smooth_base),
+not on the raw residual reused at every level.
 """
 
 import numpy as np
@@ -27,6 +32,16 @@ _BLOCK_SIZE_TO_LEVELS = {
     32: 2,
     64: 3,
 }
+
+
+def pyramid_levels_for_size(block_size: int) -> int:
+    """Return the number of Laplacian pyramid levels used for a block size.
+
+    0 means the block's error was computed with plain L2 (MSE); >0 means
+    the Laplacian pyramid selected the block. Used for the SGFP4 v2 leaf
+    ERROR_HINT flag (paper: 0 = L2-selected, 1 = Pyramid-selected).
+    """
+    return _BLOCK_SIZE_TO_LEVELS.get(block_size, 0)
 
 
 class LaplacianWeightedError:
@@ -68,25 +83,29 @@ class LaplacianWeightedError:
             # Small blocks: skip Laplacian, use plain MSE
             return float(np.mean(residual ** 2))
 
-        smooth = original_2d.copy().astype(np.float32)
+        smooth = residual.copy()
         total_error = 0.0
         weight_sum = 0.0
 
         for level in range(levels):
             sigma = self._sigma * (2.0 ** level)
+            # Gaussian pre-filter before decimation (anti-aliasing) -- without
+            # this the pyramid aliases and is not a true Laplacian pyramid.
             smooth_base = gaussian_filter(smooth, sigma=sigma, mode=self._mode)
+
+            # Laplacian band for this level: high-frequency detail removed by
+            # the Gaussian. Band MSE measures the error energy at this scale.
+            band = smooth - smooth_base
 
             # Weight error by level importance: lower levels get higher weight
             level_weight = 1.0 / (2.0 ** level)
-            level_error = float(np.mean(residual ** 2))
+            level_error = float(np.mean(band ** 2))
             total_error += level_weight * level_error
             weight_sum += level_weight
 
-            # Downsample for next level
+            # Decimate the filtered base for the next level
             if level < levels - 1:
                 smooth = smooth_base[::2, ::2]
-                if residual.shape[0] > 2:
-                    residual = residual[::2, ::2]
 
         if weight_sum > 0.0:
             return total_error / weight_sum

@@ -36,6 +36,7 @@ from quantize.sgfp4_format import (
     ALIGNMENT,
     FP16_MAX,
     HEADER_CLEAR_FLAGS_MASK,
+    LEAF_ERROR_HINT_MASK,
     LEAF_MODE_MASK,
     MACROBLOCK_SIZE,
     MIN_LEAF_SIZE,
@@ -412,11 +413,13 @@ class FP4Exporter:
                     float(np.clip(blk["scale"], -FP16_MAX, FP16_MAX)),
                     float(np.clip(blk["bias"], -FP16_MAX, FP16_MAX)),
                 )
-                # 4 LSB offset flags per D-06:
+                # 4 LSB offset flags:
                 #   bit 0 = mode (FP4=0, T158=1)
-                #   bit 1 = log mode (reserved=0 per D-05)
+                #   bit 1 = ERROR_HINT (0 = L2-selected, 1 = Pyramid-selected)
                 #   bits 2-3 = reserved (0)
                 flags = int(blk["mode"]) & LEAF_MODE_MASK
+                if blk.get("error_hint", 0):
+                    flags |= LEAF_ERROR_HINT_MASK
                 bh = np.uint32((int(bh) & HEADER_CLEAR_FLAGS_MASK) | flags)
                 block_headers.append(bh)
 
