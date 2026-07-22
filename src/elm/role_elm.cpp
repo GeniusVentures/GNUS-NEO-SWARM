@@ -135,7 +135,7 @@ namespace sgns::neoswarm::elm
         {
             RoleLogger()->warn( "RoleELM not loaded — returning input unchanged" );
             m_lastConfidence = 0.0f;
-            return input;  // fail-close per CONTEXT D-04: return input unchanged on error
+            return outcome::failure( Error::ModelLoadFailed );
         }
 
         Task task;
@@ -149,7 +149,7 @@ namespace sgns::neoswarm::elm
         {
             RoleLogger()->warn( "RoleELM inference failed — returning input unchanged" );
             m_lastConfidence = 0.0f;
-            return input;  // fail-close per CONTEXT D-04: return input unchanged on error
+            return outcome::failure( Error::InferenceFailed );
         }
 
         m_lastConfidence = 1.0f - std::min( res.value().m_perplexity / 10.0f, 1.0f );
