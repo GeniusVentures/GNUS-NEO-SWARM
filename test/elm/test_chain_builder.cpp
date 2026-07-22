@@ -34,9 +34,8 @@ TEST( ELMChainBuilder, Build_HighNumericDensity_ReturnsMathVerifierChain )
     PromptFeatures features;
     features.numeric_density_ = 0.5f;
 
-    auto result = builder.Build( decision, features );
-    ASSERT_TRUE( result.has_value() );
-    const auto& chain = result.value();
+    auto chain = builder.Build( decision, features );
+    
 
     EXPECT_EQ( chain.m_steps.size(), 2u );
     EXPECT_EQ( chain.m_steps[0].m_role, ELMRole::Math );
@@ -55,9 +54,8 @@ TEST( ELMChainBuilder, Build_CodeSyntax_ReturnsPlannerCodeChain )
     PromptFeatures features;
     features.has_code_syntax_ = true;
 
-    auto result = builder.Build( decision, features );
-    ASSERT_TRUE( result.has_value() );
-    const auto& chain = result.value();
+    auto chain = builder.Build( decision, features );
+    
 
     EXPECT_EQ( chain.m_steps.size(), 2u );
     EXPECT_EQ( chain.m_steps[0].m_role, ELMRole::Planner );
@@ -76,9 +74,8 @@ TEST( ELMChainBuilder, Build_GroundingRequest_ReturnsGroundingChain )
     PromptFeatures features;
     features.has_grounding_request_ = true;
 
-    auto result = builder.Build( decision, features );
-    ASSERT_TRUE( result.has_value() );
-    const auto& chain = result.value();
+    auto chain = builder.Build( decision, features );
+    
 
     EXPECT_EQ( chain.m_steps.size(), 3u );
     EXPECT_EQ( chain.m_steps[0].m_role, ELMRole::Grounding );
@@ -98,9 +95,8 @@ TEST( ELMChainBuilder, Build_FormattingRequest_ReturnsDraftRefinerChain )
     PromptFeatures features;
     features.has_formatting_request_ = true;
 
-    auto result = builder.Build( decision, features );
-    ASSERT_TRUE( result.has_value() );
-    const auto& chain = result.value();
+    auto chain = builder.Build( decision, features );
+    
 
     EXPECT_EQ( chain.m_steps.size(), 2u );
     EXPECT_EQ( chain.m_steps[0].m_role, ELMRole::PrimaryDraft );
@@ -119,9 +115,8 @@ TEST( ELMChainBuilder, Build_LowComplexity_ReturnsSingleStepDraft )
     PromptFeatures features;
     features.complexity_ = 1.0f;
 
-    auto result = builder.Build( decision, features );
-    ASSERT_TRUE( result.has_value() );
-    const auto& chain = result.value();
+    auto chain = builder.Build( decision, features );
+    
 
     EXPECT_EQ( chain.m_steps.size(), 1u );
     EXPECT_EQ( chain.m_steps[0].m_role, ELMRole::PrimaryDraft );
@@ -139,9 +134,8 @@ TEST( ELMChainBuilder, Build_HighComplexity_ReturnsFullChain )
     PromptFeatures features;
     features.complexity_ = 6.0f;
 
-    auto result = builder.Build( decision, features );
-    ASSERT_TRUE( result.has_value() );
-    const auto& chain = result.value();
+    auto chain = builder.Build( decision, features );
+    
 
     EXPECT_EQ( chain.m_steps.size(), 4u );
     EXPECT_EQ( chain.m_steps[0].m_role, ELMRole::Planner );
@@ -162,9 +156,8 @@ TEST( ELMChainBuilder, Build_NoTriggers_ReturnsDefaultSingleStep )
     PromptFeatures features;
     features.complexity_ = 3.0f; // between low (2.0) and high (5.0) thresholds
 
-    auto result = builder.Build( decision, features );
-    ASSERT_TRUE( result.has_value() );
-    const auto& chain = result.value();
+    auto chain = builder.Build( decision, features );
+    
 
     EXPECT_EQ( chain.m_steps.size(), 1u );
     EXPECT_EQ( chain.m_steps[0].m_role, ELMRole::PrimaryDraft );

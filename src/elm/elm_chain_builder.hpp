@@ -39,7 +39,7 @@ namespace sgns::neoswarm::elm
          * @param features   Prompt features extracted by PromptAnalyzer.
          * @return           ExecutionChain on success, or error.
          */
-        outcome::result<ExecutionChain> Build( const RouteDecision& decision, const PromptFeatures& features );
+        ExecutionChain Build( const RouteDecision& decision, const PromptFeatures& features );
 
         private:
         Config m_cfg;

@@ -33,7 +33,7 @@ namespace sgns::neoswarm::elm
     // -----------------------------------------------------------------------
     // Build — 6-trigger decision tree (doc 03 §6.2)
     // -----------------------------------------------------------------------
-    outcome::result<ExecutionChain> ELMChainBuilder::Build( const RouteDecision& decision,
+    ExecutionChain ELMChainBuilder::Build( const RouteDecision& decision,
                                                             const PromptFeatures& features )
     {
         ExecutionChain chain;
@@ -94,7 +94,7 @@ namespace sgns::neoswarm::elm
 
         BuilderLogger()->debug( "Built chain: {} step(s), reason='{}', confidence={:.2f}",
                                 chain.m_steps.size(), chain.m_reasoning, chain.m_chainConfidence );
-        return outcome::success( std::move( chain ) );
+        return chain;
     }
 
 } // namespace sgns::neoswarm::elm
