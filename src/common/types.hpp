@@ -152,11 +152,14 @@ namespace sgns::neoswarm
 
     // -----------------------------------------------------------------------
     // ELM execution context (Phase 7 — doc 03 §5.2.1)
+    //
+    // The previous chain step's output is carried exclusively by the `input`
+    // parameter of IELM::Process(input, context) — no double-accounting
+    // via a context field (per review WR-01).
     // -----------------------------------------------------------------------
     struct ELMContext
     {
         std::string m_originalTask;                                   ///< the user's original prompt
-        std::string m_lastOutput;                                     ///< output of the immediately prior step
         std::vector<std::pair<ELMRole, float>> m_stepConfidences;     ///< (role, confidence) per completed step
         std::vector<KnowledgeFact> m_groundingFacts;                  ///< facts from GroundingELM, if any
     };

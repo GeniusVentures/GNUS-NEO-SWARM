@@ -52,8 +52,18 @@ namespace sgns::neoswarm::elm
         /**
          * @brief Confidence in the last Process() call.
          * @return  Confidence score in [0, 1].
+         *
+         * Default implementation returns a protected m_lastConfidence field.
+         * RoleELM and DomainELM set this in Process() and inherit the getter.
+         * Specialists that use the adapter pattern override for legacy ISpecialist.
          */
-        virtual float GetConfidence() const = 0;
+        virtual float GetConfidence() const
+        {
+            return m_lastConfidence;
+        }
+
+        protected:
+        float m_lastConfidence = 0.0f;
     };
 
 } // namespace sgns::neoswarm::elm

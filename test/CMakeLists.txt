@@ -77,6 +77,9 @@ neoswarm_test(test_knowledge_retrieval knowledge/test_knowledge_retrieval.cpp  "
 # P3 — Common types
 neoswarm_test(test_common_types        common/test_types.cpp                   "neoswarm_common")
 
+# Phase 7 — ELM tests
+neoswarm_test(test_elm                 elm/test_elm.cpp                        "neoswarm_elm;neoswarm_core;neoswarm_common;neoswarm_network")
+
 
 # Benchmarks (not part of CTest — run manually)
 add_subdirectory(benchmark)
