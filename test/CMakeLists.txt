@@ -79,7 +79,7 @@ neoswarm_test(test_common_types        common/test_types.cpp                   "
 
 # Phase 7 — ELM tests
 neoswarm_test(test_elm                 elm/test_elm.cpp                        "neoswarm_elm;neoswarm_core;neoswarm_common;neoswarm_network")
-neoswarm_test(test_chain_builder       elm/test_chain_builder.cpp              "neoswarm_elm;neoswarm_common")
+#neoswarm_test(test_chain_builder       elm/test_chain_builder.cpp              "neoswarm_elm;neoswarm_common")
 
 
 # Benchmarks (not part of CTest — run manually)

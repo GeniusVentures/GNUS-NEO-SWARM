@@ -55,7 +55,10 @@ Requirements for production readiness milestone. Each maps to roadmap phases.
 ### ELM (Phase 7 Expert Language Models + Router)
 
 - [x] **ELM-03**: ELMRole enum (10 values: Planner=0 through Science=9) + ELMContext struct in common/types.hpp (07-01)
+- [x] **ELM-04**: SpecialistAdapter — composition-based ISpecialist → IELM wrapper for legacy specialists (07-03)
 - [x] **ELM-05**: ChainStep + ExecutionChain structs for flat sequential ELM chains (07-01)
+- [x] **ELM-07**: GroundingELM — 4-stage knowledge pipeline ELM: Retrieve→Inject→Infer→Validate (07-03)
+- [x] **ELM-08**: ToolSupportELM — interface-conforming pass-through stub with confidence=0 (07-03)
 - [x] **ELM-core**: IELM abstract interface with 6 pure virtuals: GetName, GetRole, IsLoaded, Load, Process(input, ELMContext), GetConfidence (07-01)
 
 ### Network (Promoted from v2)
@@ -167,7 +170,10 @@ Which phases cover which requirements. Updated 2026-06-18 after refactor.
 | TEST-04 | Phase 6 | Pending |
 | NET-01 | Phase 2 | ✅ Done (libp2p GossipSub) |
 | ELM-03 | Phase 7 | ✅ Done (07-01) |
+| ELM-04 | Phase 7 | ✅ Done (07-03) |
 | ELM-05 | Phase 7 | ✅ Done (07-01) |
+| ELM-07 | Phase 7 | ✅ Done (07-03) |
+| ELM-08 | Phase 7 | ✅ Done (07-03) |
 | ELM-core | Phase 7 | ✅ Done (07-01) |
 
 **Coverage:**
