@@ -57,6 +57,15 @@ struct Args
     bool serve_ = false;
     bool verbose_ = false;
     bool help_ = false;
+
+    // ELM configuration entries (Phase 7+)
+    struct ElmConfigEntry
+    {
+        std::string role;
+        std::string model;
+        bool eager = false;
+    };
+    std::vector<ElmConfigEntry> m_elmConfigs;
 };
 
 static void PrintHelp( const char* prog )
@@ -133,6 +142,32 @@ static void LoadConfigFile( const std::string& path, Args& args )
         args.network_ = j["network"].get<bool>();
     if ( j.contains( "verbose" ) && !args.verbose_ )
         args.verbose_ = j["verbose"].get<bool>();
+
+    // Parse ELM config section (Phase 7+)
+    if ( j.contains( "elms" ) && j["elms"].is_array() )
+    {
+        for ( const auto& e : j["elms"] )
+        {
+            ElmConfigEntry entry;
+            if ( e.contains( "role" ) )
+            {
+                entry.role = e["role"].get<std::string>();
+            }
+            if ( e.contains( "model" ) )
+            {
+                entry.model = e["model"].get<std::string>();
+            }
+            if ( e.contains( "eager" ) )
+            {
+                entry.eager = e["eager"].get<bool>();
+            }
+            if ( !entry.role.empty() )
+            {
+                args.m_elmConfigs.push_back( std::move( entry ) );
+            }
+        }
+        std::cout << "Loaded " << args.m_elmConfigs.size() << " ELM config(s)\n";
+    }
 
     std::cout << "Loaded config: " << path << "\n";
 }
@@ -284,6 +319,16 @@ int main( int argc, char** argv )
     (void) args.port_;
     cfg.m_nodeKeyFile = args.key_file_;
     cfg.m_sgSdkBasePath = args.m_sgSdkPath;
+
+    // ELM configuration (Phase 7+)
+    for ( const auto& entry : args.m_elmConfigs )
+    {
+        api::ApiServer::ElmEntry cfgEntry;
+        cfgEntry.role = entry.role;
+        cfgEntry.model = entry.model;
+        cfgEntry.eager = entry.eager;
+        cfg.m_elmConfigs.push_back( std::move( cfgEntry ) );
+    }
 
     api::ApiServer server( cfg );
 
