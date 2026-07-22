@@ -76,15 +76,14 @@ TEST( RoleELM, Process_LoadedEngine_ReturnsResponse )
     EXPECT_GT( elm.GetConfidence(), 0.0f );
 }
 
-TEST( RoleELM, Process_NotLoaded_ReturnsInputUnchanged )
+TEST( RoleELM, Process_NotLoaded_ReturnsError )
 {
     auto engine = std::make_shared<MockEngine>();
     elm::RoleELM elm( ELMRole::Verifier, engine );
 
     ELMContext ctx;
     auto result = elm.Process( "hello world", ctx );
-    ASSERT_TRUE( result.has_value() );
-    EXPECT_EQ( result.value(), "hello world" );
+    ASSERT_FALSE( result.has_value() );
     EXPECT_FLOAT_EQ( elm.GetConfidence(), 0.0f );
 }
 
@@ -111,14 +110,13 @@ TEST( RoleELM, IsLoaded_InitiallyFalse )
     EXPECT_FALSE( elm.IsLoaded() );
 }
 
-TEST( RoleELM, Process_NullEngine_ReturnsInputUnchanged )
+TEST( RoleELM, Process_NullEngine_ReturnsError )
 {
     elm::RoleELM elm( ELMRole::PrimaryDraft, nullptr );
 
     ELMContext ctx;
     auto result = elm.Process( "hello", ctx );
-    ASSERT_TRUE( result.has_value() );
-    EXPECT_EQ( result.value(), "hello" );
+    ASSERT_FALSE( result.has_value() );
     EXPECT_FLOAT_EQ( elm.GetConfidence(), 0.0f );
 }
 
@@ -141,14 +139,13 @@ TEST( DomainELM, Process_SharedBackbone_ReturnsResponse )
     EXPECT_GT( elm.GetConfidence(), 0.0f );
 }
 
-TEST( DomainELM, Process_NoEngine_ReturnsInputUnchanged )
+TEST( DomainELM, Process_NoEngine_ReturnsError )
 {
     elm::DomainELM elm( ELMRole::Code, nullptr );
 
     ELMContext ctx;
     auto result = elm.Process( "some code", ctx );
-    ASSERT_TRUE( result.has_value() );
-    EXPECT_EQ( result.value(), "some code" );
+    ASSERT_FALSE( result.has_value() );
     EXPECT_FLOAT_EQ( elm.GetConfidence(), 0.0f );
 }
 
