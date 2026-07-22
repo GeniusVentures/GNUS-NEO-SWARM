@@ -23,11 +23,16 @@
 #include "security/node_identity.hpp"
 #include "specialists/grammar_specialist.hpp"
 #include "specialists/math_specialist.hpp"
+#include "elm/i_elm.hpp"
+#include "elm/elm_chain_builder.hpp"
+#include "router/prompt_analyzer.hpp"
 #include <atomic>
 #include <condition_variable>
 #include <memory>
 #include <mutex>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace sgns::neoswarm::network
 {
@@ -63,6 +68,15 @@ namespace sgns::neoswarm::api
             bool m_sgProcessingNetworkMode = false;
             std::string m_sgSdkBasePath = "./sdk";
             uint16_t m_sgBasePort = 40001;
+
+            // ELM configuration (Phase 7+)
+            struct ElmEntry
+            {
+                std::string role;     ///< e.g. "planner", "verifier", "math"
+                std::string model;    ///< optional dedicated model path
+                bool eager = false;   ///< load at Initialize() vs lazy
+            };
+            std::vector<ElmEntry> m_elmConfigs;
         };
 
         explicit ApiServer( Config cfg );
@@ -127,9 +141,15 @@ namespace sgns::neoswarm::api
         std::unique_ptr<knowledge::FactValidation> m_factVal;
         std::unique_ptr<network::SGClient> m_sgClient;
 
+        // ELM subsystem (Phase 7+)
+        std::unordered_map<ELMRole, std::shared_ptr<elm::IELM>> m_elmRegistry;
+        std::unique_ptr<elm::ELMChainBuilder> m_chainBuilder;
+        std::unique_ptr<router::PromptAnalyzer> m_promptAnalyzer;
+
         outcome::result<InferenceResponse> RunSingleNode( const Task& task, const RouteDecision& route );
         outcome::result<InferenceResponse> RunSpecialist( const Task& task, const RouteDecision& route );
         outcome::result<InferenceResponse> RunSwarm( const Task& task, const RouteDecision& route );
+        outcome::result<InferenceResponse> RunELMChain( const Task& task, const RouteDecision& route );
 
         void InitializeEngine();
         void InitializeNetwork();

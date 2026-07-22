@@ -12,6 +12,7 @@ target_link_libraries(neoswarm_api PUBLIC
     neoswarm_core
     neoswarm_specialists
     neoswarm_router
+    neoswarm_elm
     neoswarm_reputation
     neoswarm_network
     neoswarm_knowledge
