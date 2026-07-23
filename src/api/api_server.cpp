@@ -184,7 +184,12 @@ namespace sgns::neoswarm::api
                 m_coreEngine, m_knowledge,
                 std::make_unique<knowledge::ContextInjection>(),
                 std::make_unique<knowledge::FactValidation>( m_knowledge ) );
-            (void)m_elmRegistry[ELMRole::Grounding]->Load( "" );
+            auto groundLoad = m_elmRegistry[ELMRole::Grounding]->Load( "" );
+            if ( !groundLoad.has_value() )
+            {
+                ServerLogger()->error( "GroundingELM failed to load" );
+                return groundLoad.as_failure();
+            }
         }
         else
         {
@@ -208,8 +213,9 @@ namespace sgns::neoswarm::api
                     auto loadRes = it->second->Load( elmCfg.model );
                     if ( !loadRes.has_value() )
                     {
-                        ServerLogger()->warn( "Failed to eagerly load ELM '{}': model={}",
-                                              elmCfg.role, elmCfg.model );
+                        ServerLogger()->error( "Failed to eagerly load ELM '{}': model={}",
+                                               elmCfg.role, elmCfg.model );
+                        return outcome::failure( Error::ModelLoadFailed );
                     }
                 }
             }
@@ -579,7 +585,12 @@ namespace sgns::neoswarm::api
                 }
                 if ( !modelPath.empty() )
                 {
-                    (void)elm->Load( modelPath );
+                    auto lazyLoad = elm->Load( modelPath );
+                    if ( !lazyLoad.has_value() )
+                    {
+                        ServerLogger()->error( "ELM {} lazy-load failed: {}", elm->GetName(), modelPath );
+                        return lazyLoad.as_failure();
+                    }
                 }
             }
 
@@ -593,8 +604,8 @@ namespace sgns::neoswarm::api
             auto stepRes = elm->Process( currentOutput, context );
             if ( !stepRes.has_value() )
             {
-                ServerLogger()->warn( "ELM {} failed — stopping chain", elm->GetName() );
-                break;
+                ServerLogger()->error( "ELM {} failed — returning error", elm->GetName() );
+                return stepRes.as_failure();
             }
 
             currentOutput = stepRes.value();
@@ -615,7 +626,8 @@ namespace sgns::neoswarm::api
             auto valResult = m_factVal->Validate( currentOutput, facts );
             if ( !valResult.passed_ )
             {
-                ServerLogger()->warn( "Chain fact validation failed: {}", valResult.suggestion_ );
+                ServerLogger()->error( "Chain fact validation failed: {}", valResult.suggestion_ );
+                return outcome::failure( Error::FactValidationFailed );
             }
         }
 

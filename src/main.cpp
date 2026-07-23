@@ -58,14 +58,7 @@ struct Args
     bool verbose_ = false;
     bool help_ = false;
 
-    // ELM configuration entries (Phase 7+)
-    struct ElmConfigEntry
-    {
-        std::string role;
-        std::string model;
-        bool eager = false;
-    };
-    std::vector<ElmConfigEntry> m_elmConfigs;
+    std::vector<api::ApiServer::Config::ElmEntry> m_elmConfigs;
 };
 
 static void PrintHelp( const char* prog )
@@ -148,7 +141,7 @@ static void LoadConfigFile( const std::string& path, Args& args )
     {
         for ( const auto& e : j["elms"] )
         {
-            Args::ElmConfigEntry entry;
+            api::ApiServer::Config::ElmEntry entry;
             if ( e.contains( "role" ) )
             {
                 entry.role = e["role"].get<std::string>();
@@ -321,14 +314,7 @@ int main( int argc, char** argv )
     cfg.m_sgSdkBasePath = args.m_sgSdkPath;
 
     // ELM configuration (Phase 7+)
-    for ( const auto& entry : args.m_elmConfigs )
-    {
-        api::ApiServer::Config::ElmEntry cfgEntry;
-        cfgEntry.role = entry.role;
-        cfgEntry.model = entry.model;
-        cfgEntry.eager = entry.eager;
-        cfg.m_elmConfigs.push_back( std::move( cfgEntry ) );
-    }
+    cfg.m_elmConfigs = std::move( args.m_elmConfigs );
 
     api::ApiServer server( cfg );
 
