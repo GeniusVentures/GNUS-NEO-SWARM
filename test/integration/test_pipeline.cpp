@@ -112,3 +112,28 @@ TEST_F( PipelineTest, LatencyIsPositive )
     ASSERT_TRUE( res.has_value() );
     EXPECT_GT( res.value().m_totalLatencyMs, 0.0 );
 }
+
+TEST_F( PipelineTest, ChainMode_BasicExecution )
+{
+    Task task;
+    task.m_prompt = "Solve this complex problem: what is 847 * 963 + 42?";
+    task.m_mode = ExecutionMode::ElmAssisted;
+    task.m_maxTokens = 64;
+
+    auto res = server_->Process( task );
+    ASSERT_TRUE( res.has_value() );
+    EXPECT_FALSE( res.value().m_taskId.empty() );
+    EXPECT_TRUE( res.value().m_success );
+}
+
+TEST_F( PipelineTest, ChainMode_GeneralPrompt_SingleStep )
+{
+    Task task;
+    task.m_prompt = "Tell me a short story.";
+    task.m_mode = ExecutionMode::ElmAssisted;
+    task.m_maxTokens = 32;
+
+    auto res = server_->Process( task );
+    ASSERT_TRUE( res.has_value() );
+    EXPECT_TRUE( res.value().m_success );
+}
