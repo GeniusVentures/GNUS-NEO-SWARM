@@ -7,6 +7,7 @@
 #define NEOSWARM_COMMON_TYPES_HPP
 
 #include <chrono>
+#include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -52,6 +53,27 @@ namespace sgns::neoswarm
         Math = 7,         ///< Domain ELM — math
         Code = 8,         ///< Domain ELM — code
         Science = 9       ///< Domain ELM — science (shared-backbone only)
+    };
+
+    // -----------------------------------------------------------------------
+    // Memory object types (GAML v1 — Phase 8 — per D-02)
+    // -----------------------------------------------------------------------
+    enum class MemoryObjectType : uint8_t
+    {
+        bridge_block = 0,       ///< Memory bridge block
+        fact = 1,               ///< Declarative fact
+        policy = 2,             ///< Behavioral policy / rule
+        event = 3,              ///< Temporal event record
+        tenant_operational = 4  ///< Tenant operational data
+    };
+
+    /// Trust classification for memory objects (GAML v1 — per D-01, D-09)
+    enum class TrustClass : uint8_t
+    {
+        unverified = 0,     ///< Default privacy stub (D-09)
+        verified = 1,       ///< Fact-validated
+        premium = 2,        ///< Premium tier
+        replica = 3         ///< Replicated from remote
     };
 
     // -----------------------------------------------------------------------

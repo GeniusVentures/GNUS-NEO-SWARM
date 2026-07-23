@@ -91,3 +91,51 @@ TEST(KnowledgeFact, DefaultConstructor_ReasonableDefaults)
     EXPECT_TRUE( fact.m_source.empty() );
     EXPECT_TRUE( fact.m_content.empty() );
 }
+
+// ---------------------------------------------------------------------------
+// Phase 8 — GAML v1 Memory Types (GAML-01, GAML-02)
+// ---------------------------------------------------------------------------
+
+TEST(MemoryObjectType, EnumValues_AreDistinct)
+{
+    // Verify 5 distinct values for 5 subtypes (D-02)
+    EXPECT_EQ(static_cast<int>(MemoryObjectType::bridge_block), 0);
+    EXPECT_EQ(static_cast<int>(MemoryObjectType::fact), 1);
+    EXPECT_EQ(static_cast<int>(MemoryObjectType::policy), 2);
+    EXPECT_EQ(static_cast<int>(MemoryObjectType::event), 3);
+    EXPECT_EQ(static_cast<int>(MemoryObjectType::tenant_operational), 4);
+}
+
+TEST(TrustClass, EnumValues_AreDistinct)
+{
+    // Verify 4 distinct values (D-01, D-09)
+    EXPECT_EQ(static_cast<int>(TrustClass::unverified), 0);
+    EXPECT_EQ(static_cast<int>(TrustClass::verified), 1);
+    EXPECT_EQ(static_cast<int>(TrustClass::premium), 2);
+    EXPECT_EQ(static_cast<int>(TrustClass::replica), 3);
+}
+
+TEST(MemoryObjectType, IsScopedEnum)
+{
+    // Verify scoped enum — unqualified names should not compile
+    // (This test simply verifies the values exist in scoped form)
+    MemoryObjectType t = MemoryObjectType::fact;
+    EXPECT_EQ(static_cast<int>(t), 1);
+}
+
+TEST(TrustClass, IsScopedEnum)
+{
+    TrustClass t = TrustClass::unverified;
+    EXPECT_EQ(static_cast<int>(t), 0);
+}
+
+TEST(MemoryObjectType, UnderlyingTypeIsUint8)
+{
+    // sizeof(uint8_t) == 1, scoped enums with : uint8_t should also be 1 byte
+    EXPECT_EQ(sizeof(MemoryObjectType), 1);
+}
+
+TEST(TrustClass, UnderlyingTypeIsUint8)
+{
+    EXPECT_EQ(sizeof(TrustClass), 1);
+}
