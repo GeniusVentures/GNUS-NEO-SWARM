@@ -54,11 +54,16 @@ Requirements for production readiness milestone. Each maps to roadmap phases.
 
 ### ELM (Phase 7 Expert Language Models + Router)
 
+- [x] **ELM-01**: ELM unit tests — 22 tests covering RoleELM, DomainELM, SpecialistAdapter, ELMChainBuilder, GroundingELM, ToolSupportELM (07-06)
+- [x] **ELM-02**: DomainELM tests — shared-backbone, no-engine, role, load empty path (07-06)
 - [x] **ELM-03**: ELMRole enum (10 values: Planner=0 through Science=9) + ELMContext struct in common/types.hpp (07-01)
 - [x] **ELM-04**: SpecialistAdapter — composition-based ISpecialist → IELM wrapper for legacy specialists (07-03)
 - [x] **ELM-05**: ChainStep + ExecutionChain structs for flat sequential ELM chains (07-01)
+- [x] **ELM-06**: RunELMChain integration — ELMChainBuilder triggers + pipeline chain mode tests (07-06)
 - [x] **ELM-07**: GroundingELM — 4-stage knowledge pipeline ELM: Retrieve→Inject→Infer→Validate (07-03)
 - [x] **ELM-08**: ToolSupportELM — interface-conforming pass-through stub with confidence=0 (07-03)
+- [x] **ELM-09**: Config + Pipeline tests — common types (ELMRole, ELMContext, ChainStep, ExecutionChain) + pipeline integration tests (07-06)
+- [x] **ELM-10**: RuleBasedRouter regression — existing router/specialist tests still pass (07-06)
 - [x] **ELM-core**: IELM abstract interface with 6 pure virtuals: GetName, GetRole, IsLoaded, Load, Process(input, ELMContext), GetConfidence (07-01)
 
 ### Network (Promoted from v2)
@@ -169,17 +174,22 @@ Which phases cover which requirements. Updated 2026-06-18 after refactor.
 | TEST-03 | Phase 6 | Pending |
 | TEST-04 | Phase 6 | Pending |
 | NET-01 | Phase 2 | ✅ Done (libp2p GossipSub) |
+| ELM-01 | Phase 7 | ✅ Done (07-06) |
+| ELM-02 | Phase 7 | ✅ Done (07-06) |
 | ELM-03 | Phase 7 | ✅ Done (07-01) |
 | ELM-04 | Phase 7 | ✅ Done (07-03) |
 | ELM-05 | Phase 7 | ✅ Done (07-01) |
+| ELM-06 | Phase 7 | ✅ Done (07-06) |
 | ELM-07 | Phase 7 | ✅ Done (07-03) |
 | ELM-08 | Phase 7 | ✅ Done (07-03) |
+| ELM-09 | Phase 7 | ✅ Done (07-06) |
+| ELM-10 | Phase 7 | ✅ Done (07-06) |
 | ELM-core | Phase 7 | ✅ Done (07-01) |
 
 **Coverage:**
-- v1 requirements: 30 total (26 original + NET-01 promoted + 3 ELM Phase 7)
-- Done: 19 (63%)
-- Pending: 11 (37%)
+- v1 requirements: 35 total (26 original + NET-01 promoted + 8 ELM Phase 7)
+- Done: 24 (69%)
+- Pending: 11 (31%)
 - Unmapped: 0
 
 ---
