@@ -9,17 +9,17 @@ See: PROJECT.md (created 2026-06-18, updated 2026-06-22)
 
 ## Current Position
 
-Phase: 2 of 6 (SuperGenius Connectivity)
-Prior phase: 1 (Security Hardening) — source complete, tests remaining
-Status: Ready to plan Phase 2
-Last activity: 2026-07-16 — Phase 7 Wave 2 complete (RoleELM + DomainELM implementations)
+Phase: 8 of 11 (Agentic Memory GAML v1)
+Prior phase: 7 (ELMs + Router) — 4/6 plans complete
+Status: Wave 1 complete (Plan 01 — Types, Errors, CMake scaffolding)
+Last activity: 2026-07-23 — Phase 8 Plan 01 complete (12 type tests, 6 files, ~20 min)
 
-Progress: [████████░░░░░░░░░░░░░░] 59% (18 of 27 v1 requirements done)
+Progress: [████████░░░░░░░░░░░░░░] 62% (20 of 32 v1+requirements done)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 9 (Phase 1: 3 source-complete, Phase 7: 2)
+- Total plans completed: 10 (Phase 1: 3 source-complete, Phase 7: 4, Phase 8: 1)
 - Refactor work: 22 commits across 6 phases (Phase 1,2a,2b,5,6,7 cleanup)
 
 **By Phase:**
@@ -32,7 +32,8 @@ Progress: [████████░░░░░░░░░░░░░░] 5
 | 4. SGProcessing Integration | 0/TBD | - | SGProcessing linked, needs plans |
 | 5. Production Hardening | 0/TBD | - | Refactored, needs verification |
 | 6. Testing & Validation | 0/TBD | - | Needs plans |
-| 7. ELMs + Router | 2/6 | ~20 min | Active — Wave 2 complete (RoleELM + DomainELM) |
+| 7. ELMs + Router | 4/6 | ~35 min | Active — Wave 3 complete |
+| 8. GAML Memory | 1/6 | ~20 min | Active — Wave 1 complete (Types + CMake)
 
 **Recent Trend:**
 - 2026-07-16: Phase 7 Wave 2 complete — RoleELM (7 role templates) + DomainELM (dual-engine mode), 12 tests passing (~15 min)
@@ -99,6 +100,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-16
-Stopped at: Completed 07-02-PLAN.md (RoleELM + DomainELM implementations)
-Resume file: .planning/workstreams/neoswarm/phases/07-expert-language-models-router/07-02-SUMMARY.md
+Last session: 2026-07-23
+Stopped at: Completed 08-01-PLAN.md (GAML v1 types, errors, CMake scaffolding)
+Resume file: .planning/workstreams/neoswarm/phases/08-agentic-memory-gaml-v1/08-01-SUMMARY.md

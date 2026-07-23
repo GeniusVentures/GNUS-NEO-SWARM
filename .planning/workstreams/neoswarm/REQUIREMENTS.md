@@ -71,8 +71,8 @@ Requirements derived from `docs/architecture/` ingest (2026-07-18). Maps to cogn
 
 ### GAML Memory (Phase 8)
 
-- [ ] **GAML-01**: Structured memory object model — bridge blocks, facts, policies, events, tenant operational
-- [ ] **GAML-02**: Memory Governor — retrieval prefiltering, relevance selection, temporal resolution
+- [~] **GAML-01**: Structured memory object model — bridge blocks, facts, policies, events, tenant operational (types defined in 08-01; storage/governor/ingestion in 08-02 through 08-04)
+- [ ] **GAML-02**: Memory Governor — retrieval prefiltering, relevance selection, temporal resolution (types foundation laid in 08-01; implementation in 08-04)
 - [ ] **GAML-03**: Ingestion pipeline — fact extraction, context mapping, write evaluation with provenance scoring
 - [ ] **GAML-04**: RocksDB local persistence + CRDT-backed replication via IPFS-lite
 
@@ -175,11 +175,14 @@ Which phases cover which requirements. Updated 2026-06-18 after refactor.
 | ELM-07 | Phase 7 | ✅ Done (07-03) |
 | ELM-08 | Phase 7 | ✅ Done (07-03) |
 | ELM-core | Phase 7 | ✅ Done (07-01) |
+| GAML-01 | Phase 8 | ⏳ In Progress (08-01 types defined, 08-02..04 remaining) |
+| GAML-02 | Phase 8 | ⏳ In Progress (08-01 foundation, 08-04 implementation) |
 
 **Coverage:**
 - v1 requirements: 30 total (26 original + NET-01 promoted + 3 ELM Phase 7)
 - Done: 19 (63%)
-- Pending: 11 (37%)
+- In Progress: 2 (GAML-01, GAML-02)
+- Pending: 9 (30%)
 - Unmapped: 0
 
 ---

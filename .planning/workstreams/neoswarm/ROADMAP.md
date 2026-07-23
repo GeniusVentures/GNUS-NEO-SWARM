@@ -221,7 +221,7 @@ Plans:
 **Plans:** 6 plans in 5 waves
 
 Plans:
-- [ ] 08-01-PLAN.md — Wave 1: Core types (MemoryObjectType, TrustClass, CognitiveAsset, ELMContext+ExecutionChain extension, MemoryContext, error codes, CMake target)
+- [x] 08-01-PLAN.md — Wave 1: Core types (MemoryObjectType, TrustClass, CognitiveAsset, ELMContext+ExecutionChain extension, MemoryContext, error codes, CMake target)
 - [ ] 08-02-PLAN.md — Wave 2: MemoryStorage (RocksDB Pimpl, JSON serialize/deserialize, Put/Get/PutBatch/GetByPrefix, key sanitization with `/` replacement, MemoryNotFound error)
 - [ ] 08-03-PLAN.md — Wave 2: Ingestion pipeline (FactExtraction regex-based, ContextMapping entity assignment, WriteEvaluation novelty/utility scoring; D-09/D-10 stubs)
 - [ ] 08-04-PLAN.md — Wave 3: MemoryGovernor (entity extraction heuristic, recency-weighted confidence ranking, dual GetByPrefix for facts+policies, NOT an IELM per D-18)
@@ -306,7 +306,7 @@ Phase 11: Advanced Cognition ◄────────── Phases 7–10
 | Phase | SPEC | PLAN | Status |
 |-------|------|------|--------|
 | 7. ELMs + Router | ✗ | ✓ | Planned (6 plans, 6 waves) |
-| 8. GAML Memory | ✗ | ✓ | Planned (6 plans, 5 waves) |
+| 8. GAML Memory | ✗ | ✓ | Active (1/6 plans executed) |
 | 9. Swarm Networking | ✗ | ✗ | Requirements traced (REP-01–03, SWARM-01–02) |
 | 10. AI Safety + Secure Agents | ✗ | ✗ | Requirements traced (SAFE-01–05) |
 | 11. Advanced Cognition | ✗ | ✗ | Requirements traced (COG-01–04) |
