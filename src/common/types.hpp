@@ -173,6 +173,24 @@ namespace sgns::neoswarm
     };
 
     // -----------------------------------------------------------------------
+    // GAML v1 Memory Object (Phase 8 — local-only, per D-01)
+    // CRDT-ready: m_timestamp + m_sourceNode stored but not merged (D-11)
+    // Extra fields (privacy_scope, replication_policy, etc.) deferred to Phase 9-11 (D-03)
+    // -----------------------------------------------------------------------
+    struct CognitiveAsset
+    {
+        std::string m_id;                  ///< UUID (D-01)
+        std::string m_entity;              ///< entity domain (e.g. "quantum_mechanics")
+        MemoryObjectType m_type = MemoryObjectType::fact;
+        nlohmann::json m_payload;          ///< variable-format payload (D-01)
+        int64_t m_timestamp = 0;           ///< nanoseconds since epoch (D-11, CRDT-ready)
+        std::string m_sourceNode;          ///< originating NodeID (D-11, CRDT-ready)
+        float m_confidence = 0.0f;         ///< extraction/inference confidence
+        float m_provenance = 0.0f;         ///< provenance score
+        TrustClass m_trustClass = TrustClass::unverified;  ///< trust classification (D-09)
+    };
+
+    // -----------------------------------------------------------------------
     // ELM execution context (Phase 7 — doc 03 §5.2.1)
     //
     // The previous chain step's output is carried exclusively by the `input`
@@ -184,6 +202,8 @@ namespace sgns::neoswarm
         std::string m_originalTask;                                   ///< the user's original prompt
         std::vector<std::pair<ELMRole, float>> m_stepConfidences;     ///< (role, confidence) per completed step
         std::vector<KnowledgeFact> m_groundingFacts;                  ///< facts from GroundingELM, if any
+        std::vector<CognitiveAsset> m_memoryFacts;    ///< D-17: facts from MemoryGovernor
+        std::vector<CognitiveAsset> m_memoryPolicies;  ///< D-17: policies from MemoryGovernor
     };
 
     // -----------------------------------------------------------------------
@@ -200,12 +220,22 @@ namespace sgns::neoswarm
         std::vector<ChainStep> m_steps;
         std::string m_reasoning;          ///< why this chain was chosen
         float m_chainConfidence = 0.0f;   ///< builder's confidence in this chain
+        bool m_needsRetrieval = false;    ///< D-16: set by ELMChainBuilder for complex/grounding tasks
     };
 
     // -----------------------------------------------------------------------
     // Final API response
     // -----------------------------------------------------------------------
     
+
+    // -----------------------------------------------------------------------
+    // Memory context returned by MemoryGovernor (GAML v1 — D-05)
+    // -----------------------------------------------------------------------
+    struct MemoryContext
+    {
+        std::vector<CognitiveAsset> m_facts;
+        std::vector<CognitiveAsset> m_policies;
+    };
 
 } // namespace sgns::neoswarm
 

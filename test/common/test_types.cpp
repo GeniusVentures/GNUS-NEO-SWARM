@@ -139,3 +139,122 @@ TEST(TrustClass, UnderlyingTypeIsUint8)
 {
     EXPECT_EQ(sizeof(TrustClass), 1);
 }
+
+// ---------------------------------------------------------------------------
+// Phase 8 — CognitiveAsset default construction (GAML-01)
+// ---------------------------------------------------------------------------
+
+TEST(CognitiveAsset, DefaultConstruction)
+{
+    CognitiveAsset a;
+    EXPECT_TRUE(a.m_id.empty());
+    EXPECT_TRUE(a.m_entity.empty());
+    EXPECT_EQ(a.m_type, MemoryObjectType::fact);
+    EXPECT_EQ(a.m_timestamp, 0);
+    EXPECT_FLOAT_EQ(a.m_confidence, 0.0f);
+    EXPECT_FLOAT_EQ(a.m_provenance, 0.0f);
+    EXPECT_EQ(a.m_trustClass, TrustClass::unverified);
+    EXPECT_TRUE(a.m_sourceNode.empty());
+}
+
+TEST(CognitiveAsset, DesignatedInitialization)
+{
+    CognitiveAsset a{
+        .m_id = "test-001",
+        .m_entity = "physics",
+        .m_type = MemoryObjectType::fact,
+        .m_timestamp = 1000,
+        .m_sourceNode = "node-1",
+        .m_confidence = 0.85f,
+        .m_provenance = 0.6f,
+        .m_trustClass = TrustClass::verified,
+    };
+    EXPECT_EQ(a.m_id, "test-001");
+    EXPECT_EQ(a.m_entity, "physics");
+    EXPECT_EQ(a.m_type, MemoryObjectType::fact);
+    EXPECT_EQ(a.m_timestamp, 1000);
+    EXPECT_FLOAT_EQ(a.m_confidence, 0.85f);
+    EXPECT_EQ(a.m_sourceNode, "node-1");
+}
+
+TEST(ExecutionChain, NeedsRetrievalDefaultsToFalse)
+{
+    ExecutionChain chain;
+    EXPECT_FALSE(chain.m_needsRetrieval);
+}
+
+TEST(ELMContext, MemoryFieldsDefaultEmpty)
+{
+    ELMContext ctx;
+    EXPECT_TRUE(ctx.m_memoryFacts.empty());
+    EXPECT_TRUE(ctx.m_memoryPolicies.empty());
+}
+
+TEST(MemoryContext, EmptyByDefault)
+{
+    MemoryContext mctx;
+    EXPECT_TRUE(mctx.m_facts.empty());
+    EXPECT_TRUE(mctx.m_policies.empty());
+}
+
+// ---------------------------------------------------------------------------
+// Phase 8 — JSON serialization roundtrip (GAML-01)
+// ---------------------------------------------------------------------------
+
+static std::string SerializeCognitiveAsset(const CognitiveAsset& obj)
+{
+    nlohmann::json j;
+    j["id"] = obj.m_id;
+    j["entity"] = obj.m_entity;
+    j["type"] = static_cast<int>(obj.m_type);
+    j["payload"] = obj.m_payload;
+    j["timestamp"] = obj.m_timestamp;
+    j["source_node"] = obj.m_sourceNode;
+    j["confidence"] = obj.m_confidence;
+    j["provenance"] = obj.m_provenance;
+    j["trust_class"] = static_cast<int>(obj.m_trustClass);
+    return j.dump();
+}
+
+static CognitiveAsset DeserializeCognitiveAsset(const std::string& data)
+{
+    auto j = nlohmann::json::parse(data);
+    CognitiveAsset obj;
+    obj.m_id = j.value("id", "");
+    obj.m_entity = j.value("entity", "");
+    obj.m_type = static_cast<MemoryObjectType>(j.value("type", 0));
+    obj.m_payload = j.value("payload", nlohmann::json::object());
+    obj.m_timestamp = j.value("timestamp", int64_t(0));
+    obj.m_sourceNode = j.value("source_node", "");
+    obj.m_confidence = j.value("confidence", 0.0f);
+    obj.m_provenance = j.value("provenance", 0.0f);
+    obj.m_trustClass = static_cast<TrustClass>(j.value("trust_class", 0));
+    return obj;
+}
+
+TEST(CognitiveAsset, JsonSerializationRoundtrip)
+{
+    CognitiveAsset original;
+    original.m_id = "roundtrip-1";
+    original.m_entity = "chemistry";
+    original.m_type = MemoryObjectType::fact;
+    original.m_payload = nlohmann::json::object({{"content", "H2O is water"}});
+    original.m_timestamp = 1234567890;
+    original.m_sourceNode = "node-XYZ";
+    original.m_confidence = 0.75f;
+    original.m_provenance = 0.5f;
+    original.m_trustClass = TrustClass::verified;
+
+    std::string serialized = SerializeCognitiveAsset(original);
+    auto restored = DeserializeCognitiveAsset(serialized);
+
+    EXPECT_EQ(restored.m_id, "roundtrip-1");
+    EXPECT_EQ(restored.m_entity, "chemistry");
+    EXPECT_EQ(restored.m_type, MemoryObjectType::fact);
+    EXPECT_EQ(restored.m_timestamp, 1234567890);
+    EXPECT_EQ(restored.m_sourceNode, "node-XYZ");
+    EXPECT_FLOAT_EQ(restored.m_confidence, 0.75f);
+    EXPECT_FLOAT_EQ(restored.m_provenance, 0.5f);
+    EXPECT_EQ(restored.m_trustClass, TrustClass::verified);
+    EXPECT_EQ(restored.m_payload["content"], "H2O is water");
+}
