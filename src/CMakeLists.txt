@@ -10,3 +10,4 @@ add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/specialists ${CMAKE_CURRENT_BINARY_DI
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/elm ${CMAKE_CURRENT_BINARY_DIR}/elm)
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/network ${CMAKE_CURRENT_BINARY_DIR}/network)
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/api ${CMAKE_CURRENT_BINARY_DIR}/api)
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/memory ${CMAKE_CURRENT_BINARY_DIR}/memory)
