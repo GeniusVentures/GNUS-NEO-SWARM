@@ -4,6 +4,7 @@ add_library(neoswarm_elm STATIC
     specialist_adapter.cpp
     grounding_elm.cpp
     tool_support_elm.cpp
+    elm_chain_builder.cpp
 )
 
 target_include_directories(neoswarm_elm PUBLIC
