@@ -1,7 +1,8 @@
 add_library(neoswarm_memory STATIC
     memory_init.cpp
-    # Additional sources added in plans 08-02 (memory_storage.cpp),
-    # 08-03 (fact_extraction.cpp, context_mapping.cpp, write_evaluation.cpp),
+    memory_storage.cpp
+    # Additional sources added in plans 08-03
+    # (fact_extraction.cpp, context_mapping.cpp, write_evaluation.cpp),
     # 08-04 (memory_governor.cpp)
 )
 
