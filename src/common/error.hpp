@@ -41,6 +41,10 @@ namespace sgns::neoswarm
         InvalidArgument = 15,
         NotImplemented = 16,
         InternalError = 17,
+        // Memory (Phase 8 — GAML v1 — per D-20)
+        MemoryNotFound = 18,          ///< D-20: requested memory object not found
+        MemoryUnavailable = 19,       ///< storage offline but not fatal
+        MemoryIngestionFailed = 20,   ///< failed write evaluation
     };
 
 } // namespace sgns::neoswarm
