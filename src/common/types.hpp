@@ -60,11 +60,11 @@ namespace sgns::neoswarm
     // -----------------------------------------------------------------------
     enum class MemoryObjectType : uint8_t
     {
-        bridge_block = 0,       ///< Memory bridge block
-        fact = 1,               ///< Declarative fact
-        policy = 2,             ///< Behavioral policy / rule
-        event = 3,              ///< Temporal event record
-        tenant_operational = 4  ///< Tenant operational data
+        BRIDGE_BLOCK = 0,       ///< Memory bridge block
+        FACT = 1,               ///< Declarative fact
+        POLICY = 2,             ///< Behavioral policy / rule
+        EVENT = 3,              ///< Temporal event record
+        TENANT_OPERATIONAL = 4  ///< Tenant operational data
     };
 
     /// Trust classification for memory objects (GAML v1 — per D-01, D-09)
@@ -181,7 +181,7 @@ namespace sgns::neoswarm
     {
         std::string m_id;                  ///< UUID (D-01)
         std::string m_entity;              ///< entity domain (e.g. "quantum_mechanics")
-        MemoryObjectType m_type = MemoryObjectType::fact;
+        MemoryObjectType m_type = MemoryObjectType::FACT;
         nlohmann::json m_payload;          ///< variable-format payload (D-01)
         int64_t m_timestamp = 0;           ///< nanoseconds since epoch (D-11, CRDT-ready)
         std::string m_sourceNode;          ///< originating NodeID (D-11, CRDT-ready)

@@ -101,11 +101,11 @@ TEST(KnowledgeFact, DefaultConstructor_ReasonableDefaults)
 TEST(MemoryObjectType, EnumValues_AreDistinct)
 {
     // Verify 5 distinct values for 5 subtypes (D-02)
-    EXPECT_EQ(static_cast<int>(MemoryObjectType::bridge_block), 0);
-    EXPECT_EQ(static_cast<int>(MemoryObjectType::fact), 1);
-    EXPECT_EQ(static_cast<int>(MemoryObjectType::policy), 2);
-    EXPECT_EQ(static_cast<int>(MemoryObjectType::event), 3);
-    EXPECT_EQ(static_cast<int>(MemoryObjectType::tenant_operational), 4);
+    EXPECT_EQ(static_cast<int>(MemoryObjectType::BRIDGE_BLOCK), 0);
+    EXPECT_EQ(static_cast<int>(MemoryObjectType::FACT), 1);
+    EXPECT_EQ(static_cast<int>(MemoryObjectType::POLICY), 2);
+    EXPECT_EQ(static_cast<int>(MemoryObjectType::EVENT), 3);
+    EXPECT_EQ(static_cast<int>(MemoryObjectType::TENANT_OPERATIONAL), 4);
 }
 
 TEST(TrustClass, EnumValues_AreDistinct)
@@ -121,7 +121,7 @@ TEST(MemoryObjectType, IsScopedEnum)
 {
     // Verify scoped enum — unqualified names should not compile
     // (This test simply verifies the values exist in scoped form)
-    MemoryObjectType t = MemoryObjectType::fact;
+    MemoryObjectType t = MemoryObjectType::FACT;
     EXPECT_EQ(static_cast<int>(t), 1);
 }
 
@@ -151,7 +151,7 @@ TEST(CognitiveAsset, DefaultConstruction)
     CognitiveAsset a;
     EXPECT_TRUE(a.m_id.empty());
     EXPECT_TRUE(a.m_entity.empty());
-    EXPECT_EQ(a.m_type, MemoryObjectType::fact);
+    EXPECT_EQ(a.m_type, MemoryObjectType::FACT);
     EXPECT_EQ(a.m_timestamp, 0);
     EXPECT_FLOAT_EQ(a.m_confidence, 0.0f);
     EXPECT_FLOAT_EQ(a.m_provenance, 0.0f);
@@ -164,7 +164,7 @@ TEST(CognitiveAsset, DesignatedInitialization)
     CognitiveAsset a{
         .m_id = "test-001",
         .m_entity = "physics",
-        .m_type = MemoryObjectType::fact,
+        .m_type = MemoryObjectType::FACT,
         .m_timestamp = 1000,
         .m_sourceNode = "node-1",
         .m_confidence = 0.85f,
@@ -173,7 +173,7 @@ TEST(CognitiveAsset, DesignatedInitialization)
     };
     EXPECT_EQ(a.m_id, "test-001");
     EXPECT_EQ(a.m_entity, "physics");
-    EXPECT_EQ(a.m_type, MemoryObjectType::fact);
+    EXPECT_EQ(a.m_type, MemoryObjectType::FACT);
     EXPECT_EQ(a.m_timestamp, 1000);
     EXPECT_FLOAT_EQ(a.m_confidence, 0.85f);
     EXPECT_EQ(a.m_sourceNode, "node-1");
@@ -239,7 +239,7 @@ TEST(CognitiveAsset, JsonSerializationRoundtrip)
     CognitiveAsset original;
     original.m_id = "roundtrip-1";
     original.m_entity = "chemistry";
-    original.m_type = MemoryObjectType::fact;
+    original.m_type = MemoryObjectType::FACT;
     original.m_payload = nlohmann::json::object({{"content", "H2O is water"}});
     original.m_timestamp = 1234567890;
     original.m_sourceNode = "node-XYZ";
@@ -252,7 +252,7 @@ TEST(CognitiveAsset, JsonSerializationRoundtrip)
 
     EXPECT_EQ(restored.m_id, "roundtrip-1");
     EXPECT_EQ(restored.m_entity, "chemistry");
-    EXPECT_EQ(restored.m_type, MemoryObjectType::fact);
+    EXPECT_EQ(restored.m_type, MemoryObjectType::FACT);
     EXPECT_EQ(restored.m_timestamp, 1234567890);
     EXPECT_EQ(restored.m_sourceNode, "node-XYZ");
     EXPECT_FLOAT_EQ(restored.m_confidence, 0.75f);
