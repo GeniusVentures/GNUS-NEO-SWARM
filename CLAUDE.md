@@ -329,3 +329,11 @@ Before answering any prompt, work through it in a step-by-step manner:
 - **CONCLUDE:** What is the most accurate/helpful response?
 
 Be thorough in search and research. Do not limit the length of your answer.
+
+## Outcome Error Handling Rules
+
+**Every `outcome::result<T>` return value MUST be checked.** Never use `(void)` to discard a result. Error paths MUST return `outcome::failure(Error::...)` — never just log a warning and continue.
+
+- Use the most specific error code from `src/common/error.hpp` for each failure condition (e.g., `ModelLoadFailed` when a model can't load, `InferenceFailed` when inference produces no result, `KnowledgeUnavailable` when retrieval returns nothing, `InternalError` for unexpected states)
+- `outcome::success()` is for successful completion only. Degraded or partial results still return `outcome::failure()` if the operation did not fully succeed
+- **Pre-existing `(void)` discard patterns are out of scope** — do not change unless the phase explicitly touches that code path

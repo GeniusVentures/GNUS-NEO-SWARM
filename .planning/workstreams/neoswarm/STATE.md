@@ -9,17 +9,17 @@ See: PROJECT.md (created 2026-06-18, updated 2026-06-22)
 
 ## Current Position
 
-Phase: 8 of 11 (Agentic Memory GAML v1)
-Prior phase: 7 (ELMs + Router) — 4/6 plans complete
-Status: Wave 1 complete (Plan 01 — Types, Errors, CMake scaffolding)
-Last activity: 2026-07-23 — Phase 8 Plan 01 complete (12 type tests, 6 files, ~20 min)
+Phase: 2 of 6 (SuperGenius Connectivity)
+Prior phase: 1 (Security Hardening) — source complete, tests remaining
+Status: Phase 7 active — 5/6 plans complete (Wave 5 done)
+Last activity: 2026-07-22 — Phase 7 Wave 5 complete (ApiServer ELM integration + elms config)
 
-Progress: [████████░░░░░░░░░░░░░░] 62% (20 of 32 v1+requirements done)
+Progress: [████████░░░░░░░░░░░░░░] 62% (20 of 27 v1 requirements done)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 10 (Phase 1: 3 source-complete, Phase 7: 4, Phase 8: 1)
+- Total plans completed: 12 (Phase 1: 3 source-complete, Phase 7: 5)
 - Refactor work: 22 commits across 6 phases (Phase 1,2a,2b,5,6,7 cleanup)
 
 **By Phase:**
@@ -32,10 +32,10 @@ Progress: [████████░░░░░░░░░░░░░░] 6
 | 4. SGProcessing Integration | 0/TBD | - | SGProcessing linked, needs plans |
 | 5. Production Hardening | 0/TBD | - | Refactored, needs verification |
 | 6. Testing & Validation | 0/TBD | - | Needs plans |
-| 7. ELMs + Router | 4/6 | ~35 min | Active — Wave 3 complete |
-| 8. GAML Memory | 1/6 | ~20 min | Active — Wave 1 complete (Types + CMake)
+| 7. ELMs + Router | 5/6 | ~35 min | Active — Wave 5 complete (ApiServer + elms config) |
 
 **Recent Trend:**
+- 2026-07-22: Phase 7 Wave 5 complete — ApiServer ELM integration (10 ELM registry + RunELMChain) + elms JSON config parsing (~7.5 min)
 - 2026-07-16: Phase 7 Wave 2 complete — RoleELM (7 role templates) + DomainELM (dual-engine mode), 12 tests passing (~15 min)
 - 2026-07-16: Phase 7 Wave 1 complete — ELM core types, IELM interface, CMake scaffolding (3 tasks, ~5 min)
 - 2026-06-22: Workstream bifurcation — C++ docs moved from root .planning/ into neoswarm/
@@ -55,6 +55,9 @@ Recent decisions affecting current work:
 - [Refactor 2026-06-18]: All 10 REFACTOR_ROADMAP phases complete — zero `#ifdef` gates in source, all members `m_`-prefixed, all functions under 100 lines, `SuperGeniusClient` → `SGClient`
 - [Architecture]: Connectivity uses GeniusSDK + libp2p GossipSub pubsub, NOT raw gRPC. Transport-layer gRPC lives in SuperGenius's `gRPCForSuperGenius/`
 - [Architecture]: CRDT serialization follows SuperGenius protobuf schema (`src/crdt/proto/` — delta.proto, heads.proto, bcast.proto)
+- [07-05]: ELMContext carries only m_originalTask, m_stepConfidences, m_groundingFacts — step output flows via input parameter per WR-01 review
+- [07-05]: ELMChainBuilder::Build() returns ExecutionChain directly (no outcome::result wrapper) — mirrors Wave 4 design
+- [07-05]: ParseELMRole unknown role → PrimaryDraft safe default per T-07-05-03
 - [Roadmap]: libp2p P2P with GossipSub is already implemented (NET-01 promoted from v2 to v1, done)
 - [Roadmap]: Security MUST come first — real secp256k1 identity and MessageSigning are prerequisites for all network connectivity
 - [Roadmap]: SGClient component (`src/network/sg_client/`) encapsulates all SuperGenius communication
@@ -79,7 +82,7 @@ Post-production cognitive system evolution. Defined in ROADMAP.md, referencing `
 
 | Phase | SPEC | PLAN | Status |
 |-------|------|------|--------|
-| 7. ELMs + Router | ✗ | ✓ | Active (2/6 plans done) |
+| 7. ELMs + Router | ✗ | ✓ | Active (5/6 plans done) |
 | 8. GAML Memory | ✗ | ✗ | Not started |
 | 9. Swarm Networking | ✗ | ✗ | Not started |
 | 10. AI Safety + Secure Agents | ✗ | ✗ | Not started |
@@ -100,6 +103,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-23
-Stopped at: Completed 08-01-PLAN.md (GAML v1 types, errors, CMake scaffolding)
-Resume file: .planning/workstreams/neoswarm/phases/08-agentic-memory-gaml-v1/08-01-SUMMARY.md
+Last session: 2026-07-22
+Stopped at: Completed 07-05-PLAN.md (ApiServer ELM integration + elms config)
+Resume file: .planning/workstreams/neoswarm/phases/07-expert-language-models-router/07-05-SUMMARY.md
