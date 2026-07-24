@@ -198,7 +198,7 @@ Plans:
 - [x] 07-03-PLAN.md — SpecialistAdapter (legacy Grammar→Refiner, Math→Math) + GroundingELM (knowledge pipeline) + ToolSupportELM (stub)
 - [x] 07-04-PLAN.md — PromptAnalyzer extension (grounding/formatting features) + ELMChainBuilder (6 heuristic triggers)
 - [x] 07-05-PLAN.md — ApiServer RunELMChain orchestration + ELM registry + main.cpp elms JSON config
-- [ ] 07-06-PLAN.md — ELM unit tests (18 tests) + types tests + pipeline integration tests
+- [x] 07-06-PLAN.md — ELM unit tests (22 tests) + types tests + pipeline integration tests
 
 ### Phase 8: Agentic Memory (GAML v1)
 
@@ -208,33 +208,11 @@ Plans:
 
 **Depends on:** Phase 7
 
-**Requirements:** GAML-01, GAML-02, GAML-03, GAML-04
-
-**Success Criteria** (what must be TRUE):
-  1. Five MemoryObject types defined (bridge_block, fact, policy, event, tenant_operational) on CognitiveAsset base struct
-  2. MemoryGovernor returns entity-matched, relevance-ranked MemoryContext with facts, policies, and bridge_blocks
-  3. Ingestion pipeline (Fact Extraction → Context Mapping → Write Evaluation) converts ELM output into scored MemoryObject facts
-  4. MemoryStorage persists objects to RocksDB (memory.db) with hierarchical key schema; survives restarts
-  5. ApiServer::Process() retrieves memory context when chain.m_needsRetrieval is true; context flows into ELMContext
-  6. 21 automated tests pass (21 tests across 4 test files) covering types, storage CRUD, retrieval, and ingestion
-
-**Plans:** 6 plans in 5 waves
-
-Plans:
-- [x] 08-01-PLAN.md — Wave 1: Core types (MemoryObjectType, TrustClass, CognitiveAsset, ELMContext+ExecutionChain extension, MemoryContext, error codes, CMake target)
-- [ ] 08-02-PLAN.md — Wave 2: MemoryStorage (RocksDB Pimpl, JSON serialize/deserialize, Put/Get/PutBatch/GetByPrefix, key sanitization with `/` replacement, MemoryNotFound error)
-- [ ] 08-03-PLAN.md — Wave 2: Ingestion pipeline (FactExtraction regex-based, ContextMapping entity assignment, WriteEvaluation novelty/utility scoring; D-09/D-10 stubs)
-- [ ] 08-04-PLAN.md — Wave 3: MemoryGovernor (entity extraction heuristic, recency-weighted confidence ranking, dual GetByPrefix for facts+policies, NOT an IELM per D-18)
-- [ ] 08-05-PLAN.md — Wave 4: ApiServer integration (Initialize/Process/Stop wiring, IngestMemory 3-stage pipeline, ELMChainBuilder m_needsRetrieval, adaptive inline check for pre-Phase-7 gap, CMake linking)
-- [ ] 08-06-PLAN.md — Wave 5: Tests (21 tests: 5 types + 6 storage + 5 governor + 5 ingestion; 4 test files via neoswarm_test macro)
-
-**Cross-cutting constraints:**
-- RocksDB v10.6.2 pinned (C++17 ceiling)
-- All outcome::result<T> checked — no (void) discards
-- Privacy Classification and Temporal Tracking are stubs (D-09, D-10)
-- No IPFS-lite integration (D-12); CRDT fields stored but not merged (D-11)
-- MemoryGovernor is NOT an ELM (D-18)
-- needs_retrieval flag on ExecutionChain in ELMChainBuilder::Build() (approved deviation from D-16)
+**Scope:**
+- Structured memory object model (bridge blocks, facts, policies, events, tenant operational)
+- Memory Governor: retrieval prefiltering, relevance selection, temporal resolution
+- Ingestion pipeline: fact extraction, context mapping, write evaluation with provenance
+- Local storage via RocksDB, CRDT-backed replication via IPFS-lite
 
 ### Phase 9: Swarm Networking + Distributed Execution
 
@@ -305,8 +283,8 @@ Phase 11: Advanced Cognition ◄────────── Phases 7–10
 
 | Phase | SPEC | PLAN | Status |
 |-------|------|------|--------|
-| 7. ELMs + Router | ✗ | ✓ | Planned (6 plans, 6 waves) |
-| 8. GAML Memory | ✗ | ✓ | Active (1/6 plans executed) |
+| 7. ELMs + Router | ✗ | ✓ | Planned (6 plans, 6 waves — All complete) |
+| 8. GAML Memory | ✗ | ✗ | Requirements traced (GAML-01–04) |
 | 9. Swarm Networking | ✗ | ✗ | Requirements traced (REP-01–03, SWARM-01–02) |
 | 10. AI Safety + Secure Agents | ✗ | ✗ | Requirements traced (SAFE-01–05) |
 | 11. Advanced Cognition | ✗ | ✗ | Requirements traced (COG-01–04) |
