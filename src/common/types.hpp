@@ -70,10 +70,10 @@ namespace sgns::neoswarm
     /// Trust classification for memory objects (GAML v1 — per D-01, D-09)
     enum class TrustClass : uint8_t
     {
-        unverified = 0,     ///< Default privacy stub (D-09)
-        verified = 1,       ///< Fact-validated
-        premium = 2,        ///< Premium tier
-        replica = 3         ///< Replicated from remote
+        UNVERIFIED = 0,     ///< Default privacy stub (D-09)
+        VERIFIED = 1,       ///< Fact-validated
+        PREMIUM = 2,        ///< Premium tier
+        REPLICA = 3         ///< Replicated from remote
     };
 
     // -----------------------------------------------------------------------
@@ -187,7 +187,7 @@ namespace sgns::neoswarm
         std::string m_sourceNode;          ///< originating NodeID (D-11, CRDT-ready)
         float m_confidence = 0.0f;         ///< extraction/inference confidence
         float m_provenance = 0.0f;         ///< provenance score
-        TrustClass m_trustClass = TrustClass::unverified;  ///< trust classification (D-09)
+        TrustClass m_trustClass = TrustClass::UNVERIFIED;  ///< trust classification (D-09)
     };
 
     // -----------------------------------------------------------------------

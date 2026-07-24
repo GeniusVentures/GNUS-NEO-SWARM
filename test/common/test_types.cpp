@@ -111,10 +111,10 @@ TEST(MemoryObjectType, EnumValues_AreDistinct)
 TEST(TrustClass, EnumValues_AreDistinct)
 {
     // Verify 4 distinct values (D-01, D-09)
-    EXPECT_EQ(static_cast<int>(TrustClass::unverified), 0);
-    EXPECT_EQ(static_cast<int>(TrustClass::verified), 1);
-    EXPECT_EQ(static_cast<int>(TrustClass::premium), 2);
-    EXPECT_EQ(static_cast<int>(TrustClass::replica), 3);
+    EXPECT_EQ(static_cast<int>(TrustClass::UNVERIFIED), 0);
+    EXPECT_EQ(static_cast<int>(TrustClass::VERIFIED), 1);
+    EXPECT_EQ(static_cast<int>(TrustClass::PREMIUM), 2);
+    EXPECT_EQ(static_cast<int>(TrustClass::REPLICA), 3);
 }
 
 TEST(MemoryObjectType, IsScopedEnum)
@@ -127,7 +127,7 @@ TEST(MemoryObjectType, IsScopedEnum)
 
 TEST(TrustClass, IsScopedEnum)
 {
-    TrustClass t = TrustClass::unverified;
+    TrustClass t = TrustClass::UNVERIFIED;
     EXPECT_EQ(static_cast<int>(t), 0);
 }
 
@@ -155,7 +155,7 @@ TEST(CognitiveAsset, DefaultConstruction)
     EXPECT_EQ(a.m_timestamp, 0);
     EXPECT_FLOAT_EQ(a.m_confidence, 0.0f);
     EXPECT_FLOAT_EQ(a.m_provenance, 0.0f);
-    EXPECT_EQ(a.m_trustClass, TrustClass::unverified);
+    EXPECT_EQ(a.m_trustClass, TrustClass::UNVERIFIED);
     EXPECT_TRUE(a.m_sourceNode.empty());
 }
 
@@ -169,7 +169,7 @@ TEST(CognitiveAsset, DesignatedInitialization)
         .m_sourceNode = "node-1",
         .m_confidence = 0.85f,
         .m_provenance = 0.6f,
-        .m_trustClass = TrustClass::verified,
+        .m_trustClass = TrustClass::VERIFIED,
     };
     EXPECT_EQ(a.m_id, "test-001");
     EXPECT_EQ(a.m_entity, "physics");
@@ -245,7 +245,7 @@ TEST(CognitiveAsset, JsonSerializationRoundtrip)
     original.m_sourceNode = "node-XYZ";
     original.m_confidence = 0.75f;
     original.m_provenance = 0.5f;
-    original.m_trustClass = TrustClass::verified;
+    original.m_trustClass = TrustClass::VERIFIED;
 
     std::string serialized = SerializeCognitiveAsset(original);
     auto restored = DeserializeCognitiveAsset(serialized);
@@ -257,7 +257,7 @@ TEST(CognitiveAsset, JsonSerializationRoundtrip)
     EXPECT_EQ(restored.m_sourceNode, "node-XYZ");
     EXPECT_FLOAT_EQ(restored.m_confidence, 0.75f);
     EXPECT_FLOAT_EQ(restored.m_provenance, 0.5f);
-    EXPECT_EQ(restored.m_trustClass, TrustClass::verified);
+    EXPECT_EQ(restored.m_trustClass, TrustClass::VERIFIED);
     EXPECT_EQ(restored.m_payload["content"], "H2O is water");
 }
 
