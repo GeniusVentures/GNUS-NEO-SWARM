@@ -274,8 +274,7 @@ namespace sgns::neoswarm::api
         if ( m_cfg.m_sgProcessingNetworkMode )
         {
             network::SGClient::Config sgCfg;
-            sgCfg.m_sdkBasePath = m_cfg.m_sgSdkBasePath;
-            sgCfg.m_basePort = m_cfg.m_sgBasePort;
+            sgCfg.m_geniusNodeConfig.BaseWritePath = m_cfg.m_sgSdkBasePath;
 
             m_sgClient = std::make_unique<network::SGClient>( std::move( sgCfg ) );
             auto initRes = m_sgClient->Initialize();

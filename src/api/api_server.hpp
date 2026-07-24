@@ -66,8 +66,10 @@ namespace sgns::neoswarm::api
             std::string m_nodeKeyPassphrase = "gnus-neo-swarm-default";
             bool m_enableSgProcessing = false;
             bool m_sgProcessingNetworkMode = false;
+            // SDK data / write directory. Feeds GeniusNodeConfig::BaseWritePath (IN-03).
+            // CLI flag: --sg-sdk-path — retained for backward compatibility; a future
+            // cleanup will rename to --sg-base-path.
             std::string m_sgSdkBasePath = "./sdk";
-            uint16_t m_sgBasePort = 40001;
 
             // ELM configuration (Phase 7+)
             struct ElmEntry

@@ -358,6 +358,28 @@ else()
 endif()
 
 # --------------------------------------------------------------------------
+# Thirdparty exported targets referenced by sgns::genius_node's link interface
+# (p2p::*, ipfs-bitswap-proto, ipfs-lite-cpp::*). Resolving the real imported
+# targets prevents them degrading to bare -l flags at link time. When the
+# thirdparty tree is not populated, degrade gracefully — the ipfs-lite-cpp::*
+# stubs in _MISSING_DEPS below serve as the fallback (WR-03).
+# --------------------------------------------------------------------------
+if(EXISTS "${THIRDPARTY_BUILD_DIR}/libp2p/lib/cmake/libp2p/libp2pConfig.cmake"
+   OR EXISTS "${THIRDPARTY_BUILD_DIR}/libp2p/lib/cmake/libp2p/libp2p-config.cmake")
+    find_package(libp2p CONFIG QUIET
+        PATHS "${THIRDPARTY_BUILD_DIR}/libp2p/lib/cmake/libp2p" NO_DEFAULT_PATH)
+    find_package(ipfs-bitswap-cpp CONFIG QUIET
+        PATHS "${THIRDPARTY_BUILD_DIR}/ipfs-bitswap-cpp/lib/cmake/ipfs-bitswap-cpp" NO_DEFAULT_PATH)
+    find_package(ipfs-lite-cpp CONFIG QUIET
+        PATHS "${THIRDPARTY_BUILD_DIR}/ipfs-lite-cpp/lib/cmake/ipfs-lite-cpp" NO_DEFAULT_PATH)
+    if(NOT libp2p_FOUND OR NOT ipfs-bitswap-cpp_FOUND OR NOT ipfs-lite-cpp_FOUND)
+        message(STATUS "thirdparty p2p/ipfs packages incomplete — using stub targets where missing")
+    endif()
+else()
+    message(STATUS "thirdparty libp2p not found — using stub targets for p2p/ipfs dependencies")
+endif()
+
+# --------------------------------------------------------------------------
 # SuperGenius (provides sgns::genius_node and other sgns:: targets)
 # GeniusSDK depends on SuperGenius, so we need to find it first
 # If GeniusSDK is provided, match its build type for SuperGenius
@@ -382,10 +404,12 @@ endif()
 
 if(SUPERGENIUS_BUILD_DIR AND NOT "${SUPERGENIUS_BUILD_DIR}" STREQUAL "")
     # SuperGenius has complex transitive dependencies that may not resolve cleanly
-    # Create interface stubs for known missing targets to allow configuration
-    set(_MISSING_DEPS 
+    # Create interface stubs for known missing targets to allow configuration.
+    # ipfs-lite-cpp::* stubs are the fallback when find_package(ipfs-lite-cpp)
+    # above did not resolve the real config (CR-01 / WR-03).
+    set(_MISSING_DEPS
         "ProofSystem::ProofSystem"
-        "ipfs-lite-cpp::blake2" 
+        "ipfs-lite-cpp::blake2"
         "ipfs-lite-cpp::cid"
         "ipfs-lite-cpp::graphsync"
         "ipfs-lite-cpp::ipfs_merkledag_service"
@@ -413,14 +437,14 @@ if(SUPERGENIUS_BUILD_DIR AND NOT "${SUPERGENIUS_BUILD_DIR}" STREQUAL "")
             add_library(${_dep} INTERFACE IMPORTED)
         endif()
     endforeach()
-    
+
     set(SuperGenius_DIR "${SUPERGENIUS_BUILD_DIR}/SuperGenius/lib/cmake/SuperGenius/" CACHE PATH "SuperGenius cmake config")
     find_package(SuperGenius CONFIG QUIET)
     if(NOT SuperGenius_FOUND)
         set(SuperGenius_DIR "${SUPERGENIUS_BUILD_DIR}" CACHE PATH "")
         find_package(SuperGenius CONFIG QUIET)
     endif()
-    
+
     if(SuperGenius_FOUND)
         message(STATUS "SuperGenius: ${SUPERGENIUS_BUILD_DIR}")
     else()

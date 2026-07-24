@@ -45,6 +45,8 @@ namespace sgns::neoswarm
         MemoryNotFound = 18,          ///< D-20: requested memory object not found
         MemoryUnavailable = 19,       ///< storage offline but not fatal
         MemoryIngestionFailed = 20,   ///< failed write evaluation
+        // ELM (Phase 7 — fail-close when Process() called before Load())
+        NotLoaded = 21,               ///< ELM/ engine not loaded — cannot process
     };
 
 } // namespace sgns::neoswarm

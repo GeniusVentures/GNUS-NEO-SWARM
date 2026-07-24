@@ -44,6 +44,14 @@ OUTCOME_CPP_DEFINE_CATEGORY_3( sgns::neoswarm, Error, e )
             return "Not implemented";
         case E::InternalError:
             return "Internal error";
+        case E::MemoryNotFound:
+            return "Memory object not found";
+        case E::MemoryUnavailable:
+            return "Memory storage unavailable";
+        case E::MemoryIngestionFailed:
+            return "Memory ingestion failed";
+        case E::NotLoaded:
+            return "ELM not loaded";
     }
     return "Unknown error";
 }

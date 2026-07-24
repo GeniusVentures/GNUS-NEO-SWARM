@@ -325,7 +325,8 @@ namespace sgns::neoswarm::core
 
         // Step 3: Run inference
         std::vector<std::vector<uint8_t>> chunkhashes;
-        auto process_result = pm->Process( ioc, chunkhashes, model_node );
+        std::vector<std::string> output_locations;
+        auto process_result = pm->Process( ioc, chunkhashes, model_node, output_locations );
         if ( !process_result )
         {
             BridgeLogger()->error( "ProcessingManager::Process failed (error={})", process_result.error().message() );
