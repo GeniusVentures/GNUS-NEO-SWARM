@@ -259,6 +259,8 @@ TEST(CognitiveAsset, JsonSerializationRoundtrip)
     EXPECT_FLOAT_EQ(restored.m_provenance, 0.5f);
     EXPECT_EQ(restored.m_trustClass, TrustClass::verified);
     EXPECT_EQ(restored.m_payload["content"], "H2O is water");
+}
+
 TEST(ELMRole, EnumValues_AreDistinct)
 {
     EXPECT_NE( static_cast<int>( ELMRole::Planner ), static_cast<int>( ELMRole::PrimaryDraft ) );
