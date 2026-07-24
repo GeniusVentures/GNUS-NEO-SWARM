@@ -11,8 +11,8 @@ See: PROJECT.md (created 2026-06-18, updated 2026-06-22)
 
 Phase: 2 of 6 (SuperGenius Connectivity)
 Prior phase: 1 (Security Hardening) — source complete, tests remaining
-Status: Phase 7 active — 6/6 plans complete (Wave 6 complete — all ELM + Router plans done)
-Last activity: 2026-07-23 — Phase 7 Wave 6 complete (ELM test suite: 22 unit + 6 type + 2 integration tests)
+Status: Phase 8 Wave 2 active — 2/6 plans complete (08-01 types + 08-02 MemoryStorage done)
+Last activity: 2026-07-24 — Phase 8 Wave 2 complete (MemoryStorage: Pimpl + JSON + RocksDB CRUD)
 
 Progress: [████████████░░░░░░░░░░░░] 64% (22 of 27 v1 requirements done)
 
@@ -33,8 +33,11 @@ Progress: [████████████░░░░░░░░░░░
 | 5. Production Hardening | 0/TBD | - | Refactored, needs verification |
 | 6. Testing & Validation | 0/TBD | - | Needs plans |
 | 7. ELMs + Router | 6/6 | ~41 min | Complete — all 6 plans done (Wave 6: test suite) |
+| 8. GAML Memory | 2/6 | ~23 min | Wave 2 complete (MemoryStorage CRUD) |
 
 **Recent Trend:**
+- 2026-07-24: Phase 8 Wave 2 complete — MemoryStorage (RocksDB Pimpl, JSON serialization, BuildKey, CRUD with prefix scan), ninja 94/94, ctest 18/18 (~3 min)
+- 2026-07-23: Phase 8 Wave 1 complete — GAML v1 types (MemoryObjectType, TrustClass, CognitiveAsset), error codes, CMake scaffolding, ninja 89/89, ctest 18/18 (~20 min)
 - 2026-07-23: Phase 7 Wave 6 complete — ELM test suite (22 unit + 6 type + 2 integration tests), full CTest green, all requirements ELM-01 through ELM-10 verified (~6 min)
 - 2026-07-22: Phase 7 Wave 5 complete — ApiServer ELM integration (10 ELM registry + RunELMChain) + elms JSON config parsing (~7.5 min)
 - 2026-07-16: Phase 7 Wave 2 complete — RoleELM (7 role templates) + DomainELM (dual-engine mode), 12 tests passing (~15 min)
@@ -60,6 +63,11 @@ Recent decisions affecting current work:
 - [07-05]: ELMChainBuilder::Build() returns ExecutionChain directly (no outcome::result wrapper) — mirrors Wave 4 design
 - [07-05]: ParseELMRole unknown role → PrimaryDraft safe default per T-07-05-03
 - [Roadmap]: libp2p P2P with GossipSub is already implemented (NET-01 promoted from v2 to v1, done)
+- [08-02]: MemoryStorage uses JSON serialization (nlohmann/json) over protobuf — matches existing project JSON dependency pattern
+- [08-02]: BuildKey key format: {entity}/{type}/{timestamp_ns}/{id} — entity sanitized replacing `/` with `_` for prefix scan integrity
+- [08-02]: Pimpl pattern cloned from ReputationStorage — header has zero RocksDB includes, Impl struct defined in .cpp
+- [08-02]: C++17 `compare(0, n, prefix) == 0` used instead of C++20 `starts_with()` for prefix matching (project C++17 ceiling)
+- [08-02]: WriteOptions.sync = true on all writes for crash safety (same as ReputationStorage)
 - [Roadmap]: Security MUST come first — real secp256k1 identity and MessageSigning are prerequisites for all network connectivity
 - [Roadmap]: SGClient component (`src/network/sg_client/`) encapsulates all SuperGenius communication
 - [Roadmap]: Persistence (RocksDB) and Production Hardening are parallelizable with SuperGenius Connectivity
@@ -84,7 +92,7 @@ Post-production cognitive system evolution. Defined in ROADMAP.md, referencing `
 | Phase | SPEC | PLAN | Status |
 |-------|------|------|--------|
 | 7. ELMs + Router | ✗ | ✓ | Complete (6/6 plans — Wave 6 test suite done) |
-| 8. GAML Memory | ✗ | ✗ | Not started |
+| 8. GAML Memory | ✗ | ✓ | Active (2/6 plans — Wave 2) |
 | 9. Swarm Networking | ✗ | ✗ | Not started |
 | 10. AI Safety + Secure Agents | ✗ | ✗ | Not started |
 | 11. Advanced Cognition | ✗ | ✗ | Not started |
@@ -104,6 +112,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-23
-Stopped at: Completed 07-06-PLAN.md (ELM test suite — 22 unit + 6 type + 2 integration tests)
-Resume file: .planning/workstreams/neoswarm/phases/07-expert-language-models-router/07-06-SUMMARY.md
+Last session: 2026-07-24
+Stopped at: Completed 08-02-PLAN.md (MemoryStorage — RocksDB Pimpl + JSON + CRUD)
+Resume file: .planning/workstreams/neoswarm/phases/08-agentic-memory-gaml-v1/08-02-SUMMARY.md

@@ -169,7 +169,7 @@ These phases evolve GNUS-NEO-SWARM from a production-hardened single-node infere
 ### Phases
 
 - [~] **Phase 7: Expert Language Models + Router** — Role-based and domain-specific ELM orchestration with rule-based routing
-- [ ] **Phase 8: Agentic Memory (GAML v1)** — Structured long-term memory with bridge blocks, facts, policies, CRDT convergence
+- [~] **Phase 8: Agentic Memory (GAML v1)** — Structured long-term memory with bridge blocks, facts, policies, CRDT convergence
 - [ ] **Phase 9: Swarm Networking + Distributed Execution** — Multi-node execution with reputation-weighted consensus
 - [ ] **Phase 10: AI Safety + Secure Agent Architecture** — Node-local safety, policy profiles, Tool Intermediary boundary
 - [ ] **Phase 11: Advanced Cognition** — EGGROLL retraining, epistemic arbitration, hierarchical critical thinking
@@ -213,6 +213,16 @@ Plans:
 - Memory Governor: retrieval prefiltering, relevance selection, temporal resolution
 - Ingestion pipeline: fact extraction, context mapping, write evaluation with provenance
 - Local storage via RocksDB, CRDT-backed replication via IPFS-lite
+
+**Plans:** 6 plans in 6 waves
+
+Plans:
+- [x] 08-01-PLAN.md — GAML v1 types (MemoryObjectType, TrustClass, CognitiveAsset) + error codes + CMake scaffolding
+- [x] 08-02-PLAN.md — MemoryStorage (RocksDB Pimpl + JSON serialization + BuildKey + full CRUD)
+- [ ] 08-03-PLAN.md — Ingestion pipeline (FactExtraction, ContextMapping, WriteEvaluation)
+- [ ] 08-04-PLAN.md — MemoryGovernor (entity extraction, FilterAndRank, MemoryContext retrieval)
+- [ ] 08-05-PLAN.md — ApiServer memory integration (Initialize, IngestMemory, Retrieve, ELMChainBuilder)
+- [ ] 08-06-PLAN.md — Memory unit tests + integration tests
 
 ### Phase 9: Swarm Networking + Distributed Execution
 
