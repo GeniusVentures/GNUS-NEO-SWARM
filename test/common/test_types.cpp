@@ -82,6 +82,8 @@ TEST(PromptFeatures, DefaultConstructor_AllFalse)
     EXPECT_EQ( pf.token_count_, 0 );
     EXPECT_FALSE( pf.has_math_keywords_ );
     EXPECT_FALSE( pf.has_grammar_request_ );
+    EXPECT_FALSE( pf.has_grounding_request_ );
+    EXPECT_FALSE( pf.has_formatting_request_ );
 }
 
 TEST(KnowledgeFact, DefaultConstructor_ReasonableDefaults)
@@ -90,4 +92,43 @@ TEST(KnowledgeFact, DefaultConstructor_ReasonableDefaults)
     EXPECT_FLOAT_EQ( fact.m_relevanceScore, 0.0f );
     EXPECT_TRUE( fact.m_source.empty() );
     EXPECT_TRUE( fact.m_content.empty() );
+}
+
+TEST(ELMRole, EnumValues_AreDistinct)
+{
+    EXPECT_NE( static_cast<int>( ELMRole::Planner ), static_cast<int>( ELMRole::PrimaryDraft ) );
+    EXPECT_NE( static_cast<int>( ELMRole::Verifier ), static_cast<int>( ELMRole::Arbiter ) );
+    EXPECT_NE( static_cast<int>( ELMRole::Refiner ), static_cast<int>( ELMRole::Grounding ) );
+    EXPECT_NE( static_cast<int>( ELMRole::ToolSupport ), static_cast<int>( ELMRole::Math ) );
+    EXPECT_NE( static_cast<int>( ELMRole::Code ), static_cast<int>( ELMRole::Science ) );
+}
+
+TEST(ExecutionMode, ElmAssistedValue_IsDistinct)
+{
+    EXPECT_NE( static_cast<int>( ExecutionMode::ElmAssisted ), static_cast<int>( ExecutionMode::SingleNode ) );
+    EXPECT_NE( static_cast<int>( ExecutionMode::ElmAssisted ), static_cast<int>( ExecutionMode::Specialist ) );
+    EXPECT_NE( static_cast<int>( ExecutionMode::ElmAssisted ), static_cast<int>( ExecutionMode::Swarm ) );
+}
+
+TEST(ELMContext, DefaultConstructor_HasReasonableDefaults)
+{
+    ELMContext ctx;
+    EXPECT_TRUE( ctx.m_originalTask.empty() );
+    EXPECT_TRUE( ctx.m_stepConfidences.empty() );
+    EXPECT_TRUE( ctx.m_groundingFacts.empty() );
+}
+
+TEST(ChainStep, DefaultConstructor_HasReasonableDefaults)
+{
+    ChainStep step;
+    EXPECT_EQ( step.m_role, ELMRole::PrimaryDraft );
+    EXPECT_FALSE( step.m_domain.has_value() );
+}
+
+TEST(ExecutionChain, DefaultConstructor_HasReasonableDefaults)
+{
+    ExecutionChain chain;
+    EXPECT_TRUE( chain.m_steps.empty() );
+    EXPECT_TRUE( chain.m_reasoning.empty() );
+    EXPECT_FLOAT_EQ( chain.m_chainConfidence, 0.0f );
 }

@@ -198,7 +198,7 @@ Plans:
 - [x] 07-03-PLAN.md — SpecialistAdapter (legacy Grammar→Refiner, Math→Math) + GroundingELM (knowledge pipeline) + ToolSupportELM (stub)
 - [x] 07-04-PLAN.md — PromptAnalyzer extension (grounding/formatting features) + ELMChainBuilder (6 heuristic triggers)
 - [x] 07-05-PLAN.md — ApiServer RunELMChain orchestration + ELM registry + main.cpp elms JSON config
-- [ ] 07-06-PLAN.md — ELM unit tests (18 tests) + types tests + pipeline integration tests
+- [x] 07-06-PLAN.md — ELM unit tests (22 tests) + types tests + pipeline integration tests
 
 ### Phase 8: Agentic Memory (GAML v1)
 
@@ -283,7 +283,7 @@ Phase 11: Advanced Cognition ◄────────── Phases 7–10
 
 | Phase | SPEC | PLAN | Status |
 |-------|------|------|--------|
-| 7. ELMs + Router | ✗ | ✓ | Planned (6 plans, 6 waves) |
+| 7. ELMs + Router | ✗ | ✓ | Planned (6 plans, 6 waves — All complete) |
 | 8. GAML Memory | ✗ | ✗ | Requirements traced (GAML-01–04) |
 | 9. Swarm Networking | ✗ | ✗ | Requirements traced (REP-01–03, SWARM-01–02) |
 | 10. AI Safety + Secure Agents | ✗ | ✗ | Requirements traced (SAFE-01–05) |
