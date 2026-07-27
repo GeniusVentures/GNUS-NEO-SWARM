@@ -33,9 +33,9 @@ Requirements for production readiness milestone. Each maps to roadmap phases.
 
 ### Persistence & Reliability
 
-- [x] **PERS-01**: RocksDB persistence for ReputationStorage (linked unconditionally, `reputation_storage.cpp` uses `rocksdb::DB::Open`/`Put`/`Get`/`Write`)
-- [ ] **PERS-02**: Switch ReputationStorage serialization from manual to protobuf binary (matching SuperGenius CRDT proto: `delta.proto`, `heads.proto`, `bcast.proto`)
-- [ ] **PERS-03**: Harden `ReputationStorage::Deserialize` — crash-resistant parsing for malformed data
+- [ ] **PERS-01**: GCS GlobalDB instance provides CRDT-backed persistence for all cognitive state (replaces direct RocksDB `ReputationStorage`)
+- [ ] **PERS-02**: Reputation records stored under `/gcs/reputation/` namespace with CRDT topic convergence (protobuf serialization via GlobalDB built-in)
+- [ ] **PERS-03**: Crash-resistant persistence via GlobalDB's atomic WriteBatch + WAL recovery (no custom Deserialize hardening needed)
 - [x] **PERS-04**: JSON config file support (`nlohmann/json`) with CLI-override precedence (implemented in `main.cpp`)
 
 ### Fixes
@@ -69,6 +69,7 @@ Requirements for production readiness milestone. Each maps to roadmap phases.
 ### Network (Promoted from v2)
 
 - [x] **NET-01**: libp2p P2P network with GossipSub pubsub (implemented: `P2PNode` in `src/network/p2p_node.*` — Noise encryption, Yamux multiplexing)
+- [ ] **NET-02**: CRDT-based reputation sync across swarm nodes via GCS GlobalDB topics (promoted from v2 — now free with GlobalDB)
 
 ## Cognitive Phase Requirements (Phases 8–11)
 
@@ -76,18 +77,20 @@ Requirements derived from `docs/architecture/` ingest (2026-07-18). Maps to cogn
 
 ### GAML Memory (Phase 8)
 
-- [~] **GAML-01**: Structured memory object model — bridge blocks, facts, policies, events, tenant operational (types defined in 08-01; storage/governor/ingestion in 08-02 through 08-04)
-- [ ] **GAML-02**: Memory Governor — retrieval prefiltering, relevance selection, temporal resolution (types foundation laid in 08-01; implementation in 08-04)
-- [ ] **GAML-03**: Ingestion pipeline — fact extraction, context mapping, write evaluation with provenance scoring
-- [ ] **GAML-04**: RocksDB local persistence + CRDT-backed replication via IPFS-lite
+- [ ] **GAML-01**: Structured memory object model — bridge blocks, facts, policies, events, tenant operational with canonical fields (privacy_scope, owner_id, replication_policy)
+- [ ] **GAML-02**: Memory Governor — staged retrieval pipeline (8 stages: identity/auth → privacy filter → replication boundary → policy checks → trust/provenance → metadata prefilter → temporal resolution → semantic matching → Governor selection)
+- [ ] **GAML-03**: 5-stage ingestion pipeline — fact extraction → context mapping → privacy classification → temporal tracking → write evaluation (privacy classification NOT a stub)
+- [ ] **GAML-04**: Persistence via GCS GlobalDB under `/gcs/memory/` namespace with CRDT-backed replication via IPFS-lite within authorized privacy boundaries
 
-### Swarm Networking + Reputation Consensus (Phase 9)
+### Swarm Consensus (Phase 9)
 
 - [ ] **REP-01**: 5-component reputation formula — accuracy, latency, consistency, safety, validation (per `reputation-consensus.md`)
 - [ ] **REP-02**: Weighted consensus with dual output selection modes (accuracy-prioritized, latency-prioritized)
 - [ ] **REP-03**: Byzantine tolerance via reputation decay, consistency penalties, exclusion gates
 - [ ] **SWARM-01**: Requestor-Orchestrator model — task broadcast, signed result collection, consensus finalization
 - [ ] **SWARM-02**: Role-aware reputation scoring — Planner, Math, Verification, Formatting, Grounding, Safety
+
+**Note:** Transport (libp2p GossipSub) already exists from Phase 2/NET-01. CRDT reputation sync provided by Phase 3 GlobalDB. Phase 9 scope is consensus *logic* only.
 
 ### AI Safety + Secure Agent Architecture (Phase 10)
 
@@ -161,8 +164,8 @@ Which phases cover which requirements. Updated 2026-06-18 after refactor.
 | PROC-01 | Phase 4 | Pending (SuperGenius repo) |
 | PROC-02 | Phase 4 | Pending (SuperGenius repo) |
 | PROC-03 | Phase 4 | Pending |
-| PERS-01 | Phase 3 | ✅ Done (RocksDB linked + used) |
-| PERS-02 | Phase 3 | Pending (manual → protobuf) |
+| PERS-01 | Phase 3 | 🔄 Reworked (GCS GlobalDB, prior RocksDB wrapper discarded) |
+| PERS-02 | Phase 3 | Pending (via GCS GlobalDB `/gcs/reputation/` + CRDT topics) |
 | PERS-03 | Phase 3 | Pending |
 | PERS-04 | Phase 3 | ✅ Done (JSON + CLI override) |
 | FIX-01 | Phase 5 | Pending (needs test) |
@@ -174,6 +177,7 @@ Which phases cover which requirements. Updated 2026-06-18 after refactor.
 | TEST-03 | Phase 6 | Pending |
 | TEST-04 | Phase 6 | Pending |
 | NET-01 | Phase 2 | ✅ Done (libp2p GossipSub) |
+| NET-02 | Phase 3 | Pending (CRDT reputation sync via GlobalDB topics) |
 | ELM-01 | Phase 7 | ✅ Done (07-06) |
 | ELM-02 | Phase 7 | ✅ Done (07-06) |
 | ELM-03 | Phase 7 | ✅ Done (07-01) |
@@ -185,20 +189,17 @@ Which phases cover which requirements. Updated 2026-06-18 after refactor.
 | ELM-09 | Phase 7 | ✅ Done (07-06) |
 | ELM-10 | Phase 7 | ✅ Done (07-06) |
 | ELM-core | Phase 7 | ✅ Done (07-01) |
-| GAML-01 | Phase 8 | ⏳ In Progress (08-01 types defined, 08-02..04 remaining) |
-| GAML-02 | Phase 8 | ⏳ In Progress (08-01 foundation, 08-04 implementation) |
+| GAML-01 | Phase 8 | 🔄 Regenerating (prior types wrong — TrustClass, missing privacy fields) |
+| GAML-02 | Phase 8 | 🔄 Regenerating (8-stage retrieval per canonical spec) |
+| GAML-03 | Phase 8 | 🔄 Regenerating (5-stage ingestion, privacy NOT a stub) |
+| GAML-04 | Phase 8 | 🔄 Regenerating (GCS GlobalDB `/gcs/memory/` + CRDT replication) |
+| REP-01..03, SWARM-01..02 | Phase 9 | Pending (re-scoped to consensus logic 2026-07-26) |
 
 **Coverage:**
-<<<<<<< HEAD
-- v1 requirements: 30 total (26 original + NET-01 promoted + 3 ELM Phase 7)
-- Done: 19 (63%)
-- In Progress: 2 (GAML-01, GAML-02)
-- Pending: 9 (30%)
-=======
-- v1 requirements: 35 total (26 original + NET-01 promoted + 8 ELM Phase 7)
-- Done: 24 (69%)
-- Pending: 11 (31%)
->>>>>>> origin/develop
+- v1 requirements: 36 total (26 original + NET-01/02 + 8 ELM Phase 7)
+- Done: 22 (61%)
+- Reworked/Regenerating: 5 (PERS-01, GAML-01..04)
+- Pending: 9 (25%)
 - Unmapped: 0
 
 ---
