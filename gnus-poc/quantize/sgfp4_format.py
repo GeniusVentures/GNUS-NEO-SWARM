@@ -47,6 +47,14 @@ ALIGNMENT = 16              # payload/record alignment, both profiles
 UINT32_BYTES = 4
 UINT32_BITS = 32
 
+
+def align_up(value: int, alignment: int = ALIGNMENT) -> int:
+    """Return the smallest multiple of ``alignment`` not less than ``value``."""
+    if alignment <= 0:
+        raise ValueError("alignment must be positive")
+    return value + (-value) % alignment
+
+
 # ---------------------------------------------------------------------------
 # Normative code packing (Sec 4.3, Eq. 3 and 4)
 # ---------------------------------------------------------------------------
@@ -84,12 +92,7 @@ FP16_MAX = 65504.0              # FP16 clip bound at encode time
 
 LEAF_FLAG_MASK = 0xF            # low 4 bits of the packed word carry flags
 LEAF_MODE_MASK = 0x1            # bit 0: mode
-# bit 1: ERROR_HINT per SGFP4 paper (0 = L2-selected, 1 = Pyramid-selected).
-# Informative only. NOTE: this conflicts with Phase 3 D-05, which reserved
-# bit 1 for a deferred "log mode"; the paper's ERROR_HINT semantics win and
-# log mode will need a different carrier when it lands in Phase 5.
-LEAF_ERROR_HINT_MASK = 0x2
-LEAF_RESERVED_MASK = 0xC        # bits 2-3: reserved, written 0
+LEAF_RESERVED_MASK = 0xE        # bits 1-3 reserved, written 0
 BETA_TRUNC_MASK = 0xFFF0        # decoder recovers beta = half(h & mask)
 HEADER_CLEAR_FLAGS_MASK = 0xFFFFFFF0
 
@@ -99,7 +102,7 @@ HEADER_CLEAR_FLAGS_MASK = 0xFFFFFFF0
 
 SGFP4_MAGIC = b"SGF4"
 SGFP4_VERSION_V2 = 0x02
-V2_FIXED_HEADER_BYTES = 16      # magic(4) + version(1) + B(4) + pad(7)
+V2_FIXED_HEADER_BYTES = 16      # magic(4) + version(1) + B(4) + pad0(7)
 V2_HEADER_PAD_BYTES = 7
 
 # ---------------------------------------------------------------------------

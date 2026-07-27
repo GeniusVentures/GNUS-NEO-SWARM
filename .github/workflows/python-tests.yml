@@ -1,0 +1,73 @@
+name: GNUS POC Python Tests
+
+on:
+  pull_request:
+    branches:
+      - develop
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: python-tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    name: pytest (gv-OSX-Large)
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on:
+      - self-hosted
+      - gv-OSX-Large
+    timeout-minutes: 90
+
+    defaults:
+      run:
+        working-directory: gnus-poc
+
+    env:
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+      PYTHONUNBUFFERED: "1"
+      TOKENIZERS_PARALLELISM: "false"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+          if ! command -v python3.11 >/dev/null 2>&1; then
+            brew install python@3.11
+          fi
+          python3.11 -m venv .venv
+          .venv/bin/python --version
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          .venv/bin/python -m pip install --upgrade pip setuptools wheel
+          .venv/bin/python -m pip install -r requirements.txt
+
+      - name: Run Python tests
+        shell: bash
+        run: >-
+          .venv/bin/python -m pytest
+          -m "not slow and not integration"
+          --strict-markers
+          --durations=20
