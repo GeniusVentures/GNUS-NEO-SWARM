@@ -263,12 +263,10 @@ set(libp2p_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/libp2p/include")
 find_package(libp2p CONFIG REQUIRED)
 include_directories(${libp2p_INCLUDE_DIR})
 
-find_package(ipfs-bitswap-cpp CONFIG REQUIRED
-    PATHS "${THIRDPARTY_BUILD_DIR}/ipfs-bitswap-cpp/lib/cmake/ipfs-bitswap-cpp"
-    NO_DEFAULT_PATH)
-find_package(ipfs-lite-cpp CONFIG REQUIRED
-    PATHS "${THIRDPARTY_BUILD_DIR}/ipfs-lite-cpp/lib/cmake/ipfs-lite-cpp"
-    NO_DEFAULT_PATH)
+set(ipfs-bitswap-cpp_DIR "${THIRDPARTY_BUILD_DIR}/ipfs-bitswap-cpp/lib/cmake/ipfs-bitswap-cpp")
+find_package(ipfs-bitswap-cpp CONFIG REQUIRED)
+set(ipfs-lite-cpp_DIR "${THIRDPARTY_BUILD_DIR}/ipfs-lite-cpp/lib/cmake/ipfs-lite-cpp")
+find_package(ipfs-lite-cpp CONFIG REQUIRED)
 
 # --------------------------------------------------------
 # Find and include cares if libp2p have not included it
