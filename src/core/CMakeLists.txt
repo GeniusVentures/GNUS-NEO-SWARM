@@ -97,8 +97,12 @@ if(_SGPROC_PROCESSING_BASE AND EXISTS "${_SGPROC_INCLUDE}" AND EXISTS "${_SGPROC
             "${THIRDPARTY_BUILD_DIR}/AsyncIOManager/include")
     endif()
 
-    # Thirdparty is populated by the build bootstrap before CMake reaches this
-    # file, so these imported targets are required rather than optional.
+    # Transitive dependencies of AsyncIOManager/SGProcessingManager.
+    # ipfs-bitswap-cpp, ipfs-lite-cpp, and libp2p are resolved as real imported
+    # targets via find_package() in cmake/CommonBuildParameters.cmake — link the
+    # top-level targets and let their interfaces pull the rest transitively.
+    # Linking the raw *.a globs here instead would duplicate every archive that
+    # sgns::genius_node / p2p::* already pull in.
     file(GLOB _IPFS_PUBSUB_LIBS "${THIRDPARTY_BUILD_DIR}/ipfs-pubsub/lib/*.a")
     find_library(_SORALOG_LIB soralog PATHS "${THIRDPARTY_BUILD_DIR}/soralog/lib" NO_DEFAULT_PATH)
     find_library(_CARES_LIB cares PATHS "${THIRDPARTY_BUILD_DIR}/cares/lib" NO_DEFAULT_PATH)
