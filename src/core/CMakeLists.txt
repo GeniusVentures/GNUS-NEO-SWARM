@@ -97,36 +97,8 @@ if(_SGPROC_PROCESSING_BASE AND EXISTS "${_SGPROC_INCLUDE}" AND EXISTS "${_SGPROC
             "${THIRDPARTY_BUILD_DIR}/AsyncIOManager/include")
     endif()
 
-    # Prefer imported targets because they retain transitive link interfaces.
-    # Older thirdparty builds may have the archives but omit package configs;
-    # use those archive paths rather than allowing CMake to emit bare -l flags.
-    set(_SGPROC_P2P_DEPS)
-    if(TARGET ipfs-bitswap-cpp
-       AND TARGET ipfs-lite-cpp::ipfs_merkledag_service
-       AND TARGET p2p::p2p)
-        list(APPEND _SGPROC_P2P_DEPS
-            ipfs-bitswap-cpp
-            ipfs-lite-cpp::ipfs_merkledag_service
-            p2p::p2p
-        )
-    else()
-        file(GLOB _IPFS_BITSWAP_LIBS "${THIRDPARTY_BUILD_DIR}/ipfs-bitswap-cpp/lib/*.a")
-        file(GLOB _IPFS_LITE_LIBS "${THIRDPARTY_BUILD_DIR}/ipfs-lite-cpp/lib/*.a")
-        file(GLOB _LIBP2P_LIBS "${THIRDPARTY_BUILD_DIR}/libp2p/lib/*.a")
-        if(NOT _IPFS_BITSWAP_LIBS OR NOT _IPFS_LITE_LIBS OR NOT _LIBP2P_LIBS)
-            message(FATAL_ERROR
-                "SGProcessingManager is present, but its p2p/IPFS imported targets "
-                "and fallback archives are incomplete under ${THIRDPARTY_BUILD_DIR}")
-        endif()
-        list(APPEND _SGPROC_P2P_DEPS
-            ${_IPFS_BITSWAP_LIBS}
-            ${_IPFS_LITE_LIBS}
-            ${_LIBP2P_LIBS}
-        )
-        message(WARNING
-            "Using raw p2p/IPFS archives because one or more imported targets are unavailable")
-    endif()
-
+    # Thirdparty is populated by the build bootstrap before CMake reaches this
+    # file, so these imported targets are required rather than optional.
     file(GLOB _IPFS_PUBSUB_LIBS "${THIRDPARTY_BUILD_DIR}/ipfs-pubsub/lib/*.a")
     find_library(_SORALOG_LIB soralog PATHS "${THIRDPARTY_BUILD_DIR}/soralog/lib" NO_DEFAULT_PATH)
     find_library(_CARES_LIB cares PATHS "${THIRDPARTY_BUILD_DIR}/cares/lib" NO_DEFAULT_PATH)
@@ -138,7 +110,9 @@ if(_SGPROC_PROCESSING_BASE AND EXISTS "${_SGPROC_INCLUDE}" AND EXISTS "${_SGPROC
     find_library(_SNAPPY_LIB snappy PATHS "${THIRDPARTY_BUILD_DIR}/snappy/lib" NO_DEFAULT_PATH)
 
     target_link_libraries(neoswarm_core PUBLIC
-        ${_SGPROC_P2P_DEPS}
+        ipfs-bitswap-cpp
+        ipfs-lite-cpp::ipfs_merkledag_service
+        p2p::p2p
         ${_IPFS_PUBSUB_LIBS}
     )
     foreach(_dep_lib _SORALOG_LIB _CARES_LIB _ED25519_LIB _XXHASH_LIB _TSL_LIB _SQLITE3_LIB _ROCKSDB_LIB _SNAPPY_LIB)
