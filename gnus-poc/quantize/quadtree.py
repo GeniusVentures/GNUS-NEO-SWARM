@@ -3,7 +3,8 @@
 The encoder tries the largest region first, compares FP4_AFFINE and
 T158_AFFINE reconstruction error, and splits regions that fail the configured
 absolute or relative error gates. Laplacian-pyramid weighting is encode-side
-policy only; v2 does not serialize an ERROR_HINT flag.
+policy only. The returned ``error_hint`` field is an internal diagnostic and is
+not serialized into the v2 leaf-header flags.
 """
 
 from typing import Callable, Dict, List
@@ -158,6 +159,7 @@ class QuadtreeEncoder:
                 "scale": scale,
                 "bias": bias,
                 "error": selected_error,
+                "error_hint": 1 if size >= 16 else 0,
             }]
 
         half = size // 2
