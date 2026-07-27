@@ -75,7 +75,6 @@ static void PrintHelp( const char* prog )
               << "  --key <path>             Node key file (default: ./node.key)\n"
               << "  --config <path>         JSON config file (CLI flags override file values)\n"
               << "  --sg-sdk-path <path>      GeniusSDK data directory (default: ./sdk)\n"
-              << "  --sg-base-port <n>       SDK network port (default: 40001)\n"
               << "  --network                Enable P2P networking\n"
               << "  --knowledge <path>       Grokipedia facts CSV\n"
               << "  --max-tokens <n>         Max tokens (default: 512)\n"

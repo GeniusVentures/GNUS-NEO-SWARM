@@ -126,15 +126,17 @@ namespace sgns::neoswarm::elm
     {
         if ( !m_loaded )
         {
-            DomainLogger()->warn( "DomainELM not loaded — returning input unchanged" );
+            DomainLogger()->warn( "DomainELM not loaded — cannot process" );
             m_lastConfidence = 0.0f;
-            return outcome::failure( Error::ModelLoadFailed );
+            return outcome::failure( Error::NotLoaded );
         }
 
         auto* engine = SelectEngine();
         if ( !engine )
         {
-            DomainLogger()->warn( "DomainELM::Process — no engine available" );
+            // m_loaded is true here, so a null engine is an invariant violation
+            // (engine became null after a successful Load) — not "not loaded" (IN-01).
+            DomainLogger()->error( "DomainELM::Process — engine null after successful Load (invariant violation)" );
             m_lastConfidence = 0.0f;
             return outcome::failure( Error::InternalError );
         }
@@ -148,7 +150,7 @@ namespace sgns::neoswarm::elm
         auto res = engine->Infer( task );
         if ( !res.has_value() )
         {
-            DomainLogger()->warn( "DomainELM inference failed — returning input unchanged" );
+            DomainLogger()->warn( "DomainELM inference failed" );
             m_lastConfidence = 0.0f;
             return outcome::failure( Error::InferenceFailed );
         }

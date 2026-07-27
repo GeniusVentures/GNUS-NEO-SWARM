@@ -255,12 +255,20 @@ set(ZLIB_DIR "${THIRDPARTY_BUILD_DIR}/zlib/lib/cmake/zlib")
 find_package(ZLIB CONFIG REQUIRED)
 
 # --------------------------------------------------------
-# Set config of libp2p
+# Set config of libp2p and IPFS packages. The build bootstrap populates the
+# thirdparty release before this file runs, so these packages are required.
 set(libp2p_DIR "${THIRDPARTY_BUILD_DIR}/libp2p/lib/cmake/libp2p")
 set(libp2p_LIBRARY_DIR "${THIRDPARTY_BUILD_DIR}/libp2p/lib")
-set(libp2p_INCLUDE_DIR    "${THIRDPARTY_BUILD_DIR}/libp2p/include")
+set(libp2p_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/libp2p/include")
 find_package(libp2p CONFIG REQUIRED)
 include_directories(${libp2p_INCLUDE_DIR})
+
+find_package(ipfs-bitswap-cpp CONFIG REQUIRED
+    PATHS "${THIRDPARTY_BUILD_DIR}/ipfs-bitswap-cpp/lib/cmake/ipfs-bitswap-cpp"
+    NO_DEFAULT_PATH)
+find_package(ipfs-lite-cpp CONFIG REQUIRED
+    PATHS "${THIRDPARTY_BUILD_DIR}/ipfs-lite-cpp/lib/cmake/ipfs-lite-cpp"
+    NO_DEFAULT_PATH)
 
 # --------------------------------------------------------
 # Find and include cares if libp2p have not included it
@@ -382,14 +390,9 @@ endif()
 
 if(SUPERGENIUS_BUILD_DIR AND NOT "${SUPERGENIUS_BUILD_DIR}" STREQUAL "")
     # SuperGenius has complex transitive dependencies that may not resolve cleanly
-    # Create interface stubs for known missing targets to allow configuration
-    set(_MISSING_DEPS 
+    # Create interface stubs for known missing targets to allow configuration.
+    set(_MISSING_DEPS
         "ProofSystem::ProofSystem"
-        "ipfs-lite-cpp::blake2" 
-        "ipfs-lite-cpp::cid"
-        "ipfs-lite-cpp::graphsync"
-        "ipfs-lite-cpp::ipfs_merkledag_service"
-        "ipfs-lite-cpp::ipfs_datastore_rocksdb"
         "evmrelay::evmrelay"
         "MNN::MNN"
         "Boost::json"
@@ -413,14 +416,14 @@ if(SUPERGENIUS_BUILD_DIR AND NOT "${SUPERGENIUS_BUILD_DIR}" STREQUAL "")
             add_library(${_dep} INTERFACE IMPORTED)
         endif()
     endforeach()
-    
+
     set(SuperGenius_DIR "${SUPERGENIUS_BUILD_DIR}/SuperGenius/lib/cmake/SuperGenius/" CACHE PATH "SuperGenius cmake config")
     find_package(SuperGenius CONFIG QUIET)
     if(NOT SuperGenius_FOUND)
         set(SuperGenius_DIR "${SUPERGENIUS_BUILD_DIR}" CACHE PATH "")
         find_package(SuperGenius CONFIG QUIET)
     endif()
-    
+
     if(SuperGenius_FOUND)
         message(STATUS "SuperGenius: ${SUPERGENIUS_BUILD_DIR}")
     else()

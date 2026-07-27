@@ -10,6 +10,8 @@
 #include "common/logging.hpp"
 #include "GeniusSDK.h"
 
+#include <nlohmann/json.hpp>
+
 namespace sgns::neoswarm::network
 {
     namespace
@@ -52,12 +54,19 @@ namespace sgns::neoswarm::network
 
         // SDK generates its own keypair internally for blockchain identity.
         // NEO-SWARM's NodeIdentity is separate (P2P swarm identity).
+        // GeniusSDKInit takes the dev config as a JSON string (Address/Cut/TokenValue/TokenID).
+        // Serialize via nlohmann::json so user-supplied strings are properly escaped (CR-02).
+        const auto& nodeCfg = m_impl->m_cfg.m_geniusNodeConfig;
+        const nlohmann::json devConfig = {
+            { "Address",    nodeCfg.Addr },
+            { "Cut",        nodeCfg.Cut },
+            { "TokenValue", nodeCfg.TokenValueInGNUS },
+            { "TokenID",    nodeCfg.TokenID.ToHex() },
+        };
+        const std::string devConfigJson = devConfig.dump();
         const char* initResult = GeniusSDKInit(
-            m_impl->m_cfg.m_sdkBasePath.c_str(),
-            m_impl->m_cfg.m_autoDht,
-            m_impl->m_cfg.m_enableProcessing,
-            m_impl->m_cfg.m_basePort,
-            false );
+            nodeCfg.BaseWritePath.c_str(),
+            devConfigJson.c_str() );
 
         if ( initResult == nullptr )
         {

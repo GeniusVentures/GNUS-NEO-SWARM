@@ -149,6 +149,7 @@ TEST( RoleELM, Process_NotLoaded_ReturnsError )
     ELMContext ctx;
     auto result = elm.Process( "hello world", ctx );
     ASSERT_FALSE( result.has_value() );
+    EXPECT_EQ( result.error(), Error::NotLoaded );
     EXPECT_FLOAT_EQ( elm.GetConfidence(), 0.0f );
 }
 
@@ -182,6 +183,7 @@ TEST( RoleELM, Process_NullEngine_ReturnsError )
     ELMContext ctx;
     auto result = elm.Process( "hello", ctx );
     ASSERT_FALSE( result.has_value() );
+    EXPECT_EQ( result.error(), Error::NotLoaded );
     EXPECT_FLOAT_EQ( elm.GetConfidence(), 0.0f );
 }
 
@@ -211,6 +213,7 @@ TEST( DomainELM, Process_NoEngine_ReturnsError )
     ELMContext ctx;
     auto result = elm.Process( "some code", ctx );
     ASSERT_FALSE( result.has_value() );
+    EXPECT_EQ( result.error(), Error::NotLoaded );
     EXPECT_FLOAT_EQ( elm.GetConfidence(), 0.0f );
 }
 

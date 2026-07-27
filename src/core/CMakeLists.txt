@@ -12,6 +12,13 @@ target_include_directories(neoswarm_core PUBLIC
     "${THIRDPARTY_BUILD_DIR}/json/include"
 )
 
+# SuperGenius account headers (TokenID.hpp — via network/sg_client/super_genius_client.hpp)
+if(TARGET sgns::GeniusSDK_shared OR TARGET sgns::GeniusSDK)
+    target_include_directories(neoswarm_core PUBLIC
+        "${SUPERGENIUS_BUILD_DIR}/SuperGenius/include"
+    )
+endif()
+
 target_link_libraries(neoswarm_core PUBLIC neoswarm_common)
 
 # Boost (needed by SGProcessingManager generated headers and ASIO)
@@ -90,12 +97,13 @@ if(_SGPROC_PROCESSING_BASE AND EXISTS "${_SGPROC_INCLUDE}" AND EXISTS "${_SGPROC
             "${THIRDPARTY_BUILD_DIR}/AsyncIOManager/include")
     endif()
 
-    # Transitive dependencies of AsyncIOManager/SGProcessingManager
-    # (ipfs-bitswap, ipfs-lite, libp2p, etc.)
-    file(GLOB _IPFS_BITSWAP_LIBS "${THIRDPARTY_BUILD_DIR}/ipfs-bitswap-cpp/lib/*.a")
-    file(GLOB _IPFS_LITE_LIBS "${THIRDPARTY_BUILD_DIR}/ipfs-lite-cpp/lib/*.a")
+    # Transitive dependencies of AsyncIOManager/SGProcessingManager.
+    # ipfs-bitswap-cpp, ipfs-lite-cpp, and libp2p are resolved as real imported
+    # targets via find_package() in cmake/CommonBuildParameters.cmake — link the
+    # top-level targets and let their interfaces pull the rest transitively.
+    # Linking the raw *.a globs here instead would duplicate every archive that
+    # sgns::genius_node / p2p::* already pull in.
     file(GLOB _IPFS_PUBSUB_LIBS "${THIRDPARTY_BUILD_DIR}/ipfs-pubsub/lib/*.a")
-    file(GLOB _LIBP2P_LIBS "${THIRDPARTY_BUILD_DIR}/libp2p/lib/*.a")
     find_library(_SORALOG_LIB soralog PATHS "${THIRDPARTY_BUILD_DIR}/soralog/lib" NO_DEFAULT_PATH)
     find_library(_CARES_LIB cares PATHS "${THIRDPARTY_BUILD_DIR}/cares/lib" NO_DEFAULT_PATH)
     find_library(_ED25519_LIB ed25519 PATHS "${THIRDPARTY_BUILD_DIR}/ed25519/lib" NO_DEFAULT_PATH)
@@ -106,10 +114,10 @@ if(_SGPROC_PROCESSING_BASE AND EXISTS "${_SGPROC_INCLUDE}" AND EXISTS "${_SGPROC
     find_library(_SNAPPY_LIB snappy PATHS "${THIRDPARTY_BUILD_DIR}/snappy/lib" NO_DEFAULT_PATH)
 
     target_link_libraries(neoswarm_core PUBLIC
-        ${_IPFS_BITSWAP_LIBS}
-        ${_IPFS_LITE_LIBS}
+        ipfs-bitswap-cpp
+        ipfs-lite-cpp::ipfs_merkledag_service
+        p2p::p2p
         ${_IPFS_PUBSUB_LIBS}
-        ${_LIBP2P_LIBS}
     )
     foreach(_dep_lib _SORALOG_LIB _CARES_LIB _ED25519_LIB _XXHASH_LIB _TSL_LIB _SQLITE3_LIB _ROCKSDB_LIB _SNAPPY_LIB)
         if(${_dep_lib})

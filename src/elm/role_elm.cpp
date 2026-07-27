@@ -133,9 +133,9 @@ namespace sgns::neoswarm::elm
     {
         if ( !m_loaded || !m_engine )
         {
-            RoleLogger()->warn( "RoleELM not loaded — returning input unchanged" );
+            RoleLogger()->warn( "RoleELM not loaded — cannot process" );
             m_lastConfidence = 0.0f;
-            return outcome::failure( Error::ModelLoadFailed );
+            return outcome::failure( Error::NotLoaded );
         }
 
         Task task;
@@ -147,7 +147,7 @@ namespace sgns::neoswarm::elm
         auto res = m_engine->Infer( task );
         if ( !res.has_value() )
         {
-            RoleLogger()->warn( "RoleELM inference failed — returning input unchanged" );
+            RoleLogger()->warn( "RoleELM inference failed" );
             m_lastConfidence = 0.0f;
             return outcome::failure( Error::InferenceFailed );
         }
