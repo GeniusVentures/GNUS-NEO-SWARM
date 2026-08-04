@@ -1,7 +1,8 @@
 # Phase 3: GCS GlobalDB Integration - Context
 
 **Gathered:** 2026-07-27
-**Status:** Approved 2026-08-03 (user) — ready for research → planning
+**Updated:** 2026-08-04 — shared storage architecture (D-12a/b/c/d), namespace-scoped handles, GCS separation deferred to Phase 12 (D-25)
+**Status:** Approved 2026-08-03 (user), amended 2026-08-04 — ready for plan revision → execution
 
 <domain>
 ## Phase Boundary
@@ -9,11 +10,12 @@
 Replace the direct-RocksDB `ReputationStorage` with a NEO-SWARM-owned `sgns::crdt::GlobalDB` instance (the **GCS GlobalDB**) so all persistent cognitive state flows through SuperGenius's existing CRDT storage. Phase 3 delivers the storage foundation that Phase 8 (GAML Memory, `/gcs/memory/`) and Phase 9 (Swarm Consensus, `/gcs/consensus/`) build on.
 
 In scope for Phase 3:
-- GCS GlobalDB lifecycle component (construction from `GeniusSDKGetNode()->GetPubSub()` — accessor already on GeniusSDK develop, no SDK-side work)
-- GCSSDK FFI init extension — `GeniusElmInit` chain drives GeniusSDK init + GCS GlobalDB init (D-20..D-22)
-- `/gcs/reputation/` namespace via `HierarchicalKey`
+- GCS GlobalDB lifecycle component (`GcsStorage` in `src/storage/`, `neoswarm_storage` target) — shared infrastructure, created from `GeniusSDKGetNode()->GetPubSub()` (accessor already on GeniusSDK develop, no SDK-side work)
+- Namespace-scoped handles (`ForNamespace()`) enforcing `/gcs/` root — consumers get `IGcsNamespace` views, never raw GlobalDB access
+- GCSSDK FFI init extension — `GeniusElmInit` chain drives GeniusSDK init + GCS storage init (D-20..D-22)
+- `/gcs/neoswarm/reputation/` namespace via namespace-scoped handle
 - CRDT broadcast/listen topics so reputation **converges across swarm nodes** (hard requirement — divergent reputation breaks Phase 9 consensus)
-- Rewire existing reputation consumers (`api_server.cpp`, reputation scoring code) to GlobalDB
+- Rewire existing reputation consumers (`api_server.cpp`, reputation scoring code) to use namespace-scoped storage handles
 - Delete `reputation_storage.{hpp,cpp}`, `reputation_crdt.{hpp,cpp}`, and all direct RocksDB linkage in NEO-SWARM
 - Delete `flutter_slm_bridge/` (D-24)
 
@@ -21,6 +23,7 @@ Out of scope (later phases):
 - `/gcs/memory/` (Phase 8), `/gcs/consensus/` (Phase 9)
 - Consensus logic (Phase 9)
 - Graphsync-based large-object replication / IPFS-lite DAG sync tuning (Phase 8 evaluates)
+- Namespace rebrand `sgns::` → `gcs::`, parent build system, Flutter extraction (D-25 — dedicated GCS separation phase)
 </domain>
 
 <decisions>
@@ -47,12 +50,12 @@ Out of scope (later phases):
 - **D-24 (flutter_slm_bridge deletion — confirmed 2026-08-03):** Delete `flutter_slm_bridge/` entirely. It is an abandoned parallel attempt (Subaskar, 2026-05) that violates the architecture three ways: (1) references a `GeniusSlm*` FFI family that was never implemented (its ffigen entry-point `src/genius_slm_chat_c.h` doesn't exist in the repo); (2) wired to a `GeniusAPIServer` class that does not exist anywhere in the architecture; (3) treats the GCS API as a linkable C++ object. Per MASTER_ARCHITECTURE (`documentation/docs/technical-information/MASTER_ARCHITECTURE.md:50,348,483-495`), the GCS API is an **OpenAI-compatible orchestration ingress boundary** — remote clients reach it through an edge proxy (Cloudflare or similar), and embedded Flutter uses the GCSSDK `GeniusElm*` FFI directly. Not referenced by any CMakeLists; native shim is a 1-line include of an empty header. When the Flutter wrapper is built, fresh ffigen bindings are generated against `genius_elm_chat_completions.h`.
 
 ### Namespacing & Key Layout
-- **D-05:** All GCS keys live under the `/gcs/` HierarchicalKey root. Phase 3 uses `/gcs/reputation/<node_identity_key>` — one key per node reputation record (replaces `ReputationStorage`'s flat `identity_key` string keys).
-- **D-06:** `GetAll()` (currently a full RocksDB iterator in `reputation_storage.cpp:187`) becomes `GlobalDB::QueryKeyValues("/gcs/reputation/")` — tombstone-aware prefix query, verified in the GlobalDB API.
+- **D-05:** All GCS keys live under the `/gcs/` HierarchicalKey root, enforced by the storage component (D-12a). Phase 3 reputation uses `/gcs/neoswarm/reputation/<node_identity_key>` — the `neoswarm` sub-namespace comes from `ForNamespace("neoswarm")`, `reputation/` is appended by the reputation module. Replaces `ReputationStorage`'s flat `identity_key` string keys.
+- **D-06:** `GetAll()` (currently a full RocksDB iterator in `reputation_storage.cpp:187`) becomes `QueryKeyValues("reputation/")` on the namespace-scoped handle — resolves to `/gcs/neoswarm/reputation/`, tombstone-aware prefix query.
 
 ### CRDT Convergence for Reputation
 - **D-07:** Reputation writes use a dedicated CRDT broadcast topic (e.g. `"gcs-reputation"`). Topic wiring at component init, per `globaldb.cpp`: `AddListenTopic(topic)` — subscribes the broadcaster AND registers the name in the CRDT datastore (`AddTopicName`) so incoming deltas merge — plus `AddBroadcastTopic(topic)` so local `Put`s publish. Every node does both; that's what makes reputation converge. Reputation MUST converge across nodes — divergent reputation makes Phase 9 weighted consensus meaningless (user directive 2026-07-26).
-- **D-08:** Incoming remote reputation updates are surfaced through `RegisterNewElementCallback` / `RegisterDeletedElementCallback` filtered on the `/gcs/reputation/` prefix, so local consumers (scoring, consensus weight tables) react to convergence without polling.
+- **D-08:** Incoming remote reputation updates are surfaced through `RegisterNewElementCallback` / `RegisterDeletedElementCallback` filtered on the `/gcs/neoswarm/reputation/` prefix, so local consumers (scoring, consensus weight tables) react to convergence without polling.
 
 ### ReputationStorage & Local CRDT Removal
 - **D-09:** Delete `src/reputation/reputation_storage.{hpp,cpp}` outright — no adapter shim, no "keep it behind an interface." The class IS the architectural bug; the fix is replacement, not wrapping. Consumers (`api_server.cpp:124,137`) are rewired to the GCS GlobalDB component.
@@ -61,8 +64,19 @@ Out of scope (later phases):
 - **D-11:** Serialization of `NodeReputation` for storage moves to the format GlobalDB consumers use (protobuf or Buffer-encoded, decided at plan time from `reputation_scoring` needs) — NOT a hand-rolled RocksDB `WriteBatch` (that's what `reputation_storage.cpp:210` does today).
 
 ### Component Shape
-- **D-12:** New component `src/storage/gcs_global_db.{hpp,cpp}` (+ CMake target `neoswarm_storage`) owns the GlobalDB shared_ptr, topic registration, and callback wiring. Exposes narrow typed operations (`PutReputation`, `GetReputation`, `QueryReputations`) — callers never touch `HierarchicalKey` or `Buffer` directly. Program-to-interface per project design rules.
+- **D-12:** New component `src/storage/gcs_storage.{hpp,cpp}` (+ CMake target `neoswarm_storage`) owns the GlobalDB shared_ptr, topic registration, and callback wiring. It is **shared infrastructure**, not a reputation store — the single GlobalDB lifecycle owner that all GCS modules receive at `Initialize()`. Domain ops (reputation, memory, consensus) live in the domain modules, not in the storage component.
+- **D-12a (namespace-scoped handles — resolved 2026-08-04):** The storage component enforces the `/gcs/` HierarchicalKey root. Consumers never call raw `GlobalDB::Put/Get/Remove/QueryKeyValues` — they request a namespace-scoped handle via `ForNamespace("<module>")` which returns a lightweight scoped view (e.g. `IGcsNamespace`) whose operations all resolve under `/gcs/<module>/`. Reputation uses `ForNamespace("neoswarm")` → keys land at `/gcs/neoswarm/reputation/<key>`. Phase 8 memory will call `ForNamespace("memory")`, Phase 9 consensus `ForNamespace("consensus")`. This makes cross-namespace writes impossible by construction.
+- **D-12b (interface-first — resolved 2026-08-04):** Consumers receive `std::shared_ptr<IGcsStorage>` (root) or `std::shared_ptr<IGcsNamespace>` (scoped) — abstract interfaces per program-to-interface design rules. The concrete `GcsStorage` class stays behind the interface; `sgns::crdt::GlobalDB` types never appear in consumer headers.
+- **D-12c (ownership in init chain — resolved 2026-08-04):** `ApiServer` constructs the root `GcsStorage` once (after SGClient/GeniusNode init), then injects namespace-scoped handles into each consumer module's `Initialize()` — reputation gets `ForNamespace("neoswarm")`, core gets its own, etc. Matches existing `SGClient` wiring pattern.
+- **D-12d (C++ namespace — resolved 2026-08-04):** Component lives in `sgns::neoswarm::storage` (matching existing convention: `sgns::neoswarm::reputation`, `sgns::neoswarm::network`, `sgns::neoswarm::api`). **NOTE:** The `sgns::` prefix is SuperGenius heritage. A repo-wide rename to `gcs::` is planned as part of the GCS separation phase (see D-25) — Phase 3 uses the current `sgns::` prefix to avoid mixing refactor scope into storage work.
 - **D-13:** Construction is deferred/init-style (like `SGClient::Initialize()`), not constructor-does-everything — `GlobalDB::New` + `Start()` can fail and must surface `outcome::result`, never throw.
+
+### GCS Separation (deferred — NOT Phase 3 scope)
+- **D-25 (GCS rebrand + restructure — resolved 2026-08-04, DEFERRED to new phase):** Three workstreams, all deferred to a dedicated phase after Phase 3:
+  1. **Namespace sweep:** `sgns::` → `gcs::` across all NEO-SWARM source (73 files). The `sgns` prefix is SuperGenius heritage; GCS is its own system.
+  2. **Parent build system:** GeniusCogntiveSystem parent repo gets `cmaketemplate` submodule + `build/` directory (same pattern as GeniusSDK: `path = build, url = ../cmaketemplate`). Parent becomes the build orchestrator; GNUS-NEO-SWARM becomes a pure C++ library consumed by the parent.
+  3. **Flutter extraction:** `flutter_app/` and `ui/` directories move out of GNUS-NEO-SWARM (to parent or their own submodule). They consume the engine via the `GeniusElm*` FFI. `flutter_slm_bridge/` is already deleted per D-24.
+  **Rationale for deferral:** Mixing repo-wide restructure into Phase 3 storage work is the same scope-creep pattern that broke Phase 8. Phase 3 ships the correct storage architecture; the rebrand happens as its own clean wave.
 
 ### Error Handling
 - **D-14:** All operations return `outcome::result<T>` with specific codes from `src/common/error.hpp`. Map GlobalDB's `Error` enum (`globaldb.hpp:80-89`) to NEO-SWARM error codes at the component boundary. No `(void)` discards of results.

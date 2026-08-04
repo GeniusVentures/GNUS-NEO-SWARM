@@ -150,6 +150,20 @@ These phases evolve GNUS-NEO-SWARM from a production-hardened single-node infere
 - [ ] **Phase 9: Swarm Consensus** — Reputation-weighted consensus logic on existing transport and CRDT storage
 - [ ] **Phase 10: AI Safety + Secure Agent Architecture** — Node-local safety, policy profiles, Tool Intermediary boundary
 - [ ] **Phase 11: Advanced Cognition** — EGGROLL retraining, epistemic arbitration, hierarchical critical thinking
+- [ ] **Phase 12: GCS Separation** — Namespace rebrand (`sgns::` → `gcs::`), parent repo build system (cmaketemplate + build/), Flutter extraction from GNUS-NEO-SWARM
+
+### Phase 12: GCS Separation
+
+**Goal:** GNUS-NEO-SWARM becomes a pure C++ library; GeniusCogntiveSystem parent repo becomes the build orchestrator; all GCS code uses `gcs::` namespace.
+
+**Depends on:** Phase 3 (GCS GlobalDB — storage architecture must be stable before rebrand)
+
+**Scope:**
+- **Namespace sweep:** `sgns::` → `gcs::` across all NEO-SWARM source (73 files). The `sgns` prefix is SuperGenius heritage.
+- **Parent build system:** GeniusCogntiveSystem gets `cmaketemplate` submodule (`path = build, url = ../cmaketemplate`, same as GeniusSDK) + `build/` directory. Parent orchestrates GNUS-NEO-SWARM as a library dependency.
+- **Flutter extraction:** `flutter_app/` and `ui/` move out of GNUS-NEO-SWARM (to parent or own submodule). Consume engine via `GeniusElm*` FFI. GNUS-NEO-SWARM retains only: `src/`, `test/`, `cmake/`, `build/`.
+
+**Note:** Deferred from Phase 3 discussion (2026-08-04) to avoid mixing restructure scope into storage work.
 
 ### Phase 7: Expert Language Models + Router
 
@@ -291,7 +305,7 @@ Each cognitive phase follows the standard GSD pipeline:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12
 Phases 4, 5, 6 are parallelizable with 2, 3.
 
 | Phase | Plans Complete | Status | Notes |
@@ -307,6 +321,7 @@ Phases 4, 5, 6 are parallelizable with 2, 3.
 | 9. Swarm Consensus | 0/TBD | **Re-scoped** | Was "Swarm Networking" |
 | 10. AI Safety | 0/TBD | Not started | — |
 | 11. Advanced Cognition | 0/TBD | Not started | — |
+| 12. GCS Separation | 0/TBD | Not started | Namespace rebrand + parent build + Flutter extraction |
 
 ---
 
