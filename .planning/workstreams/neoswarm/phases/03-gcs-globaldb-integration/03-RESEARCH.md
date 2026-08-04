@@ -68,19 +68,15 @@ Options:
 
 Lean (a): FFI functions are cheap, the two modes (local-only vs. swarm) are semantically distinct, and it avoids overloading a 2-arg signature with swarm config it never had. Final call at plan time.
 
-### GeniusSDK dependency (from CONTEXT D-16a, confirmed)
+### GeniusSDK dependency (from CONTEXT D-16a — ALREADY DONE, no Phase 3 work)
 
-`GeniusNodeInstance` is anonymous-namespace — symbol `__ZN12_GLOBAL__N_118GeniusNodeInstanceE` is local (`b` type) in `libGeniusSDK_shared.dylib`, not exported. NEO-SWARM links `sgns::GeniusSDK_shared` preferentially (`src/network/CMakeLists.txt:25`). Required GeniusSDK-side addition (separate commit in GeniusSDK repo):
+`GeniusNodeInstance` is anonymous-namespace — symbol `__ZN12_GLOBAL__N_118GeniusNodeInstanceE` is local (`b` type) in `libGeniusSDK_shared.dylib`, not exported. NEO-SWARM links `sgns::GeniusSDK_shared` preferentially (`src/network/CMakeLists.txt:25`).
 
-```cpp
-// GeniusSDK.cpp — outside the anonymous namespace
-std::shared_ptr<sgns::GeniusNode> GeniusSDKGetNode()
-{
-    const std::lock_guard<std::recursive_mutex> lock( GeniusSDKMutex );
-    return GeniusNodeInstance;
-}
-```
-With a `GNUS_VISIBILITY_DEFAULT` declaration in `GeniusSDK.h`. Returns shared_ptr copy under the existing mutex; one GeniusNode regardless of static/shared link mode.
+**The accessor already exists on GeniusSDK develop** (commit `d550800 "Expose GeniusNode instance for C++ FFI consumers"`):
+- `../GeniusSDK/src/GeniusSDK.cpp:179` — `std::shared_ptr<sgns::GeniusNode> GeniusSDKGetNode()` implementation
+- `../GeniusSDK/src/GeniusSDK.hpp:22` — `GNUS_VISIBILITY_DEFAULT` declaration (C++ header, distinct from the C FFI `GeniusSDK.h`)
+
+Phase 3 consumes `GeniusSDKGetNode()->GetPubSub()` directly. No GeniusSDK-side changes required. Prerequisite: the GeniusSDK build NEO-SWARM links against must be at/after `d550800`.
 
 ### GeniusNode member reuse (from CONTEXT D-17, confirmed)
 
@@ -102,7 +98,7 @@ RocksDB remains available transitively via `crdt_globaldb` — constraint #9 ban
 
 ### Suggested wave structure
 
-1. **Wave 1 — GeniusSDK accessor + GCS component skeleton.** Add `GeniusSDKGetNode()` to GeniusSDK (separate commit/PR in that repo). Create `src/storage/gcs_global_db.{hpp,cpp}` + `neoswarm_storage` CMake target with init-style lifecycle (`Initialize(pubsub, io, config)` → `GlobalDB::New` → `Start` → topic wiring → `Shutdown`). No consumers rewired yet.
+1. **Wave 1 — GCS component skeleton.** Create `src/storage/gcs_global_db.{hpp,cpp}` + `neoswarm_storage` CMake target with init-style lifecycle (`Initialize()` pulls pubsub via `GeniusSDKGetNode()->GetPubSub()` → `GlobalDB::New` → `Start` → topic wiring → `Shutdown`). No consumers rewired yet. (No GeniusSDK-side work — accessor already exists.)
 2. **Wave 2 — Reputation on GlobalDB.** Typed ops (`PutReputation`/`GetReputation`/`QueryReputations`) under `/gcs/reputation/<node_key>`; `NodeReputation` Buffer serialization; CRDT listen+broadcast topic `gcs-reputation`; element callbacks for convergence. Unit tests (Tier 1 pattern adapted to wait-condition templates).
 3. **Wave 3 — Consumer rewiring + deletion.** Rewire `api_server.cpp:124,137` to the GCS component; delete `reputation_storage.*`, `reputation_crdt.*`; strip the 3 direct RocksDB CMake linkages; delete `flutter_slm_bridge/` (D-24).
 4. **Wave 4 — FFI + integration.** GCSSDK init chain extension (D-20/D-22, likely `GeniusElmInitWithSwarm`); FFI test updates; GlobalDB integration test (Tier 2 pattern, two-node reputation convergence) adapted to wait-condition templates.
@@ -121,5 +117,5 @@ RocksDB remains available transitively via `crdt_globaldb` — constraint #9 ban
 - C++17 ceiling; `outcome::result<T>` with specific error codes; no `(void)` discards; no exceptions in hot paths (`noexcept` by default)
 - Init-style lifecycle (constructor stores config; `Initialize()` does fallible work)
 - No `#ifdef` platform gates; no magic numbers; spdlog logging
-- GeniusSDK change is a separate commit/PR in the GeniusSDK repo — do not mix into NEO-SWARM commits
+- GeniusSDK is consumed as-is — `GeniusSDKGetNode()` already on its develop branch (`d550800`); no cross-repo commits in Phase 3
 </implementation_guidance>

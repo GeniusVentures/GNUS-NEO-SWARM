@@ -9,13 +9,13 @@
 Replace the direct-RocksDB `ReputationStorage` with a NEO-SWARM-owned `sgns::crdt::GlobalDB` instance (the **GCS GlobalDB**) so all persistent cognitive state flows through SuperGenius's existing CRDT storage. Phase 3 delivers the storage foundation that Phase 8 (GAML Memory, `/gcs/memory/`) and Phase 9 (Swarm Consensus, `/gcs/consensus/`) build on.
 
 In scope for Phase 3:
-- **GeniusSDK-side dependency (small):** exported `GeniusSDKGetNode()` accessor (D-16a) — one function in the sibling GeniusSDK repo, committed separately there
-- GCS GlobalDB lifecycle component (construction from GeniusNode's pubsub, topic registration, shutdown)
+- GCS GlobalDB lifecycle component (construction from `GeniusSDKGetNode()->GetPubSub()` — accessor already on GeniusSDK develop, no SDK-side work)
 - GCSSDK FFI init extension — `GeniusElmInit` chain drives GeniusSDK init + GCS GlobalDB init (D-20..D-22)
 - `/gcs/reputation/` namespace via `HierarchicalKey`
 - CRDT broadcast/listen topics so reputation **converges across swarm nodes** (hard requirement — divergent reputation breaks Phase 9 consensus)
 - Rewire existing reputation consumers (`api_server.cpp`, reputation scoring code) to GlobalDB
 - Delete `reputation_storage.{hpp,cpp}`, `reputation_crdt.{hpp,cpp}`, and all direct RocksDB linkage in NEO-SWARM
+- Delete `flutter_slm_bridge/` (D-24)
 
 Out of scope (later phases):
 - `/gcs/memory/` (Phase 8), `/gcs/consensus/` (Phase 9)
@@ -35,7 +35,7 @@ Out of scope (later phases):
 ### PubSub & Graphsync Wiring (resolved 2026-08-03)
 - **D-15:** **The pubsub is `GeniusNode::GetPubSub()`** — the one `ipfs_pubsub::GossipPubSub` the in-process GeniusSDK already owns (`GeniusNode.hpp:578`, singleton instance at `GeniusSDK.cpp:164`). One host, one port, zero new network construction. Phase 3 flow is exactly: GeniusNode instantiation → `GlobalDB::New` for GCS → wire topics. Nothing else.
 - **D-16:** The GCS GlobalDB component receives the pubsub `shared_ptr` (plus io_context, scheduler, graphsync network, generator) in its `Initialize()` — injected from the GeniusNode instance, never constructed locally.
-- **D-16a (GeniusNode access — verified 2026-08-03):** `GeniusNodeInstance` is in an **anonymous namespace** (`GeniusSDK.cpp:164`) — symbol `__ZN12_GLOBAL__N_118GeniusNodeInstanceE` is local (`b` type) in `libGeniusSDK_shared.dylib`, NOT exported. NEO-SWARM links `sgns::GeniusSDK_shared` preferentially (`src/network/CMakeLists.txt:25`), so the singleton is unreachable. **Resolution:** GeniusSDK adds an exported C++ accessor `std::shared_ptr<sgns::GeniusNode> GeniusSDKGetNode()` (returns shared_ptr copy under the existing `GeniusSDKMutex`; NOT in the anonymous namespace). One GeniusNode regardless of static/shared link mode — avoids the duplicate-singleton-per-dylib hazard. This is a small GeniusSDK-side change, tracked as a Phase 3 hard dependency.
+- **D-16a (GeniusNode access — verified 2026-08-03):** `GeniusNodeInstance` is in an **anonymous namespace** (`GeniusSDK.cpp:164`) — symbol `__ZN12_GLOBAL__N_118GeniusNodeInstanceE` is local (`b` type) in `libGeniusSDK_shared.dylib`, NOT exported. NEO-SWARM links `sgns::GeniusSDK_shared` preferentially (`src/network/CMakeLists.txt:25`), so the singleton is unreachable via extern. **Resolution (DONE — no Phase 3 work):** GeniusSDK develop already exposes `std::shared_ptr<sgns::GeniusNode> GeniusSDKGetNode()` — implementation at `GeniusSDK.cpp:179`, exported declaration at `GeniusSDK.hpp:22` (C++ header, `GNUS_VISIBILITY_DEFAULT`), added in GeniusSDK commit `d550800 "Expose GeniusNode instance for C++ FFI consumers"`. Phase 3 consumes it; no GeniusSDK-side changes required.
 - **D-17:** Graphsync network + generator construction follows GeniusNode: `graphsync::Network(pubsub->GetHost(), scheduler)` (`GeniusNode.cpp:1366`), `std::make_shared<graphsync::RequestIdGenerator>()` (`GeniusNode.cpp:252`). GlobalDB internally builds `GraphsyncImpl` + `GraphsyncDAGSyncer` on the same host (`globaldb.cpp:296-310`). **Reuse analysis (2026-08-03):** only the pubsub is publicly reusable — `GetPubSub()` is the sole relevant accessor on GeniusNode; `io_` (`:754`), `scheduler_` (`:1040`), `graphsyncnetwork_` (`:1042`), `generator_` (`:1041`) are all private with no getters. Decision: reuse pubsub via `GetPubSub()`, construct the other three locally in the GCS component (3 lines; `graphsync::Network` is just host+scheduler and GlobalDB builds its own `GraphsyncImpl` internally anyway, so there is no sharing benefit to widening the GeniusNode/SDK API with more getters).
 - **D-18:** `P2PNode` is **out of Phase 3 scope entirely.** It is used only by `api_server.cpp:263-264,478` (task broadcast). Migrating it onto GeniusNode's pubsub (or deleting it) is a later decision for Phase 9 task broadcast — NOT a prerequisite for GCS GlobalDB. No changes to `p2p_node.*` in this phase.
 
