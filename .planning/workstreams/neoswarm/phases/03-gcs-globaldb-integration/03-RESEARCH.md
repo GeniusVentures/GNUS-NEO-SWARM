@@ -58,15 +58,9 @@ Two instances wired via `broadcaster1->SetMirrorCounterPart(broadcaster2)` simul
 
 `PubSubBroadcasterExt` has no isolated unit test — it's exercised implicitly through GlobalDB integration tests. No action needed for Phase 3.
 
-### Q-02: FFI init shape (ANALYSIS — decision at plan time)
+### Q-02: FFI init shape (RESOLVED 2026-08-03 — user decision)
 
-Only live consumer of `GeniusElmInit(modelPath, knowledgePath)` is `test/ffi/test_genius_elm_ffi.cpp` (stub-mode init `GeniusElmInit(nullptr,nullptr)`, idempotent re-init ×3, shutdown/re-init cycle). No Dart/CLI/app links the FFI today.
-
-Options:
-- **(a) New variant** `GeniusElmInitWithSwarm(modelPath, knowledgePath, swarmConfigJson)` — existing init untouched (network stays off), swarm path explicit, test-compatible by construction. Cleanly expresses the D-20 init chain (ApiServer → GeniusSDK → GCS GlobalDB).
-- **(b) Optional params** on `GeniusElmInit` — C ABI callers pass NULL; breaks source compat for anyone with the old 2-arg declaration (none exist outside the test, which is updated either way).
-
-Lean (a): FFI functions are cheap, the two modes (local-only vs. swarm) are semantically distinct, and it avoids overloading a 2-arg signature with swarm config it never had. Final call at plan time.
+**Option (b) chosen:** extend `GeniusElmInit` with optional params — single entry point, NULL = local-only stub mode (current behavior preserved). No new variant function. Only live consumer is `test/ffi/test_genius_elm_ffi.cpp` (updated in Wave 4). Exact parameter shape (JSON config vs. explicit params) is a plan-time detail within the extended signature.
 
 ### GeniusSDK dependency (from CONTEXT D-16a — ALREADY DONE, no Phase 3 work)
 
@@ -101,7 +95,7 @@ RocksDB remains available transitively via `crdt_globaldb` — constraint #9 ban
 1. **Wave 1 — GCS component skeleton.** Create `src/storage/gcs_global_db.{hpp,cpp}` + `neoswarm_storage` CMake target with init-style lifecycle (`Initialize()` pulls pubsub via `GeniusSDKGetNode()->GetPubSub()` → `GlobalDB::New` → `Start` → topic wiring → `Shutdown`). No consumers rewired yet. (No GeniusSDK-side work — accessor already exists.)
 2. **Wave 2 — Reputation on GlobalDB.** Typed ops (`PutReputation`/`GetReputation`/`QueryReputations`) under `/gcs/reputation/<node_key>`; `NodeReputation` Buffer serialization; CRDT listen+broadcast topic `gcs-reputation`; element callbacks for convergence. Unit tests (Tier 1 pattern adapted to wait-condition templates).
 3. **Wave 3 — Consumer rewiring + deletion.** Rewire `api_server.cpp:124,137` to the GCS component; delete `reputation_storage.*`, `reputation_crdt.*`; strip the 3 direct RocksDB CMake linkages; delete `flutter_slm_bridge/` (D-24).
-4. **Wave 4 — FFI + integration.** GCSSDK init chain extension (D-20/D-22, likely `GeniusElmInitWithSwarm`); FFI test updates; GlobalDB integration test (Tier 2 pattern, two-node reputation convergence) adapted to wait-condition templates.
+4. **Wave 4 — FFI + integration.** GCSSDK init chain extension (D-20/D-22 — optional params on `GeniusElmInit`, NULL = local-only); FFI test updates; GlobalDB integration test (Tier 2 pattern, two-node reputation convergence) adapted to wait-condition templates.
 
 ### Acceptance tests (from CONTEXT + audit lessons)
 
