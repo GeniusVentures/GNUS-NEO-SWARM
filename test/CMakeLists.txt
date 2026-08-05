@@ -60,7 +60,7 @@ neoswarm_test(test_sgprocessing_pipeline integration/test_sgprocessing_pipeline.
 neoswarm_test(test_node_identity     security/test_node_identity.cpp        "neoswarm_security;neoswarm_common")
 neoswarm_test(test_message_signing   security/test_message_signing.cpp      "neoswarm_security;neoswarm_common")
 neoswarm_test(test_genius_elm_ffi    ffi/test_genius_elm_ffi.cpp             "neoswarm_api")
-target_sources(test_genius_elm_ffi PRIVATE "${PROJECT_ROOT}/src/genius_elm_chat_completions.cpp")
+target_sources(test_genius_elm_ffi PRIVATE "${NEOSWARM_ROOT}/src/genius_elm_chat_completions.cpp")
 neoswarm_test(test_fact_validation   knowledge/test_fact_validation.cpp      "neoswarm_knowledge;neoswarm_common")
 neoswarm_test(test_network           network/test_network.cpp                "neoswarm_network;neoswarm_security;neoswarm_common")
 neoswarm_test(test_sg_client         network/test_sg_client.cpp              "neoswarm_network;neoswarm_common")

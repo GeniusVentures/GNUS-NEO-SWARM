@@ -14,6 +14,15 @@
 set(THIRDPARTY_BUILD_DIR "${_THIRDPARTY_BUILD_DIR}" CACHE PATH "" FORCE)
 
 # ---------------------------------------------------------------------------
+# This repo's own root, derived from this file's location (cmake/ -> repo root).
+# Standalone builds have PROJECT_ROOT = this dir already; nested builds (parent
+# add_subdirectory) have PROJECT_ROOT = the parent. Every self-reference below
+# (src/, install/export, config.cmake.in) must use NEOSWARM_ROOT, never
+# PROJECT_ROOT, so the file works in both modes.
+# ---------------------------------------------------------------------------
+get_filename_component(NEOSWARM_ROOT "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
+
+# ---------------------------------------------------------------------------
 # Boost version
 # ---------------------------------------------------------------------------
 set(BOOST_MAJOR_VERSION "1" CACHE STRING "Boost Major Version")
@@ -71,7 +80,7 @@ endif()
 # ---------------------------------------------------------------------------
 # Project-specific functions
 # ---------------------------------------------------------------------------
-include(${PROJECT_ROOT}/cmake/functions.cmake)
+include(${NEOSWARM_ROOT}/cmake/functions.cmake)
 
 # ============================================================================
 # Thirdparty dependencies — follow build/CommonBuildParameters.cmake.example
@@ -294,7 +303,7 @@ find_package(Threads REQUIRED)
 # ---------------------------------------------------------------------------
 # Project include root
 # ---------------------------------------------------------------------------
-include_directories(${PROJECT_ROOT}/src)
+include_directories(${NEOSWARM_ROOT}/src)
 
 # ---------------------------------------------------------------------------
 # GeniusSDK (dynamic library — transitive deps resolved at link time)
@@ -451,10 +460,10 @@ endif()
 # ============================================================================
 
 # Source tree
-add_subdirectory(${PROJECT_ROOT}/src ${CMAKE_BINARY_DIR}/src)
+add_subdirectory(${NEOSWARM_ROOT}/src ${CMAKE_BINARY_DIR}/src)
 
 # Main binary
-add_executable(neo-swarm ${PROJECT_ROOT}/src/main.cpp)
+add_executable(neo-swarm ${NEOSWARM_ROOT}/src/main.cpp)
 target_link_libraries(neo-swarm PRIVATE neoswarm_api Threads::Threads)
 if(APPLE)
     target_link_options(neo-swarm PRIVATE "LINKER:-no_warn_duplicate_libraries")
@@ -464,21 +473,21 @@ if(UNIX AND NOT APPLE)
 endif()
 
 # FFI shared library (Flutter bridge)
-add_library(Genius-MOS-ELM-FFI SHARED ${PROJECT_ROOT}/src/genius_elm_chat_completions.cpp)
-target_include_directories(Genius-MOS-ELM-FFI PUBLIC ${PROJECT_ROOT}/src)
+add_library(Genius-MOS-ELM-FFI SHARED ${NEOSWARM_ROOT}/src/genius_elm_chat_completions.cpp)
+target_include_directories(Genius-MOS-ELM-FFI PUBLIC ${NEOSWARM_ROOT}/src)
 target_compile_definitions(Genius-MOS-ELM-FFI PRIVATE NEOSWARM_CHAT_C_EXPORTS)
 target_link_libraries(Genius-MOS-ELM-FFI PRIVATE Threads::Threads neoswarm_api)
 
 if(BUILD_TESTING)
     enable_testing()
-    if(IS_DIRECTORY "${PROJECT_ROOT}/test")
-        add_subdirectory(${PROJECT_ROOT}/test ${CMAKE_BINARY_DIR}/test)
+    if(IS_DIRECTORY "${NEOSWARM_ROOT}/test")
+        add_subdirectory(${NEOSWARM_ROOT}/test ${CMAKE_BINARY_DIR}/test)
     endif()
 endif()
 
 if(BUILD_EXAMPLES)
-    if(IS_DIRECTORY "${PROJECT_ROOT}/example")
-        add_subdirectory(${PROJECT_ROOT}/example ${CMAKE_BINARY_DIR}/example)
+    if(IS_DIRECTORY "${NEOSWARM_ROOT}/example")
+        add_subdirectory(${NEOSWARM_ROOT}/example ${CMAKE_BINARY_DIR}/example)
     endif()
 endif()
 
@@ -497,11 +506,11 @@ install(TARGETS
     PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
-install(DIRECTORY ${PROJECT_ROOT}/src/
+install(DIRECTORY ${NEOSWARM_ROOT}/src/
     DESTINATION include/genius
     FILES_MATCHING PATTERN "*.hpp"
 )
-install(FILES ${PROJECT_ROOT}/src/genius_elm_chat_completions.h DESTINATION include/genius)
+install(FILES ${NEOSWARM_ROOT}/src/genius_elm_chat_completions.h DESTINATION include/genius)
 
 # Package config export
 install(
@@ -510,7 +519,7 @@ install(
     NAMESPACE genius::
 )
 
-configure_package_config_file(${PROJECT_ROOT}/cmake/config.cmake.in
+configure_package_config_file(${NEOSWARM_ROOT}/cmake/config.cmake.in
     "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_ROOT_NAME}Config.cmake"
     INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_ROOT_NAME}
     NO_SET_AND_CHECK_MACRO
