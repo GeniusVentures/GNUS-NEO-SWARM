@@ -67,8 +67,7 @@ namespace sgns::neoswarm::api
             bool m_enableSgProcessing = false;
             bool m_sgProcessingNetworkMode = false;
             // SDK data / write directory. Feeds GeniusNodeConfig::BaseWritePath (IN-03).
-            // CLI flag: --sg-sdk-path — retained for backward compatibility; a future
-            // cleanup will rename to --sg-base-path.
+            // Override per-node via the JSON config file key "sg_base_path" (D-09).
             std::string m_sgSdkBasePath = "./sdk";
 
             // ELM configuration (Phase 7+)
