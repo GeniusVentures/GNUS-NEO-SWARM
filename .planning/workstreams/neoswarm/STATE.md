@@ -5,21 +5,21 @@
 See: PROJECT.md (created 2026-06-18, updated 2026-06-22)
 
 **Core value:** Real LLM inference on consumer hardware in a fully decentralized swarm, production-connected to the SuperGenius/GNUS network for distributed AI compute.
-**Current focus:** Phase 2 — SuperGenius Connectivity (GeniusSDK + libp2p GossipSub)
+**Current focus:** Phase 2 — SuperGenius Connectivity (GeniusSDK + libp2p GossipSub) — **COMPLETE & VERIFIED**
 
 ## Current Position
 
-Phase: 2 of 6 (SuperGenius Connectivity)
+Phase: 2 of 6 (SuperGenius Connectivity) — complete, verified (02-VERIFICATION.md: passed, 15/15)
 Prior phase: 1 (Security Hardening) — source complete, tests remaining
-Status: Phase 7 active — 6/6 plans complete (Wave 6 complete — all ELM + Router plans done)
-Last activity: 2026-07-23 — Phase 7 Wave 6 complete (ELM test suite: 22 unit + 6 type + 2 integration tests)
+Status: Phase 2 merged to develop via PR #108 (wave 3); all 8 plans (02-01..02-08) executed
+Last activity: 2026-08-10 — Phase 2 closed: 02-06/07/08 executed, code-review + Codex triage resolved, verified passed
 
 Progress: [████████████░░░░░░░░░░░░] 64% (22 of 27 v1 requirements done)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 12 (Phase 1: 3 source-complete, Phase 7: 5)
+- Total plans completed: 20 (Phase 1: 3 source-complete, Phase 2: 8, Phase 7: 6)
 - Refactor work: 22 commits across 6 phases (Phase 1,2a,2b,5,6,7 cleanup)
 
 **By Phase:**
@@ -27,7 +27,7 @@ Progress: [████████████░░░░░░░░░░░
 | Phase | Plans | Total | Status |
 |-------|-------|-------|--------|
 | 1. Security Hardening | 3/4 | ~18 min | Source done, 01-04 (tests) pending |
-| 2. SuperGenius Connectivity | 0/TBD | - | SGClient implemented, needs plans |
+| 2. SuperGenius Connectivity | 8/8 | - | **Complete & verified** (PR #108; 02-VERIFICATION passed 15/15) |
 | 3. Persistence & Reliability | 0/TBD | - | RocksDB linked, needs plans |
 | 4. SGProcessing Integration | 0/TBD | - | SGProcessing linked, needs plans |
 | 5. Production Hardening | 0/TBD | - | Refactored, needs verification |
