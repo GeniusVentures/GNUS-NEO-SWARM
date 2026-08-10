@@ -82,10 +82,13 @@ TEST( SGConnectivity, SubmitJobNetworkModeNoClientFallsBackAndFails )
     auto ioc = std::make_shared<boost::asio::io_context>();
 
     // No client set → SubmitNetwork returns NetworkError → bridge falls back to
-    // SubmitDirect, which also fails (no SGProcessingManager / no valid model).
-    // The key assertion: the chain resolves to a failure result, not a crash.
+    // SubmitDirect, which fails (no SGProcessingManager / no valid model) with
+    // InferenceFailed. Asserting InferenceFailed (not NetworkError) proves the
+    // fallback to SubmitDirect actually ran — a regression that returned the
+    // initial NetworkError without falling back would fail this assertion.
     auto result = bridge.SubmitJob( kModelUri, kInputUri, sgns::InputFormat::FLOAT32, { 1, 512 }, ioc );
     ASSERT_FALSE( result.has_value() );
+    EXPECT_EQ( result.error(), Error::InferenceFailed );
 }
 
 TEST( SGConnectivity, SubmitJobDirectModeDoesNotRequireClient )
