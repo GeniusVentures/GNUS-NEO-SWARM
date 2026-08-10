@@ -1,5 +1,5 @@
 /**
- * @file       genius_chat.cpp
+ * @file       main.cpp
  * @brief      CLI entry point for GNUS NEO SWARM
  * @date       2026-05-08
  *
@@ -51,7 +51,7 @@ struct Args
     std::string m_knowledgePath;
     int m_maxTokens = 512;
     float m_temperature = 0.7f;
-    std::string m_sgSdkPath = "./sdk";
+    std::string m_sgBasePath = "./sdk";
     std::string config_path_;
     bool network_ = false;
     bool serve_ = false;
@@ -74,7 +74,6 @@ static void PrintHelp( const char* prog )
               << "  --db <path>              Reputation DB (default: ./reputation.db)\n"
               << "  --key <path>             Node key file (default: ./node.key)\n"
               << "  --config <path>         JSON config file (CLI flags override file values)\n"
-              << "  --sg-sdk-path <path>      GeniusSDK data directory (default: ./sdk)\n"
               << "  --network                Enable P2P networking\n"
               << "  --knowledge <path>       Grokipedia facts CSV\n"
               << "  --max-tokens <n>         Max tokens (default: 512)\n"
@@ -128,8 +127,8 @@ static void LoadConfigFile( const std::string& path, Args& args )
         args.m_maxTokens = j["max_tokens"].get<int>();
     if ( j.contains( "temperature" ) && args.m_temperature == 0.7f )
         args.m_temperature = j["temperature"].get<float>();
-    if ( j.contains( "sg_sdk_path" ) && args.m_sgSdkPath == "./sdk" )
-        args.m_sgSdkPath = j["sg_sdk_path"].get<std::string>();
+    if ( j.contains( "sg_base_path" ) && args.m_sgBasePath == "./sdk" )
+        args.m_sgBasePath = j["sg_base_path"].get<std::string>();
     if ( j.contains( "network" ) && !args.network_ )
         args.network_ = j["network"].get<bool>();
     if ( j.contains( "verbose" ) && !args.verbose_ )
@@ -200,8 +199,6 @@ static Args ParseArgs( int argc, char** argv )
             args.m_temperature = std::stof( next() );
         else         if ( a == "--config" )
             args.config_path_ = next();
-        else if ( a == "--sg-sdk-path" )
-            args.m_sgSdkPath = next();
         else if ( a == "--network" )
             args.network_ = true;
         else if ( a == "--serve" )
@@ -308,9 +305,9 @@ int main( int argc, char** argv )
     cfg.m_knowledgeFacts = args.m_knowledgePath;
     cfg.m_enableNetwork = args.network_;
     cfg.m_enableKnowledge = true;
-    (void) args.port_;
+    cfg.m_grpcPort = args.port_;
     cfg.m_nodeKeyFile = args.key_file_;
-    cfg.m_sgSdkBasePath = args.m_sgSdkPath;
+    cfg.m_sgSdkBasePath = args.m_sgBasePath;
 
     // ELM configuration (Phase 7+)
     cfg.m_elmConfigs = std::move( args.m_elmConfigs );

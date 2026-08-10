@@ -64,6 +64,7 @@ target_sources(test_genius_elm_ffi PRIVATE "${NEOSWARM_ROOT}/src/genius_elm_chat
 neoswarm_test(test_fact_validation   knowledge/test_fact_validation.cpp      "neoswarm_knowledge;neoswarm_common")
 neoswarm_test(test_network           network/test_network.cpp                "neoswarm_network;neoswarm_security;neoswarm_common")
 neoswarm_test(test_sg_client         network/test_sg_client.cpp              "neoswarm_network;neoswarm_common")
+neoswarm_test(test_sg_connectivity   integration/test_sg_connectivity.cpp     "neoswarm_core;neoswarm_network;neoswarm_common")
 
 # P0 — Specialists
 neoswarm_test(test_math_specialist    specialists/test_math_specialist.cpp    "neoswarm_specialists;neoswarm_core;neoswarm_common")
