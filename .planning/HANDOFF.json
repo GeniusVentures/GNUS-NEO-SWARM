@@ -1,30 +1,62 @@
 {
   "version": "1.0",
-  "timestamp": "2026-06-22T03:27:37.154Z",
+  "timestamp": "2026-08-11T02:02:17.735Z",
   "phase": "03",
-  "phase_name": "fp4-quantization-artifact-integrity",
-  "phase_dir": ".planning/workstreams/poc/phases/03-fp4-quantization-artifact-integrity",
-  "workstream": "poc",
-  "workflow": "plan-phase",
-  "plan": null,
+  "phase_name": "gcs-globaldb-integration",
+  "phase_dir": ".planning/workstreams/neoswarm/phases/03-gcs-globaldb-integration",
+  "workstream": "neoswarm",
+  "workflow": "execute-phase",
+  "plan": "01",
   "task": null,
-  "total_tasks": 0,
+  "total_tasks": 3,
   "status": "paused",
-  "completed_tasks": [],
+  "completed_tasks": [
+    {"id": 1, "name": "CMake + error codes", "status": "done", "commit": "0bb1d7e"},
+    {"id": 2, "name": "GcsGlobalDb implementation", "status": "done", "commit": "bc6ab3c"},
+    {"id": 3, "name": "Lifecycle tests", "status": "done", "commit": "7b98fce"}
+  ],
   "remaining_tasks": [],
+  "interwave_work": {
+    "description": "Repo restructuring — move Flutter UI out of GNUS-NEO-SWARM into parent",
+    "status": "complete_not_committed",
+    "changes": {
+      "parent_repo": {
+        "branch": "feature/app-restructure",
+        "new": [
+          "app/src/ (was GNUS-NEO-SWARM/flutter_app)",
+          "app/src/scaffold/ (submodule: openapi-client-scaffold)",
+          "app/ffi/ (empty stub)"
+        ],
+        "deleted": [
+          "app/ui/ (chat_gnus merged into app/src/lib/main.dart)"
+        ],
+        "modified": [
+          ".gitmodules (added scaffold submodule)",
+          "app/src/pubspec.yaml (deps: flutter_chat_core + flutter_chat_ui, description)"
+        ]
+      },
+      "submodule": {
+        "branch": "feature/app-restructure",
+        "renamed": [
+          "flutter_slm_bridge → neoswarm_ffi (pubspec updated)"
+        ],
+        "deleted": [
+          "flutter_app/ (moved to parent app/src/)",
+          "ui/ (chat_gnus merged into app/src/lib/main.dart)"
+        ]
+      }
+    }
+  },
   "blockers": [],
-  "human_actions_pending": [],
+  "human_actions_pending": [
+    {"action": "Verify flutter pub get passes in app/src/", "context": "Dependencies changed (flutter_chat_core + flutter_chat_ui added). Parent CMake build unaffected.", "blocking": false}
+  ],
   "decisions": [
-    {"decision": "Research before planning", "rationale": "Phase 3 needs RESEARCH.md for Nyquist validation (Dimension 8). User chose option 1: research first.", "phase": "03"},
-    {"decision": "Branch from origin/main", "rationale": "Phase branching strategy requires branching off origin/HEAD per #2916", "phase": "03"}
+    {"decision": "chat_gnus merged into flutter_app (single Flutter project under app/src/)", "rationale": "User directive — flutter_app won't depend on flutter_ai_toolkit, flutter_chat_ui, flutter_chat_core directly; frontend_scaffold Phase 6 will provide widget toolkit. chat_gnus deps retained until replacements ship.", "phase": "03"},
+    {"decision": "neoswarm_ffi stays in GNUS-NEO-SWARM for CMake access", "rationale": "FFI bridging C++ side needs GNUS-NEO-SWARM build system. Flutter only consumes Dart side via path dependency.", "phase": "03"},
+    {"decision": "No commits pushed for restructuring yet", "rationale": "User wanted build verification first — now committing to feature/app-restructure for cross-machine pickup", "phase": "03"}
   ],
-  "uncommitted_files": [
-    ".planning/workstreams/poc/** (staged — from stash resolution during branch creation)",
-    "gnus-poc/.planning.consolidated/** (staged)",
-    "docs/** (staged)",
-    ".planning/workstreams/poc/STATE.md (untracked)",
-    ".planning/workstreams/poc/phases/03-fp4-quantization-artifact-integrity/VERIFICATION.md (untracked)"
-  ],
-  "next_action": "Spawn gsd-phase-researcher to produce 03-RESEARCH.md, then spawn gsd-planner for 3 PLAN.md files",
-  "context_notes": "Executed plan-phase for Phase 3 in poc workstream. CONTEXT.md already exists with 10 design decisions (D-01 to D-10). REQUIREMENTS.md has QUANT-01, QUANT-02, QUANT-03 mapped to Phase 3. User chose to research before planning. Researcher was about to be spawned with full context (CONTEXT.md, REQUIREMENTS.md, STATE.md) when interrupted. After research completes: planner → checker → execute-phase."
+  "uncommitted_files": ["app/src/ (entire tree)", "app/ffi/", ".gitmodules", "GNUS-NEO-SWARM (submodule pointer)", "GNUS-NEO-SWARM/neoswarm_ffi/ (rename)"],
+  "next_action": "Flutter pub get in app/src/ to verify deps resolve. Then Phase 3 Wave 2 (03-02): GCS reputation publisher.",
+  "context_notes": "Repo restructuring between Phase 3 Waves 1 and 2. Wave 1 (GcsGlobalDb skeleton) is fully committed and pushed on feature/phase3-gcs-globaldb. The restructuring moves Flutter UI code from the C++ submodule into the parent repo, following the pattern already established by genius-tube and genius-ai-boss (app/src/ + scaffold submodule + ffi/). No C++ build impact expected. Next wave (03-02) builds on GcsGlobalDb to publish reputation data to the GCS CRDT layer."
 }
