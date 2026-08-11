@@ -18,7 +18,25 @@ else()
 endif()
 
 # GeniusSDK — hard required: GcsGlobalDb::Initialize() calls GeniusSDKGetNode() (D-16a).
+#
+# The CMake-imported sgns::GeniusSDK_shared target's IMPORTED_LOCATION points at the
+# install prefix (${GENIUS_SDK_BUILD_DIR}/GeniusSDK/lib/libGeniusSDK_shared.dylib),
+# which lags the build tree output. GeniusSDKGetNode() was added in d550800 (Aug 3)
+# and is present in the build-tree dylib at ${GENIUS_SDK_BUILD_DIR}/src/... but not
+# yet in the install-prefix copy. Redirect the imported location at the newer dylib
+# when both exist; otherwise leave the imported default (which will fail at link
+# time with a clear "Undefined symbols: GeniusSDKGetNode" — the failure signal to
+# re-run `ninja install` in the GeniusSDK build).
 if(TARGET sgns::GeniusSDK_shared)
+    set(_GENIUSSDK_BUILD_DYLIB "${GENIUS_SDK_BUILD_DIR}/src/libGeniusSDK_shared.dylib")
+    if(EXISTS "${_GENIUSSDK_BUILD_DYLIB}")
+        set_target_properties(sgns::GeniusSDK_shared PROPERTIES
+            IMPORTED_LOCATION_DEBUG   "${_GENIUSSDK_BUILD_DYLIB}"
+            IMPORTED_LOCATION_RELEASE "${_GENIUSSDK_BUILD_DYLIB}"
+            IMPORTED_LOCATION         "${_GENIUSSDK_BUILD_DYLIB}"
+        )
+        message(STATUS "sgns::GeniusSDK_shared redirected to build-tree dylib (has GeniusSDKGetNode): ${_GENIUSSDK_BUILD_DYLIB}")
+    endif()
     target_link_libraries(neoswarm_storage PUBLIC sgns::GeniusSDK_shared)
     message(STATUS "GeniusSDK linked to neoswarm_storage")
 elseif(TARGET sgns::GeniusSDK)
