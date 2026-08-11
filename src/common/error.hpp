@@ -47,6 +47,9 @@ namespace sgns::neoswarm
         MemoryIngestionFailed = 20,   ///< failed write evaluation
         // ELM (Phase 7 — fail-close when Process() called before Load())
         NotLoaded = 21,               ///< ELM/ engine not loaded — cannot process
+        // GCS GlobalDB (Phase 3)
+        GcsDbError = 22,              ///< GCS GlobalDB operation failed (init, start, topic wiring)
+        SdkNotInitialized = 23,       ///< GeniusSDKGetNode() returned nullptr — SDK init chain has not run
     };
 
 } // namespace sgns::neoswarm

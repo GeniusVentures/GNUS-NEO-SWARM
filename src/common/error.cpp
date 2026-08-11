@@ -52,6 +52,10 @@ OUTCOME_CPP_DEFINE_CATEGORY_3( sgns::neoswarm, Error, e )
             return "Memory ingestion failed";
         case E::NotLoaded:
             return "ELM not loaded";
+        case E::GcsDbError:
+            return "GCS GlobalDB operation failed";
+        case E::SdkNotInitialized:
+            return "GeniusSDK not initialized";
     }
     return "Unknown error";
 }
