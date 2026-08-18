@@ -24,6 +24,8 @@
 #include <memory>
 
 #include <InputFormat.hpp>
+#include <processingbase/ProcessingManager.hpp>
+#include <processors/vulkan_gpu_probe.hpp>
 
 using namespace sgns::neoswarm;
 using namespace sgns::neoswarm::core;
@@ -223,6 +225,103 @@ TEST( SGProcessingPipeline, TensorModel_EndToEnd )
     EXPECT_FALSE( text_res.value().empty() );
 
     std::cout << "Tensor model output (first 80 chars): " << text_res.value().substr( 0, 80 ) << "...\n";
+}
+
+// ---------------------------------------------------------------------------
+// FP4_ULTRA / LLM integration test cases (Phase 4 plan 04-04, PROC-01/PROC-02)
+//
+// Both cases below call into ProcessingManager::Create(), which unconditionally
+// probes for a Vulkan device during Init() and takes VulkanInitMutex(). On any
+// host with a real, usable Vulkan device (confirmed present on this exact
+// Windows machine), that probe re-enters the same mutex already held by
+// ProcessingManager::Create()'s own capability-snapshot code and deadlocks --
+// a tracked, not-yet-fixed sgproc-render Phase 18 bug, out of this phase's
+// scope to fix:
+//   GeniusNetwork/.planning/todos/pending/2026-08-10-fix-vulkan-capability-probe-deadlock-in-processingmanager-cr.md
+//
+// NOTE: the skip condition below is deliberately INVERTED from
+// capture_smoke_test.cpp's own use of HasUsableVulkanDevice() (which skips
+// when NO device is present, since that test needs one). Here the risk is
+// the opposite: we skip WHEN a device IS present, because that is exactly
+// the condition that triggers the deadlock. Do not "fix" this to match the
+// more common pattern -- a GPU-less host is what lets these two cases run.
+// ---------------------------------------------------------------------------
+
+TEST( SGProcessingPipeline, Fp4UltraFormat_DispatchesToTensorProcessor )
+{
+    if ( sgns::sgprocessing::HasUsableVulkanDevice() )
+    {
+        GTEST_SKIP() << "Real Vulkan device present -- ProcessingManager::Create() would deadlock via the "
+                        "tracked, not-yet-fixed VulkanInitMutex re-entrancy bug (sgproc-render Phase 18, "
+                        "GeniusNetwork/.planning/todos/pending/"
+                        "2026-08-10-fix-vulkan-capability-probe-deadlock-in-processingmanager-cr.md). Skipping "
+                        "rather than hanging.";
+    }
+
+    const std::string data_dir = TestDataPath();
+    const std::string model_uri = "file://" + data_dir + "tensor_tiny.mnn";
+    const std::string input_uri = "file://" + data_dir + "tensor_input.raw";
+
+    if ( !FileExists( data_dir + "tensor_tiny.mnn" ) )
+    {
+        GTEST_SKIP() << "Test data not found at: " << data_dir;
+    }
+
+    // FP4_ULTRA is a TENSOR-typed InputFormat (D-10/D-13) -- SubmitJob() must dispatch
+    // this job to the TENSOR processor's validated path rather than being rejected as
+    // an unrecognized DataType/format combination.
+    SGProcessingBridge bridge;
+    auto ioc = std::make_shared<boost::asio::io_context>();
+    auto result = bridge.SubmitJob( model_uri, input_uri, sgns::InputFormat::FP4_ULTRA, { 1, 64 }, ioc );
+
+    ASSERT_TRUE( result.has_value() ) << "SGProcessingBridge::SubmitJob (FP4_ULTRA) failed to dispatch";
+    EXPECT_FALSE( result.value().empty() ) << "Process() returned empty bytes for FP4_ULTRA job";
+}
+
+TEST( SGProcessingPipeline, LlmDataType_JobReachesRegisteredProcessor )
+{
+    if ( sgns::sgprocessing::HasUsableVulkanDevice() )
+    {
+        GTEST_SKIP() << "Real Vulkan device present -- ProcessingManager::Create() would deadlock via the "
+                        "tracked, not-yet-fixed VulkanInitMutex re-entrancy bug (sgproc-render Phase 18, "
+                        "GeniusNetwork/.planning/todos/pending/"
+                        "2026-08-10-fix-vulkan-capability-probe-deadlock-in-processingmanager-cr.md). Skipping "
+                        "rather than hanging.";
+    }
+
+    const std::string data_dir = TestDataPath();
+    const std::string model_uri = "file://" + data_dir + "bert-tiny.mnn";
+    const std::string input_uri = "file://" + data_dir + "string_input.raw";
+
+    if ( !FileExists( data_dir + "bert-tiny.mnn" ) )
+    {
+        GTEST_SKIP() << "Test data not found at: " << data_dir;
+    }
+
+    // DataType::LLM (added by Phase 4 plan 04-03, guarded by SGPROC_HAS_MNN_LLM) has no
+    // dedicated InputFormat/type-string mapping in SGProcessingBridge -- build a schema
+    // via the normal FLOAT32 path, then patch the modelInput's "type" field to "llm" so
+    // this test exercises the same JSON-parse/registration-lookup path a real LLM job's
+    // schema would use, without requiring SGProcessingBridge itself to grow LLM-specific
+    // schema-building support (out of scope for this plan).
+    SGProcessingBridge bridge;
+    auto schema_res = bridge.BuildSchemaJson( model_uri, input_uri, sgns::InputFormat::FLOAT32, { 1, 128 } );
+    ASSERT_TRUE( schema_res.has_value() );
+
+    std::string json = schema_res.value();
+    const std::string needle = "\"type\":\"float\"";
+    const auto pos = json.find( needle );
+    ASSERT_NE( pos, std::string::npos ) << "Expected a \"type\":\"float\" input field to patch to \"llm\"";
+    json.replace( pos, needle.size(), "\"type\":\"llm\"" );
+
+    // At minimum, a schema with a valid "llm" type string must reach
+    // ProcessingManager::Create() without an INVALID_JSON error -- whether DataType::LLM
+    // has a registered processor factory in this build (it does not in this environment;
+    // see 04-03-SUMMARY.md's SGPROC_HAS_MNN_LLM guard) is a separate, later-stage concern
+    // (NO_PROCESSOR), not a JSON-parse failure.
+    auto pm_result = sgns::sgprocessing::ProcessingManager::Create( json );
+    ASSERT_TRUE( pm_result.has_value() ) << "Schema with type=\"llm\" failed at ProcessingManager::Create() "
+                                             "(expected to reach Create() without an INVALID_JSON error)";
 }
 
 // ---------------------------------------------------------------------------
