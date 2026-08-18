@@ -80,6 +80,21 @@ TEST( SGProcessingBridge, BuildSchemaJson_ValidInputs )
     EXPECT_NE( res.value().find( "\"float\"" ), std::string::npos );
 }
 
+TEST( SGProcessingBridge, BuildSchemaJson_Fp4Ultra )
+{
+    SGProcessingBridge bridge;
+    auto res = bridge.BuildSchemaJson( "file:///models/fp4-model.mnn", "file:///data/fp4_input.bin",
+                                       sgns::InputFormat::FP4_ULTRA, { 1, 64 } );
+
+    ASSERT_TRUE( res.has_value() );
+    // FP4_ULTRA must dispatch to the "tensor" DataType (a valid from_json selector) —
+    // "fp4_ultra" is not a recognized DataType and must never appear anywhere in the
+    // generated schema. The encoding itself is carried only in the separate "format" field.
+    EXPECT_NE( res.value().find( "\"type\":\"tensor\"" ), std::string::npos );
+    EXPECT_NE( res.value().find( "\"format\":\"FP4_ULTRA\"" ), std::string::npos );
+    EXPECT_EQ( res.value().find( "fp4_ultra" ), std::string::npos );
+}
+
 TEST( SGProcessingBridge, BuildSchemaJson_EmptyModelUri_ReturnsError )
 {
     SGProcessingBridge bridge;
