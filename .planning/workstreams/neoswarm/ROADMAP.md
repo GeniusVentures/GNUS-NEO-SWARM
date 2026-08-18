@@ -69,9 +69,15 @@ Production readiness for the GNUS NEO SWARM decentralized AI inference engine. T
   2. SGProcessingManager includes an FP4_ULTRA input format processor for quantized model dispatch
   3. SentencePiece and SGProcessing coexist in the same build binary without protobuf version symbol conflicts
   4. Test binaries link successfully with SGProcessingManager enabled (no duplicate symbol errors)
-**Plans**: TBD
+**Plans**: 4 plans (2 waves)
 
-**State note (2026-07-26):** SGProcessingManager is linked from `src/core/CMakeLists.txt`. `SGProcessingBridge` builds JSON schema and calls `ProcessingManager::Create() + Process()` locally. MNN processors exist in SuperGenius (18 types). FP4_ULTRA processor does not yet exist in SuperGenius — PROC-02 is SuperGenius-side work requiring coordination. SentencePiece/protobuf conflict handled via `-ld_classic` on macOS; Linux/Windows paths TBD.
+Plans:
+- [ ] 04-01-PLAN.md — Wave 1 (NEO-SWARM): CMake relink to GeniusNetwork/SuperGenius build output + SGProcessingBridge compile-break fixes + stale docs correction (PROC-03, FIX-04)
+- [ ] 04-02-PLAN.md — Wave 1 (SuperGenius): FP4_ULTRA schema validation + MNN_Tensor dispatch plumbing, wire+stub per D-08/D-09 (PROC-02)
+- [ ] 04-03-PLAN.md — Wave 2 (SuperGenius, depends on 04-02): New DataType::LLM + MNN_Llm autoregressive processor (PROC-01)
+- [ ] 04-04-PLAN.md — Wave 2 (NEO-SWARM, depends on 04-01): Delete duplicate raw-MNN sampling loop, remove orphaned fp4_codec reference, add Vulkan-deadlock-documented integration tests (PROC-01, PROC-02)
+
+**State note (2026-08-18):** Re-verified against the live `dev_childwallet` checkout (`W:\gnus\GeniusNetwork\SuperGenius`, the sole canonical checkout — the old `dev_persisprocresults` standalone checkout has been deleted). Relinking alone is not sufficient: the `sgproc-render` workstream's rework changed `ProcessingManager::Process()`'s return type (now `ProcessOutput`, not a bare byte vector) and `ProcessingProcessor::StartProcessing()`'s signature (now 6-arg, `ExecutionContext`-aware) — both require source changes in NEO-SWARM's bridge, not just a CMake path fix. A pre-existing, out-of-scope `VulkanInitMutex` re-entrancy deadlock (tracked as `sgproc-render` Phase 18) blocks any local end-to-end verification of `ProcessingManager::Create()` on this real-Vulkan-device machine — documented and skip-gated in plan 04-04, not silently worked around.
 
 ### Phase 5: Production Hardening
 **Goal**: All known bugs and hardcoded values are eliminated; the engine is robust against re-initialization and malformed input
