@@ -157,6 +157,10 @@ None - no external service configuration required.
 - **Blocker for empirical verification:** the pre-existing `get_third_party_dir()` thirdparty-resolution issue (see Issues Encountered) will block ANY actual build/test run in this checkout — including verifying this plan's own changes — until fixed. This is out of this plan's and this phase's scope per 04-CONTEXT.md/04-RESEARCH.md, but should be raised as a standalone concern before Phase 4's later plans attempt real build verification.
 - The known `VulkanInitMutex` re-entrancy deadlock (sgproc-render Phase 18, tracked upstream in GeniusNetwork) will separately block any real `ProcessingManager::Create()` call on this Windows machine once the build issue above is resolved — documented in 04-RESEARCH.md, not addressed here.
 
+## Self-Check: PASSED
+
+All 7 claimed files confirmed present on disk; all 5 claimed commit hashes (`8e375e3`, `b83eb57`, `83a0e84`, `928e21a`, `d61d198`) confirmed present in git log.
+
 ---
 *Phase: 04-sgprocessing-integration*
 *Completed: 2026-08-18*
