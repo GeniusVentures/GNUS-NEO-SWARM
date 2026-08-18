@@ -431,10 +431,9 @@ This is the exact re-confirmed current line (line 894 on `dev_childwallet` — d
 
 ### Genuinely new open question raised by this research (not in CONTEXT.md, needs user input before PROC-02 implementation)
 
-1. **Which FP4 format does `SGProcessingBridge`'s `InputFormat::FP4_ULTRA` actually need to target?**
+1. **Which FP4 format does `SGProcessingBridge`'s `InputFormat::FP4_ULTRA` actually need to target? — RESOLVED (see CONTEXT.md D-13)**
    - What we know: Three incompatible "FP4" implementations exist across the ecosystem (NEO-SWARM's dead NF4 codec, MNN_Ultra's E2M1 kernel, the `poc` workstream's SGFP4 v2 Python exporter). D-09 assumes a single "MNN's own decode" target exists.
-   - What's unclear: Whether `FP4_ULTRA` was always meant to mean "whatever MNN_Ultra ships" specifically, or whether it was meant to interoperate with NEO-SWARM's own `fp4_codec.hpp` (which predates this phase and is currently unused) or the separate `poc` workstream's export pipeline.
-   - Recommendation: Surface this explicitly to the user before PROC-02 implementation begins (likely during `/gsd-plan-phase`'s own discuss/confirm step, or as an explicit checkpoint in the plan) — the answer determines whether NEO-SWARM's `fp4_codec.hpp`/`.cpp` should be deleted as orphaned code (if the answer is "MNN_Ultra's E2M1, always") or kept/reconciled (if there's a reason both need to coexist).
+   - **Resolution (2026-08-18, confirmed by user during `/gsd-plan-phase`):** `FP4_ULTRA` targets MNN_Ultra's E2M1 encoding. NEO-SWARM's `fp4_codec.hpp` is confirmed orphaned/incorrect legacy code (predates this work, not written against MNN_Ultra's format) — flag for removal or explicit re-justification during this phase, do not build PROC-02 around it. The `poc` workstream's SGFP4 v2 exporter is unrelated — it targets ONNX export for `mnnconvert`, a separate pipeline, not an alternative FP4_ULTRA wire format. See CONTEXT.md D-13 for the locked decision.
 
 ## Environment Availability
 
