@@ -27,7 +27,7 @@ Requirements for production readiness milestone. Each maps to roadmap phases.
 
 ### SGProcessing
 
-- [ ] **PROC-01**: Add MNN LLM text generation processor to SGProcessingManager (SuperGenius repo)
+- [x] **PROC-01**: Add MNN LLM text generation processor to SGProcessingManager (SuperGenius repo)
 - [x] **PROC-02**: Add FP4_ULTRA input format processor to SGProcessingManager (SuperGenius repo)
 - [x] **PROC-03**: Resolve SentencePiece/SGProcessing protobuf version conflict (unified protobuf version)
 

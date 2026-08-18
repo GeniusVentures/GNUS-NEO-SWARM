@@ -11,7 +11,7 @@ Production readiness for the GNUS NEO SWARM decentralized AI inference engine. T
 - [~] **Phase 1: Security Hardening** — Real secp256k1 identity, message signing, key encryption, replay protection
 - [~] **Phase 2: SuperGenius Connectivity** — GeniusSDK dispatch to SuperGenius compute network via libp2p GossipSub pubsub
 - [ ] **Phase 3: GCS GlobalDB Integration** — Dedicated GlobalDB instance with `/gcs/` namespaces; reputation state migrated from direct RocksDB to CRDT-backed GlobalDB
-- [ ] **Phase 4: SGProcessing Integration** — MNN LLM and FP4_ULTRA processors, protobuf symbol conflict resolution
+- [x] **Phase 4: SGProcessing Integration** — MNN LLM and FP4_ULTRA processors, protobuf symbol conflict resolution (completed 2026-08-18)
 - [ ] **Phase 5: Production Hardening** — Eliminate hardcoded values, fix re-init edge cases, robust JSON parsing (mostly complete — fold remaining into Phase 6)
 - [ ] **Phase 6: Testing & Validation** — Automated test coverage for security, FFI, knowledge, network, and Phase 5 verification remnants
 
@@ -81,7 +81,7 @@ Production readiness for the GNUS NEO SWARM decentralized AI inference engine. T
   3. SentencePiece and SGProcessing coexist in the same build binary without protobuf version symbol conflicts
   4. Test binaries link successfully with SGProcessingManager enabled (no duplicate symbol errors)
 
-**Plans**: 2/4 plans executed
+**Plans**: 4/4 plans complete
 
 Plans:
 **Wave 1**
@@ -91,8 +91,8 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 04-03-PLAN.md — Wave 2 (SuperGenius, depends on 04-02): New DataType::LLM + MNN_Llm autoregressive processor (PROC-01)
-- [ ] 04-04-PLAN.md — Wave 2 (NEO-SWARM, depends on 04-01): Delete duplicate raw-MNN sampling loop, remove orphaned fp4_codec reference, add Vulkan-deadlock-documented integration tests (PROC-01, PROC-02)
+- [x] 04-03-PLAN.md — Wave 2 (SuperGenius, depends on 04-02): New DataType::LLM + MNN_Llm autoregressive processor (PROC-01)
+- [x] 04-04-PLAN.md — Wave 2 (NEO-SWARM, depends on 04-01): Delete duplicate raw-MNN sampling loop, remove orphaned fp4_codec reference, add Vulkan-deadlock-documented integration tests (PROC-01, PROC-02)
 
 **State note (2026-08-18):** Re-verified against the live `dev_childwallet` checkout (`W:\gnus\GeniusNetwork\SuperGenius`, the sole canonical checkout — the old `dev_persisprocresults` standalone checkout has been deleted). Relinking alone is not sufficient: the `sgproc-render` workstream's rework changed `ProcessingManager::Process()`'s return type (now `ProcessOutput`, not a bare byte vector) and `ProcessingProcessor::StartProcessing()`'s signature (now 6-arg, `ExecutionContext`-aware) — both require source changes in NEO-SWARM's bridge, not just a CMake path fix. A pre-existing, out-of-scope `VulkanInitMutex` re-entrancy deadlock (tracked as `sgproc-render` Phase 18) blocks any local end-to-end verification of `ProcessingManager::Create()` on this real-Vulkan-device machine — documented and skip-gated in plan 04-04, not silently worked around.
 
