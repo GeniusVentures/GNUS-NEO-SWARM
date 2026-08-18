@@ -82,7 +82,7 @@ network. GNUS-NEO-SWARM connects as a client via `SGProcessingBridge`:
 **Known Issues:**
 - MessageSigning::Verify always returns true — zero inter-node auth
 - NodeIdentity private key stored as plain hex on disk
-- SentencePiece and SGProcessing have protobuf symbol conflict (cannot link both)
+- ~~SentencePiece and SGProcessing have protobuf symbol conflict (cannot link both)~~ — CORRECTED (Phase 4 research, 2026-08-18): this conflict does not exist in the current codebase. SentencePiece was never actually integrated (no implementation file, no compile flag). The real historical concern was informal, undocumented protobuf-version consolidation across the SGProcessing dependency chain, now resolved by linking a single SGProcessingManager build (Phase 4, plan 04-01).
 - ExtractPrompt uses manual JSON parsing (fragile, no nlohmann/json)
 - gRPC serve mode is a busy-wait sleep loop (stub)
 - P2P libp2p integration is skeleton code, swarm falls back to single-node
