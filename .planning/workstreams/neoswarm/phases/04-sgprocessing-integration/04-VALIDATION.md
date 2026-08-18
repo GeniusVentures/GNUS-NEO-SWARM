@@ -1,9 +1,9 @@
 ---
 phase: 4
 slug: sgprocessing-integration
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: planned
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-08-18
 ---
 
@@ -38,10 +38,19 @@ created: 2026-08-18
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| TBD (assigned at plan time) | TBD | TBD | PROC-01 | V5 (input validation) | New LLM processor generates coherent multi-token text via `ProcessingManager::Process()` | integration | New test, e.g. `SGProcessingManager/test/src/mnn_llm_processor_test.cpp` | ❌ Wave 0 | ⬜ pending |
-| TBD (assigned at plan time) | TBD | TBD | PROC-02 | V5 (input validation) | FP4_ULTRA input (E2M1, per D-13) passes `CheckProcessValidity()` and dispatches to a registered processor | unit | New test alongside existing `processing_datatypes_test.cpp` fixtures | ❌ Wave 0 | ⬜ pending |
-| TBD (assigned at plan time) | TBD | TBD | PROC-03 | — | Single protobuf version confirmed across the whole link (no duplicate-symbol errors) | build-verification | Full rebuild + link of `neoswarm_core` and its test binaries | N/A — verified by build success, not a test file | ⬜ pending |
-| TBD (assigned at plan time) | TBD | TBD | FIX-04 | — | Test binaries link and run without duplicate-symbol errors on available platforms | build-verification | `ctest` (any suite) succeeding to link | N/A | ⬜ pending |
+| 04-01 Task 1 | 04-01 | 1 | PROC-03, FIX-04 | — | CMake relinks against GeniusNetwork's real SuperGenius build output; `neoswarm_core` links cleanly | build-verification | `cmake ... && cmake --build ... --target neoswarm_core` (grep-confirms "SGProcessingManager: linked") | ✅ | ⬜ pending |
+| 04-01 Task 2 | 04-01 | 1 | PROC-03, FIX-04 | V5 | `SGProcessingBridge` `ProcessOutput`/`InputFormatToTypeString(FP4_ULTRA)` fixes compile and dispatch correctly | unit | `ctest -R "SGProcessingBridge.BuildSchemaJson_Fp4Ultra"` | ✅ | ⬜ pending |
+| 04-01 Task 3 | 04-01 | 1 | PROC-03 | — | Stale SentencePiece/protobuf-conflict docs corrected (no `GENIUS_HAS_SENTENCEPIECE` references remain) | doc-verification | `! grep -q "GENIUS_HAS_SENTENCEPIECE" CONCERNS.md PROJECT.md` | ✅ | ⬜ pending |
+| 04-02 Task 1 | 04-02 | 1 | PROC-02 | V5 | FP4_ULTRA re-enabled in `TENSOR` DataType validation (D-10/D-13) | source-verification | `! grep -q "format != sgns::InputFormat::FP4_ULTRA\*/" ProcessingManager.cpp` | ✅ | ⬜ pending |
+| 04-02 Task 2 | 04-02 | 1 | PROC-02 | V5, DoS (Pitfall: malformed buffer) | `MNN_Tensor` handles FP4_ULTRA format with fail-closed structured error (E2M1 decode not yet merged) | unit | `ctest -R MNNTensorFp4Test` | ✅ | ⬜ pending |
+| 04-02 Task 3 | 04-02 | 1 | PROC-02 | — | FP4_ULTRA dispatch end-to-end through `CheckProcessValidity()` | unit | `cmake --build . --target mnn_tensor_fp4_test && ctest -R MNNTensorFp4Test --timeout 30` | ✅ | ⬜ pending |
+| 04-03 Task 1 | 04-03 | 2 (deps: 04-02) | PROC-01 | — | New `DataType::LLM` enum value registered in generated schema | source-verification | `grep -c "DataType::LLM" DataType.hpp Generators.hpp` | ✅ | ⬜ pending |
+| 04-03 Task 2 | 04-03 | 2 | PROC-01 | V5 | `MNN_Llm` processor skeleton: class scaffold, model materialization, `VulkanInitMutex()`-guarded load, fail-closed on load failure | build-verification | `cmake --build . --target SGProcessors` | ❌ Wave 0 (new file) | ⬜ pending |
+| 04-03 Task 3 | 04-03 | 2 | PROC-01 | DoS (Pitfall: unbounded generation) | Generation loop via `MNN::Transformer::Llm::response()`, `PushTeardown()`, cancellation + progress + hash wiring, `DataType::LLM` registered in `Init()` | build-verification | `cmake --build . --target SGProcessors` | ❌ Wave 0 (new file) | ⬜ pending |
+| 04-03 Task 4 | 04-03 | 2 | PROC-01 | V5 | New LLM processor generates coherent multi-token text via `ProcessingManager::Process()` | integration | `cmake --build . --target mnn_llm_test && ctest -R MNNLlmTest --timeout 30` | ❌ Wave 0 (new file) | ⬜ pending |
+| 04-04 Task 1 | 04-04 | 2 (deps: 04-01) | PROC-01, PROC-02 | — | Duplicate hand-rolled sampling loop (`InferViaStandardInterpreter`/`SampleToken`/`ApplyRepetitionPenalty`) deleted (D-06) | source+build-verification | `! grep -qE "InferViaStandardInterpreter\|SampleToken\|ApplyRepetitionPenalty" ... && cmake --build ... --target neoswarm_core` | ✅ | ⬜ pending |
+| 04-04 Task 2 | 04-04 | 2 | PROC-01, PROC-02 | — | Orphaned `fp4_codec`/`FP4Codec` member removed (D-13) | source+build+unit | `! grep -q "fp4_codec\|FP4Codec" ... && cmake --build ... --target neoswarm_core test_fp4_codec && ctest -R test_fp4_codec` | ✅ | ⬜ pending |
+| 04-04 Task 3 | 04-04 | 2 | PROC-01, PROC-02 | V5 | End-to-end FP4_ULTRA + LLM dispatch through `SGProcessingBridge` (schema-level; `ProcessingManager::Create()`-dependent path is a documented Manual-Only item, see below) | integration | `ctest -R "SGProcessingPipeline.(Fp4UltraFormat_DispatchesToTensorProcessor\|LlmDataType_JobReachesRegisteredProcessor)" --timeout 15` | ✅ | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -49,9 +58,9 @@ created: 2026-08-18
 
 ## Wave 0 Requirements
 
-- [ ] New processor test (SuperGenius side) — no test currently exercises an MNN LLM generation processor or FP4_ULTRA end-to-end (PROC-01, PROC-02)
-- [ ] `test/integration/test_sgprocessing_pipeline.cpp` (NEO-SWARM) — only exercises FLOAT32 today; needs an FP4_ULTRA/LLM case added
-- [ ] `SUPERGENIUS_TEST_DATA_DIR` CMake variable fix — currently points at a nonexistent sibling `../SuperGenius/test/src` path; required before any SuperGenius-fixture-dependent NEO-SWARM test can locate its data
+- [x] New processor tests (SuperGenius side) — `mnn_tensor_fp4_test` (04-02 Task 3) and `mnn_llm_test` (04-03 Task 4) cover FP4_ULTRA and MNN LLM generation respectively
+- [x] `test/integration/test_sgprocessing_pipeline.cpp` (NEO-SWARM) — 04-04 Task 3 adds `Fp4UltraFormat_DispatchesToTensorProcessor` and `LlmDataType_JobReachesRegisteredProcessor` cases
+- [x] `SUPERGENIUS_TEST_DATA_DIR` CMake variable fix — 04-01 Task 1 repoints it at `${GENIUSNETWORK_SUPERGENIUS_DIR}/test/src`
 
 ---
 
@@ -66,11 +75,13 @@ created: 2026-08-18
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < N/A (build-gated, see Sampling Rate)
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies (confirmed by gsd-plan-checker re-verification pass)
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < N/A (build-gated, see Sampling Rate)
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved 2026-08-18 (gsd-plan-checker re-verification pass 1/3 — VERIFICATION PASSED)
+
+**Known limitation carried forward, not resolved here:** the `VulkanInitMutex` deadlock (Pitfall 4) means no task's automated verify can exercise a real `ProcessingManager::Create()` call end-to-end on this machine — see Manual-Only Verifications above. All automated commands above were designed to route around that constraint (unit tests calling processors directly, or schema-level dispatch checks), per the plan checker's confirmation that "no acceptance criterion anywhere would hang on this machine."
