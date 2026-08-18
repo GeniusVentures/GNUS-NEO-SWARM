@@ -55,7 +55,10 @@ namespace sgns::neoswarm::core
                 case sgns::InputFormat::RGBA8:
                     return "texture2d";
                 case sgns::InputFormat::FP4_ULTRA:
-                    return "fp4_ultra"; // FP4_ULTRA → dedicated processor
+                    return "tensor"; // FP4_ULTRA is a TENSOR-typed InputFormat (wire encoding);
+                                      // the DataType/"type" selector stays "tensor" — the encoding
+                                      // itself is communicated separately via the "format" field
+                                      // (see InputFormatToFormatString below), not conflated here.
                 default:
                     return "tensor";
             }
@@ -335,12 +338,11 @@ namespace sgns::neoswarm::core
 
         BridgeLogger()->debug( "Process() succeeded: {} bytes, {} chunk hashes", process_result.value().size(),
                                chunkhashes.size() );
-        return outcome::success( process_result.value() );
-
-        (void) jsondata;
-        (void) ioc;
-        BridgeLogger()->warn( "SGProcessingBridge: SGProcessingManager not compiled in — stub mode" );
-        return outcome::success( std::vector<uint8_t>{} );
+        // ProcessOutput offers size()/empty()/begin()/end() delegating to its internal
+        // combinedHash member, but no implicit conversion to std::vector<uint8_t> —
+        // construct the vector explicitly from its iterators.
+        return outcome::success(
+            std::vector<uint8_t>( process_result.value().begin(), process_result.value().end() ) );
     }
 
     // -----------------------------------------------------------------------
