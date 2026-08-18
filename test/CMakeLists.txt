@@ -33,9 +33,15 @@ endif()
 enable_testing()
 
 # Path to SuperGenius processing_datatypes test data
-# Used by test_sgprocessing_pipeline for Phase 1 integration tests
+# Used by test_sgprocessing_pipeline for Phase 1 integration tests.
+# GENIUSNETWORK_SUPERGENIUS_DIR is defined as a CACHE variable in
+# src/core/CMakeLists.txt, which is add_subdirectory'd before this file —
+# fall back to the same default if it's somehow not yet defined.
+if(NOT DEFINED GENIUSNETWORK_SUPERGENIUS_DIR)
+    set(GENIUSNETWORK_SUPERGENIUS_DIR "${CMAKE_SOURCE_DIR}/../../GeniusNetwork/SuperGenius")
+endif()
 set(SUPERGENIUS_TEST_DATA_DIR
-    "${CMAKE_SOURCE_DIR}/../SuperGenius/test/src"
+    "${GENIUSNETWORK_SUPERGENIUS_DIR}/test/src"
     CACHE PATH "Path to SuperGenius test/src directory containing processing_datatypes/")
 
 # Helper macro
