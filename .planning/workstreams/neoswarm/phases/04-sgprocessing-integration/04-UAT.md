@@ -18,7 +18,7 @@ awaiting: user response
 
 ### 1. NEO-SWARM full build/link confirmation (PROC-03/FIX-04, plans 04-01/04-04)
 expected: Configure succeeds and reports the new `GeniusNetwork/SuperGenius` link path; `neoswarm_core` and `test_sgprocessing_pipeline` build with zero unresolved-symbol errors; `SGProcessingBridge.BuildSchemaJson_Fp4Ultra` passes; the two new integration tests report SKIPPED (not hanging) on this real-Vulkan-device machine.
-result: [pending]
+result: [in progress] The original blocker (pre-existing `get_third_party_dir()` thirdparty-path resolution failure) is fixed — CMake configure now succeeds end-to-end. A second, distinct blocker surfaced immediately after: `neoswarm_core` fails to compile (`mnn_inference_engine.cpp` cannot find `MNN/llm/llm.hpp`), same root cause as plan 04-03's `SGPROC_HAS_MNN_LLM` finding (vendored MNN built with `MNN_BUILD_LLM=OFF`), but NEO-SWARM's own code has no equivalent guard. Tracked as debug session `.planning/debug/neoswarm-mnn-llm-header.md` — resume with `/gsd-debug continue neoswarm-mnn-llm-header`.
 
 ### 2. MNN LLM processor real execution (PROC-01, plan 04-03)
 expected: After rebuilding the vendored MNN thirdparty library with `MNN_BUILD_LLM=ON` and reconfiguring SuperGenius, `SGPROC_HAS_MNN_LLM` evaluates TRUE at configure time, the `mnn_llm_test` target is generated and builds, and `ctest -C Release -R MNNLlmTest` passes both GTest cases (`EmptyModelFileFailsClosedWithResourceResolution`, `PreCancelledTokenFailsClosedWithCancelled`).
