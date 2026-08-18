@@ -17,7 +17,6 @@
 #define NEOSWARM_CORE_ENGINE_MNNINFERENCEENGINE_HPP
 
 #include "inference_engine.hpp"
-#include "core/fp4/fp4_codec.hpp"
 #include "core/sgprocessing/sg_processing_bridge.hpp"
 #include "core/sgprocessing/tensor_interpreter.hpp"
 #include "core/tokenizer/tokenizer.hpp"
@@ -154,7 +153,6 @@ namespace sgns::neoswarm::core
         std::atomic<bool> m_loaded = false;
         std::string m_modelPath;
         std::shared_ptr<Tokenizer> m_tokenizer;
-        fp4::FP4Codec m_fp4Codec;
 
         // Inference-path helpers (extracted from Infer for size/complexity)
         outcome::result<InferenceResponse> InferViaSGProcessing( const Task& task );

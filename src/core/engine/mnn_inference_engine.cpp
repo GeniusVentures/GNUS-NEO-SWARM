@@ -73,7 +73,6 @@ namespace sgns::neoswarm::core
     MNNInferenceEngine::MNNInferenceEngine( Config cfg )
         : m_cfg( std::move( cfg ) )
     {
-        (void) m_fp4Codec;
     }
 
     MNNInferenceEngine::~MNNInferenceEngine()
