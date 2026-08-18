@@ -28,8 +28,8 @@ Requirements for production readiness milestone. Each maps to roadmap phases.
 ### SGProcessing
 
 - [ ] **PROC-01**: Add MNN LLM text generation processor to SGProcessingManager (SuperGenius repo)
-- [ ] **PROC-02**: Add FP4_ULTRA input format processor to SGProcessingManager (SuperGenius repo)
-- [ ] **PROC-03**: Resolve SentencePiece/SGProcessing protobuf version conflict (unified protobuf version)
+- [x] **PROC-02**: Add FP4_ULTRA input format processor to SGProcessingManager (SuperGenius repo)
+- [x] **PROC-03**: Resolve SentencePiece/SGProcessing protobuf version conflict (unified protobuf version)
 
 ### Persistence & Reliability
 
@@ -43,7 +43,7 @@ Requirements for production readiness milestone. Each maps to roadmap phases.
 - [ ] **FIX-01**: Fix FFI re-init edge case — verify no `std::call_once` / `g_init_flag` deadlock (no code found, needs test confirmation)
 - [x] **FIX-02**: Remove hardcoded vocab size — use `tokenizer_->VocabSize()` dynamically (implemented in `mnn_inference_engine.cpp:510`)
 - [x] **FIX-03**: Replace manual JSON parsing with `nlohmann::json::parse` in `ExtractPrompt` (implemented in `genius_elm_chat_completions.cpp:114`)
-- [ ] **FIX-04**: Fix test binary linker errors with SGProcessingManager enabled (duplicate protobuf symbols — `-ld_classic` on macOS, needs cross-platform verification)
+- [x] **FIX-04**: Fix test binary linker errors with SGProcessingManager enabled (duplicate protobuf symbols — `-ld_classic` on macOS, needs cross-platform verification)
 
 ### Testing
 
@@ -163,7 +163,7 @@ Which phases cover which requirements. Updated 2026-06-18 after refactor.
 | SG-05 | Phase 2 | Pending |
 | PROC-01 | Phase 4 | Pending (SuperGenius repo) |
 | PROC-02 | Phase 4 | Pending (SuperGenius repo) |
-| PROC-03 | Phase 4 | Pending |
+| PROC-03 | Phase 4 | Complete |
 | PERS-01 | Phase 3 | 🔄 Reworked (GCS GlobalDB, prior RocksDB wrapper discarded) |
 | PERS-02 | Phase 3 | Pending (via GCS GlobalDB `/gcs/reputation/` + CRDT topics) |
 | PERS-03 | Phase 3 | Pending |
@@ -171,7 +171,7 @@ Which phases cover which requirements. Updated 2026-06-18 after refactor.
 | FIX-01 | Phase 5 | Pending (needs test) |
 | FIX-02 | Phase 5 | ✅ Done (dynamic vocab size) |
 | FIX-03 | Phase 5 | ✅ Done (nlohmann::json) |
-| FIX-04 | Phase 4 | Pending |
+| FIX-04 | Phase 4 | Complete |
 | TEST-01 | Phase 6 | Pending |
 | TEST-02 | Phase 6 | Pending |
 | TEST-03 | Phase 6 | Pending |
@@ -196,6 +196,7 @@ Which phases cover which requirements. Updated 2026-06-18 after refactor.
 | REP-01..03, SWARM-01..02 | Phase 9 | Pending (re-scoped to consensus logic 2026-07-26) |
 
 **Coverage:**
+
 - v1 requirements: 36 total (26 original + NET-01/02 + 8 ELM Phase 7)
 - Done: 22 (61%)
 - Reworked/Regenerating: 5 (PERS-01, GAML-01..04)
