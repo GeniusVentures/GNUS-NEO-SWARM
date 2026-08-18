@@ -6,7 +6,9 @@
  * Design:
  *   - Backend selection (Vulkan/CPU) is runtime config, not compile-time.
  *   - SGProcessing is the primary inference path (Phase 1 local, Phase 2 network).
- *   - MNN Interpreter is a fallback for standard single-file .mnn models.
+ *   - MNN's native Transformer::Llm API is the fallback for LLM-directory models
+ *     ("interpreter" mode). Duplicate hand-rolled raw-MNN sampling logic has been
+ *     removed per Phase 4 D-06 — that capability now lives in SGProcessingManager.
  *   - No platform-specific code (Metal, Apple frameworks, etc.).
  *   - All GPU acceleration goes through Vulkan (MoltenVK on macOS/iOS).
  */
@@ -25,8 +27,6 @@
 
 namespace MNN
 {
-    class Interpreter;
-    class Session;
     namespace Transformer
     {
         class Llm;
@@ -59,9 +59,10 @@ namespace sgns::neoswarm::core
      *                    which handles model loading, chunking, and execution.
      *                    Cross-platform. Network-ready (Phase 2).
      *
-     *   "interpreter"  — Fallback. Uses MNN::Interpreter directly for
-     *                    standard single-file .mnn models. Requires the
-     *                    external tokenizer to be attached.
+     *   "interpreter"  — Fallback. Uses MNN's native Transformer::Llm API for
+     *                    LLM-directory models only (mnn_llm_). There is no
+     *                    hand-rolled sampling loop / standard single-file .mnn
+     *                    support in this mode (removed per Phase 4 D-06).
      *
      * GPU backend (selected at runtime via Config::m_backend):
      *
@@ -142,10 +143,6 @@ namespace sgns::neoswarm::core
         private:
         Config m_cfg;
 
-        // --- MNN Interpreter path ---
-        std::shared_ptr<MNN::Interpreter> m_interpreter;
-        MNN::Session* m_session = nullptr;
-
         // --- MNN LLM path (native autoregressive) ---
         MNN::Transformer::Llm* mnn_llm_ = nullptr;
 
@@ -162,15 +159,6 @@ namespace sgns::neoswarm::core
         // Inference-path helpers (extracted from Infer for size/complexity)
         outcome::result<InferenceResponse> InferViaSGProcessing( const Task& task );
         outcome::result<InferenceResponse> InferViaMnnLlm( const Task& task );
-        outcome::result<InferenceResponse> InferViaStandardInterpreter( const Task& task );
-
-        // Interpreter-path helpers
-        int SelectBackend() const;
-        outcome::result<std::vector<float>> RunForward( const std::vector<int>& input_ids );
-        int SampleToken( const std::vector<float>& logits, float temperature, float top_p, int top_k ) const;
-        void ApplyRepetitionPenalty( std::vector<float>& logits,
-                                     const std::vector<int>& generated,
-                                     float penalty ) const;
     };
 
 } // namespace sgns::neoswarm::core
