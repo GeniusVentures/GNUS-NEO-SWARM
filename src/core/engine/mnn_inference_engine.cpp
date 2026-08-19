@@ -19,7 +19,7 @@
 
 #include <MNN/MNNDefine.h>
 #include <MNN/expr/Executor.hpp>
-#include <MNN/llm/llm.hpp>
+#include <llm/llm.hpp>
 
 namespace sgns::neoswarm::core
 {
