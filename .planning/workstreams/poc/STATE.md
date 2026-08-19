@@ -2,79 +2,48 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Phase 2 Plan 02-02 complete - ConvergenceTracker and SweepAnalyzer
-last_updated: "2026-06-21T23:53:13.892Z"
-last_activity: 2026-06-21
+status: complete
+stopped_at: Milestone v1.0 complete — all 4 phases shipped (17/17 plans, all UATs passing). Phase 5 (PTDS v4 Unsloth) deferred to v1.1.
+last_updated: "2026-08-17T00:00:00.000Z"
+last_activity: 2026-08-17
 progress:
   total_phases: 4
-  completed_phases: 2
-  total_plans: 10
-  completed_plans: 10
-  percent: 50
+  completed_phases: 4
+  total_plans: 17
+  completed_plans: 17
+  percent: 100
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (created 2026-06-18)
+See: PROJECT.md (created 2026-06-18)
 
 **Core value:** A Python proof-of-concept that trains specialized Expert Language Models (ELMs) through teacher-student knowledge distillation and evolutionary (EGGROLL-style) retraining.
-**Current focus:** Phase 2 - Training and Distillation Quality
+**Current focus:** Milestone v1.0 complete — no active work.
 
 ## Current Position
 
-Phase: 2 of 4 (Training and Distillation Quality)
-Plan: 3 of 5 in current phase
-Status: Ready to execute
-Last activity: 2026-06-21
+Phase: 4 of 4 (Benchmark Evaluation) — COMPLETE
+Status: Milestone v1.0 complete
+Last activity: 2026-08-17
 
-Progress: [█████████░] 90%
+Progress: [██████████] 100%
 
-## Performance Metrics
+## Milestone v1.0 Summary
 
-**Velocity:**
+| Phase | Plans | Shipped | UAT |
+|-------|-------|---------|-----|
+| 01-pipeline-hardening | 5/5 | PR #75 | 97/97 passing |
+| 02-training-distillation-quality | 5/5 | PR #76 | verified |
+| 03-fp4-quantization-artifact-integrity | 3/3 | PR #84 | 97/97 passing (2026-06-27) |
+| 04-benchmark-evaluation | 4/4 | PR #85 | complete (2026-06-28) |
 
-- Total plans completed: 7
-- Average duration: N/A
-- Total execution time: N/A
-
-**By Phase:**
-
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 01-pipeline-hardening | 5 | 5 | N/A |
-| 02-training-distillation-quality | 2 | 5 | N/A |
-
-**Recent Trend:**
-
-- Last 5 plans: 02-01 (config), 02-02 (convergence), 01-05 (teacher consumers), 01-04 (cascade), 01-03 (budget)
-- Trend: Phase 2 implementation progressing steadily
-
-| Phase 02-training-distillation-quality P05 | 22m | 2 tasks | 6 files |
-
-## Accumulated Context
-
-### Decisions
-
-Recent decisions affecting current work:
-
-- Adapter-Based Architecture: Specialists are LoRA adapters on a shared Qwen3-30B-A3B backbone.
-- Plateau-Based Early Stopping: ConvergenceTracker uses patience and min_delta (PyTorch ReduceLROnPlateau pattern).
-- Two-Tier Stopping: Warning threshold logs and continues; hard-stop threshold halts immediately.
-- Synthetic Dedup: Normalized text hash dedup in generate_for_niche (lowercase, collapsed whitespace).
-- [Phase ?]: Router confidence scoring uses ratio-based keyword matching, binary regex matching, and capped density ratios
-- [Phase ?]: Router default specialist determined by is_default rule flag rather than hardcoded value
-- [Phase ?]: All router classification rules live in YAML config only; adding a rule requires no Python code change
-- [Phase ?]: RouterStateMachine builds transitions.Machine lazily on first trigger(); module imports cleanly without transitions installed
-
-### Blockers/Concerns
-
-- Bash sandbox restricts pytest execution. Run manually: pytest tests/test_convergence.py tests/test_sweep_analyzer.py tests/test_synthetic.py -x -v
+**Deferred:** Phase 5 (PTDS v4 Unsloth Integration) — moved to milestone v1.1 scope (2026-08-17); may not be needed.
 
 ## Session Continuity
 
-Last session: 2026-06-21T23:52:46.532Z
-Stopped at: Phase 2 Plan 02-02 complete - ConvergenceTracker and SweepAnalyzer
+Last session: 2026-08-17
+Stopped at: Milestone complete
 Resume file: None

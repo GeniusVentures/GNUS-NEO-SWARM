@@ -2,6 +2,13 @@
 
 Generated: 2026-06-18 | Mode: merge | Precedence: ADR > SPEC > PRD > DOC
 
+> **RESOLVED (2026-08-17)** — Same report as
+> `.planning/workstreams/poc/INGEST-CONFLICTS.md`; see that file for the full
+> disposition. The 15 BLOCKERS were navigational cross-ref cycles (accepted, never
+> blocking). Both WARNINGS were resolved 2026-06-18 by `poc/PROJECT.md` Key Decision 1
+> (LoRA adapters on shared backbone) and Key Decision 2 (per-specialist quantization
+> policy, implemented in Phase 3 D-01..D-10). Retained for audit trail only.
+
 ---
 
 ### BLOCKERS (15)
