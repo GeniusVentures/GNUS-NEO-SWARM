@@ -218,13 +218,35 @@ endif()
 # MNN
 # ---------------------------------------------------------------------------
 set(MNN_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/MNN/include")
-find_library(MNN_LIBRARY MNN PATHS "${THIRDPARTY_BUILD_DIR}/MNN/lib" REQUIRED)
-add_library(MNN UNKNOWN IMPORTED)
-set_target_properties(MNN PROPERTIES
-    IMPORTED_LOCATION "${MNN_LIBRARY}"
-    INTERFACE_INCLUDE_DIRECTORIES "${MNN_INCLUDE_DIR}"
-)
-message(STATUS "MNN: ${MNN_LIBRARY}")
+if(TARGET MNN::MNN)
+    # Nested build (add_subdirectory'd from GeniusCognitiveSystem): the outer
+    # project's own find_package(MNN CONFIG REQUIRED) already resolved the
+    # correct, fully-merged MNN::MNN target. Reuse it via a bare-name ALIAS
+    # (same pattern as the libsecp256k1::secp256k1 -> secp256k1 alias above)
+    # instead of re-resolving MNN independently below: that find_library()
+    # call searches default system/PATH-derived locations *before* the given
+    # PATHS, so any unrelated "MNN.lib" elsewhere on PATH silently shadows
+    # the project's vendored one (bare MNN was landing on a stray, non-LLM
+    # MNN.lib from an unrelated local MNN tools install on PATH, distinct
+    # from — but linked alongside — the correct MNN::MNN, causing missing
+    # LLM symbols in MNN-only targets and duplicate-symbol link errors in
+    # targets that pulled in both).
+    if(NOT TARGET MNN)
+        add_library(MNN ALIAS MNN::MNN)
+    endif()
+    message(STATUS "MNN: reusing MNN::MNN (nested build)")
+else()
+    # Standalone build: no outer MNN::MNN exists yet, resolve it ourselves.
+    # NO_DEFAULT_PATH avoids picking up an unrelated MNN.lib from PATH/system
+    # search locations instead of the intended vendored thirdparty one.
+    find_library(MNN_LIBRARY MNN PATHS "${THIRDPARTY_BUILD_DIR}/MNN/lib" NO_DEFAULT_PATH REQUIRED)
+    add_library(MNN UNKNOWN IMPORTED)
+    set_target_properties(MNN PROPERTIES
+        IMPORTED_LOCATION "${MNN_LIBRARY}"
+        INTERFACE_INCLUDE_DIRECTORIES "${MNN_INCLUDE_DIR}"
+    )
+    message(STATUS "MNN: ${MNN_LIBRARY}")
+endif()
 
 # ---------------------------------------------------------------------------
 # SGProcessingManager (from SuperGenius submodule)
