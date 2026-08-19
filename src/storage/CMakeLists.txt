@@ -17,16 +17,15 @@ else()
     message(FATAL_ERROR "sgns::crdt_globaldb target not found — SuperGenius package must be configured before neoswarm_storage")
 endif()
 
-# GeniusSDK — hard required: GcsGlobalDb::Initialize() calls GeniusSDKGetNode() (D-16a).
+# GeniusSDK — hard required: GcsGlobalDb::Initialize() calls GeniusSDKGetPubSub() (D-16a).
 #
-# The CMake-imported sgns::GeniusSDK_shared target's IMPORTED_LOCATION points at the
-# install prefix (${GENIUS_SDK_BUILD_DIR}/GeniusSDK/lib/libGeniusSDK_shared.dylib),
-# which lags the build tree output. GeniusSDKGetNode() was added in d550800 (Aug 3)
-# and is present in the build-tree dylib at ${GENIUS_SDK_BUILD_DIR}/src/... but not
-# yet in the install-prefix copy. Redirect the imported location at the newer dylib
-# when both exist; otherwise leave the imported default (which will fail at link
-# time with a clear "Undefined symbols: GeniusSDKGetNode" — the failure signal to
-# re-run `ninja install` in the GeniusSDK build).
+# The CMake-imported sgns::GeniusSDK_shared target's IMPORTED_LOCATION/IMPLIB point at the
+# GeniusSDK install prefix (${GENIUS_SDK_BUILD_DIR}/GeniusSDK/{lib,bin}/...), which can lag
+# the GeniusSDK build tree if `cmake --install`/`ninja install` hasn't been re-run there
+# after a GeniusSDK.cpp/.h source change (e.g. a newly added accessor). Redirect to a newer
+# build-tree dylib when one exists (Apple/.dylib layout only, currently); on other platforms
+# (including this Windows build), re-run the GeniusSDK install step after any GeniusSDK
+# source change so the installed .lib/.dll pick up new/changed exported symbols.
 if(TARGET sgns::GeniusSDK_shared)
     set(_GENIUSSDK_BUILD_DYLIB "${GENIUS_SDK_BUILD_DIR}/src/libGeniusSDK_shared.dylib")
     if(EXISTS "${_GENIUSSDK_BUILD_DYLIB}")
@@ -35,7 +34,7 @@ if(TARGET sgns::GeniusSDK_shared)
             IMPORTED_LOCATION_RELEASE "${_GENIUSSDK_BUILD_DYLIB}"
             IMPORTED_LOCATION         "${_GENIUSSDK_BUILD_DYLIB}"
         )
-        message(STATUS "sgns::GeniusSDK_shared redirected to build-tree dylib (has GeniusSDKGetNode): ${_GENIUSSDK_BUILD_DYLIB}")
+        message(STATUS "sgns::GeniusSDK_shared redirected to build-tree dylib: ${_GENIUSSDK_BUILD_DYLIB}")
     endif()
     target_link_libraries(neoswarm_storage PUBLIC sgns::GeniusSDK_shared)
     message(STATUS "GeniusSDK linked to neoswarm_storage")
@@ -62,36 +61,11 @@ target_include_directories(neoswarm_storage PUBLIC
     "${THIRDPARTY_BUILD_DIR}/boost/build/include"
 )
 
-# GeniusSDK.hpp (C++ API exposing GeniusSDKGetNode, added in GeniusSDK d550800) is not
-# yet installed into ${GENIUS_SDK_BUILD_DIR}/GeniusSDK/include (the build only exports
-# the C header). Consume it directly from the GeniusSDK source tree.
-target_include_directories(neoswarm_storage PUBLIC
-    "${GENIUS_SDK_DIR}/src"
-)
-
-# GeniusSDK.hpp -> account/GeniusNode.hpp -> WalletCore/PrivateKey.h. TrustWalletCore
-# is a stub-imported target in cmake/CommonBuildParameters.cmake, so expose its
-# headers explicitly here.
-target_include_directories(neoswarm_storage PUBLIC
-    "${THIRDPARTY_BUILD_DIR}/wallet-core/include"
-)
-
-# GeniusNode.hpp transitively pulls ProofSystem/EthereumKeyPairParams.hpp which
-# requires crypto3 (zkLLVM). ZKLLVM_BUILD_DIR is set by CommonCompilerOptions.cmake.
-if(DEFINED ZKLLVM_BUILD_DIR AND NOT ZKLLVM_BUILD_DIR STREQUAL "")
-    target_include_directories(neoswarm_storage PUBLIC
-        "${ZKLLVM_BUILD_DIR}/zkLLVM/include"
-    )
-endif()
-
-# GeniusNode.hpp -> account/BridgeRelayer.hpp -> eth/eth_watch_service.hpp. evmrelay's
-# headers live under the SuperGenius install include dir at /evmrelay, not at the top.
-target_include_directories(neoswarm_storage PUBLIC
-    "${SUPERGENIUS_BUILD_DIR}/SuperGenius/include/evmrelay"
-)
-
-# GeniusNode.hpp -> processing_processor_mnn_image.hpp -> MNN/ImageProcess.hpp.
-# MNN_INCLUDE_DIR is set in cmake/CommonBuildParameters.cmake.
-target_include_directories(neoswarm_storage PUBLIC
-    "${MNN_INCLUDE_DIR}"
-)
+# NOTE: gcs_global_db.cpp includes only the plain-C GeniusSDK.h (never GeniusSDK.hpp,
+# which never existed — see resolved debug session neoswarm-geniussdk-missing). GeniusSDK.h
+# has zero C++ header dependencies (stdint.h/stdbool.h only) and is already available via
+# sgns::GeniusSDK_shared's own INTERFACE_INCLUDE_DIRECTORIES (${GENIUS_SDK_BUILD_DIR}/GeniusSDK/include,
+# confirmed installed), so no additional include directories are needed for it — this also
+# means the previously-required WalletCore/zkLLVM/evmrelay/MNN transitive-include workarounds
+# (only needed for GeniusSDK.hpp's assumed account/GeniusNode.hpp chain) are no longer needed
+# and have been removed.

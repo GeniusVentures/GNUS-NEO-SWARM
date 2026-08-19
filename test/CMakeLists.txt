@@ -45,12 +45,25 @@ set(SUPERGENIUS_TEST_DATA_DIR
     CACHE PATH "Path to SuperGenius test/src directory containing processing_datatypes/")
 
 # Helper macro
+#
+# NOTE on link order: GTest::Main/GTest::GTest are listed BEFORE ${libs}
+# intentionally. Some of our libs (e.g. neoswarm_network, neoswarm_api)
+# transitively depend on SuperGenius's sgns::transfer_proof/processing_proof
+# targets, which incorrectly declare a PUBLIC dependency on
+# Boost::unit_test_framework (see supergeniusTargets.cmake in the SuperGenius
+# repo — out of scope to fix here). That pulls the real
+# libboost_unit_test_framework-*.lib (containing unit_test_main.obj, whose
+# main() calls init_unit_test_suite()) into the link line. MSVC's linker
+# resolves the special `main` entry-point symbol from the first archive
+# object that provides it, so GTest::Main must come first or Boost's
+# unit_test_main.obj wins and fails with LNK2019 on init_unit_test_suite.
+# See .planning/debug/resolved/neoswarm-boost-test-gtest.md for full analysis.
 macro(neoswarm_test name sources libs)
     add_executable(${name} ${sources})
     target_link_libraries(${name} PRIVATE
-        ${libs}
-        GTest::GTest
         GTest::Main
+        GTest::GTest
+        ${libs}
     )
     target_compile_definitions(${name} PRIVATE
         SUPERGENIUS_TEST_DATA_DIR="${SUPERGENIUS_TEST_DATA_DIR}"
@@ -68,6 +81,7 @@ neoswarm_test(test_node_identity     security/test_node_identity.cpp        "neo
 neoswarm_test(test_message_signing   security/test_message_signing.cpp      "neoswarm_security;neoswarm_common")
 neoswarm_test(test_genius_elm_ffi    ffi/test_genius_elm_ffi.cpp             "neoswarm_api")
 target_sources(test_genius_elm_ffi PRIVATE "${NEOSWARM_ROOT}/src/genius_elm_chat_completions.cpp")
+target_compile_definitions(test_genius_elm_ffi PRIVATE NEOSWARM_CHAT_C_EXPORTS)
 neoswarm_test(test_fact_validation   knowledge/test_fact_validation.cpp      "neoswarm_knowledge;neoswarm_common")
 neoswarm_test(test_network           network/test_network.cpp                "neoswarm_network;neoswarm_security;neoswarm_common")
 neoswarm_test(test_sg_client         network/test_sg_client.cpp              "neoswarm_network;neoswarm_common")
