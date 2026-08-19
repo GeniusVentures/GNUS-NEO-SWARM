@@ -10,9 +10,9 @@ Scope is bounded to what a Python training pipeline can prove. Distributed swarm
 
 - [x] **Phase 1: Pipeline Hardening** — Multi-teacher cascade with dual-backend API, subprocess pipeline execution, budget persistence, retry/circuit breaker, validated checkpoints
 - [x] **Phase 2: Training & Distillation Quality** — KD convergence with temperature sweeping, valid LoRA adapters, evaluation metrics, rules-based specialist routing (completed 2026-06-21)
-- [ ] **Phase 3: FP4 Quantization & Artifact Integrity** — SGFP4 v2 adaptive macroblock quantization (4×4 to 64×64), Laplacian error analysis, quadtree layout, dual-mode + Log mode, provenance manifests
-- [ ] **Phase 4: Benchmark Evaluation** — Established benchmark suite scoring as quality gate with manual feedback loop to distillation
-- [ ] **Phase 5: PTDS v4 Unsloth Integration** — Unsloth training backend (parallel to MLX), Teacher→Parent→Specialist 3-tier distillation, SGFP4 hybrid quantization, role-based specialist taxonomy
+- [x] **Phase 3: FP4 Quantization & Artifact Integrity** — SGFP4 v2 adaptive macroblock quantization (4×4 to 64×64), Laplacian error analysis, quadtree layout, dual-mode + Log mode, provenance manifests (completed 2026-06-27)
+- [x] **Phase 4: Benchmark Evaluation** — Established benchmark suite scoring as quality gate with manual feedback loop to distillation (completed 2026-06-28)
+- [ ] **Phase 5: PTDS v4 Unsloth Integration** — **DEFERRED to milestone v1.1** (2026-08-17; may not be needed). Unsloth training backend (parallel to MLX), Teacher→Parent→Specialist 3-tier distillation, SGFP4 hybrid quantization, role-based specialist taxonomy
 
 ## Phase Details
 
@@ -75,9 +75,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — SGFP4 v2 encoder core: Laplacian pyramid, adaptive macroblock quadtree, layout enum, variable payload, per-block header
-- [ ] 03-02-PLAN.md — Config & checkpoint extensions: pipeline.yaml error thresholds, ConfigLoader validation, CheckpointValidator v2 checks
-- [ ] 03-03-PLAN.md — Evaluation integration: MetricStore SGFP4 dimensions, Benchmarker SGFP4 auto-gating
+- [x] 03-01-PLAN.md — SGFP4 v2 encoder core: Laplacian pyramid, adaptive macroblock quadtree, layout enum, variable payload, per-block header
+- [x] 03-02-PLAN.md — Config & checkpoint extensions: pipeline.yaml error thresholds, ConfigLoader validation, CheckpointValidator v2 checks
+- [x] 03-03-PLAN.md — Evaluation integration: MetricStore SGFP4 dimensions, Benchmarker SGFP4 auto-gating
 ### Phase 4: Benchmark Evaluation
 **Goal**: Quantized specialist models are scored against established benchmark suites (MMLU, HumanEval, GSM8K, domain-specific) as a quality gate. Failed benchmarks feed back into distillation strategy refinement.
 **Depends on**: Phase 3 (needs quantized models to benchmark)
@@ -89,7 +89,12 @@ Plans:
   4. Failed benchmarks produce actionable feedback (which categories underperformed, by how much) to guide manual distillation strategy adjustments.
 **Plans**: 3 plans
 
-### Phase 5: PTDS v4 Unsloth Integration
+### Phase 5: PTDS v4 Unsloth Integration — DEFERRED to milestone v1.1
+
+> **Deferred 2026-08-17:** Out of scope for milestone v1.0 (Phases 1–4, complete).
+> Requirements never defined; no plans written. May not be needed at all —
+> re-evaluate when scoping v1.1.
+
 **Goal**: Add Unsloth as a parallel training backend following the Phase 1 multi-backend pattern, implement Teacher→Parent→Specialist 3-tier distillation per PTDS v4 §3, support SGFP4 hybrid quantization, and introduce role-based specialist taxonomy.
 **Depends on**: Phase 4 (needs benchmark-validated specialists from MLX pipeline to compare against)
 **Requirements**: TBD (to be defined in discuss-phase)
@@ -104,15 +109,17 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 (Phase 5 deferred to v1.1)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Pipeline Hardening | 5/5 | Shipped | PR #75 |
 | 2. Training & Distillation Quality | 5/5 | Shipped | PR #76 |
-| 3. FP4 Quantization & Artifact Integrity | 0/3 | Planned | - |
-| 4. Benchmark Evaluation | 0/? | Not started | - |
-| 5. PTDS v4 Unsloth Integration | 0/? | Not started | - |
+| 3. FP4 Quantization & Artifact Integrity | 3/3 | Shipped | PR #84 (UAT 97/97, 2026-06-27) |
+| 4. Benchmark Evaluation | 4/4 | Shipped | PR #85 (UAT complete, 2026-06-28) |
+| 5. PTDS v4 Unsloth Integration | — | Deferred to v1.1 | - |
+
+**Milestone v1.0 (Phases 1–4): COMPLETE 2026-08-17** — 17/17 plans executed, all UATs passing.
 
 ## Scope Boundaries
 
