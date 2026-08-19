@@ -22,13 +22,14 @@ endif()
 # Prefer the static target: avoids a runtime DLL search-path dependency on
 # GeniusSDK_shared.dll for every executable that links neoswarm_storage.
 #
-# If only the shared target is available, note: its CMake-imported IMPORTED_LOCATION/IMPLIB
-# point at the GeniusSDK install prefix (${GENIUS_SDK_BUILD_DIR}/GeniusSDK/{lib,bin}/...),
-# which can lag the GeniusSDK build tree if `cmake --install`/`ninja install` hasn't been
-# re-run there after a GeniusSDK.cpp/.h source change (e.g. a newly added accessor). Redirect
-# to a newer build-tree dylib when one exists (Apple/.dylib layout only, currently); on other
-# platforms (including this Windows build), re-run the GeniusSDK install step after any
-# GeniusSDK source change so the installed .lib/.dll pick up new/changed exported symbols.
+# The CMake-imported sgns::GeniusSDK_shared target's IMPORTED_LOCATION points at the
+# install prefix (${GENIUS_SDK_BUILD_DIR}/GeniusSDK/lib/libGeniusSDK_shared.dylib),
+# which lags the build tree output. GeniusSDKGetNode() was added in d550800 (Aug 3)
+# and is present in the build-tree dylib at ${GENIUS_SDK_BUILD_DIR}/src/... but not
+# yet in the install-prefix copy. Redirect the imported location at the newer dylib
+# when both exist; otherwise leave the imported default (which will fail at link
+# time with a clear "Undefined symbols: GeniusSDKGetNode" — the failure signal to
+# re-run `ninja install` in the GeniusSDK build).
 if(TARGET sgns::GeniusSDK)
     target_link_libraries(neoswarm_storage PUBLIC sgns::GeniusSDK)
     message(STATUS "GeniusSDK (static) linked to neoswarm_storage")
