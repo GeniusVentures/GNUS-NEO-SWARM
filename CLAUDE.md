@@ -268,6 +268,7 @@ ninja
 - Prefer nullptr to 0 and NULL: type-safe, clearer intent, works with templates, enables function overloading
 - Prefer alias declarations (using) to typedefs: work with templates, more readable, support template aliases
 - Prefer scoped enums to unscoped enums: no implicit conversions, namespace pollution prevention, forward declarable, can specify underlying type
+- **Enum class values MUST use UPPER_CASE** (they are compile-time constants): `MemoryObjectType::BRIDGE_BLOCK`, `TrustClass::UNVERIFIED`, `Error::MODEL_LOAD_FAILED`
 
 ### Special Member Functions (Items 11-17)
 - Prefer deleted functions (= delete) to private undefined ones: better error messages, works with any function (not just members), checked at compile-time
