@@ -25,7 +25,6 @@
 
 #include <InputFormat.hpp>
 #include <processingbase/ProcessingManager.hpp>
-#include <processors/vulkan_gpu_probe.hpp>
 
 using namespace sgns::neoswarm;
 using namespace sgns::neoswarm::core;
@@ -154,9 +153,12 @@ TEST( SGProcessingPipeline, FloatModel_EndToEnd )
     }
 
     // Phase 1: NeoSwarm → SGProcessingManager
+    // total_width=512/chunk_stride=32 match float-processing-definition.json (the schema
+    // float_output_pt.raw was generated against) -- the fixture is 512 elements processed
+    // as overlapping 64-wide windows, not a single 64-element block.
     SGProcessingBridge bridge;
     auto ioc = std::make_shared<boost::asio::io_context>();
-    auto result = bridge.SubmitJob( model_uri, input_uri, sgns::InputFormat::FLOAT32, { 1, 64 }, ioc );
+    auto result = bridge.SubmitJob( model_uri, input_uri, sgns::InputFormat::FLOAT32, { 1, 64 }, ioc, 512, 32 );
 
     ASSERT_TRUE( result.has_value() ) << "SGProcessingBridge::SubmitJob failed";
     ASSERT_FALSE( result.value().empty() ) << "Process() returned empty bytes";
@@ -229,35 +231,10 @@ TEST( SGProcessingPipeline, TensorModel_EndToEnd )
 
 // ---------------------------------------------------------------------------
 // FP4_ULTRA / LLM integration test cases (Phase 4 plan 04-04, PROC-01/PROC-02)
-//
-// Both cases below call into ProcessingManager::Create(), which unconditionally
-// probes for a Vulkan device during Init() and takes VulkanInitMutex(). On any
-// host with a real, usable Vulkan device (confirmed present on this exact
-// Windows machine), that probe re-enters the same mutex already held by
-// ProcessingManager::Create()'s own capability-snapshot code and deadlocks --
-// a tracked, not-yet-fixed sgproc-render Phase 18 bug, out of this phase's
-// scope to fix:
-//   GeniusNetwork/.planning/todos/pending/2026-08-10-fix-vulkan-capability-probe-deadlock-in-processingmanager-cr.md
-//
-// NOTE: the skip condition below is deliberately INVERTED from
-// capture_smoke_test.cpp's own use of HasUsableVulkanDevice() (which skips
-// when NO device is present, since that test needs one). Here the risk is
-// the opposite: we skip WHEN a device IS present, because that is exactly
-// the condition that triggers the deadlock. Do not "fix" this to match the
-// more common pattern -- a GPU-less host is what lets these two cases run.
 // ---------------------------------------------------------------------------
 
 TEST( SGProcessingPipeline, Fp4UltraFormat_DispatchesToTensorProcessor )
 {
-    if ( sgns::sgprocessing::HasUsableVulkanDevice() )
-    {
-        GTEST_SKIP() << "Real Vulkan device present -- ProcessingManager::Create() would deadlock via the "
-                        "tracked, not-yet-fixed VulkanInitMutex re-entrancy bug (sgproc-render Phase 18, "
-                        "GeniusNetwork/.planning/todos/pending/"
-                        "2026-08-10-fix-vulkan-capability-probe-deadlock-in-processingmanager-cr.md). Skipping "
-                        "rather than hanging.";
-    }
-
     const std::string data_dir = TestDataPath();
     const std::string model_uri = "file://" + data_dir + "tensor_tiny.mnn";
     const std::string input_uri = "file://" + data_dir + "tensor_input.raw";
@@ -280,15 +257,6 @@ TEST( SGProcessingPipeline, Fp4UltraFormat_DispatchesToTensorProcessor )
 
 TEST( SGProcessingPipeline, LlmDataType_JobReachesRegisteredProcessor )
 {
-    if ( sgns::sgprocessing::HasUsableVulkanDevice() )
-    {
-        GTEST_SKIP() << "Real Vulkan device present -- ProcessingManager::Create() would deadlock via the "
-                        "tracked, not-yet-fixed VulkanInitMutex re-entrancy bug (sgproc-render Phase 18, "
-                        "GeniusNetwork/.planning/todos/pending/"
-                        "2026-08-10-fix-vulkan-capability-probe-deadlock-in-processingmanager-cr.md). Skipping "
-                        "rather than hanging.";
-    }
-
     const std::string data_dir = TestDataPath();
     const std::string model_uri = "file://" + data_dir + "bert-tiny.mnn";
     const std::string input_uri = "file://" + data_dir + "string_input.raw";
@@ -321,7 +289,8 @@ TEST( SGProcessingPipeline, LlmDataType_JobReachesRegisteredProcessor )
     // (NO_PROCESSOR), not a JSON-parse failure.
     auto pm_result = sgns::sgprocessing::ProcessingManager::Create( json );
     ASSERT_TRUE( pm_result.has_value() ) << "Schema with type=\"llm\" failed at ProcessingManager::Create() "
-                                             "(expected to reach Create() without an INVALID_JSON error)";
+                                             "(expected to reach Create() without an INVALID_JSON error): "
+                                          << pm_result.error().message();
 }
 
 // ---------------------------------------------------------------------------

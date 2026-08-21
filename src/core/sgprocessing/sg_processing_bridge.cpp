@@ -15,6 +15,7 @@
 #include <nlohmann/json.hpp>
 
 #include <filesystem>
+#include <fstream>
 
 #include <Generators.hpp>
 #include <InputFormat.hpp>
@@ -143,7 +144,9 @@ namespace sgns::neoswarm::core
     outcome::result<std::string> SGProcessingBridge::BuildSchemaJson( const std::string& model_uri,
                                                                       const std::string& input_uri,
                                                                       sgns::InputFormat input_format,
-                                                                      const std::vector<int64_t>& shape ) const
+                                                                      const std::vector<int64_t>& shape,
+                                                                      int64_t total_width,
+                                                                      int64_t chunk_stride_override ) const
     {
         if ( model_uri.empty() || input_uri.empty() )
         {
@@ -169,8 +172,16 @@ namespace sgns::neoswarm::core
         // Chunking parameters — block_len is the chunk size for processing,
         // chunk_stride is the step between chunks.
         // For LLM inference: block_len = sequence length, chunk_stride = block_len (no overlap)
+        // total_width/chunk_stride_override let callers whose input is wider than one block
+        // (processed as multiple, possibly overlapping windows) declare the true total width
+        // and stride separately from the per-block `shape` -- default (0) preserves the
+        // single-block behavior where the whole input is one window.
+        if ( total_width > 0 )
+        {
+            flat_width = total_width;
+        }
         const int64_t block_len = shape.empty() ? flat_width : shape.back();
-        const int64_t chunk_stride = block_len;
+        const int64_t chunk_stride = chunk_stride_override > 0 ? chunk_stride_override : block_len;
 
         // Ensure URIs are absolute
         const std::string abs_model_uri = EnsureAbsoluteUri( model_uri );
@@ -252,12 +263,14 @@ namespace sgns::neoswarm::core
                                                                          const std::string& input_uri,
                                                                          sgns::InputFormat input_format,
                                                                          const std::vector<int64_t>& shape,
-                                                                         std::shared_ptr<boost::asio::io_context> ioc )
+                                                                         std::shared_ptr<boost::asio::io_context> ioc,
+                                                                         int64_t total_width,
+                                                                         int64_t chunk_stride )
     {
         BridgeLogger()->debug( "SubmitJob model={} format={} networkMode={}", model_uri,
                                InputFormatToFormatString( input_format ), static_cast<int>( m_cfg.m_networkMode ) );
 
-        auto json_res = BuildSchemaJson( model_uri, input_uri, input_format, shape );
+        auto json_res = BuildSchemaJson( model_uri, input_uri, input_format, shape, total_width, chunk_stride );
         if ( !json_res.has_value() )
         {
             return outcome::failure( json_res.error() );
@@ -336,13 +349,34 @@ namespace sgns::neoswarm::core
             return outcome::failure( Error::InferenceFailed );
         }
 
-        BridgeLogger()->debug( "Process() succeeded: {} bytes, {} chunk hashes", process_result.value().size(),
+        // ProcessOutput::size()/begin()/end() delegate to its internal combinedHash member
+        // (a fixed-size manifest hash, NOT the actual output data -- see ProcessingManager.hpp's
+        // ProcessOutput comment). The real output bytes are written to disk during Process()
+        // and their path returned via output_locations; read them back from there.
+        if ( output_locations.empty() || output_locations[0].empty() )
+        {
+            BridgeLogger()->error( "ProcessingManager::Process produced no output location" );
+            return outcome::failure( Error::InferenceFailed );
+        }
+
+        std::string output_path = output_locations[0];
+        if ( output_path.rfind( "file://", 0 ) == 0 )
+        {
+            output_path = output_path.substr( 7 );
+        }
+
+        std::ifstream output_file( output_path, std::ios::binary );
+        if ( !output_file )
+        {
+            BridgeLogger()->error( "Failed to open output file at {}", output_path );
+            return outcome::failure( Error::InferenceFailed );
+        }
+        std::vector<uint8_t> output_bytes( ( std::istreambuf_iterator<char>( output_file ) ),
+                                            std::istreambuf_iterator<char>() );
+
+        BridgeLogger()->debug( "Process() succeeded: {} bytes, {} chunk hashes", output_bytes.size(),
                                chunkhashes.size() );
-        // ProcessOutput offers size()/empty()/begin()/end() delegating to its internal
-        // combinedHash member, but no implicit conversion to std::vector<uint8_t> —
-        // construct the vector explicitly from its iterators.
-        return outcome::success(
-            std::vector<uint8_t>( process_result.value().begin(), process_result.value().end() ) );
+        return outcome::success( std::move( output_bytes ) );
     }
 
     // -----------------------------------------------------------------------
