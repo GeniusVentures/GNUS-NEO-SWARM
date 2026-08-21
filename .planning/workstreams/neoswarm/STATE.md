@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 04
+current_phase: "04"
 current_phase_name: sgprocessing-integration
-status: executing
-stopped_at: Phase 4 context gathered
-last_updated: "2026-08-18T21:15:20.889Z"
-last_activity: 2026-08-18
-last_activity_desc: Phase 04 execution started
+status: complete — awaiting next-phase selection
+stopped_at: Phase 4 complete (UAT 2/2 passed); no single next phase — pick among 3, 5, 6, 8 (see note)
+last_updated: "2026-08-21T21:49:22.035Z"
+last_activity: 2026-08-21
+last_activity_desc: Phase 04 complete (UAT 2/2 passed)
 progress:
   total_phases: 12
-  completed_phases: 2
+  completed_phases: 4
   total_plans: 27
-  completed_plans: 19
-  percent: 17
+  completed_plans: 23
+  percent: 25
 ---
 
 # Project State
@@ -24,15 +24,14 @@ progress:
 See: PROJECT.md (created 2026-06-18, updated 2026-06-22)
 
 **Core value:** Real LLM inference on consumer hardware in a fully decentralized swarm, production-connected to the SuperGenius/GNUS network for distributed AI compute.
-**Current focus:** Phase 04 — sgprocessing-integration
+**Current focus:** Phase 4 complete — next phase not yet selected (roadmap has parallel/gapped tracks, see note below)
 
 ## Current Position
 
-Phase: 04 (sgprocessing-integration) — EXECUTING
-Plan: 1 of 4
+Phase: 4 (SGProcessing Integration) — COMPLETE (verified 04-VERIFICATION.md: passed; 04-UAT.md: 2/2 passed)
+Plan: N/A — phase closed
 Prior phase: 2 (SuperGenius Connectivity) — complete, verified (02-VERIFICATION.md: passed, 15/15)
-Status: Executing Phase 04
-Last activity: 2026-08-18 — Phase 04 execution started
+Status: Phase 4 complete. Roadmap does not have one linear "next phase": Phase 3 (GCS GlobalDB, plans present but unexecuted), Phase 5 and 6 (Production Hardening / Testing, no plans yet), and Phase 8 (GAML Memory, being regenerated) are all still open in parallel. Phase 7 (ELMs + Router) was already complete before this session — an automated transition step briefly (and incorrectly) pointed `current_phase` at it as "next"; corrected here. Pick the next phase to plan explicitly, e.g. `/gsd-plan-phase 3 --ws neoswarm`.
 
 Progress: [████████████░░░░░░░░░░░░] 64% (22 of 27 v1 requirements done)
 
@@ -50,7 +49,7 @@ Progress: [████████████░░░░░░░░░░░
 | 1. Security Hardening | 3/4 | ~18 min | Source done, 01-04 (tests) pending |
 | 2. SuperGenius Connectivity | 8/8 | - | **Complete & verified** (PR #108; 02-VERIFICATION passed 15/15) |
 | 3. GCS GlobalDB Integration | 0/4 | - | **Reworked** — 4 wave plans present (03-gcs-globaldb-integration) |
-| 4. SGProcessing Integration | 0/TBD | - | SGProcessing linked, needs plans |
+| 4. SGProcessing Integration | 4/4 | - | **Complete & verified** (04-VERIFICATION passed; 04-UAT 2/2) |
 | 5. Production Hardening | 0/TBD | - | Mostly done, fold remnants into Phase 6 |
 | 6. Testing & Validation | 0/TBD | - | Needs plans, absorbs Phase 5 verification |
 | 7. ELMs + Router | 6/6 | ~41 min | Complete — all 6 plans done |
@@ -88,8 +87,10 @@ Recent decisions affecting current work:
 
 - [Phase 2]: Result collector SDK polling incomplete — `GeniusSDKGetProcessingStatus()` reports global status, not per-task
 - [Phase 3]: GCS GlobalDB instance needs its own RocksDB directory, io_context, and topic registration — separate from GeniusSDK's blockchain GlobalDB
-- [Phase 4]: FP4_ULTRA processor doesn't exist in SuperGenius — PROC-02 is SuperGenius-side work
 - [Phase 3]: RocksDB v10.7+ requires C++20 — must pin to v10.6.2 (C++17 ceiling)
+- [Phase 4, resolved]: FP4_ULTRA processor didn't exist in SuperGenius — built in 04-02/04-03 (validation wiring + `MNN_Llm`/`DataType::LLM` processor), UAT-confirmed 2026-08-21
+- [Phase 4]: Vendored MNN's LLM headers install to `include/llm/llm.hpp`, not the `include/MNN/llm/llm.hpp` path the codebase originally assumed — both NEO-SWARM and SGProcessingManager now include the corrected path; keep this in mind if MNN is ever re-vendored/upgraded
+- [Phase 4]: `sgproc-render` Phase 18's `VulkanInitMutex` re-entrancy deadlock was open during Phase 4 execution — it gated some local end-to-end verification (skip-gated in plan 04-04); check its current status before relying on `ProcessingManager::Create()` re-entrancy on this machine
 
 ## Cognitive Phases (7–11)
 
@@ -105,6 +106,6 @@ Post-production cognitive system evolution. Defined in ROADMAP.md, referencing `
 
 ## Session Continuity
 
-Last session: 2026-08-18T02:19:55.485Z
-Stopped at: Phase 4 context gathered
-Resume file: .planning/workstreams/neoswarm/phases/04-sgprocessing-integration/04-CONTEXT.md
+Last session: 2026-08-21
+Stopped at: Phase 4 complete (UAT 2/2 passed); next phase not yet selected — see Current Position note
+Resume file: None

@@ -31,6 +31,9 @@ SuperGenius/GNUS network for distributed AI compute.
 - ✓ FFI layer for Flutter/Dart chat app integration — existing
 - ✓ CLI interface (`neo-swarm`) with REPL, single-shot, and serve modes — existing
 - ✓ Cross-platform CMake + Ninja build with stub fallbacks for all optional deps — existing
+- ✓ **PROC-01**: MNN LLM text generation processor (`MNN_Llm`, `DataType::LLM`) in SGProcessingManager — Phase 4
+- ✓ **PROC-02**: FP4_ULTRA input-format validation + dispatch plumbing in SGProcessingManager (decode delegated to MNN) — Phase 4
+- ✓ **FIX-04**: Test binaries link cleanly with SGProcessingManager enabled (bare `MNN` target PATH-resolution bug fixed) — Phase 4
 
 ### Active
 
@@ -41,15 +44,12 @@ SuperGenius/GNUS network for distributed AI compute.
 - [ ] **SEC-03**: Encrypt node private key at rest (AES-256-GCM)
 - [ ] **PERS-01**: RocksDB persistence for ReputationStorage (library already linked)
 - [ ] **PERS-02**: Fix ReputationStorage::Deserialize crash (wrap stod/stoull in try/catch)
-- [ ] **PROC-01**: Add MNN_LLM text generation processor to SGProcessingManager
-- [ ] **PROC-02**: Add FP4_ULTRA processor to SGProcessingManager
 - [ ] **FIX-01**: Fix GeniusSlmInit re-init bug (std::call_once deadlock)
 - [ ] **FIX-02**: Remove hardcoded vocab size 32000 (use tokenizer_->VocabSize())
 - [ ] **FIX-03**: Add JSON config file support (replace CLI-only config)
 - [ ] **TEST-01**: Security module tests (NodeIdentity, MessageSigning)
 - [ ] **TEST-02**: FFI layer tests (GeniusSlmInit, chat completions, re-init)
 - [ ] **TEST-03**: Knowledge module tests (FactValidation, KnowledgeRetrieval)
-- [ ] **FIX-04**: Fix test binary linker errors with SGProcessingManager enabled
 
 ### Out of Scope
 
@@ -107,6 +107,8 @@ network. GNUS-NEO-SWARM connects as a client via `SGProcessingBridge`:
 | Single Façade orchestrator (GeniusAPIServer) | Simple, explicit control flow; knows all component dependencies | — Pending |
 | CSV serialization for reputation (not protobuf) | Quick to implement, but fragile (commas in keys break parsing) | ⚠️ Revisit |
 | Manual JSON parsing in FFI layer | Avoids nlohmann/json dependency in FFI surface, but fragile and incomplete | ⚠️ Revisit |
+| All MNN calls consolidated into SGProcessingManager (Phase 4) | It already owns Vulkan locking/coexistence; SuperGenius network nodes automatically gain LLM-serving capability too | ✓ Good |
+| Reuse `MNN::MNN` via `add_library(MNN ALIAS MNN::MNN)` when nested (Phase 4) | NEO-SWARM's own unguarded `find_library(MNN...)` picked up an unrelated `C:\MNNTools\MNN.lib` from PATH instead of the vendored, LLM-enabled build — root-caused a link-stage LNK2005/LNK2019 pair | ✓ Good |
 
 ---
-*Last updated: 2026-05-28 after initialization*
+*Last updated: 2026-08-21 after Phase 4*

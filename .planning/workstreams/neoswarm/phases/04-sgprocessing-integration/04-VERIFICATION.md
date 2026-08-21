@@ -1,14 +1,16 @@
 ---
 phase: 04-sgprocessing-integration
 verified: 2026-08-18T22:30:16Z
-status: human_needed
+status: passed
 score: 4/4 must-have truths present and wired per plan; behavior confirmed for 3/4 via real test execution
 behavior_unverified: 1
 overrides_applied: 0
 human_verification:
+
   - test: "Run a fresh CMake configure + `cmake --build build/Windows/Release --target neoswarm_core` (and `test_sgprocessing_pipeline`) in GNUS-NEO-SWARM once the separate, pre-existing `get_third_party_dir()` thirdparty-resolution issue (out of Phase 4's scope, confirmed independently by the orchestrator) is fixed."
     expected: "Configure reports `SGProcessingManager: linked (GeniusNetwork/SuperGenius/...)`; `neoswarm_core` and `test_sgprocessing_pipeline` build with zero unresolved-symbol errors; `SGProcessingBridge.BuildSchemaJson_Fp4Ultra` and the two new `SGProcessingPipeline` integration tests run (the latter two SKIP with the documented VulkanInitMutex message on this real-Vulkan-device machine, per plan 04-04)."
     why_human: "GNUS-NEO-SWARM's own build cannot be configured in this environment (confirmed independently, both by the orchestrator and by this verifier's review of all three plans' SUMMARY.md 'Issues Encountered' sections, which each re-ran the configure command and reproduced the identical failure). Static code review (CMakeLists.txt diff correctness, 12/12 target libs confirmed present on disk, `ProcessOutput::begin()/end()` API confirmed to exist and match the bridge's fix) gives high confidence but is not a substitute for an actual compile/link."
+
   - test: "Rebuild the vendored MNN thirdparty library with `MNN_BUILD_LLM=ON`, then run `cmake --build . --target mnn_llm_test --config Release && ctest -C Release -R MNNLlmTest` inside SuperGenius's build."
     expected: "`SGPROC_HAS_MNN_LLM` evaluates TRUE at configure time; `mnn_llm_test` target is generated, builds, and both GTest cases (`EmptyModelFileFailsClosedWithResourceResolution`, `PreCancelledTokenFailsClosedWithCancelled`) pass."
     why_human: "The vendored MNN static library actually linked in this environment was independently confirmed (by direct inspection of its installed include tree) to have been built with `MNN_BUILD_LLM=OFF`. `MNN_Llm`'s code is complete, reviewed, and correctly gated behind `SGPROC_HAS_MNN_LLM` (2 narrowly-scoped `#ifdef` sites, confirmed by direct file read) — but it has never executed in any environment reachable during Phase 4. This is the same 'wire + stub, ship what's ready' pattern D-08 established for PROC-02, extended by this phase's authors to PROC-01's environment gate; a human (or a future agent with an MNN_BUILD_LLM=ON checkout) must actually run `ctest -R MNNLlmTest` to empirically confirm GREEN."
