@@ -52,13 +52,13 @@ namespace sgns::neoswarm::storage
      *
      * Lifecycle:
      *  - Constructor stores config only (no fallible work, no I/O) — D-13.
-     *  - Initialize() runs the 7-step init chain (acquire pubsub via GeniusSDKGetNode,
+     *  - Initialize() runs the 7-step init chain (acquire pubsub via GeniusSDKGetPubSub(),
      *    build local io/scheduler/network/generator, GlobalDB::New with nullptr datastore,
      *    Start, wire gcs-reputation listen+broadcast topic, spawn io thread).
      *  - Shutdown() is idempotent and joins the io thread.
      *
      * Error mapping (D-14):
-     *  - GeniusSDKGetNode() == nullptr                -> Error::SdkNotInitialized
+     *  - GeniusSDKGetPubSub() == nullptr               -> Error::SdkNotInitialized
      *  - GlobalDB::New / AddBroadcastTopic failures    -> Error::GcsDbError
      *  - Double Initialize()                           -> Error::GcsDbError (programmer error)
      */
@@ -100,7 +100,7 @@ namespace sgns::neoswarm::storage
         GcsGlobalDb &operator=( GcsGlobalDb && )      = delete;
 
         /**
-         * @brief Production init — acquires the shared pubsub via GeniusSDKGetNode()
+         * @brief Production init — acquires the shared pubsub via GeniusSDKGetPubSub()
          *        and delegates to the injected-pubsub overload.
          *
          * @return outcome::success on a fully wired, started GlobalDB; otherwise:

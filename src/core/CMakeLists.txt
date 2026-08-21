@@ -63,10 +63,20 @@ endif()
 # ---------------------------------------------------------------------------
 # SGProcessingManager integration (pre-built from SuperGenius)
 # ---------------------------------------------------------------------------
-# SGProcessingManager headers from SuperGenius sibling repo
-set(_SGPROC_INCLUDE "${PROJECT_ROOT}/../SuperGenius/SGProcessingManager/include")
-set(_SGPROC_GEN_INCLUDE "${PROJECT_ROOT}/../SuperGenius/SGProcessingManager/generated")
-set(_SGPROC_LIB_DIR "${THIRDPARTY_BUILD_DIR}/SGProcessingManager/lib")
+# This is deliberately self-contained and does NOT reuse SUPERGENIUS_BUILD_DIR /
+# SGPROCESSING_DIR from cmake/CommonBuildParameters.cmake, because that
+# mechanism's PROJECT_SUPER_ROOT resolution also cannot reach GeniusNetwork
+# post-app-restructure (its sibling-thirdparty walk-up cannot check
+# GeniusNetwork/thirdparty) — a separate, wider, out-of-phase pre-existing
+# issue this phase's PROC-03/FIX-04 scope does not absorb.
+set(GENIUSNETWORK_SUPERGENIUS_DIR "${PROJECT_ROOT}/../../GeniusNetwork/SuperGenius"
+    CACHE PATH "Path to GeniusNetwork's SuperGenius checkout (dev_childwallet)")
+cmake_path(SET GENIUSNETWORK_SUPERGENIUS_DIR NORMALIZE "${GENIUSNETWORK_SUPERGENIUS_DIR}")
+
+# SGProcessingManager headers + prebuilt static libs from GeniusNetwork's SuperGenius checkout
+set(_SGPROC_INCLUDE "${GENIUSNETWORK_SUPERGENIUS_DIR}/SGProcessingManager/include")
+set(_SGPROC_GEN_INCLUDE "${GENIUSNETWORK_SUPERGENIUS_DIR}/SGProcessingManager/generated")
+set(_SGPROC_LIB_DIR "${GENIUSNETWORK_SUPERGENIUS_DIR}/build/${BUILD_PLATFORM_NAME}/${CMAKE_BUILD_TYPE}${ABI_SUBFOLDER_NAME}/SuperGenius/lib/SGProcessingManager")
 
 find_library(_SGPROC_PROCESSING_BASE ProcessingBase PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
 find_library(_SGPROC_PROCESSORS SGProcessors PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
@@ -74,6 +84,12 @@ find_library(_SGPROC_DATASPLITTER DataSplitter PATHS "${_SGPROC_LIB_DIR}" NO_DEF
 find_library(_SGPROC_LOGGER sgprocmanagerlogger PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
 find_library(_SGPROC_TYPES sgprocmanagertypes PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
 find_library(_SGPROC_SHA sgprocmanagersha PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
+find_library(_SGPROC_ARTIFACTS SGArtifacts PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
+find_library(_SGPROC_CAPABILITY SGCapability PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
+find_library(_SGPROC_SHADERCOMPILER SGShaderCompiler PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
+find_library(_SGPROC_CAPTURE sgproccapture PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
+find_library(_SGPROC_DIFF sgprocmanagerdiff PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
+find_library(_SGPROC_QUANT sgprocmanagerquant PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
 
 if(_SGPROC_PROCESSING_BASE AND EXISTS "${_SGPROC_INCLUDE}" AND EXISTS "${_SGPROC_GEN_INCLUDE}")
     target_include_directories(neoswarm_core PUBLIC
@@ -87,6 +103,12 @@ if(_SGPROC_PROCESSING_BASE AND EXISTS "${_SGPROC_INCLUDE}" AND EXISTS "${_SGPROC
         "${_SGPROC_LOGGER}"
         "${_SGPROC_TYPES}"
         "${_SGPROC_SHA}"
+        "${_SGPROC_ARTIFACTS}"
+        "${_SGPROC_CAPABILITY}"
+        "${_SGPROC_SHADERCOMPILER}"
+        "${_SGPROC_CAPTURE}"
+        "${_SGPROC_DIFF}"
+        "${_SGPROC_QUANT}"
     )
     # AsyncIOManager (transitive dependency of ProcessingBase)
     find_library(_ASYNCIO_LIB AsyncIOManager

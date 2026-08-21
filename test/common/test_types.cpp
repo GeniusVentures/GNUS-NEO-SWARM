@@ -161,16 +161,18 @@ TEST(CognitiveAsset, DefaultConstruction)
 
 TEST(CognitiveAsset, DesignatedInitialization)
 {
-    CognitiveAsset a{
-        .m_id = "test-001",
-        .m_entity = "physics",
-        .m_type = MemoryObjectType::FACT,
-        .m_timestamp = 1000,
-        .m_sourceNode = "node-1",
-        .m_confidence = 0.85f,
-        .m_provenance = 0.6f,
-        .m_trustClass = TrustClass::VERIFIED,
-    };
+    // NOTE: C++20 designated initializers are not permitted in this project
+    // (CLAUDE.md mandates C++17-and-below). Use default construction +
+    // explicit member assignment to achieve the same field values.
+    CognitiveAsset a;
+    a.m_id = "test-001";
+    a.m_entity = "physics";
+    a.m_type = MemoryObjectType::FACT;
+    a.m_timestamp = 1000;
+    a.m_sourceNode = "node-1";
+    a.m_confidence = 0.85f;
+    a.m_provenance = 0.6f;
+    a.m_trustClass = TrustClass::VERIFIED;
     EXPECT_EQ(a.m_id, "test-001");
     EXPECT_EQ(a.m_entity, "physics");
     EXPECT_EQ(a.m_type, MemoryObjectType::FACT);
