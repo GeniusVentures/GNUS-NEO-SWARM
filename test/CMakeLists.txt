@@ -32,18 +32,6 @@ endif()
 
 enable_testing()
 
-# Path to SuperGenius processing_datatypes test data
-# Used by test_sgprocessing_pipeline for Phase 1 integration tests.
-# GENIUSNETWORK_SUPERGENIUS_DIR is defined as a CACHE variable in
-# src/core/CMakeLists.txt, which is add_subdirectory'd before this file —
-# fall back to the same default if it's somehow not yet defined.
-if(NOT DEFINED GENIUSNETWORK_SUPERGENIUS_DIR)
-    set(GENIUSNETWORK_SUPERGENIUS_DIR "${CMAKE_SOURCE_DIR}/../../GeniusNetwork/SuperGenius")
-endif()
-set(SUPERGENIUS_TEST_DATA_DIR
-    "${GENIUSNETWORK_SUPERGENIUS_DIR}/test/src"
-    CACHE PATH "Path to SuperGenius test/src directory containing processing_datatypes/")
-
 # Helper macro
 #
 # NOTE on link order: GTest::Main/GTest::GTest are listed BEFORE ${libs}
@@ -65,9 +53,6 @@ macro(neoswarm_test name sources libs)
         GTest::GTest
         ${libs}
     )
-    target_compile_definitions(${name} PRIVATE
-        SUPERGENIUS_TEST_DATA_DIR="${SUPERGENIUS_TEST_DATA_DIR}"
-    )
     add_test(NAME ${name} COMMAND ${name})
 endmacro()
 
@@ -77,6 +62,33 @@ neoswarm_test(test_reputation            reputation/test_reputation.cpp         
 neoswarm_test(test_gcs_global_db         storage/test_gcs_global_db.cpp                   "neoswarm_storage;neoswarm_common;sgns::crdt_globaldb")
 neoswarm_test(test_pipeline              integration/test_pipeline.cpp                    "neoswarm_api")
 neoswarm_test(test_sgprocessing_pipeline integration/test_sgprocessing_pipeline.cpp       "neoswarm_api")
+
+# Vendored copies of SuperGenius's processing_datatypes fixtures (see
+# GeniusNetwork/SuperGenius/test/src/processing_datatypes/CMakeLists.txt for the
+# original pattern this mirrors). Vendored rather than referenced from a sibling
+# GeniusNetwork checkout because a NEO-SWARM build has no guarantee that checkout
+# exists — SGProcessingManager may have been consumed as prebuilt libs from CI.
+target_compile_definitions(test_sgprocessing_pipeline PRIVATE
+    SUPERGENIUS_TEST_DATA_DIR="$<TARGET_FILE_DIR:test_sgprocessing_pipeline>"
+)
+add_custom_command(TARGET test_sgprocessing_pipeline POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+    "$<TARGET_FILE_DIR:test_sgprocessing_pipeline>/processing_datatypes"
+    COMMENT "Creating processing_datatypes directory"
+)
+add_custom_command(TARGET test_sgprocessing_pipeline POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_CURRENT_SOURCE_DIR}/integration/processing_datatypes/float_model.mnn"
+    "${CMAKE_CURRENT_SOURCE_DIR}/integration/processing_datatypes/float_input.bin"
+    "${CMAKE_CURRENT_SOURCE_DIR}/integration/processing_datatypes/float_output_pt.raw"
+    "${CMAKE_CURRENT_SOURCE_DIR}/integration/processing_datatypes/tensor_tiny.mnn"
+    "${CMAKE_CURRENT_SOURCE_DIR}/integration/processing_datatypes/tensor_input.raw"
+    "${CMAKE_CURRENT_SOURCE_DIR}/integration/processing_datatypes/bert-tiny.mnn"
+    "${CMAKE_CURRENT_SOURCE_DIR}/integration/processing_datatypes/string_input.raw"
+    "$<TARGET_FILE_DIR:test_sgprocessing_pipeline>/processing_datatypes/"
+    COMMENT "Copying vendored SGProcessing test fixtures"
+)
+
 neoswarm_test(test_node_identity     security/test_node_identity.cpp        "neoswarm_security;neoswarm_common")
 neoswarm_test(test_message_signing   security/test_message_signing.cpp      "neoswarm_security;neoswarm_common")
 neoswarm_test(test_genius_elm_ffi    ffi/test_genius_elm_ffi.cpp             "neoswarm_api")
