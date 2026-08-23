@@ -35,14 +35,6 @@ if(TARGET MNN)
     target_link_libraries(neoswarm_core PUBLIC MNN)
 endif()
 
-# ---------------------------------------------------------------------------
-# Vulkan / MoltenVK (GPU acceleration — cross-platform)
-# ---------------------------------------------------------------------------
-find_package(Vulkan QUIET)
-if(Vulkan_FOUND)
-    target_link_libraries(neoswarm_core PUBLIC Vulkan::Vulkan)
-endif()
-
 # MoltenVK — Vulkan-to-Metal translation layer (macOS/iOS only, but still Vulkan API)
 set(_MOLTENVK_LIB "${THIRDPARTY_BUILD_DIR}/MoltenVK/build/lib/MoltenVK.xcframework/macos-arm64_x86_64/libMoltenVK.a")
 if(EXISTS "${_MOLTENVK_LIB}")

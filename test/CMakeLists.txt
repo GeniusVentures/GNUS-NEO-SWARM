@@ -41,10 +41,13 @@ set(SUPERGENIUS_TEST_DATA_DIR
 # Helper macro
 macro(neoswarm_test name sources libs)
     add_executable(${name} ${sources})
+    # GTest::Main must precede ${libs}: SuperGenius static libs PUBLIC-export
+    # Boost::unit_test_framework, whose archive defines main(). If it precedes
+    # gtest_main, ld pulls unit_test_main.o and init_unit_test_suite goes undefined.
     target_link_libraries(${name} PRIVATE
-        ${libs}
         GTest::GTest
         GTest::Main
+        ${libs}
     )
     target_compile_definitions(${name} PRIVATE
         SUPERGENIUS_TEST_DATA_DIR="${SUPERGENIUS_TEST_DATA_DIR}"
