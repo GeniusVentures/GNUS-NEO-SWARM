@@ -145,12 +145,14 @@ String extractContent(String responseJson) {
       }
       end++;
     }
+    // Unescape order matters: collapse escaped backslashes first, otherwise
+    // a literal "\\n" (backslash + 'n') is wrongly turned into a newline.
     return responseJson
         .substring(start, end)
+        .replaceAll(r'\\', '\\')
         .replaceAll(r'\"', '"')
         .replaceAll(r'\n', '\n')
-        .replaceAll(r'\t', '\t')
-        .replaceAll(r'\\', '\\');
+        .replaceAll(r'\t', '\t');
   } catch (_) {
     return responseJson;
   }
