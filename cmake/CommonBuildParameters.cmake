@@ -462,30 +462,23 @@ endif()
 # Source tree
 add_subdirectory(${NEOSWARM_ROOT}/src ${CMAKE_BINARY_DIR}/src)
 
-# Origin-relative rpath tokens differ by binary format: Mach-O spells them
-# @executable_path/@loader_path, ELF $ORIGIN. Used for INSTALL_RPATH so the
-# installed artifacts resolve their runtime dylibs from the install tree's
-# lib/ directory (see runtime-dependency install rules below) instead of
-# machine-specific build paths.
-if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-    set(NEOSWARM_RPATH_TOKEN_EXE "@executable_path")
-    set(NEOSWARM_RPATH_TOKEN_LIB "@loader_path")
-else()
-    set(NEOSWARM_RPATH_TOKEN_EXE "$ORIGIN")
-    set(NEOSWARM_RPATH_TOKEN_LIB "$ORIGIN")
-endif()
+# Per-platform app link settings (APP_LINK_OPTIONS / APP_LINK_LIBRARIES /
+# APP_RPATH_TOKEN_*), keyed on BUILD_PLATFORM_NAME set by the build wrapper.
+include(${NEOSWARM_ROOT}/cmake/CompilationFlags.cmake)
 
 # Main binary
 add_executable(neo-swarm ${NEOSWARM_ROOT}/src/main.cpp)
 target_link_libraries(neo-swarm PRIVATE neoswarm_api Threads::Threads)
-set_target_properties(neo-swarm PROPERTIES
-    INSTALL_RPATH "${NEOSWARM_RPATH_TOKEN_EXE}/../lib"
-)
-if(APPLE)
-    target_link_options(neo-swarm PRIVATE "LINKER:-no_warn_duplicate_libraries")
+if(APP_LINK_OPTIONS)
+    target_link_options(neo-swarm PRIVATE ${APP_LINK_OPTIONS})
 endif()
-if(UNIX AND NOT APPLE)
-    target_link_libraries(neo-swarm PRIVATE uuid)
+if(APP_LINK_LIBRARIES)
+    target_link_libraries(neo-swarm PRIVATE ${APP_LINK_LIBRARIES})
+endif()
+if(APP_RPATH_TOKEN_EXE)
+    set_target_properties(neo-swarm PROPERTIES
+        INSTALL_RPATH "${APP_RPATH_TOKEN_EXE}/../lib"
+    )
 endif()
 
 # FFI shared library (Flutter bridge)
@@ -493,9 +486,11 @@ add_library(Genius-MOS-ELM-FFI SHARED ${NEOSWARM_ROOT}/src/genius_elm_chat_compl
 target_include_directories(Genius-MOS-ELM-FFI PUBLIC ${NEOSWARM_ROOT}/src)
 target_compile_definitions(Genius-MOS-ELM-FFI PRIVATE NEOSWARM_CHAT_C_EXPORTS)
 target_link_libraries(Genius-MOS-ELM-FFI PRIVATE Threads::Threads neoswarm_api)
-set_target_properties(Genius-MOS-ELM-FFI PROPERTIES
-    INSTALL_RPATH "${NEOSWARM_RPATH_TOKEN_LIB}"
-)
+if(APP_RPATH_TOKEN_LIB)
+    set_target_properties(Genius-MOS-ELM-FFI PROPERTIES
+        INSTALL_RPATH "${APP_RPATH_TOKEN_LIB}"
+    )
+endif()
 
 if(BUILD_TESTING)
     enable_testing()

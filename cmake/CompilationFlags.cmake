@@ -27,3 +27,29 @@ if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "^(AppleClang|Clang|GNU)$")
   #add_flag(-Werror=sign-compare)     # warn the user if they compare a signed and unsigned numbers
   #add_flag(-Werror=reorder)          # field '$1' will be initialized after field '$2'
 endif()
+
+# ---------------------------------------------------------------------------
+# Per-platform application link settings (BUILD_PLATFORM_NAME: OSX/Linux/
+# Windows/Android/iOS). Consume from any executable/app target:
+#   target_link_options(<app> PRIVATE ${APP_LINK_OPTIONS})
+#   target_link_libraries(<app> PRIVATE ... ${APP_LINK_LIBRARIES})
+#   set_target_properties(<app> PROPERTIES INSTALL_RPATH "${APP_RPATH_TOKEN_EXE}/../lib")
+# RPATH tokens are origin-relative so installed apps resolve runtime dylibs
+# from the install tree (bin/ + lib/ siblings) instead of build paths.
+# ---------------------------------------------------------------------------
+if(BUILD_PLATFORM_NAME MATCHES "^(OSX|iOS)$")
+    set(APP_LINK_OPTIONS "LINKER:-no_warn_duplicate_libraries")
+    set(APP_LINK_LIBRARIES "")
+    set(APP_RPATH_TOKEN_EXE "@executable_path")
+    set(APP_RPATH_TOKEN_LIB "@loader_path")
+elseif(BUILD_PLATFORM_NAME STREQUAL "Linux")
+    set(APP_LINK_OPTIONS "")
+    set(APP_LINK_LIBRARIES "uuid")
+    set(APP_RPATH_TOKEN_EXE "$ORIGIN")
+    set(APP_RPATH_TOKEN_LIB "$ORIGIN")
+else()
+    set(APP_LINK_OPTIONS "")
+    set(APP_LINK_LIBRARIES "")
+    set(APP_RPATH_TOKEN_EXE "")
+    set(APP_RPATH_TOKEN_LIB "")
+endif()
