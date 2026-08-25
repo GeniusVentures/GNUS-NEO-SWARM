@@ -15,9 +15,10 @@ Pod::Spec.new do |s|
   s.source_files     = 'Classes/**/*'
 
   # Embed the pre-built dylib so it is copied into the app bundle Frameworks folder.
-  # Path is relative to this podspec file (neoswarm_ffi/macos/) — the FFI dylib
-  # produced by the NEO-SWARM CMake build in GNUS-NEO-SWARM/build/OSX/<Config>.
-  s.vendored_libraries = '../../../build/OSX/Debug/libGenius-MOS-ELM-FFI.dylib'
+  # The dylib is staged into macos/lib/ by the consumer's CMake build (post-build
+  # copy from the Genius-MOS-ELM-FFI target), so this stays a stable relative
+  # path regardless of build config or build directory layout.
+  s.vendored_libraries = 'lib/libGenius-MOS-ELM-FFI.dylib'
 
   s.dependency 'FlutterMacOS'
 
