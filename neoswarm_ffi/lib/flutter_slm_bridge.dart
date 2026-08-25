@@ -7,16 +7,14 @@ import 'package:ffi/ffi.dart';
 
 import 'genius_slm_bindings_generated.dart';
 
-const String _libName = 'Genius-MOS-SLM-FFI';
+const String _libName = 'Genius-MOS-ELM-FFI';
 
 /// The dynamic library containing the GeniusSlm symbols.
 final DynamicLibrary _dylib = () {
   if (Platform.isMacOS) {
-    // Use absolute path to the pre-built dylib during development.
-    // In a production app bundle this would be embedded via the podspec.
-    const dylib =
-        '/Volumes/Work/Gnus_ai/genius-llm-v1/GNUS-NEO-SWARM/build/OSX/Release/lib$_libName.dylib';
-    return DynamicLibrary.open(dylib);
+    // The dylib is vendored into the app bundle Frameworks folder via the
+    // neoswarm_ffi podspec; the bundle rpath resolves the bare name.
+    return DynamicLibrary.open('lib$_libName.dylib');
   }
   if (Platform.isIOS) {
     return DynamicLibrary.open('$_libName.framework/$_libName');
