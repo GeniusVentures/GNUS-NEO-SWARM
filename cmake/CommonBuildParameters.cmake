@@ -462,18 +462,27 @@ endif()
 # Source tree
 add_subdirectory(${NEOSWARM_ROOT}/src ${CMAKE_BINARY_DIR}/src)
 
+# Origin-relative rpath tokens differ by binary format: Mach-O spells them
+# @executable_path/@loader_path, ELF $ORIGIN. Used for INSTALL_RPATH so the
+# installed artifacts resolve their runtime dylibs from the install tree's
+# lib/ directory (see runtime-dependency install rules below) instead of
+# machine-specific build paths.
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    set(NEOSWARM_RPATH_TOKEN_EXE "@executable_path")
+    set(NEOSWARM_RPATH_TOKEN_LIB "@loader_path")
+else()
+    set(NEOSWARM_RPATH_TOKEN_EXE "$ORIGIN")
+    set(NEOSWARM_RPATH_TOKEN_LIB "$ORIGIN")
+endif()
+
 # Main binary
 add_executable(neo-swarm ${NEOSWARM_ROOT}/src/main.cpp)
 target_link_libraries(neo-swarm PRIVATE neoswarm_api Threads::Threads)
+set_target_properties(neo-swarm PROPERTIES
+    INSTALL_RPATH "${NEOSWARM_RPATH_TOKEN_EXE}/../lib"
+)
 if(APPLE)
     target_link_options(neo-swarm PRIVATE "LINKER:-no_warn_duplicate_libraries")
-    # The exe links @rpath dylibs from the GeniusSDK build tree (redirected
-    # sgns::GeniusSDK_shared) and the thirdparty Vulkan loader. CMake strips
-    # BUILD_RPATH on install; the runtime dylibs are installed into lib/ (see
-    # install rules below), so resolve them relative to the install tree.
-    set_target_properties(neo-swarm PROPERTIES
-        INSTALL_RPATH "@executable_path/../lib"
-    )
 endif()
 if(UNIX AND NOT APPLE)
     target_link_libraries(neo-swarm PRIVATE uuid)
@@ -484,14 +493,9 @@ add_library(Genius-MOS-ELM-FFI SHARED ${NEOSWARM_ROOT}/src/genius_elm_chat_compl
 target_include_directories(Genius-MOS-ELM-FFI PUBLIC ${NEOSWARM_ROOT}/src)
 target_compile_definitions(Genius-MOS-ELM-FFI PRIVATE NEOSWARM_CHAT_C_EXPORTS)
 target_link_libraries(Genius-MOS-ELM-FFI PRIVATE Threads::Threads neoswarm_api)
-if(APPLE)
-    # Same INSTALL_RPATH rationale as neo-swarm above — the FFI dylib installs
-    # into lib/ next to its GeniusSDK/Vulkan dependencies, so @loader_path
-    # resolves them regardless of what loads it.
-    set_target_properties(Genius-MOS-ELM-FFI PROPERTIES
-        INSTALL_RPATH "@loader_path"
-    )
-endif()
+set_target_properties(Genius-MOS-ELM-FFI PROPERTIES
+    INSTALL_RPATH "${NEOSWARM_RPATH_TOKEN_LIB}"
+)
 
 if(BUILD_TESTING)
     enable_testing()
@@ -509,19 +513,49 @@ endif()
 # Install
 install(TARGETS neo-swarm RUNTIME DESTINATION bin)
 
-# Runtime dylib dependencies (@rpath, non-system) installed alongside bin/ in
-# lib/ — standard macOS app layout. INSTALL_RPATH on neo-swarm/FFI resolves
-# them via @executable_path/../lib / @loader_path, so the install tree is
-# self-contained and machine-path independent.
-if(APPLE)
-    # libvulkan.1.dylib is a symlink to libvulkan.1.3.302.dylib — install the
-    # real file too or the symlink dangles in the install tree.
-    install(FILES
-        "${GENIUS_SDK_BUILD_DIR}/src/libGeniusSDK_shared.dylib"
-        "${THIRDPARTY_BUILD_DIR}/Vulkan-Loader/lib/libvulkan.1.dylib"
-        "${THIRDPARTY_BUILD_DIR}/Vulkan-Loader/lib/libvulkan.1.3.302.dylib"
-        DESTINATION lib)
+# Runtime shared-library dependencies of the installed artifacts. Locations
+# come from the imported targets find_package already created — GeniusSDK via
+# the redirected sgns::GeniusSDK_shared, Vulkan via Vulkan::Vulkan — so no
+# paths or versions are hardcoded. The real file is installed into lib/ and
+# the linker-visible soname symlink chain (e.g. libvulkan.dylib ->
+# libvulkan.1.dylib -> libvulkan.1.3.302.dylib) is recreated next to it.
+set(_NEOSWARM_RUNTIME_DEP_EXPRS "")
+if(TARGET sgns::GeniusSDK_shared)
+    list(APPEND _NEOSWARM_RUNTIME_DEP_EXPRS "$<TARGET_FILE:sgns::GeniusSDK_shared>")
 endif()
+if(TARGET Vulkan::Vulkan)
+    list(APPEND _NEOSWARM_RUNTIME_DEP_EXPRS "$<TARGET_FILE:Vulkan::Vulkan>")
+endif()
+install(CODE "
+    set(_deps \"${_NEOSWARM_RUNTIME_DEP_EXPRS}\")
+    foreach(_dep \${_deps})
+        # Walk the symlink chain down to the real file.
+        set(_cur \"\${_dep}\")
+        set(_chain \"\")
+        while(IS_SYMLINK \"\${_cur}\")
+            get_filename_component(_name \"\${_cur}\" NAME)
+            file(READ_SYMLINK \"\${_cur}\" _target)
+            get_filename_component(_dir \"\${_cur}\" DIRECTORY)
+            get_filename_component(_next \"\${_dir}/\${_target}\" ABSOLUTE)
+            list(APPEND _chain \"\${_name}=>\${_target}\")
+            set(_cur \"\${_next}\")
+        endwhile()
+        # Install the real file under its own name.
+        get_filename_component(_real_name \"\${_cur}\" NAME)
+        file(INSTALL DESTINATION \"\${CMAKE_INSTALL_PREFIX}/lib\"
+             FILES \"\${_cur}\" RENAME \"\${_real_name}\")
+        # Recreate each symlink (innermost first) beside it.
+        list(REVERSE _chain)
+        foreach(_link \${_chain})
+            string(REGEX REPLACE \"^([^=]*)=>(.*)\$\" \"\\\\1;\\\\2\" _pair \"\${_link}\")
+            list(GET _pair 0 _link_name)
+            list(GET _pair 1 _link_target)
+            execute_process(COMMAND \"\${CMAKE_COMMAND}\" -E create_symlink
+                \"\${_link_target}\" \"\${CMAKE_INSTALL_PREFIX}/lib/\${_link_name}\")
+        endforeach()
+        message(STATUS \"Installing runtime dependency: \${_real_name}\")
+    endforeach()
+")
 install(TARGETS Genius-MOS-ELM-FFI LIBRARY DESTINATION lib)
 
 install(TARGETS
