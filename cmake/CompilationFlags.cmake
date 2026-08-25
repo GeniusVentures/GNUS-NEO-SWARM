@@ -29,16 +29,15 @@ if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "^(AppleClang|Clang|GNU)$")
 endif()
 
 # ---------------------------------------------------------------------------
-# Per-platform application link settings (BUILD_PLATFORM_NAME: OSX/Linux/
-# Windows/Android/iOS). Consume from any executable/app target:
-#   target_link_options(<app> PRIVATE ${APP_LINK_OPTIONS})
-#   target_link_libraries(<app> PRIVATE ... ${APP_LINK_LIBRARIES})
-#   set_target_properties(<app> PROPERTIES INSTALL_RPATH "${APP_RPATH_EXE}")
-# Runtime shared deps install into ${APP_RUNTIME_LIB_DIR}: lib/ for rpath
-# platforms (exe resolves them via origin-relative rpath), bin/ for Windows
-# where DLLs must sit next to the exe (no rpath mechanism). Android ships no
-# installed exe — the FFI .so is loaded from the APK, so rpaths are unused.
+# Per-platform application link settings — standalone fallback only.
+# Canonical definitions live in the parent repo's cmake/CompilationFlags.cmake
+# (via the build submodule forwarder); when NEO-SWARM is built standalone the
+# parent file never runs, so define them here from the build dir name.
 # ---------------------------------------------------------------------------
+if(NOT DEFINED APP_RPATH_EXE)
+if(NOT BUILD_PLATFORM_NAME)
+    get_filename_component(BUILD_PLATFORM_NAME ${CMAKE_CURRENT_SOURCE_DIR} NAME)
+endif()
 if(BUILD_PLATFORM_NAME MATCHES "^(OSX|iOS)$")
     set(APP_RUNTIME_LIB_DIR "lib")
     set(APP_LINK_OPTIONS "LINKER:-no_warn_duplicate_libraries")
@@ -63,4 +62,5 @@ else() # Android/iOS — mobile app packaging, no installed exe layout
     set(APP_LINK_LIBRARIES "")
     set(APP_RPATH_EXE "")
     set(APP_RPATH_LIB "")
+endif()
 endif()
