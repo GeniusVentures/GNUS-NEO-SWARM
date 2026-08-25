@@ -475,9 +475,9 @@ endif()
 if(APP_LINK_LIBRARIES)
     target_link_libraries(neo-swarm PRIVATE ${APP_LINK_LIBRARIES})
 endif()
-if(APP_RPATH_TOKEN_EXE)
+if(APP_RPATH_EXE)
     set_target_properties(neo-swarm PROPERTIES
-        INSTALL_RPATH "${APP_RPATH_TOKEN_EXE}/../lib"
+        INSTALL_RPATH "${APP_RPATH_EXE}"
     )
 endif()
 
@@ -486,9 +486,9 @@ add_library(Genius-MOS-ELM-FFI SHARED ${NEOSWARM_ROOT}/src/genius_elm_chat_compl
 target_include_directories(Genius-MOS-ELM-FFI PUBLIC ${NEOSWARM_ROOT}/src)
 target_compile_definitions(Genius-MOS-ELM-FFI PRIVATE NEOSWARM_CHAT_C_EXPORTS)
 target_link_libraries(Genius-MOS-ELM-FFI PRIVATE Threads::Threads neoswarm_api)
-if(APP_RPATH_TOKEN_LIB)
+if(APP_RPATH_LIB)
     set_target_properties(Genius-MOS-ELM-FFI PROPERTIES
-        INSTALL_RPATH "${APP_RPATH_TOKEN_LIB}"
+        INSTALL_RPATH "${APP_RPATH_LIB}"
     )
 endif()
 
@@ -537,7 +537,7 @@ install(CODE "
         endwhile()
         # Install the real file under its own name.
         get_filename_component(_real_name \"\${_cur}\" NAME)
-        file(INSTALL DESTINATION \"\${CMAKE_INSTALL_PREFIX}/lib\"
+        file(INSTALL DESTINATION \"\${CMAKE_INSTALL_PREFIX}/${APP_RUNTIME_LIB_DIR}\"
              FILES \"\${_cur}\" RENAME \"\${_real_name}\")
         # Recreate each symlink (innermost first) beside it.
         list(REVERSE _chain)
@@ -546,12 +546,16 @@ install(CODE "
             list(GET _pair 0 _link_name)
             list(GET _pair 1 _link_target)
             execute_process(COMMAND \"\${CMAKE_COMMAND}\" -E create_symlink
-                \"\${_link_target}\" \"\${CMAKE_INSTALL_PREFIX}/lib/\${_link_name}\")
+                \"\${_link_target}\" \"\${CMAKE_INSTALL_PREFIX}/${APP_RUNTIME_LIB_DIR}/\${_link_name}\")
         endforeach()
         message(STATUS \"Installing runtime dependency: \${_real_name}\")
     endforeach()
 ")
-install(TARGETS Genius-MOS-ELM-FFI LIBRARY DESTINATION lib)
+# LIBRARY covers Mach-O/ELF; RUNTIME places the Windows DLL next to the exe
+# (APP_RUNTIME_LIB_DIR = bin on Windows, lib elsewhere).
+install(TARGETS Genius-MOS-ELM-FFI
+    LIBRARY DESTINATION ${APP_RUNTIME_LIB_DIR}
+    RUNTIME DESTINATION ${APP_RUNTIME_LIB_DIR})
 
 install(TARGETS
     neoswarm_common neoswarm_core neoswarm_specialists neoswarm_router neoswarm_elm

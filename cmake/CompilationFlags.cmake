@@ -33,23 +33,34 @@ endif()
 # Windows/Android/iOS). Consume from any executable/app target:
 #   target_link_options(<app> PRIVATE ${APP_LINK_OPTIONS})
 #   target_link_libraries(<app> PRIVATE ... ${APP_LINK_LIBRARIES})
-#   set_target_properties(<app> PROPERTIES INSTALL_RPATH "${APP_RPATH_TOKEN_EXE}/../lib")
-# RPATH tokens are origin-relative so installed apps resolve runtime dylibs
-# from the install tree (bin/ + lib/ siblings) instead of build paths.
+#   set_target_properties(<app> PROPERTIES INSTALL_RPATH "${APP_RPATH_EXE}")
+# Runtime shared deps install into ${APP_RUNTIME_LIB_DIR}: lib/ for rpath
+# platforms (exe resolves them via origin-relative rpath), bin/ for Windows
+# where DLLs must sit next to the exe (no rpath mechanism). Android ships no
+# installed exe — the FFI .so is loaded from the APK, so rpaths are unused.
 # ---------------------------------------------------------------------------
 if(BUILD_PLATFORM_NAME MATCHES "^(OSX|iOS)$")
+    set(APP_RUNTIME_LIB_DIR "lib")
     set(APP_LINK_OPTIONS "LINKER:-no_warn_duplicate_libraries")
     set(APP_LINK_LIBRARIES "")
-    set(APP_RPATH_TOKEN_EXE "@executable_path")
-    set(APP_RPATH_TOKEN_LIB "@loader_path")
+    set(APP_RPATH_EXE "@executable_path/../${APP_RUNTIME_LIB_DIR}")
+    set(APP_RPATH_LIB "@loader_path")
 elseif(BUILD_PLATFORM_NAME STREQUAL "Linux")
+    set(APP_RUNTIME_LIB_DIR "lib")
     set(APP_LINK_OPTIONS "")
     set(APP_LINK_LIBRARIES "uuid")
-    set(APP_RPATH_TOKEN_EXE "$ORIGIN")
-    set(APP_RPATH_TOKEN_LIB "$ORIGIN")
-else()
+    set(APP_RPATH_EXE "\$ORIGIN/../${APP_RUNTIME_LIB_DIR}")
+    set(APP_RPATH_LIB "$ORIGIN")
+elseif(BUILD_PLATFORM_NAME STREQUAL "Windows")
+    set(APP_RUNTIME_LIB_DIR "bin")
     set(APP_LINK_OPTIONS "")
     set(APP_LINK_LIBRARIES "")
-    set(APP_RPATH_TOKEN_EXE "")
-    set(APP_RPATH_TOKEN_LIB "")
+    set(APP_RPATH_EXE "")
+    set(APP_RPATH_LIB "")
+else() # Android/iOS — mobile app packaging, no installed exe layout
+    set(APP_RUNTIME_LIB_DIR "lib")
+    set(APP_LINK_OPTIONS "")
+    set(APP_LINK_LIBRARIES "")
+    set(APP_RPATH_EXE "")
+    set(APP_RPATH_LIB "")
 endif()
