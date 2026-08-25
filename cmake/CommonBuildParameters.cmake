@@ -467,6 +467,13 @@ add_executable(neo-swarm ${NEOSWARM_ROOT}/src/main.cpp)
 target_link_libraries(neo-swarm PRIVATE neoswarm_api Threads::Threads)
 if(APPLE)
     target_link_options(neo-swarm PRIVATE "LINKER:-no_warn_duplicate_libraries")
+    # The exe links @rpath dylibs from the GeniusSDK build tree (redirected
+    # sgns::GeniusSDK_shared) and the thirdparty Vulkan loader. CMake strips
+    # BUILD_RPATH on install, so mirror it as INSTALL_RPATH or the installed
+    # binary dies at load with "no LC_RPATH's found".
+    set_target_properties(neo-swarm PROPERTIES
+        INSTALL_RPATH "${GENIUS_SDK_BUILD_DIR}/src;${THIRDPARTY_BUILD_DIR}/Vulkan-Loader/lib"
+    )
 endif()
 if(UNIX AND NOT APPLE)
     target_link_libraries(neo-swarm PRIVATE uuid)
@@ -477,6 +484,13 @@ add_library(Genius-MOS-ELM-FFI SHARED ${NEOSWARM_ROOT}/src/genius_elm_chat_compl
 target_include_directories(Genius-MOS-ELM-FFI PUBLIC ${NEOSWARM_ROOT}/src)
 target_compile_definitions(Genius-MOS-ELM-FFI PRIVATE NEOSWARM_CHAT_C_EXPORTS)
 target_link_libraries(Genius-MOS-ELM-FFI PRIVATE Threads::Threads neoswarm_api)
+if(APPLE)
+    # Same INSTALL_RPATH rationale as neo-swarm above — the installed dylib
+    # must still resolve the GeniusSDK/Vulkan @rpath dependencies.
+    set_target_properties(Genius-MOS-ELM-FFI PROPERTIES
+        INSTALL_RPATH "${GENIUS_SDK_BUILD_DIR}/src;${THIRDPARTY_BUILD_DIR}/Vulkan-Loader/lib"
+    )
+endif()
 
 if(BUILD_TESTING)
     enable_testing()
