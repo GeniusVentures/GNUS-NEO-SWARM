@@ -469,10 +469,10 @@ if(APPLE)
     target_link_options(neo-swarm PRIVATE "LINKER:-no_warn_duplicate_libraries")
     # The exe links @rpath dylibs from the GeniusSDK build tree (redirected
     # sgns::GeniusSDK_shared) and the thirdparty Vulkan loader. CMake strips
-    # BUILD_RPATH on install, so mirror it as INSTALL_RPATH or the installed
-    # binary dies at load with "no LC_RPATH's found".
+    # BUILD_RPATH on install; the runtime dylibs are installed into lib/ (see
+    # install rules below), so resolve them relative to the install tree.
     set_target_properties(neo-swarm PROPERTIES
-        INSTALL_RPATH "${GENIUS_SDK_BUILD_DIR}/src;${THIRDPARTY_BUILD_DIR}/Vulkan-Loader/lib"
+        INSTALL_RPATH "@executable_path/../lib"
     )
 endif()
 if(UNIX AND NOT APPLE)
@@ -485,10 +485,11 @@ target_include_directories(Genius-MOS-ELM-FFI PUBLIC ${NEOSWARM_ROOT}/src)
 target_compile_definitions(Genius-MOS-ELM-FFI PRIVATE NEOSWARM_CHAT_C_EXPORTS)
 target_link_libraries(Genius-MOS-ELM-FFI PRIVATE Threads::Threads neoswarm_api)
 if(APPLE)
-    # Same INSTALL_RPATH rationale as neo-swarm above — the installed dylib
-    # must still resolve the GeniusSDK/Vulkan @rpath dependencies.
+    # Same INSTALL_RPATH rationale as neo-swarm above — the FFI dylib installs
+    # into lib/ next to its GeniusSDK/Vulkan dependencies, so @loader_path
+    # resolves them regardless of what loads it.
     set_target_properties(Genius-MOS-ELM-FFI PROPERTIES
-        INSTALL_RPATH "${GENIUS_SDK_BUILD_DIR}/src;${THIRDPARTY_BUILD_DIR}/Vulkan-Loader/lib"
+        INSTALL_RPATH "@loader_path"
     )
 endif()
 
@@ -507,6 +508,20 @@ endif()
 
 # Install
 install(TARGETS neo-swarm RUNTIME DESTINATION bin)
+
+# Runtime dylib dependencies (@rpath, non-system) installed alongside bin/ in
+# lib/ — standard macOS app layout. INSTALL_RPATH on neo-swarm/FFI resolves
+# them via @executable_path/../lib / @loader_path, so the install tree is
+# self-contained and machine-path independent.
+if(APPLE)
+    # libvulkan.1.dylib is a symlink to libvulkan.1.3.302.dylib — install the
+    # real file too or the symlink dangles in the install tree.
+    install(FILES
+        "${GENIUS_SDK_BUILD_DIR}/src/libGeniusSDK_shared.dylib"
+        "${THIRDPARTY_BUILD_DIR}/Vulkan-Loader/lib/libvulkan.1.dylib"
+        "${THIRDPARTY_BUILD_DIR}/Vulkan-Loader/lib/libvulkan.1.3.302.dylib"
+        DESTINATION lib)
+endif()
 install(TARGETS Genius-MOS-ELM-FFI LIBRARY DESTINATION lib)
 
 install(TARGETS
