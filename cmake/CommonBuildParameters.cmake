@@ -506,7 +506,12 @@ if(BUILD_EXAMPLES)
 endif()
 
 # Install
-install(TARGETS neo-swarm RUNTIME DESTINATION bin)
+# BUNDLE DESTINATION is required alongside RUNTIME when the target is a
+# MACOSX_BUNDLE executable — the iOS toolchain sets CMAKE_MACOSX_BUNDLE=ON
+# for every executable, so without it iOS configure fails with "install
+# TARGETS given no BUNDLE DESTINATION". Harmless on platforms without a
+# bundle (same form as SuperGenius's supergenius_install).
+install(TARGETS neo-swarm RUNTIME DESTINATION bin BUNDLE DESTINATION bin)
 
 # Runtime shared-library dependencies of the installed artifacts. Locations
 # come from the imported targets find_package already created — GeniusSDK via
