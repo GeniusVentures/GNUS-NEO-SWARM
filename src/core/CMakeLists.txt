@@ -59,6 +59,18 @@ endif()
 set(_SGPROC_INCLUDE "${PROJECT_ROOT}/../SuperGenius/SGProcessingManager/include")
 set(_SGPROC_GEN_INCLUDE "${PROJECT_ROOT}/../SuperGenius/SGProcessingManager/generated")
 set(_SGPROC_LIB_DIR "${THIRDPARTY_BUILD_DIR}/SGProcessingManager/lib")
+# CI consumes the SuperGenius prebuilt release instead of a sibling source
+# checkout. The release install tree keeps the same subpaths one level under
+# ${SUPERGENIUS_BUILD_DIR}/SuperGenius (include/SGProcessingManager for the
+# headers, lib/SGProcessingManager for the six static libs), so fall back to
+# it when the source-layout sibling paths are absent.
+if(NOT EXISTS "${_SGPROC_INCLUDE}"
+        AND EXISTS "${SUPERGENIUS_BUILD_DIR}/SuperGenius/include/SGProcessingManager")
+    set(_SGPROC_INCLUDE "${SUPERGENIUS_BUILD_DIR}/SuperGenius/include/SGProcessingManager")
+    set(_SGPROC_GEN_INCLUDE
+        "${SUPERGENIUS_BUILD_DIR}/SuperGenius/include/SGProcessingManager/generated")
+    set(_SGPROC_LIB_DIR "${SUPERGENIUS_BUILD_DIR}/SuperGenius/lib/SGProcessingManager")
+endif()
 
 find_library(_SGPROC_PROCESSING_BASE ProcessingBase PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
 find_library(_SGPROC_PROCESSORS SGProcessors PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
