@@ -24,7 +24,3 @@ if(TARGET gRPC::grpc++)
     target_link_libraries(neoswarm_api PUBLIC gRPC::grpc++)
 endif()
 
-# UUID (POSIX — Linux only, macOS uses its own API)
-if(UNIX AND NOT APPLE)
-    target_link_libraries(neoswarm_api PUBLIC uuid)
-endif()
