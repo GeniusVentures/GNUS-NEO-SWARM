@@ -79,6 +79,22 @@ find_library(_SGPROC_LOGGER sgprocmanagerlogger PATHS "${_SGPROC_LIB_DIR}" NO_DE
 find_library(_SGPROC_TYPES sgprocmanagertypes PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
 find_library(_SGPROC_SHA sgprocmanagersha PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
 
+# Linux single-provider rule: the shared GeniusSDK exports the
+# SGProcessingManager stack, so link the SDK instead of embedding these
+# archives (see GCS cmake/CommonBuildParameters.cmake). The variables stay
+# truthy, keeping the real-mode branch below intact.
+if(GCS_SDK_SINGLE_PROVIDER)
+    get_target_property(_SGPROC_SDK_LIB sgns::GeniusSDK_shared IMPORTED_LOCATION)
+    if(NOT _SGPROC_SDK_LIB)
+        get_target_property(_SGPROC_SDK_LIB sgns::GeniusSDK_shared IMPORTED_LOCATION_DEBUG)
+    endif()
+    set(_SGPROC_PROCESSING_BASE "${_SGPROC_SDK_LIB}")
+    set(_SGPROC_PROCESSORS "${_SGPROC_SDK_LIB}")
+    set(_SGPROC_DATASPLITTER "${_SGPROC_SDK_LIB}")
+    set(_SGPROC_LOGGER "${_SGPROC_SDK_LIB}")
+    set(_SGPROC_TYPES "${_SGPROC_SDK_LIB}")
+    set(_SGPROC_SHA "${_SGPROC_SDK_LIB}")
+endif()
 if(_SGPROC_PROCESSING_BASE AND EXISTS "${_SGPROC_INCLUDE}" AND EXISTS "${_SGPROC_GEN_INCLUDE}")
     target_include_directories(neoswarm_core PUBLIC
         "${_SGPROC_INCLUDE}"
@@ -114,7 +130,14 @@ if(_SGPROC_PROCESSING_BASE AND EXISTS "${_SGPROC_INCLUDE}" AND EXISTS "${_SGPROC
     find_library(_XXHASH_LIB xxhash PATHS "${THIRDPARTY_BUILD_DIR}/xxhash/lib" NO_DEFAULT_PATH)
     find_library(_TSL_LIB tsl PATHS "${THIRDPARTY_BUILD_DIR}/tsl_hat_trie/lib" NO_DEFAULT_PATH)
     find_library(_SQLITE3_LIB sqlite3 PATHS "${THIRDPARTY_BUILD_DIR}/sqlite3/lib" NO_DEFAULT_PATH)
-    find_library(_ROCKSDB_LIB rocksdb PATHS "${THIRDPARTY_BUILD_DIR}/rocksdb/lib" NO_DEFAULT_PATH)
+    # The shared GeniusSDK provides rocksdb on Linux (single-provider rule,
+    # see GCS cmake/CommonBuildParameters.cmake); skip embedding librocksdb.a.
+    # find_library caches its result, so clear a stale pre-guard entry too.
+    if(NOT GCS_SDK_SINGLE_PROVIDER)
+        find_library(_ROCKSDB_LIB rocksdb PATHS "${THIRDPARTY_BUILD_DIR}/rocksdb/lib" NO_DEFAULT_PATH)
+    else()
+        unset(_ROCKSDB_LIB CACHE)
+    endif()
     find_library(_SNAPPY_LIB snappy PATHS "${THIRDPARTY_BUILD_DIR}/snappy/lib" NO_DEFAULT_PATH)
 
     target_link_libraries(neoswarm_core PUBLIC
