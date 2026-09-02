@@ -225,12 +225,12 @@ These phases evolve GNUS-NEO-SWARM from a production-hardened single-node infere
 - `VulkanInitMutex` re-entrancy deadlock (tracked as `sgproc-render` Phase 18) gates local E2E execution of `ProcessingManager::Create()` — either skip-gate with `HasUsableVulkanDevice()` → `GTEST_SKIP()` citing the tracked bug (as plan 04-04 did), or confirm it's fixed before promising real local E2E as a success criterion
 - **Naming:** never call this "Ultra FP4" — that name means E2M1/`FP4_ULTRA` in this codebase. Call it SGFP4 v2
 
-**Plans:** 3 plans in 2 waves
+**Plans:** 1/3 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 13-01-PLAN.md — SuperGenius backend resolver + MNN_Tensor null-safety + stale SGProcessingManager FP4 test rewrite (SGF-01, SGF-02, SGF-04)
+- [x] 13-01-PLAN.md — SuperGenius backend resolver + MNN_Tensor null-safety + stale SGProcessingManager FP4 test rewrite (SGF-01, SGF-02, SGF-04)
 - [ ] 13-03-PLAN.md — NEO-SWARM orphaned NF4 codec deletion + stale connectivity FP4 assertion fix (SGF-03, SGF-04)
 
 **Wave 2** *(blocked on Wave 1 completion)*
