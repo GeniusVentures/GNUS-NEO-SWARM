@@ -62,6 +62,26 @@ neoswarm_test(test_gcs_global_db         storage/test_gcs_global_db.cpp         
 neoswarm_test(test_pipeline              integration/test_pipeline.cpp                    "neoswarm_api")
 neoswarm_test(test_sgprocessing_pipeline integration/test_sgprocessing_pipeline.cpp       "neoswarm_api")
 
+# Phase 13, Plan 13-02 (D-07): the SGFP4 E2E tests walk the committed .mnn's
+# flatbuffer op list (Net::oplists() -> Op::type() == OpType_SGFP4Dequant) to
+# assert the fixture really carries at least one SGFP4Dequant op.
+# MNN_generated.h lives in the vendored MNN source tree (not installed with its
+# headers), and Type_generated.h pulls in "flatbuffers/flatbuffers.h" from MNN's
+# bundled copy. PROJECT_SUPER_ROOT (set by build/CommonCompilerOptions.cmake as
+# the parent of the resolved thirdparty checkout) points at the GeniusNetwork
+# super-root that hosts both the MNN checkout and SuperGenius.
+if(DEFINED PROJECT_SUPER_ROOT)
+    set(_MNN_SCHEMA_DIR "${PROJECT_SUPER_ROOT}/thirdparty/MNN/schema/current")
+    set(_MNN_FLATBUFFERS_DIR "${PROJECT_SUPER_ROOT}/thirdparty/MNN/3rd_party/flatbuffers/include")
+    if(EXISTS "${_MNN_SCHEMA_DIR}/MNN_generated.h")
+        target_include_directories(test_sgprocessing_pipeline PRIVATE "${_MNN_SCHEMA_DIR}" "${_MNN_FLATBUFFERS_DIR}")
+    else()
+        message(STATUS "MNN schema headers not found at ${_MNN_SCHEMA_DIR} -- SGFP4 op-presence checks will fail at build time")
+    endif()
+else()
+    message(STATUS "PROJECT_SUPER_ROOT undefined -- SGFP4 op-presence checks will fail at build time")
+endif()
+
 # Vendored copies of SuperGenius's processing_datatypes fixtures (see
 # GeniusNetwork/SuperGenius/test/src/processing_datatypes/CMakeLists.txt for the
 # original pattern this mirrors). Vendored rather than referenced from a sibling
