@@ -209,17 +209,17 @@ Which phases cover which requirements. Updated 2026-06-18 after refactor.
 | REP-01..03, SWARM-01..02 | Phase 9 | Pending (re-scoped to consensus logic 2026-07-26) |
 | SAFE-01..05 | Phase 10 | Pending |
 | COG-01..04 | Phase 11 | Pending |
-| SGF-01 | Phase 13 | Pending (seed promoted 2026-09-02) |
-| SGF-02 | Phase 13 | Complete |
-| SGF-03 | Phase 13 | Pending (dead code — quick win) |
-| SGF-04 | Phase 13 | Complete |
+| SGF-01 | Phase 13 | ✅ Done (13-02) |
+| SGF-02 | Phase 13 | ✅ Done (13-01) |
+| SGF-03 | Phase 13 | ✅ Done (13-03) |
+| SGF-04 | Phase 13 | ✅ Done (13-01/13-03) |
 
 **Coverage:**
 
 - v1 requirements: 40 total (26 original + NET-01/02 + 8 ELM Phase 7 + 4 SGF Phase 13)
-- Done: 22 (55%)
+- Done: 26 (65%)
 - Reworked/Regenerating: 5 (PERS-01, GAML-01..04)
-- Pending: 13 (33%) — includes Phase 13 SGF-01..04, promoted from seed 2026-09-02
+- Pending: 9 (23%)
 - Unmapped: 0
 
 ---
