@@ -66,8 +66,14 @@ TEST( SGConnectivity, BuildSchemaJsonFP4UltraFormatEmitsFP4Type )
     auto result =
         bridge.BuildSchemaJson( kModelUri, kInputUri, sgns::InputFormat::FP4_ULTRA, { 1, 256, 256, 3 } );
     ASSERT_TRUE( result.has_value() );
-    // FP4_ULTRA maps to the dedicated "fp4_ultra" type string in the schema.
-    EXPECT_NE( result.value().find( "fp4_ultra" ), std::string::npos );
+    // FP4_ULTRA must dispatch to the "tensor" DataType (a valid from_json selector);
+    // the encoding is carried only in the separate "format" field. The lowercase
+    // literal "fp4_ultra" is not a recognized DataType and must never appear
+    // anywhere in the generated schema — mirrors the canonical assertions in
+    // test_sgprocessing_pipeline.cpp's BuildSchemaJson_Fp4Ultra (Phase 13, SGF-04b).
+    EXPECT_NE( result.value().find( "\"type\":\"tensor\"" ), std::string::npos );
+    EXPECT_NE( result.value().find( "\"format\":\"FP4_ULTRA\"" ), std::string::npos );
+    EXPECT_EQ( result.value().find( "fp4_ultra" ), std::string::npos );
 }
 
 // =======================================================================
