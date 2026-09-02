@@ -56,7 +56,6 @@ macro(neoswarm_test name sources libs)
     add_test(NAME ${name} COMMAND ${name})
 endmacro()
 
-neoswarm_test(test_fp4_codec             core/test_fp4_codec.cpp                          "neoswarm_core")
 neoswarm_test(test_router                router/test_router.cpp                           "neoswarm_router;neoswarm_common")
 neoswarm_test(test_reputation            reputation/test_reputation.cpp                   "neoswarm_reputation;neoswarm_common")
 neoswarm_test(test_gcs_global_db         storage/test_gcs_global_db.cpp                   "neoswarm_storage;neoswarm_common;sgns::crdt_globaldb")
@@ -85,6 +84,9 @@ add_custom_command(TARGET test_sgprocessing_pipeline POST_BUILD
     "${CMAKE_CURRENT_SOURCE_DIR}/integration/processing_datatypes/tensor_input.raw"
     "${CMAKE_CURRENT_SOURCE_DIR}/integration/processing_datatypes/bert-tiny.mnn"
     "${CMAKE_CURRENT_SOURCE_DIR}/integration/processing_datatypes/string_input.raw"
+    "${CMAKE_CURRENT_SOURCE_DIR}/integration/processing_datatypes/sgfp4_tiny.mnn"
+    "${CMAKE_CURRENT_SOURCE_DIR}/integration/processing_datatypes/sgfp4_tiny_input.raw"
+    "${CMAKE_CURRENT_SOURCE_DIR}/integration/processing_datatypes/sgfp4_tiny.recipe.md"
     "$<TARGET_FILE_DIR:test_sgprocessing_pipeline>/processing_datatypes/"
     COMMENT "Copying vendored SGProcessing test fixtures"
 )
