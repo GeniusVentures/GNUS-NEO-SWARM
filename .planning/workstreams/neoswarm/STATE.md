@@ -55,7 +55,7 @@ Progress: [████████████░░░░░░░░░░░
 | 9. Swarm Consensus | 0/TBD | - | **Re-scoped** from Swarm Networking |
 | 10. AI Safety | 0/TBD | - | Not started |
 | 11. Advanced Cognition | 0/TBD | - | Not started |
-| 13. SGFP4 v2 Model Support | 0/TBD | - | **Seed promoted 2026-09-02** — not yet planned (SGFP4-INTEGRATION-SEED.md) |
+| 13. SGFP4 v2 Model Support | 0/3 | - | **Planned 2026-09-02** — 3 plans in 2 waves (13-01, 13-03 → 13-02), checker-verified, ready to execute |
 
 **Recent Trend:**
 
