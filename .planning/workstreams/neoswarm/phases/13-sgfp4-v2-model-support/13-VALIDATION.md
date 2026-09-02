@@ -2,8 +2,8 @@
 phase: 13
 slug: sgfp4-v2-model-support
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-09-02
 ---
 
@@ -20,8 +20,8 @@ created: 2026-09-02
 |----------|-------|
 | **Framework** | GoogleTest (GTest) via CTest — two repos: NEO-SWARM (`neoswarm_test(...)` macro) and SuperGenius/SGProcessingManager (`addtest(...)` macro) |
 | **Config file** | `test/CMakeLists.txt` (NEO-SWARM); `SGProcessingManager/test/**/CMakeLists.txt` (SuperGenius submodule) |
-| **Quick run command** | `ctest --test-dir build/Windows/Release -R test_sg_connectivity --output-on-failure` (NEO-SWARM); `ctest --test-dir build/Windows/Debug -R mnn_tensor_fp4_test --output-on-failure` (SuperGenius, Debug per D-10) |
-| **Full suite command** | `ctest --test-dir build/Windows/Release --output-on-failure --parallel` (NEO-SWARM 5-suite gate per RUN_AND_DEPLOY.md); `ctest --test-dir build/Windows/Debug --output-on-failure` (SuperGenius) |
+| **Quick run command** | `ctest --test-dir build/Windows/Release -R test_sg_connectivity --output-on-failure` (NEO-SWARM); `cd "W:/gnus/GeniusNetwork/SuperGenius/build/Windows/Debug" && ctest --test-dir . -R mnn_tensor_fp4_test --output-on-failure` (SuperGenius, Debug per D-10) |
+| **Full suite command** | `ctest --test-dir build/Windows/Release --output-on-failure --parallel` (NEO-SWARM 5-suite gate per RUN_AND_DEPLOY.md); `cd "W:/gnus/GeniusNetwork/SuperGenius/build/Windows/Debug" && ctest --test-dir . --output-on-failure` (SuperGenius) |
 | **Estimated runtime** | ~2–5 min full suite (both repos); seconds per targeted test |
 
 ---
@@ -39,27 +39,24 @@ created: 2026-09-02
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 13-XX (backend resolver) | TBD | 0 | SGF-01 | — | N/A | unit/build | `cmake --build build/Windows/Release --target neoswarm_core` | ❌ W0 | ⬜ pending |
-| 13-XX (SGFP4 E2E CPU) | TBD | TBD | SGF-01 | — | N/A | integration | `ctest --test-dir build/Windows/Release -R "SGProcessingPipeline.SgfP4.*Cpu"` | ❌ W0 | ⬜ pending |
-| 13-XX (SGFP4 E2E Vulkan) | TBD | TBD | SGF-01 | — | N/A | integration | `ctest --test-dir build/Windows/Release -R "SGProcessingPipeline.SgfP4.*Vulkan"` | ❌ W0 | ⬜ pending |
-| 13-XX (Dequant op assertion) | TBD | TBD | SGF-01 (D-07) | Tampering | Assert ≥1 `OpType_SGFP4Dequant` op in loaded `.mnn` — silent FP32 fallback fails loudly | assertion in E2E test | (same test binary as SGF-01 E2E) | ❌ W0 | ⬜ pending |
-| 13-XX (null-check fix) | TBD | TBD | SGF-02 | T-13-01 DoS | Malformed model → structured `ProcessingError`, never a crash | unit | `ctest --test-dir build/Windows/Debug -R mnn_tensor_fp4_test` (new negative TEST case) | ❌ W0 | ⬜ pending |
-| 13-XX (fp4_codec deletion) | TBD | TBD | SGF-03 | — | N/A | build-only | `cmake --build build/Windows/Release --target neoswarm_core` (zero `fp4_codec` references) | n/a deletion | ⬜ pending |
-| 13-XX (FP4_ULTRA test fix) | TBD | TBD | SGF-04a | — | N/A | unit | `ctest --test-dir build/Windows/Debug -R MnnTensorFp4Test` | ✅ rewrite | ⬜ pending |
-| 13-XX (connectivity literal fix) | TBD | TBD | SGF-04b | — | N/A | unit | `ctest --test-dir build/Windows/Release -R SGConnectivity` | ✅ rewrite | ⬜ pending |
-
-*Task IDs to be finalized by PLAN.md files; wave column reflects research-recommended ordering (backend resolver first).*
+| 13-01-T1 | 13-01 | 1 | SGF-01 | T-13-02 | Backend selection accepts only `cpu`/`vulkan`, otherwise falls back to Vulkan | unit | `cd "W:/gnus/GeniusNetwork/SuperGenius/build/Windows/Debug" && cmake --build . --target quantization_test && ctest --test-dir . -R QuantizationTest --output-on-failure` | ✅ planned file targets exist | ⬜ pending |
+| 13-01-T2 | 13-01 | 1 | SGF-02, SGF-04a | T-13-01 | Malformed model bytes return structured `ProcessingError`; FP4_ULTRA regression no longer asserts decode unavailable | unit | `cd "W:/gnus/GeniusNetwork/SuperGenius/build/Windows/Debug" && cmake --build . --target mnn_tensor_fp4_test SGProcessors sgprocmanagerquant && ctest --test-dir . -R MNNTensorFp4Test --output-on-failure` | ✅ planned file targets exist | ⬜ pending |
+| 13-02-T1 | 13-02 | 2 | SGF-01 (D-10) | T-13-SC | Release libraries linked by NEO-SWARM are rebuilt after 13-01 source changes | build-only | `cd "W:/gnus/GeniusNetwork/SuperGenius/build/Windows/Release" && cmake --build . --target SGProcessors sgprocmanagerquant && powershell -NoProfile -Command "$lib1 = Get-Item 'W:/gnus/GeniusNetwork/SuperGenius/build/Windows/Release/SuperGenius/lib/SGProcessingManager/SGProcessors.lib'; $lib2 = Get-Item 'W:/gnus/GeniusNetwork/SuperGenius/build/Windows/Release/SuperGenius/lib/SGProcessingManager/sgprocmanagerquant.lib'; $src1 = Get-Item 'W:/gnus/GeniusNetwork/SuperGenius/SGProcessingManager/src/processors/processing_processor_mnn_tensor.cpp'; $src2 = Get-Item 'W:/gnus/GeniusNetwork/SuperGenius/SGProcessingManager/src/util/quantization.cpp'; if ($lib1.LastWriteTime -lt $src1.LastWriteTime -or $lib2.LastWriteTime -lt $src2.LastWriteTime) { throw 'Release libraries are older than 13-01 source changes'; }"` | ✅ build outputs exist | ⬜ pending |
+| 13-02-T2 | 13-02 | 2 | SGF-01, D-06 | T-13-03 | Fixture provenance is committed and staged into the NEO-SWARM integration test output directory | build/assertion | `cmake --build build/Windows/Release --target test_sgprocessing_pipeline && ctest --test-dir build/Windows/Release -R SGProcessingBridge.BuildSchemaJson_Fp4Ultra --output-on-failure` | ❌ new fixture files | ⬜ pending |
+| 13-02-T3 | 13-02 | 2 | SGF-01, D-07 | T-13-04, T-13-05 | CPU and Vulkan direct-path tests assert `OpType_SGFP4Dequant` presence and skip Vulkan only for no-device hosts | integration | `cmake --build build/Windows/Release --target test_sgprocessing_pipeline && ctest --test-dir build/Windows/Release -R "SGProcessingPipeline.Sgfp4Direct(Cpu|Vulkan)_EndToEnd" --output-on-failure` | ❌ new test cases | ⬜ pending |
+| 13-03-T1 | 13-03 | 1 | SGF-03 | T-13-07 | Orphaned NF4 codec surface is removed and no residual references remain | build-only | `git grep -n "fp4_codec\|FP4Codec" -- src test && cmake --build build/Windows/Release --target neoswarm_core test_sg_connectivity` | ✅ existing files to delete | ⬜ pending |
+| 13-03-T2 | 13-03 | 1 | SGF-04b | T-13-06 | Connectivity regression matches the canonical FP4_ULTRA schema contract | unit | `cmake --build build/Windows/Release --target test_sg_connectivity && ctest --test-dir build/Windows/Release -R SGConnectivity.BuildSchemaJsonFP4UltraFormatEmitsFP4Type --output-on-failure` | ✅ rewrite target exists | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
 ---
 
-## Wave 0 Requirements
+## Plan Coverage Check
 
-- [ ] Backend-selection resolver + `MNN_Tensor::Process()` signature change (RESEARCH Finding 3) — must land before SGF-01 session tests can meaningfully differ
-- [ ] New E2E test cases for SGF-01 (CPU + Vulkan sessions + `OpType_SGFP4Dequant` presence assertion) — new `test/integration/test_sgfp4_e2e.cpp` or cases in `test_sgprocessing_pipeline.cpp` following `Fp4UltraFormat_DispatchesToTensorProcessor` pattern
-- [ ] Committed `.mnn` test asset + documented manual `mnnconvert --sgfp4` recipe (D-06) — does not exist yet
-- [ ] New negative-regression TEST case for SGF-02 in `mnn_tensor_fp4_test.cpp` (malformed model bytes → structured error)
+- [x] Every planned task has a concrete `<automated>` verifier.
+- [x] SuperGenius-targeted automated commands use the absolute SGProcessingManager build trees rather than NEO-SWARM's unrelated `build/` directory.
+- [x] D-10's explicit Release rebuild step is represented as Task `13-02-T1` before the release-mode NEO-SWARM integration tests.
+- [x] No placeholder task IDs remain; all validation rows map to `13-01`, `13-02`, or `13-03` tasks.
 
 *GTest/CTest wiring, fixture conventions, and `neoswarm_test`/`addtest` macros are already established and reusable.*
 
@@ -77,11 +74,11 @@ created: 2026-09-02
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
+- [x] All tasks have `<automated>` verify or explicit covered prerequisite tasks
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] No placeholder Wave 0 dependencies remain
 - [ ] No watch-mode flags
 - [ ] Feedback latency < 300s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** pending

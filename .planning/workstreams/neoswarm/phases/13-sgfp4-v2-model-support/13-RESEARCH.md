@@ -352,17 +352,15 @@ const float scale = sgprocmanagerquant::ResolveQuantScale( parameters );
 | A1 | `MNN_SUPPORT_TRANSFORMER_FUSE` is enabled in the vendored MNN build NEO-SWARM/SuperGenius currently link against | Code Examples § Classic API | If disabled, `SGFP4ClassicAPITest.cpp`'s pattern is still valid *reference* reading but that specific file wouldn't compile as-is in this build; the underlying `OpType_SGFP4Dequant`/CPU decode kernel is a separate, unconditional MNN feature so SGF-01 itself is unaffected — only affects which existing test file can be used as a literal copy-paste template |
 | A2 | A >4096-element conv weight is sufficient (not just necessary) to trigger at least one full 64x64 SGFP4 macroblock and therefore an actual `OpType_SGFP4Dequant` insertion via `mnnconvert --sgfp4`'s graph-rewrite pass | Finding 4 | If MNN's `InsertSGFP4Dequant` pass has additional undiscovered gating logic (e.g. a minimum op count, specific conv attributes), D-06's model might convert without producing the op, silently failing D-07's assertion at test time rather than at model-build time — mitigated by D-07 itself (asserts ≥1 op exists, so this would be caught, not silently passed) |
 
-## Open Questions
+## Open Questions (RESOLVED / NON-BLOCKING)
 
 1. **Exact backend-selection mechanism shape for `MNN_Tensor::Process()`**
-   - What we know: the existing `ResolveQuantScale(parameters)` convention is the established pattern to mirror; `MNN::ScheduleConfig::type` accepts `MNN_FORWARD_CPU` or `MNN_FORWARD_VULKAN`.
-   - What's unclear: whether the new parameter should live in the job schema's generic `parameters` array (schema-driven, consistent with quant scale) or as a new dedicated field on `IoDeclaration`/`Dimensions` (more visible, less generic).
-   - Recommendation: use the `parameters` array (schema-driven) for consistency with the one existing precedent in this exact file, unless the planner finds a reason `IoDeclaration` is a better fit once looking at the full schema generator.
+    - Resolution: **RESOLVED by Plan 13-01.** The backend selection stays in the job schema's generic `parameters` array, using the same `ResolveQuantScale(parameters)` find-by-name convention and defaulting to `MNN_FORWARD_VULKAN` when missing or invalid.
+    - Why this closes the question: it is the smallest additive change that satisfies D-04 and D-05 without widening the schema surface beyond the already-established parameter channel.
 
 2. **`MNN_SUPPORT_TRANSFORMER_FUSE` status in the linked MNN build**
-   - What we know: the flag gates `SGFP4ClassicAPITest.cpp`'s compilation in MNN's own test suite; unrelated to the CPU decode kernel itself.
-   - What's unclear: whether it's ON in the specific prebuilt MNN static lib NEO-SWARM/SuperGenius currently link against.
-   - Recommendation: quick `grep`/cached-CMake-variable check at plan/execute time; does not block phase scoping either way.
+    - Resolution: **NON-BLOCKING / informational only.** The flag gates `SGFP4ClassicAPITest.cpp` in MNN's own test suite, but it does not gate the SGFP4 decode kernel or the `OpType_SGFP4Dequant` execution path this phase validates.
+    - Why this does not block planning: Plan 13-02 uses `SGFP4ClassicAPITest.cpp` only as a public classic-API reference pattern, not as a dependency that must compile in the linked build.
 
 ## Environment Availability
 
