@@ -1,6 +1,6 @@
 ---
 created: 2026-08-26
-status: seed — not yet a phase
+status: promoted to Phase 13 (2026-09-02) — see ROADMAP.md "Phase 13: SGFP4 v2 Model Support" and REQUIREMENTS.md SGF-01..04
 ---
 
 # Seed: SGFP4 model support in MNNInferenceEngine / SGProcessingManager

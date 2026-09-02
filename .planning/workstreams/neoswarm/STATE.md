@@ -7,10 +7,10 @@ current_phase_name: sgprocessing-integration
 status: complete — awaiting next-phase selection
 stopped_at: Phase 4 complete (UAT 2/2 passed); no single next phase — pick among 3, 5, 6, 8 (see note)
 last_updated: "2026-08-21T21:49:22.035Z"
-last_activity: 2026-08-21
-last_activity_desc: Phase 04 complete (UAT 2/2 passed)
+last_activity: 2026-09-02
+last_activity_desc: Phase 13 (SGFP4 v2 Model Support) added from SGFP4-INTEGRATION-SEED.md — ready for /gsd-plan-phase 13
 progress:
-  total_phases: 12
+  total_phases: 13
   completed_phases: 4
   total_plans: 27
   completed_plans: 23
@@ -24,14 +24,14 @@ progress:
 See: PROJECT.md (created 2026-06-18, updated 2026-06-22)
 
 **Core value:** Real LLM inference on consumer hardware in a fully decentralized swarm, production-connected to the SuperGenius/GNUS network for distributed AI compute.
-**Current focus:** Phase 4 complete — next phase not yet selected (roadmap has parallel/gapped tracks, see note below)
+**Current focus:** Phase 13 (SGFP4 v2 Model Support) added 2026-09-02 from seed — not yet planned; next phase selection still open among 3, 5, 6, 8, 13
 
 ## Current Position
 
 Phase: 4 (SGProcessing Integration) — COMPLETE (verified 04-VERIFICATION.md: passed; 04-UAT.md: 2/2 passed)
 Plan: N/A — phase closed
 Prior phase: 2 (SuperGenius Connectivity) — complete, verified (02-VERIFICATION.md: passed, 15/15)
-Status: Phase 4 complete. Roadmap does not have one linear "next phase": Phase 3 (GCS GlobalDB, plans present but unexecuted), Phase 5 and 6 (Production Hardening / Testing, no plans yet), and Phase 8 (GAML Memory, being regenerated) are all still open in parallel. Phase 7 (ELMs + Router) was already complete before this session — an automated transition step briefly (and incorrectly) pointed `current_phase` at it as "next"; corrected here. Pick the next phase to plan explicitly, e.g. `/gsd-plan-phase 3 --ws neoswarm`.
+Status: Phase 4 complete. Roadmap does not have one linear "next phase": Phase 3 (GCS GlobalDB, plans present but unexecuted), Phase 5 and 6 (Production Hardening / Testing, no plans yet), Phase 8 (GAML Memory, being regenerated), and Phase 13 (SGFP4 v2 Model Support, added 2026-09-02 from seed — not yet planned) are all open in parallel. Phase 7 (ELMs + Router) was already complete before this session — an automated transition step briefly (and incorrectly) pointed `current_phase` at it as "next"; corrected here. Pick the next phase to plan explicitly, e.g. `/gsd-plan-phase 13 --ws neoswarm`.
 
 Progress: [████████████░░░░░░░░░░░░] 64% (22 of 27 v1 requirements done)
 
@@ -57,9 +57,11 @@ Progress: [████████████░░░░░░░░░░░
 | 9. Swarm Consensus | 0/TBD | - | **Re-scoped** from Swarm Networking |
 | 10. AI Safety | 0/TBD | - | Not started |
 | 11. Advanced Cognition | 0/TBD | - | Not started |
+| 13. SGFP4 v2 Model Support | 0/TBD | - | **Seed promoted 2026-09-02** — not yet planned (SGFP4-INTEGRATION-SEED.md) |
 
 **Recent Trend:**
 
+- 2026-09-02: Phase 13 (SGFP4 v2 Model Support) added from SGFP4-INTEGRATION-SEED.md — requirements SGF-01..04, direct-call scope, Vulkan deadlock skip-gate constraint
 - 2026-07-26: Roadmap audit — corrected storage architecture (no direct RocksDB, all via GCS GlobalDB), Phase 3 reworked, Phase 8 artifacts discarded, Phase 9 re-scoped
 - 2026-07-23: Phase 7 Wave 6 complete — ELM test suite (22 unit + 6 type + 2 integration tests), full CTest green
 - 2026-07-22: Phase 7 Wave 5 complete — ApiServer ELM integration
@@ -90,7 +92,12 @@ Recent decisions affecting current work:
 - [Phase 3]: RocksDB v10.7+ requires C++20 — must pin to v10.6.2 (C++17 ceiling)
 - [Phase 4, resolved]: FP4_ULTRA processor didn't exist in SuperGenius — built in 04-02/04-03 (validation wiring + `MNN_Llm`/`DataType::LLM` processor), UAT-confirmed 2026-08-21
 - [Phase 4]: Vendored MNN's LLM headers install to `include/llm/llm.hpp`, not the `include/MNN/llm/llm.hpp` path the codebase originally assumed — both NEO-SWARM and SGProcessingManager now include the corrected path; keep this in mind if MNN is ever re-vendored/upgraded
-- [Phase 4]: `sgproc-render` Phase 18's `VulkanInitMutex` re-entrancy deadlock was open during Phase 4 execution — it gated some local end-to-end verification (skip-gated in plan 04-04); check its current status before relying on `ProcessingManager::Create()` re-entrancy on this machine
+- [Phase 4]: `sgproc-render` Phase 18's `VulkanInitMutex` re-entrancy deadlock was open during Phase 4 execution — it gated some local end-to-end verification (skip-gated in plan 04-04); check its current status before relying on `ProcessingManager::Create()` re-entrancy on this machine — **applies directly to Phase 13 E2E verification (SGF-01)**
+- [Phase 13]: Externalized-weight SGFP4 models likely don't load (`external={offset,size}` set but `op->externalPath` not auto-injected for `OpType_SGFP4Dequant`) — use small/inline test models only
+
+### Roadmap Evolution
+
+- Phase 13 added: SGFP4 v2 Model Support — run SGFP4-quantized `.mnn` models through MNNInferenceEngine → SGProcessingManager (direct call only); promoted from SGFP4-INTEGRATION-SEED.md 2026-09-02
 
 ## Cognitive Phases (7–11)
 
@@ -106,6 +113,6 @@ Post-production cognitive system evolution. Defined in ROADMAP.md, referencing `
 
 ## Session Continuity
 
-Last session: 2026-08-21
-Stopped at: Phase 4 complete (UAT 2/2 passed); next phase not yet selected — see Current Position note
+Last session: 2026-09-02
+Stopped at: Phase 13 (SGFP4 v2 Model Support) added from seed — not yet planned; pick among phases 3, 5, 6, 8, 13
 Resume file: None

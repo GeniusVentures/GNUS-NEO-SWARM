@@ -170,7 +170,7 @@ These phases evolve GNUS-NEO-SWARM from a production-hardened single-node infere
 | AI safety (node-local enforcement) | GNUS-NEO-SWARM | `neoswarm` (C++) |
 | EGGROLL retraining orchestration | GNUS-NEO-SWARM | `neoswarm` (C++) |
 | Epistemic arbitration / GQHSM | GNUS-NEO-SWARM | `neoswarm` (C++) |
-| SGFP4 GPU decode shaders (Vulkan/MoltenVK) | GNUS-NEO-SWARM | `neoswarm` (C++) |
+| SGFP4 weight decode (CPU + Vulkan shaders, inside MNN graph) | MNN (vendored, `sgfp4-pivot` — complete) | consumed by `neoswarm` — Phase 13 |
 
 ### Phases
 
@@ -180,6 +180,7 @@ These phases evolve GNUS-NEO-SWARM from a production-hardened single-node infere
 - [ ] **Phase 10: AI Safety + Secure Agent Architecture** — Node-local safety, policy profiles, Tool Intermediary boundary
 - [ ] **Phase 11: Advanced Cognition** — EGGROLL retraining, epistemic arbitration, hierarchical critical thinking
 - [ ] **Phase 12: GCS Separation** — Namespace rebrand (`sgns::` → `gcs::`), parent repo build system (cmaketemplate + build/), Flutter extraction from GNUS-NEO-SWARM
+- [ ] **Phase 13: SGFP4 v2 Model Support** — Run SGFP4-quantized `.mnn` models through MNNInferenceEngine → SGProcessingManager (direct call only); processor null-check hardening + stale FP4 test cleanup in the same pass
 
 ### Phase 12: GCS Separation
 
@@ -194,6 +195,37 @@ These phases evolve GNUS-NEO-SWARM from a production-hardened single-node infere
 - **Flutter extraction:** `flutter_app/` and `ui/` move out of GNUS-NEO-SWARM (to parent or own submodule). Consume engine via `GeniusElm*` FFI. GNUS-NEO-SWARM retains only: `src/`, `test/`, `cmake/`, `build/`.
 
 **Note:** Deferred from Phase 3 discussion (2026-08-04) to avoid mixing restructure scope into storage work.
+
+### Phase 13: SGFP4 v2 Model Support
+
+**Goal:** Run a real SGFP4-quantized `.mnn` model through `MNNInferenceEngine → SGProcessingManager` via the direct-call path (no SuperGenius network/job submission).
+
+**Architecture reference:** Doc 16 (SGFP4 Format); `SGFP4-INTEGRATION-SEED.md` (this workstream — required reading, promoted into this phase 2026-09-02); evaluation + 2026-08-26 addendum at `.planning/quick/260825-pgu-evaluate-mnn-sgfp4-pivot-fp4-implementat/` in the parent GeniusCognitiveSystem repo
+
+**Depends on:** Phase 4 (SGProcessing Integration — bridge + MNN_Tensor/LLM processor wiring)
+
+**Scope:**
+
+- Wire SGFP4 v2 model execution through `SGProcessingBridge::SubmitDirect()` → `ProcessingManager::Create/Process` — the classic MNN `Interpreter`/`createSession`/`runSession` API that `mnnconvert --sgfp4` output is verified against (CPU + Vulkan)
+- Test model produced manually via `mnnconvert --sgfp4` (no automated pipeline invokes it — same as `RUN_AND_DEPLOY.md`'s documented `llmexport.py` usage); **use a small inline model** below MNN's `_largeModel` externalization threshold — externalized-weight SGFP4 models have an open `op->externalPath` injection gap
+- Defensive fix in `SGProcessingManager/src/processors/processing_processor_mnn_tensor.cpp`: `Process()` can return `nullptr` (malformed/incompatible model) and `StartProcessing()` dereferences it unchecked
+- Fix stale FP4-area tests in the same pass: SuperGenius `test/processors/mnn_tensor_fp4_test.cpp` (asserts FP4_ULTRA decode unavailable; it is live — E2M1, different format, same area) and NEO-SWARM `test_sg_connectivity.cpp` fp4_ultra lowercase-literal assertion
+- Delete orphaned NF4 `fp4_codec.{hpp,cpp}` + `test/core/test_fp4_codec.cpp` (self-flagged dead code; consumer removed in commit `8ee7fa4`)
+
+**Out of scope (locked in seed):**
+
+- SuperGenius network/job-submission path (direct call only)
+- Building SGFP4 conversion/injection tooling (`mnnconvert --sgfp4` + `sgfp4_inject` already exist)
+- arxiv §8 verifiable-execution/attestation
+- `InputFormat::SGFP4_V2` wire format — SGFP4 is a model-weight format decoded inside MNN's graph, not an input-tensor format
+- gnus-poc `--adaptive` default flip and `"fp4_ultra_v0.2"` manifest naming collision (separate follow-ups)
+
+**Known risks (design around upfront):**
+
+- `VulkanInitMutex` re-entrancy deadlock (tracked as `sgproc-render` Phase 18) gates local E2E execution of `ProcessingManager::Create()` — either skip-gate with `HasUsableVulkanDevice()` → `GTEST_SKIP()` citing the tracked bug (as plan 04-04 did), or confirm it's fixed before promising real local E2E as a success criterion
+- **Naming:** never call this "Ultra FP4" — that name means E2M1/`FP4_ULTRA` in this codebase. Call it SGFP4 v2
+
+**Plans:** TBD
 
 ### Phase 7: Expert Language Models + Router
 
@@ -340,8 +372,8 @@ Each cognitive phase follows the standard GSD pipeline:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12
-Phases 4, 5, 6 are parallelizable with 2, 3.
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13
+Phases 4, 5, 6 are parallelizable with 2, 3. Phase 13 is parallelizable with 3, 5, 6, 8 (depends only on Phase 4, which is complete).
 
 | Phase | Plans Complete | Status | Notes |
 |-------|----------------|--------|-------|
@@ -357,6 +389,7 @@ Phases 4, 5, 6 are parallelizable with 2, 3.
 | 10. AI Safety | 0/TBD | Not started | — |
 | 11. Advanced Cognition | 0/TBD | Not started | — |
 | 12. GCS Separation | 0/TBD | Not started | Namespace rebrand + parent build + Flutter extraction |
+| 13. SGFP4 v2 Model Support | 0/TBD | **Seed promoted** | Direct-call SGFP4 model execution; see SGFP4-INTEGRATION-SEED.md |
 
 ---
 
@@ -364,4 +397,4 @@ Phases 4, 5, 6 are parallelizable with 2, 3.
 
 **Storage architecture correction (2026-07-26):** Direct RocksDB wrappers (`ReputationStorage`, `MemoryStorage`) replaced with GCS GlobalDB pattern. Phase 3 reworked, Phase 8 regenerating, Phase 9 re-scoped.
 
-*Roadmap updated: 2026-07-26*
+*Roadmap updated: 2026-09-02 (Phase 13 added from SGFP4-INTEGRATION-SEED.md; SGFP4 shader ownership row corrected — MNN owns decode)*
