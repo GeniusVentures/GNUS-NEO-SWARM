@@ -180,7 +180,7 @@ These phases evolve GNUS-NEO-SWARM from a production-hardened single-node infere
 - [ ] **Phase 10: AI Safety + Secure Agent Architecture** — Node-local safety, policy profiles, Tool Intermediary boundary
 - [ ] **Phase 11: Advanced Cognition** — EGGROLL retraining, epistemic arbitration, hierarchical critical thinking
 - [ ] **Phase 12: GCS Separation** — Namespace rebrand (`sgns::` → `gcs::`), parent repo build system (cmaketemplate + build/), Flutter extraction from GNUS-NEO-SWARM
-- [ ] **Phase 13: SGFP4 v2 Model Support** — Run SGFP4-quantized `.mnn` models through MNNInferenceEngine → SGProcessingManager (direct call only); processor null-check hardening + stale FP4 test cleanup in the same pass
+- [x] **Phase 13: SGFP4 v2 Model Support** — Run SGFP4-quantized `.mnn` models through MNNInferenceEngine → SGProcessingManager (direct call only); processor null-check hardening + stale FP4 test cleanup in the same pass (completed 2026-09-02)
 
 ### Phase 12: GCS Separation
 
@@ -225,7 +225,7 @@ These phases evolve GNUS-NEO-SWARM from a production-hardened single-node infere
 - `VulkanInitMutex` re-entrancy deadlock (tracked as `sgproc-render` Phase 18) gates local E2E execution of `ProcessingManager::Create()` — either skip-gate with `HasUsableVulkanDevice()` → `GTEST_SKIP()` citing the tracked bug (as plan 04-04 did), or confirm it's fixed before promising real local E2E as a success criterion
 - **Naming:** never call this "Ultra FP4" — that name means E2M1/`FP4_ULTRA` in this codebase. Call it SGFP4 v2
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 **Wave 1**
@@ -235,7 +235,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 13-02-PLAN.md — Committed SGFP4 fixture + CPU/Vulkan direct-path E2E tests through SGProcessingBridge::SubmitDirect() (SGF-01)
+- [x] 13-02-PLAN.md — Committed SGFP4 fixture + CPU/Vulkan direct-path E2E tests through SGProcessingBridge::SubmitDirect() (SGF-01)
 
 ### Phase 7: Expert Language Models + Router
 
