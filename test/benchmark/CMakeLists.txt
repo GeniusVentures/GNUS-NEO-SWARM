@@ -1,3 +1,8 @@
+# bench_mnn_llm needs MNN's LLM API header. The vendored MNN installs it at
+# include/llm/llm.hpp — a sibling of MNN/, not under it. Keep the existence
+# check as a guard against MNN built without MNN_BUILD_LLM.
+if(EXISTS "${_THIRDPARTY_BUILD_DIR}/MNN/include/llm/llm.hpp")
+
 add_executable(bench_mnn_llm bench_mnn_llm.cpp)
 
 target_include_directories(bench_mnn_llm PRIVATE
@@ -31,4 +36,6 @@ if(APPLE)
     if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
         target_link_libraries(bench_mnn_llm PRIVATE "-framework AppKit")
     endif()
+endif()
+
 endif()

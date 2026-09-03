@@ -484,14 +484,23 @@ endif()
 # Source tree
 add_subdirectory(${NEOSWARM_ROOT}/src ${CMAKE_BINARY_DIR}/src)
 
+# Per-platform app link settings (APP_LINK_OPTIONS / APP_LINK_LIBRARIES /
+# APP_RPATH_TOKEN_*), keyed on BUILD_PLATFORM_NAME set by the build wrapper.
+include(${NEOSWARM_ROOT}/cmake/CompilationFlags.cmake)
+
 # Main binary
 add_executable(neo-swarm ${NEOSWARM_ROOT}/src/main.cpp)
 target_link_libraries(neo-swarm PRIVATE neoswarm_api Threads::Threads)
-if(APPLE)
-    target_link_options(neo-swarm PRIVATE "LINKER:-no_warn_duplicate_libraries")
+if(APP_LINK_OPTIONS)
+    target_link_options(neo-swarm PRIVATE ${APP_LINK_OPTIONS})
 endif()
-if(UNIX AND NOT APPLE)
-    target_link_libraries(neo-swarm PRIVATE uuid)
+if(APP_LINK_LIBRARIES)
+    target_link_libraries(neo-swarm PRIVATE ${APP_LINK_LIBRARIES})
+endif()
+if(APP_RPATH_EXE)
+    set_target_properties(neo-swarm PROPERTIES
+        INSTALL_RPATH "${APP_RPATH_EXE}"
+    )
 endif()
 
 # FFI shared library (Flutter bridge)
@@ -499,6 +508,11 @@ add_library(Genius-MOS-ELM-FFI SHARED ${NEOSWARM_ROOT}/src/genius_elm_chat_compl
 target_include_directories(Genius-MOS-ELM-FFI PUBLIC ${NEOSWARM_ROOT}/src)
 target_compile_definitions(Genius-MOS-ELM-FFI PRIVATE NEOSWARM_CHAT_C_EXPORTS)
 target_link_libraries(Genius-MOS-ELM-FFI PRIVATE Threads::Threads neoswarm_api)
+if(APP_RPATH_LIB)
+    set_target_properties(Genius-MOS-ELM-FFI PROPERTIES
+        INSTALL_RPATH "${APP_RPATH_LIB}"
+    )
+endif()
 
 if(BUILD_TESTING)
     enable_testing()
@@ -514,8 +528,61 @@ if(BUILD_EXAMPLES)
 endif()
 
 # Install
-install(TARGETS neo-swarm RUNTIME DESTINATION bin)
-install(TARGETS Genius-MOS-ELM-FFI LIBRARY DESTINATION lib)
+# BUNDLE DESTINATION is required alongside RUNTIME when the target is a
+# MACOSX_BUNDLE executable — the iOS toolchain sets CMAKE_MACOSX_BUNDLE=ON
+# for every executable, so without it iOS configure fails with "install
+# TARGETS given no BUNDLE DESTINATION". Harmless on platforms without a
+# bundle (same form as SuperGenius's supergenius_install).
+install(TARGETS neo-swarm RUNTIME DESTINATION bin BUNDLE DESTINATION bin)
+
+# Runtime shared-library dependencies of the installed artifacts. Locations
+# come from the imported targets find_package already created — GeniusSDK via
+# the redirected sgns::GeniusSDK_shared, Vulkan via Vulkan::Vulkan — so no
+# paths or versions are hardcoded. The real file is installed into lib/ and
+# the linker-visible soname symlink chain (e.g. libvulkan.dylib ->
+# libvulkan.1.dylib -> libvulkan.1.3.302.dylib) is recreated next to it.
+set(_NEOSWARM_RUNTIME_DEP_EXPRS "")
+if(TARGET sgns::GeniusSDK_shared)
+    list(APPEND _NEOSWARM_RUNTIME_DEP_EXPRS "$<TARGET_FILE:sgns::GeniusSDK_shared>")
+endif()
+if(TARGET Vulkan::Vulkan)
+    list(APPEND _NEOSWARM_RUNTIME_DEP_EXPRS "$<TARGET_FILE:Vulkan::Vulkan>")
+endif()
+install(CODE "
+    set(_deps \"${_NEOSWARM_RUNTIME_DEP_EXPRS}\")
+    foreach(_dep \${_deps})
+        # Walk the symlink chain down to the real file.
+        set(_cur \"\${_dep}\")
+        set(_chain \"\")
+        while(IS_SYMLINK \"\${_cur}\")
+            get_filename_component(_name \"\${_cur}\" NAME)
+            file(READ_SYMLINK \"\${_cur}\" _target)
+            get_filename_component(_dir \"\${_cur}\" DIRECTORY)
+            get_filename_component(_next \"\${_dir}/\${_target}\" ABSOLUTE)
+            list(APPEND _chain \"\${_name}=>\${_target}\")
+            set(_cur \"\${_next}\")
+        endwhile()
+        # Install the real file under its own name.
+        get_filename_component(_real_name \"\${_cur}\" NAME)
+        file(INSTALL DESTINATION \"\${CMAKE_INSTALL_PREFIX}/${APP_RUNTIME_LIB_DIR}\"
+             FILES \"\${_cur}\" RENAME \"\${_real_name}\")
+        # Recreate each symlink (innermost first) beside it.
+        list(REVERSE _chain)
+        foreach(_link \${_chain})
+            string(REGEX REPLACE \"^([^=]*)=>(.*)\$\" \"\\\\1;\\\\2\" _pair \"\${_link}\")
+            list(GET _pair 0 _link_name)
+            list(GET _pair 1 _link_target)
+            execute_process(COMMAND \"\${CMAKE_COMMAND}\" -E create_symlink
+                \"\${_link_target}\" \"\${CMAKE_INSTALL_PREFIX}/${APP_RUNTIME_LIB_DIR}/\${_link_name}\")
+        endforeach()
+        message(STATUS \"Installing runtime dependency: \${_real_name}\")
+    endforeach()
+")
+# LIBRARY covers Mach-O/ELF; RUNTIME places the Windows DLL next to the exe
+# (APP_RUNTIME_LIB_DIR = bin on Windows, lib elsewhere).
+install(TARGETS Genius-MOS-ELM-FFI
+    LIBRARY DESTINATION ${APP_RUNTIME_LIB_DIR}
+    RUNTIME DESTINATION ${APP_RUNTIME_LIB_DIR})
 
 install(TARGETS
     neoswarm_common neoswarm_core neoswarm_specialists neoswarm_router neoswarm_elm

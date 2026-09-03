@@ -159,20 +159,22 @@ TEST(CognitiveAsset, DefaultConstruction)
     EXPECT_TRUE(a.m_sourceNode.empty());
 }
 
-TEST(CognitiveAsset, DesignatedInitialization)
+TEST(CognitiveAsset, AggregateInitialization)
 {
-    // NOTE: C++20 designated initializers are not permitted in this project
-    // (CLAUDE.md mandates C++17-and-below). Use default construction +
-    // explicit member assignment to achieve the same field values.
-    CognitiveAsset a;
-    a.m_id = "test-001";
-    a.m_entity = "physics";
-    a.m_type = MemoryObjectType::FACT;
-    a.m_timestamp = 1000;
-    a.m_sourceNode = "node-1";
-    a.m_confidence = 0.85f;
-    a.m_provenance = 0.6f;
-    a.m_trustClass = TrustClass::VERIFIED;
+    // Ordered aggregate init (C++17) — designated initializers are C++20 and
+    // MSVC rejects them under /std:c++17 (C7555). m_payload sits between
+    // m_type and m_timestamp in the declaration, so it is spelled out.
+    CognitiveAsset a{
+        "test-001",
+        "physics",
+        MemoryObjectType::FACT,
+        nlohmann::json{},
+        1000,
+        "node-1",
+        0.85f,
+        0.6f,
+        TrustClass::VERIFIED,
+    };
     EXPECT_EQ(a.m_id, "test-001");
     EXPECT_EQ(a.m_entity, "physics");
     EXPECT_EQ(a.m_type, MemoryObjectType::FACT);

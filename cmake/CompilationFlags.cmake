@@ -27,3 +27,40 @@ if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "^(AppleClang|Clang|GNU)$")
   #add_flag(-Werror=sign-compare)     # warn the user if they compare a signed and unsigned numbers
   #add_flag(-Werror=reorder)          # field '$1' will be initialized after field '$2'
 endif()
+
+# ---------------------------------------------------------------------------
+# Per-platform application link settings — standalone fallback only.
+# Canonical definitions live in the parent repo's cmake/CompilationFlags.cmake
+# (via the build submodule forwarder); when NEO-SWARM is built standalone the
+# parent file never runs, so define them here from the build dir name.
+# ---------------------------------------------------------------------------
+if(NOT DEFINED APP_RPATH_EXE)
+if(NOT BUILD_PLATFORM_NAME)
+    get_filename_component(BUILD_PLATFORM_NAME ${CMAKE_CURRENT_SOURCE_DIR} NAME)
+endif()
+if(BUILD_PLATFORM_NAME MATCHES "^(OSX|iOS)$")
+    set(APP_RUNTIME_LIB_DIR "lib")
+    set(APP_LINK_OPTIONS "LINKER:-no_warn_duplicate_libraries")
+    set(APP_LINK_LIBRARIES "")
+    set(APP_RPATH_EXE "@executable_path/../${APP_RUNTIME_LIB_DIR}")
+    set(APP_RPATH_LIB "@loader_path")
+elseif(BUILD_PLATFORM_NAME STREQUAL "Linux")
+    set(APP_RUNTIME_LIB_DIR "lib")
+    set(APP_LINK_OPTIONS "")
+    set(APP_LINK_LIBRARIES "")
+    set(APP_RPATH_EXE "\$ORIGIN/../${APP_RUNTIME_LIB_DIR}")
+    set(APP_RPATH_LIB "$ORIGIN")
+elseif(BUILD_PLATFORM_NAME STREQUAL "Windows")
+    set(APP_RUNTIME_LIB_DIR "bin")
+    set(APP_LINK_OPTIONS "")
+    set(APP_LINK_LIBRARIES "")
+    set(APP_RPATH_EXE "")
+    set(APP_RPATH_LIB "")
+else() # Android/iOS — mobile app packaging, no installed exe layout
+    set(APP_RUNTIME_LIB_DIR "lib")
+    set(APP_LINK_OPTIONS "")
+    set(APP_LINK_LIBRARIES "")
+    set(APP_RPATH_EXE "")
+    set(APP_RPATH_LIB "")
+endif()
+endif()

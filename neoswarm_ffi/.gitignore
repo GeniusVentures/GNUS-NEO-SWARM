@@ -31,3 +31,6 @@ migrate_working_dir/
 .flutter-plugins
 .flutter-plugins-dependencies
 build/
+
+# Staged FFI dylib (copied by consumer CMake build)
+macos/lib/

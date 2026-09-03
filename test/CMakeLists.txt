@@ -48,6 +48,9 @@ enable_testing()
 # See .planning/debug/resolved/neoswarm-boost-test-gtest.md for full analysis.
 macro(neoswarm_test name sources libs)
     add_executable(${name} ${sources})
+    # GTest::Main must precede ${libs}: SuperGenius static libs PUBLIC-export
+    # Boost::unit_test_framework, whose archive defines main(). If it precedes
+    # gtest_main, ld pulls unit_test_main.o and init_unit_test_suite goes undefined.
     target_link_libraries(${name} PRIVATE
         GTest::Main
         GTest::GTest
@@ -115,6 +118,9 @@ neoswarm_test(test_node_identity     security/test_node_identity.cpp        "neo
 neoswarm_test(test_message_signing   security/test_message_signing.cpp      "neoswarm_security;neoswarm_common")
 neoswarm_test(test_genius_elm_ffi    ffi/test_genius_elm_ffi.cpp             "neoswarm_api")
 target_sources(test_genius_elm_ffi PRIVATE "${NEOSWARM_ROOT}/src/genius_elm_chat_completions.cpp")
+# The test compiles the FFI source directly, so it needs the same EXPORTS
+# define as the DLL (CommonBuildParameters.cmake): without it the _WIN32
+# macro flavor is dllimport and MSVC rejects the definitions (C2491).
 target_compile_definitions(test_genius_elm_ffi PRIVATE NEOSWARM_CHAT_C_EXPORTS)
 neoswarm_test(test_fact_validation   knowledge/test_fact_validation.cpp      "neoswarm_knowledge;neoswarm_common")
 neoswarm_test(test_network           network/test_network.cpp                "neoswarm_network;neoswarm_security;neoswarm_common")

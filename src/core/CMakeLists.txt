@@ -34,14 +34,6 @@ if(TARGET MNN)
     target_link_libraries(neoswarm_core PUBLIC MNN)
 endif()
 
-# ---------------------------------------------------------------------------
-# Vulkan / MoltenVK (GPU acceleration — cross-platform)
-# ---------------------------------------------------------------------------
-find_package(Vulkan QUIET)
-if(Vulkan_FOUND)
-    target_link_libraries(neoswarm_core PUBLIC Vulkan::Vulkan)
-endif()
-
 # MoltenVK — Vulkan-to-Metal translation layer (macOS/iOS only, but still Vulkan API)
 set(_MOLTENVK_LIB "${THIRDPARTY_BUILD_DIR}/MoltenVK/build/lib/MoltenVK.xcframework/macos-arm64_x86_64/libMoltenVK.a")
 if(EXISTS "${_MOLTENVK_LIB}")
@@ -62,20 +54,40 @@ endif()
 # ---------------------------------------------------------------------------
 # SGProcessingManager integration (pre-built from SuperGenius)
 # ---------------------------------------------------------------------------
-# This is deliberately self-contained and does NOT reuse SUPERGENIUS_BUILD_DIR /
-# SGPROCESSING_DIR from cmake/CommonBuildParameters.cmake, because that
-# mechanism's PROJECT_SUPER_ROOT resolution also cannot reach GeniusNetwork
-# post-app-restructure (its sibling-thirdparty walk-up cannot check
-# GeniusNetwork/thirdparty) — a separate, wider, out-of-phase pre-existing
-# issue this phase's PROC-03/FIX-04 scope does not absorb.
+# Resolution order (union of the app-restructure and phase-04 strategies):
+#   1. GeniusNetwork checkout (GENIUSNETWORK_SUPERGENIUS_DIR) — dev layout,
+#      libs from that checkout's own install tree.
+#   2. SuperGenius sibling source checkout (${PROJECT_ROOT}/../SuperGenius)
+#      with thirdparty-built libs.
+#   3. SuperGenius prebuilt release (CI) — same subpaths one level under
+#      ${SUPERGENIUS_BUILD_DIR}/SuperGenius.
 set(GENIUSNETWORK_SUPERGENIUS_DIR "${PROJECT_ROOT}/../../GeniusNetwork/SuperGenius"
     CACHE PATH "Path to GeniusNetwork's SuperGenius checkout (dev_childwallet)")
 cmake_path(SET GENIUSNETWORK_SUPERGENIUS_DIR NORMALIZE "${GENIUSNETWORK_SUPERGENIUS_DIR}")
 
-# SGProcessingManager headers + prebuilt static libs from GeniusNetwork's SuperGenius checkout
 set(_SGPROC_INCLUDE "${GENIUSNETWORK_SUPERGENIUS_DIR}/SGProcessingManager/include")
 set(_SGPROC_GEN_INCLUDE "${GENIUSNETWORK_SUPERGENIUS_DIR}/SGProcessingManager/generated")
 set(_SGPROC_LIB_DIR "${GENIUSNETWORK_SUPERGENIUS_DIR}/build/${BUILD_PLATFORM_NAME}/${CMAKE_BUILD_TYPE}${ABI_SUBFOLDER_NAME}/SuperGenius/lib/SGProcessingManager")
+
+if(NOT EXISTS "${_SGPROC_INCLUDE}")
+    # SuperGenius sibling source checkout (standalone dev layout)
+    set(_SGPROC_INCLUDE "${PROJECT_ROOT}/../SuperGenius/SGProcessingManager/include")
+    set(_SGPROC_GEN_INCLUDE "${PROJECT_ROOT}/../SuperGenius/SGProcessingManager/generated")
+    set(_SGPROC_LIB_DIR "${THIRDPARTY_BUILD_DIR}/SGProcessingManager/lib")
+endif()
+
+# CI consumes the SuperGenius prebuilt release instead of a sibling source
+# checkout. The release install tree keeps the same subpaths one level under
+# ${SUPERGENIUS_BUILD_DIR}/SuperGenius (include/SGProcessingManager for the
+# headers, lib/SGProcessingManager for the static libs), so fall back to
+# it when the source-layout paths above are absent.
+if(NOT EXISTS "${_SGPROC_INCLUDE}"
+        AND EXISTS "${SUPERGENIUS_BUILD_DIR}/SuperGenius/include/SGProcessingManager")
+    set(_SGPROC_INCLUDE "${SUPERGENIUS_BUILD_DIR}/SuperGenius/include/SGProcessingManager")
+    set(_SGPROC_GEN_INCLUDE
+        "${SUPERGENIUS_BUILD_DIR}/SuperGenius/include/SGProcessingManager/generated")
+    set(_SGPROC_LIB_DIR "${SUPERGENIUS_BUILD_DIR}/SuperGenius/lib/SGProcessingManager")
+endif()
 
 find_library(_SGPROC_PROCESSING_BASE ProcessingBase PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
 find_library(_SGPROC_PROCESSORS SGProcessors PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
@@ -90,6 +102,22 @@ find_library(_SGPROC_CAPTURE sgproccapture PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT
 find_library(_SGPROC_DIFF sgprocmanagerdiff PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
 find_library(_SGPROC_QUANT sgprocmanagerquant PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
 
+# Linux single-provider rule: the shared GeniusSDK exports the
+# SGProcessingManager stack, so link the SDK instead of embedding these
+# archives (see GCS cmake/CommonBuildParameters.cmake). The variables stay
+# truthy, keeping the real-mode branch below intact.
+if(GCS_SDK_SINGLE_PROVIDER)
+    get_target_property(_SGPROC_SDK_LIB sgns::GeniusSDK_shared IMPORTED_LOCATION)
+    if(NOT _SGPROC_SDK_LIB)
+        get_target_property(_SGPROC_SDK_LIB sgns::GeniusSDK_shared IMPORTED_LOCATION_DEBUG)
+    endif()
+    set(_SGPROC_PROCESSING_BASE "${_SGPROC_SDK_LIB}")
+    set(_SGPROC_PROCESSORS "${_SGPROC_SDK_LIB}")
+    set(_SGPROC_DATASPLITTER "${_SGPROC_SDK_LIB}")
+    set(_SGPROC_LOGGER "${_SGPROC_SDK_LIB}")
+    set(_SGPROC_TYPES "${_SGPROC_SDK_LIB}")
+    set(_SGPROC_SHA "${_SGPROC_SDK_LIB}")
+endif()
 if(_SGPROC_PROCESSING_BASE AND EXISTS "${_SGPROC_INCLUDE}" AND EXISTS "${_SGPROC_GEN_INCLUDE}")
     target_include_directories(neoswarm_core PUBLIC
         "${_SGPROC_INCLUDE}"
@@ -131,7 +159,14 @@ if(_SGPROC_PROCESSING_BASE AND EXISTS "${_SGPROC_INCLUDE}" AND EXISTS "${_SGPROC
     find_library(_XXHASH_LIB xxhash PATHS "${THIRDPARTY_BUILD_DIR}/xxhash/lib" NO_DEFAULT_PATH)
     find_library(_TSL_LIB tsl PATHS "${THIRDPARTY_BUILD_DIR}/tsl_hat_trie/lib" NO_DEFAULT_PATH)
     find_library(_SQLITE3_LIB sqlite3 PATHS "${THIRDPARTY_BUILD_DIR}/sqlite3/lib" NO_DEFAULT_PATH)
-    find_library(_ROCKSDB_LIB rocksdb PATHS "${THIRDPARTY_BUILD_DIR}/rocksdb/lib" NO_DEFAULT_PATH)
+    # The shared GeniusSDK provides rocksdb on Linux (single-provider rule,
+    # see GCS cmake/CommonBuildParameters.cmake); skip embedding librocksdb.a.
+    # find_library caches its result, so clear a stale pre-guard entry too.
+    if(NOT GCS_SDK_SINGLE_PROVIDER)
+        find_library(_ROCKSDB_LIB rocksdb PATHS "${THIRDPARTY_BUILD_DIR}/rocksdb/lib" NO_DEFAULT_PATH)
+    else()
+        unset(_ROCKSDB_LIB CACHE)
+    endif()
     find_library(_SNAPPY_LIB snappy PATHS "${THIRDPARTY_BUILD_DIR}/snappy/lib" NO_DEFAULT_PATH)
 
     target_link_libraries(neoswarm_core PUBLIC
