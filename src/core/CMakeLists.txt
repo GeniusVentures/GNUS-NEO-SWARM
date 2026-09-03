@@ -55,15 +55,33 @@ endif()
 # ---------------------------------------------------------------------------
 # SGProcessingManager integration (pre-built from SuperGenius)
 # ---------------------------------------------------------------------------
-# SGProcessingManager headers from SuperGenius sibling repo
-set(_SGPROC_INCLUDE "${PROJECT_ROOT}/../SuperGenius/SGProcessingManager/include")
-set(_SGPROC_GEN_INCLUDE "${PROJECT_ROOT}/../SuperGenius/SGProcessingManager/generated")
-set(_SGPROC_LIB_DIR "${THIRDPARTY_BUILD_DIR}/SGProcessingManager/lib")
+# Resolution order (union of the app-restructure and phase-04 strategies):
+#   1. GeniusNetwork checkout (GENIUSNETWORK_SUPERGENIUS_DIR) — dev layout,
+#      libs from that checkout's own install tree.
+#   2. SuperGenius sibling source checkout (${PROJECT_ROOT}/../SuperGenius)
+#      with thirdparty-built libs.
+#   3. SuperGenius prebuilt release (CI) — same subpaths one level under
+#      ${SUPERGENIUS_BUILD_DIR}/SuperGenius.
+set(GENIUSNETWORK_SUPERGENIUS_DIR "${PROJECT_ROOT}/../../GeniusNetwork/SuperGenius"
+    CACHE PATH "Path to GeniusNetwork's SuperGenius checkout (dev_childwallet)")
+cmake_path(SET GENIUSNETWORK_SUPERGENIUS_DIR NORMALIZE "${GENIUSNETWORK_SUPERGENIUS_DIR}")
+
+set(_SGPROC_INCLUDE "${GENIUSNETWORK_SUPERGENIUS_DIR}/SGProcessingManager/include")
+set(_SGPROC_GEN_INCLUDE "${GENIUSNETWORK_SUPERGENIUS_DIR}/SGProcessingManager/generated")
+set(_SGPROC_LIB_DIR "${GENIUSNETWORK_SUPERGENIUS_DIR}/build/${BUILD_PLATFORM_NAME}/${CMAKE_BUILD_TYPE}${ABI_SUBFOLDER_NAME}/SuperGenius/lib/SGProcessingManager")
+
+if(NOT EXISTS "${_SGPROC_INCLUDE}")
+    # SuperGenius sibling source checkout (standalone dev layout)
+    set(_SGPROC_INCLUDE "${PROJECT_ROOT}/../SuperGenius/SGProcessingManager/include")
+    set(_SGPROC_GEN_INCLUDE "${PROJECT_ROOT}/../SuperGenius/SGProcessingManager/generated")
+    set(_SGPROC_LIB_DIR "${THIRDPARTY_BUILD_DIR}/SGProcessingManager/lib")
+endif()
+
 # CI consumes the SuperGenius prebuilt release instead of a sibling source
 # checkout. The release install tree keeps the same subpaths one level under
 # ${SUPERGENIUS_BUILD_DIR}/SuperGenius (include/SGProcessingManager for the
-# headers, lib/SGProcessingManager for the six static libs), so fall back to
-# it when the source-layout sibling paths are absent.
+# headers, lib/SGProcessingManager for the static libs), so fall back to
+# it when the source-layout paths above are absent.
 if(NOT EXISTS "${_SGPROC_INCLUDE}"
         AND EXISTS "${SUPERGENIUS_BUILD_DIR}/SuperGenius/include/SGProcessingManager")
     set(_SGPROC_INCLUDE "${SUPERGENIUS_BUILD_DIR}/SuperGenius/include/SGProcessingManager")
@@ -78,6 +96,12 @@ find_library(_SGPROC_DATASPLITTER DataSplitter PATHS "${_SGPROC_LIB_DIR}" NO_DEF
 find_library(_SGPROC_LOGGER sgprocmanagerlogger PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
 find_library(_SGPROC_TYPES sgprocmanagertypes PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
 find_library(_SGPROC_SHA sgprocmanagersha PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
+find_library(_SGPROC_ARTIFACTS SGArtifacts PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
+find_library(_SGPROC_CAPABILITY SGCapability PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
+find_library(_SGPROC_SHADERCOMPILER SGShaderCompiler PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
+find_library(_SGPROC_CAPTURE sgproccapture PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
+find_library(_SGPROC_DIFF sgprocmanagerdiff PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
+find_library(_SGPROC_QUANT sgprocmanagerquant PATHS "${_SGPROC_LIB_DIR}" NO_DEFAULT_PATH)
 
 # Linux single-provider rule: the shared GeniusSDK exports the
 # SGProcessingManager stack, so link the SDK instead of embedding these
@@ -107,6 +131,12 @@ if(_SGPROC_PROCESSING_BASE AND EXISTS "${_SGPROC_INCLUDE}" AND EXISTS "${_SGPROC
         "${_SGPROC_LOGGER}"
         "${_SGPROC_TYPES}"
         "${_SGPROC_SHA}"
+        "${_SGPROC_ARTIFACTS}"
+        "${_SGPROC_CAPABILITY}"
+        "${_SGPROC_SHADERCOMPILER}"
+        "${_SGPROC_CAPTURE}"
+        "${_SGPROC_DIFF}"
+        "${_SGPROC_QUANT}"
     )
     # AsyncIOManager (transitive dependency of ProcessingBase)
     find_library(_ASYNCIO_LIB AsyncIOManager

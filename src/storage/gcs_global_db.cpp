@@ -1,8 +1,8 @@
 /**
  * @file       gcs_global_db.cpp
  * @brief      GCS GlobalDB component implementation — init-style lifecycle (D-13),
- *             PubSub acquired from GeniusSDK (D-15/D-16a), GlobalDB::Error mapped to
- *             NEO-SWARM codes at the boundary (D-14).
+ *             PubSub acquired from GeniusSDK via GeniusSDKGetPubSub() (D-15/D-16a),
+ *             GlobalDB::Error mapped to NEO-SWARM codes at the boundary (D-14).
  * @date       2026-08-10
  */
 
@@ -12,9 +12,10 @@
 #include <utility>
 
 #include <libp2p/basic/scheduler.hpp>
+#include <libp2p/basic/scheduler/asio_scheduler_backend.hpp>
 #include <libp2p/basic/scheduler/scheduler_impl.hpp>
 
-#include "GeniusSDK.hpp"
+#include "GeniusSDK.h"
 
 #include "crdt/crdt_options.hpp"
 #include "crdt/globaldb/globaldb.hpp"
@@ -81,21 +82,23 @@ namespace sgns::neoswarm::storage
     outcome::result<void> GcsGlobalDb::Initialize()
     {
         // Step 2: PubSub acquisition (D-15, D-16, D-16a) — pull from the in-process GeniusSDK.
-        auto node = GeniusSDKGetNode();
-        if ( !node )
+        // GeniusSDKGetPubSub() returns an opaque, non-owning handle to the SDK's internal
+        // GossipPubSub (ownership stays with GeniusSDK's node instance — D-20 ordering
+        // guarantees the SDK, and therefore this handle, outlives this component).
+        void *pubsubHandle = GeniusSDKGetPubSub();
+        if ( !pubsubHandle )
         {
-            m_logger->error( "GcsGlobalDb::Initialize — GeniusSDKGetNode() returned nullptr; "
-                             "GeniusSDK init chain has not run (D-20 ordering: SDK before GlobalDB)" );
+            m_logger->error( "GcsGlobalDb::Initialize — GeniusSDKGetPubSub() returned nullptr; "
+                             "GeniusSDK init chain has not run yet, or pubsub is not started "
+                             "(D-20 ordering: SDK before GlobalDB)" );
             return outcome::failure( Error::SdkNotInitialized );
         }
 
-        auto pubsub = node->GetPubSub();
-        if ( !pubsub )
-        {
-            m_logger->error( "GcsGlobalDb::Initialize — GeniusNode::GetPubSub() returned nullptr; "
-                             "SDK is up but pubsub is not started" );
-            return outcome::failure( Error::SdkNotInitialized );
-        }
+        // Non-owning alias: no-op deleter, since GeniusSDK's node instance retains true
+        // ownership of the underlying GossipPubSub for the lifetime of the process.
+        auto pubsub = std::shared_ptr<sgns::ipfs_pubsub::GossipPubSub>(
+            static_cast<sgns::ipfs_pubsub::GossipPubSub *>( pubsubHandle ),
+            []( sgns::ipfs_pubsub::GossipPubSub * ) {} );
 
         return Initialize( std::move( pubsub ) );
     }

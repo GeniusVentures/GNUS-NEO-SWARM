@@ -11,91 +11,120 @@ Production readiness for the GNUS NEO SWARM decentralized AI inference engine. T
 - [~] **Phase 1: Security Hardening** — Real secp256k1 identity, message signing, key encryption, replay protection
 - [~] **Phase 2: SuperGenius Connectivity** — GeniusSDK dispatch to SuperGenius compute network via libp2p GossipSub pubsub
 - [ ] **Phase 3: GCS GlobalDB Integration** — Dedicated GlobalDB instance with `/gcs/` namespaces; reputation state migrated from direct RocksDB to CRDT-backed GlobalDB
-- [ ] **Phase 4: SGProcessing Integration** — MNN LLM and FP4_ULTRA processors, protobuf symbol conflict resolution
+- [x] **Phase 4: SGProcessing Integration** — MNN LLM and FP4_ULTRA processors, protobuf symbol conflict resolution (completed 2026-08-18)
 - [ ] **Phase 5: Production Hardening** — Eliminate hardcoded values, fix re-init edge cases, robust JSON parsing (mostly complete — fold remaining into Phase 6)
 - [ ] **Phase 6: Testing & Validation** — Automated test coverage for security, FFI, knowledge, network, and Phase 5 verification remnants
 
 ## Phase Details
 
 ### Phase 1: Security Hardening
+
 **Goal**: Nodes have real cryptographic identity; all inter-node messages are authenticated, tamper-protected, and replay-resistant
 **Depends on**: Nothing (first phase)
 **Requirements**: SEC-01, SEC-02, SEC-03, SEC-04, SEC-05, SEC-06
 **Success Criteria** (what must be TRUE):
+
   1. Node can generate a secp256k1 keypair, derive a PeerId, and save the key encrypted at rest (AES-256-GCM with PBKDF2-derived key)
   2. Signatures are produced with deterministic RFC6979 nonces; the same message always produces an identical signature
   3. `MessageSigning::Verify` rejects tampered messages and fails closed (returns false) when crypto libraries are unavailable
   4. Every inter-node message includes a nonce + timestamp; replayed or expired messages (outside 30s window) are rejected
   5. Key encryption uses AES-256-GCM with random salt + random IV per save, PBKDF2 600k iterations
+
 **Plans**: 4 plans (3 executed, 1 remaining)
 
 **State note (2026-07-26):** SEC-01 through SEC-06 are implemented in source. Key encryption at rest (`SaveEncrypted`/`LoadEncrypted`) is implemented. Remaining work: 01-04 (security tests) not yet executed.
 
 ### Phase 2: SuperGenius Connectivity
+
 **Goal**: The engine dispatches inference jobs to the SuperGenius blockchain compute network via GeniusSDK, using libp2p GossipSub for pubsub messaging with protobuf-serialized payloads
 **Depends on**: Phase 1 (needs real NodeIdentity and MessageSigning for signed dispatch)
 **Requirements**: SG-01, SG-02, SG-03, SG-04, SG-05
 **Success Criteria** (what must be TRUE):
+
   1. Operator can launch the engine with `--sg-base-path` pointing to a GeniusSDK data directory
   2. Engine establishes in-process SDK node via `GeniusSDKInitWithKey()` — no remote endpoint, no gRPC
   3. `SGProcessingBridge::SubmitNetwork()` dispatches signed `Task` messages via `GeniusSDKProcess()` and collects results via `GeniusSDKGetProcessingStatus()` polling
   4. Dispatch times out after the configured deadline (120s default) instead of hanging indefinitely
   5. Engine reports connectivity status and gracefully degrades (falls back to local mode) when SDK is unreachable
+
 **Plans**: 8 plans (Waves 1–3 complete, Waves 4–5 remaining)
 
 **State note (2026-07-26):** SGClient is implemented in `src/network/sg_client/` using GeniusSDK C FFI (`GeniusSDKInit`, `GeniusSDKProcess`, `GeniusSDKGetProcessingStatus`). gRPC channel manager removed. `SubmitNetwork()` is wired to `SGClient::SubmitJob()` → `GeniusSDKProcess()`. Remaining: Wave 4 (result collector SDK polling), Wave 5 (tests).
 
 ### Phase 3: GCS GlobalDB Integration
+
 **Goal**: A dedicated `sgns::crdt::GlobalDB` instance provides CRDT-backed persistence for all cognitive state. Reputation records live under `/gcs/reputation/` with CRDT topics for swarm-wide score convergence. No direct RocksDB wrappers.
 **Depends on**: Phase 2 (needs GeniusSDK in-process for libp2p/GossipSub/Graphsync infrastructure)
 **Requirements**: PERS-01, PERS-02, PERS-03, NET-02
 **Success Criteria** (what must be TRUE):
+
   1. A GCS GlobalDB instance is created via `GlobalDB::New()` with its own RocksDB directory (separate from the blockchain GlobalDB inside GeniusSDK)
   2. All GCS keys are HierarchicalKey paths under `/gcs/` (e.g., `/gcs/reputation/<node_id>`, `/gcs/memory/fact/<id>`)
   3. Reputation records persist via `GlobalDB::Put()` / `Get()` / `QueryKeyValues()` — no `rocksdb::DB` calls in NEO-SWARM source
   4. Reputation scores converge across nodes via CRDT topics (broadcast + listen on `/gcs/reputation/` namespace)
   5. `ReputationStorage` class is deleted; `ReputationCRDT` merge logic is replaced by GlobalDB's built-in CRDT convergence
   6. JSON config via `nlohmann/json` with CLI override remains unchanged (PERS-04 already done)
+
 **Plans**: TBD
 
 **State note (2026-07-26):** `ReputationStorage` (direct RocksDB wrapper) and `ReputationCRDT` (local-only merge) exist but are architecturally wrong — they must be replaced with GlobalDB operations. The prior Phase 3 CONTEXT and 03-01-PLAN are discarded.
 
 ### Phase 4: SGProcessing Integration
+
 **Goal**: The SuperGenius network can execute MNN LLM and FP4_ULTRA processors via SGProcessingManager, with protobuf symbol conflicts resolved
 **Depends on**: Nothing (parallelizable with Phases 2-3; resolve protobuf conflict before linking both libs)
 **Requirements**: PROC-01, PROC-02, PROC-03, FIX-04
 **Success Criteria** (what must be TRUE):
+
   1. SGProcessingManager includes an MNN LLM text generation processor usable by SuperGenius compute nodes
   2. SGProcessingManager includes an FP4_ULTRA input format processor for quantized model dispatch
   3. SentencePiece and SGProcessing coexist in the same build binary without protobuf version symbol conflicts
   4. Test binaries link successfully with SGProcessingManager enabled (no duplicate symbol errors)
-**Plans**: TBD
 
-**State note (2026-07-26):** SGProcessingManager is linked from `src/core/CMakeLists.txt`. `SGProcessingBridge` builds JSON schema and calls `ProcessingManager::Create() + Process()` locally. MNN processors exist in SuperGenius (18 types). FP4_ULTRA processor does not yet exist in SuperGenius — PROC-02 is SuperGenius-side work requiring coordination. SentencePiece/protobuf conflict handled via `-ld_classic` on macOS; Linux/Windows paths TBD.
+**Plans**: 4/4 plans complete
+
+Plans:
+**Wave 1**
+
+- [x] 04-01-PLAN.md — Wave 1 (NEO-SWARM): CMake relink to GeniusNetwork/SuperGenius build output + SGProcessingBridge compile-break fixes + stale docs correction (PROC-03, FIX-04)
+- [x] 04-02-PLAN.md — Wave 1 (SuperGenius): FP4_ULTRA schema validation + MNN_Tensor dispatch plumbing, wire+stub per D-08/D-09 (PROC-02)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 04-03-PLAN.md — Wave 2 (SuperGenius, depends on 04-02): New DataType::LLM + MNN_Llm autoregressive processor (PROC-01)
+- [x] 04-04-PLAN.md — Wave 2 (NEO-SWARM, depends on 04-01): Delete duplicate raw-MNN sampling loop, remove orphaned fp4_codec reference, add Vulkan-deadlock-documented integration tests (PROC-01, PROC-02)
+
+**State note (2026-08-18):** Re-verified against the live `dev_childwallet` checkout (`W:\gnus\GeniusNetwork\SuperGenius`, the sole canonical checkout — the old `dev_persisprocresults` standalone checkout has been deleted). Relinking alone is not sufficient: the `sgproc-render` workstream's rework changed `ProcessingManager::Process()`'s return type (now `ProcessOutput`, not a bare byte vector) and `ProcessingProcessor::StartProcessing()`'s signature (now 6-arg, `ExecutionContext`-aware) — both require source changes in NEO-SWARM's bridge, not just a CMake path fix. A pre-existing, out-of-scope `VulkanInitMutex` re-entrancy deadlock (tracked as `sgproc-render` Phase 18) blocks any local end-to-end verification of `ProcessingManager::Create()` on this real-Vulkan-device machine — documented and skip-gated in plan 04-04, not silently worked around.
 
 ### Phase 5: Production Hardening
+
 **Goal**: All known bugs and hardcoded values are eliminated; the engine is robust against re-initialization and malformed input
 **Depends on**: Nothing (parallelizable with Phases 2-4)
 **Requirements**: FIX-01, FIX-02, FIX-03
 **Success Criteria** (what must be TRUE):
+
   1. Calling the FFI init function twice succeeds — the second call returns the existing instance instead of deadlocking
   2. Vocab size is read dynamically from the loaded tokenizer (`tokenizer_->VocabSize()`)
   3. `ExtractPrompt` parses JSON requests via `nlohmann::json`
   4. All existing tests continue to pass with zero regressions
+
 **Plans**: TBD
 
 **State note (2026-07-26):** FIX-02 and FIX-03 are done. FIX-01 (re-init) needs verification. FIX-04 (linker) partially handled. Remaining items fold into Phase 6.
 
 ### Phase 6: Testing & Validation
+
 **Goal**: All critical production paths have automated test coverage proving correctness, security, and integration behavior
 **Depends on**: Phases 1, 2, 3, 5
 **Requirements**: TEST-01, TEST-02, TEST-03, TEST-04
 **Success Criteria** (what must be TRUE):
+
   1. Security tests prove: key generation, sign/verify roundtrip, tamper rejection, replay protection, and encrypted save/load cycle
   2. FFI layer tests cover: init, chat completions flow, null/edge-case input handling, and re-init sequence
   3. Knowledge module tests verify: fact validation accuracy meets threshold and knowledge retrieval returns relevant results
   4. Network integration tests demonstrate: two nodes exchange a signed task, result aggregation completes, and timeout triggers correctly
   5. GlobalDB integration tests prove: reputation CRDT convergence across two instances, key prefix queries, tombstone handling
+
 **Plans**: TBD
 
 ---
@@ -141,7 +170,7 @@ These phases evolve GNUS-NEO-SWARM from a production-hardened single-node infere
 | AI safety (node-local enforcement) | GNUS-NEO-SWARM | `neoswarm` (C++) |
 | EGGROLL retraining orchestration | GNUS-NEO-SWARM | `neoswarm` (C++) |
 | Epistemic arbitration / GQHSM | GNUS-NEO-SWARM | `neoswarm` (C++) |
-| SGFP4 GPU decode shaders (Vulkan/MoltenVK) | GNUS-NEO-SWARM | `neoswarm` (C++) |
+| SGFP4 weight decode (CPU + Vulkan shaders, inside MNN graph) | MNN (vendored, `sgfp4-pivot` — complete) | consumed by `neoswarm` — Phase 13 |
 
 ### Phases
 
@@ -151,6 +180,7 @@ These phases evolve GNUS-NEO-SWARM from a production-hardened single-node infere
 - [ ] **Phase 10: AI Safety + Secure Agent Architecture** — Node-local safety, policy profiles, Tool Intermediary boundary
 - [ ] **Phase 11: Advanced Cognition** — EGGROLL retraining, epistemic arbitration, hierarchical critical thinking
 - [ ] **Phase 12: GCS Separation** — Namespace rebrand (`sgns::` → `gcs::`), parent repo build system (cmaketemplate + build/), Flutter extraction from GNUS-NEO-SWARM
+- [ ] **Phase 13: SGFP4 v2 Model Support** — Run SGFP4-quantized `.mnn` models through MNNInferenceEngine → SGProcessingManager (direct call only); processor null-check hardening + stale FP4 test cleanup in the same pass
 
 ### Phase 12: GCS Separation
 
@@ -159,11 +189,53 @@ These phases evolve GNUS-NEO-SWARM from a production-hardened single-node infere
 **Depends on:** Phase 3 (GCS GlobalDB — storage architecture must be stable before rebrand)
 
 **Scope:**
+
 - **Namespace sweep:** `sgns::` → `gcs::` across all NEO-SWARM source (73 files). The `sgns` prefix is SuperGenius heritage.
 - **Parent build system:** GeniusCogntiveSystem gets `cmaketemplate` submodule (`path = build, url = ../cmaketemplate`, same as GeniusSDK) + `build/` directory. Parent orchestrates GNUS-NEO-SWARM as a library dependency.
 - **Flutter extraction:** `flutter_app/` and `ui/` move out of GNUS-NEO-SWARM (to parent or own submodule). Consume engine via `GeniusElm*` FFI. GNUS-NEO-SWARM retains only: `src/`, `test/`, `cmake/`, `build/`.
 
 **Note:** Deferred from Phase 3 discussion (2026-08-04) to avoid mixing restructure scope into storage work.
+
+### Phase 13: SGFP4 v2 Model Support
+
+**Goal:** Run a real SGFP4-quantized `.mnn` model through `MNNInferenceEngine → SGProcessingManager` via the direct-call path (no SuperGenius network/job submission).
+
+**Architecture reference:** Doc 16 (SGFP4 Format); `SGFP4-INTEGRATION-SEED.md` (this workstream — required reading, promoted into this phase 2026-09-02); evaluation + 2026-08-26 addendum at `.planning/quick/260825-pgu-evaluate-mnn-sgfp4-pivot-fp4-implementat/` in the parent GeniusCognitiveSystem repo
+
+**Depends on:** Phase 4 (SGProcessing Integration — bridge + MNN_Tensor/LLM processor wiring)
+
+**Scope:**
+
+- Wire SGFP4 v2 model execution through `SGProcessingBridge::SubmitDirect()` → `ProcessingManager::Create/Process` — the classic MNN `Interpreter`/`createSession`/`runSession` API that `mnnconvert --sgfp4` output is verified against (CPU + Vulkan)
+- Test model produced manually via `mnnconvert --sgfp4` (no automated pipeline invokes it — same as `RUN_AND_DEPLOY.md`'s documented `llmexport.py` usage); **use a small inline model** below MNN's `_largeModel` externalization threshold — externalized-weight SGFP4 models have an open `op->externalPath` injection gap
+- Defensive fix in `SGProcessingManager/src/processors/processing_processor_mnn_tensor.cpp`: `Process()` can return `nullptr` (malformed/incompatible model) and `StartProcessing()` dereferences it unchecked
+- Fix stale FP4-area tests in the same pass: SuperGenius `test/processors/mnn_tensor_fp4_test.cpp` (asserts FP4_ULTRA decode unavailable; it is live — E2M1, different format, same area) and NEO-SWARM `test_sg_connectivity.cpp` fp4_ultra lowercase-literal assertion
+- Delete orphaned NF4 `fp4_codec.{hpp,cpp}` + `test/core/test_fp4_codec.cpp` (self-flagged dead code; consumer removed in commit `8ee7fa4`)
+
+**Out of scope (locked in seed):**
+
+- SuperGenius network/job-submission path (direct call only)
+- Building SGFP4 conversion/injection tooling (`mnnconvert --sgfp4` + `sgfp4_inject` already exist)
+- arxiv §8 verifiable-execution/attestation
+- `InputFormat::SGFP4_V2` wire format — SGFP4 is a model-weight format decoded inside MNN's graph, not an input-tensor format
+- gnus-poc `--adaptive` default flip and `"fp4_ultra_v0.2"` manifest naming collision (separate follow-ups)
+
+**Known risks (design around upfront):**
+
+- `VulkanInitMutex` re-entrancy deadlock (tracked as `sgproc-render` Phase 18) gates local E2E execution of `ProcessingManager::Create()` — either skip-gate with `HasUsableVulkanDevice()` → `GTEST_SKIP()` citing the tracked bug (as plan 04-04 did), or confirm it's fixed before promising real local E2E as a success criterion
+- **Naming:** never call this "Ultra FP4" — that name means E2M1/`FP4_ULTRA` in this codebase. Call it SGFP4 v2
+
+**Plans:** 3 plans in 2 waves
+
+Plans:
+**Wave 1**
+
+- [ ] 13-01-PLAN.md — SuperGenius backend resolver + MNN_Tensor null-safety + stale SGProcessingManager FP4 test rewrite (SGF-01, SGF-02, SGF-04)
+- [ ] 13-03-PLAN.md — NEO-SWARM orphaned NF4 codec deletion + stale connectivity FP4 assertion fix (SGF-03, SGF-04)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 13-02-PLAN.md — Committed SGFP4 fixture + CPU/Vulkan direct-path E2E tests through SGProcessingBridge::SubmitDirect() (SGF-01)
 
 ### Phase 7: Expert Language Models + Router
 
@@ -174,6 +246,7 @@ These phases evolve GNUS-NEO-SWARM from a production-hardened single-node infere
 **Depends on:** Phases 1–6 (production-hardened engine), gnus-poc Phase 3 (quantized specialists)
 
 **Scope:**
+
 - Seven role-based ELMs: Planner, Verifier, Arbiter, Refiner, Grounding, Tool-Support, Primary Draft
 - Domain-specific ELMs: Code, Math, Science (loaded from gnus-poc quantized exports)
 - Rule-based router extending existing `RuleBasedRouter` with heuristics from doc 11 §10
@@ -192,6 +265,7 @@ These phases evolve GNUS-NEO-SWARM from a production-hardened single-node infere
 **Depends on:** Phase 7, Phase 3 (GCS GlobalDB)
 
 **Scope:**
+
 - Structured memory object model (bridge blocks, facts, policies, events, tenant operational) matching canonical GAML spec fields
 - Memory Governor: staged retrieval pipeline (identity/auth → privacy-scope filter → replication-boundary filter → policy checks → trust/provenance filter → metadata prefilter → temporal resolution → semantic matching → Governor selection)
 - 5-stage ingestion pipeline: Fact Extraction → Context Mapping → Privacy Classification → Temporal Tracking → Write Evaluation
@@ -207,6 +281,7 @@ These phases evolve GNUS-NEO-SWARM from a production-hardened single-node infere
 **Depends on:** Phase 7, Phase 8, Phase 3 (reputation CRDT convergence)
 
 **Scope:**
+
 - Weighted consensus with dual output selection modes (accuracy-prioritized, latency-prioritized)
 - Role-aware reputation scoring (Planner, Math, Verification, Formatting, Grounding, Safety) — reputation data already converged via Phase 3 CRDT
 - Byzantine tolerance via reputation decay, consistency penalties, exclusion gates
@@ -224,6 +299,7 @@ These phases evolve GNUS-NEO-SWARM from a production-hardened single-node infere
 **Depends on:** Phase 7, Phase 9
 
 **Scope:**
+
 - Node-level safety screening — no centralized gateway, no GeoIP enforcement
 - Safety profiles: versioned, cryptographically signed, IPFS-distributed
 - Client-side policy preference filtering
@@ -239,6 +315,7 @@ These phases evolve GNUS-NEO-SWARM from a production-hardened single-node infere
 **Depends on:** Phases 7–10
 
 **Scope:**
+
 - **EGGROLL Retraining:** Evolutionary optimization of ELM adapters using swarm execution traces
 - **Epistemic Arbitration:** Evidence-chain-based arbitration beyond weighted voting
 - **Cognitive OS Extensions:** Task scheduling, resource allocation, cognitive budget management
@@ -305,8 +382,8 @@ Each cognitive phase follows the standard GSD pipeline:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12
-Phases 4, 5, 6 are parallelizable with 2, 3.
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13
+Phases 4, 5, 6 are parallelizable with 2, 3. Phase 13 is parallelizable with 3, 5, 6, 8 (depends only on Phase 4, which is complete).
 
 | Phase | Plans Complete | Status | Notes |
 |-------|----------------|--------|-------|
@@ -322,6 +399,7 @@ Phases 4, 5, 6 are parallelizable with 2, 3.
 | 10. AI Safety | 0/TBD | Not started | — |
 | 11. Advanced Cognition | 0/TBD | Not started | — |
 | 12. GCS Separation | 0/TBD | Not started | Namespace rebrand + parent build + Flutter extraction |
+| 13. SGFP4 v2 Model Support | 0/TBD | **Seed promoted** | Direct-call SGFP4 model execution; see SGFP4-INTEGRATION-SEED.md |
 
 ---
 
@@ -329,4 +407,4 @@ Phases 4, 5, 6 are parallelizable with 2, 3.
 
 **Storage architecture correction (2026-07-26):** Direct RocksDB wrappers (`ReputationStorage`, `MemoryStorage`) replaced with GCS GlobalDB pattern. Phase 3 reworked, Phase 8 regenerating, Phase 9 re-scoped.
 
-*Roadmap updated: 2026-07-26*
+*Roadmap updated: 2026-09-02 (Phase 13 added from SGFP4-INTEGRATION-SEED.md; SGFP4 shader ownership row corrected — MNN owns decode)*

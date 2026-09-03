@@ -2,16 +2,17 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
+current_phase: 13
+current_phase_name: SGFP4 v2 Model Support
 status: executing
-stopped_at: Roadmap audit complete — Phase 3 reworked, Phase 8 artifacts discarded, Phase 9 re-scoped. ROADMAP.md and REQUIREMENTS.md updated.
-last_updated: "2026-08-10T23:59:37.219Z"
-last_activity: 2026-08-10 -- Phase 03 execution started
+stopped_at: Phase 13 planned (3 plans, 2 waves) — ready to execute
+last_updated: "2026-09-02T22:11:59.800Z"
 progress:
-  total_phases: 12
+  total_phases: 13
   completed_phases: 3
-  total_plans: 26
-  completed_plans: 21
-  percent: 25
+  total_plans: 27
+  completed_plans: 23
+  percent: 23
 ---
 
 # Project State
@@ -21,15 +22,14 @@ progress:
 See: PROJECT.md (created 2026-06-18, updated 2026-06-22)
 
 **Core value:** Real LLM inference on consumer hardware in a fully decentralized swarm, production-connected to the SuperGenius/GNUS network for distributed AI compute.
-**Current focus:** Phase 03 — gcs-globaldb-integration
+**Current focus:** Phase 13 (SGFP4 v2 Model Support) planned 2026-09-02 — 3 plans in 2 waves, ready to execute. Other open phases: 3 (GCS GlobalDB, plans unexecuted), 5/6 (Production Hardening / Testing), 8 (GAML Memory, regenerating)
 
 ## Current Position
 
-Phase: 03 (gcs-globaldb-integration) — EXECUTING
-Plan: 1 of 4
-Prior phase: 2 (SuperGenius Connectivity) — complete, verified (02-VERIFICATION.md: passed, 15/15)
-Status: Executing Phase 03
-Last activity: 2026-08-10 -- Phase 03 execution started
+Phase: 13 (SGFP4 v2 Model Support) — planned (13-01/13-02/13-03, checker-verified, decision coverage 11/11)
+Plan: next up 13-01 (Wave 1)
+Prior phase: 4 (SGProcessing Integration) — complete, verified (04-VERIFICATION.md: passed; 04-UAT.md: 2/2 passed)
+Status: Ready to execute
 
 Progress: [████████████░░░░░░░░░░░░] 64% (22 of 27 v1 requirements done)
 
@@ -47,7 +47,7 @@ Progress: [████████████░░░░░░░░░░░
 | 1. Security Hardening | 3/4 | ~18 min | Source done, 01-04 (tests) pending |
 | 2. SuperGenius Connectivity | 8/8 | - | **Complete & verified** (PR #108; 02-VERIFICATION passed 15/15) |
 | 3. GCS GlobalDB Integration | 0/4 | - | **Reworked** — 4 wave plans present (03-gcs-globaldb-integration) |
-| 4. SGProcessing Integration | 0/TBD | - | SGProcessing linked, needs plans |
+| 4. SGProcessing Integration | 4/4 | - | **Complete & verified** (04-VERIFICATION passed; 04-UAT 2/2) |
 | 5. Production Hardening | 0/TBD | - | Mostly done, fold remnants into Phase 6 |
 | 6. Testing & Validation | 0/TBD | - | Needs plans, absorbs Phase 5 verification |
 | 7. ELMs + Router | 6/6 | ~41 min | Complete — all 6 plans done |
@@ -55,9 +55,11 @@ Progress: [████████████░░░░░░░░░░░
 | 9. Swarm Consensus | 0/TBD | - | **Re-scoped** from Swarm Networking |
 | 10. AI Safety | 0/TBD | - | Not started |
 | 11. Advanced Cognition | 0/TBD | - | Not started |
+| 13. SGFP4 v2 Model Support | 0/3 | - | **Planned 2026-09-02** — 3 plans in 2 waves (13-01, 13-03 → 13-02), checker-verified, ready to execute |
 
 **Recent Trend:**
 
+- 2026-09-02: Phase 13 (SGFP4 v2 Model Support) added from SGFP4-INTEGRATION-SEED.md — requirements SGF-01..04, direct-call scope, Vulkan deadlock skip-gate constraint
 - 2026-07-26: Roadmap audit — corrected storage architecture (no direct RocksDB, all via GCS GlobalDB), Phase 3 reworked, Phase 8 artifacts discarded, Phase 9 re-scoped
 - 2026-07-23: Phase 7 Wave 6 complete — ELM test suite (22 unit + 6 type + 2 integration tests), full CTest green
 - 2026-07-22: Phase 7 Wave 5 complete — ApiServer ELM integration
@@ -85,8 +87,15 @@ Recent decisions affecting current work:
 
 - [Phase 2]: Result collector SDK polling incomplete — `GeniusSDKGetProcessingStatus()` reports global status, not per-task
 - [Phase 3]: GCS GlobalDB instance needs its own RocksDB directory, io_context, and topic registration — separate from GeniusSDK's blockchain GlobalDB
-- [Phase 4]: FP4_ULTRA processor doesn't exist in SuperGenius — PROC-02 is SuperGenius-side work
 - [Phase 3]: RocksDB v10.7+ requires C++20 — must pin to v10.6.2 (C++17 ceiling)
+- [Phase 4, resolved]: FP4_ULTRA processor didn't exist in SuperGenius — built in 04-02/04-03 (validation wiring + `MNN_Llm`/`DataType::LLM` processor), UAT-confirmed 2026-08-21
+- [Phase 4]: Vendored MNN's LLM headers install to `include/llm/llm.hpp`, not the `include/MNN/llm/llm.hpp` path the codebase originally assumed — both NEO-SWARM and SGProcessingManager now include the corrected path; keep this in mind if MNN is ever re-vendored/upgraded
+- [Phase 4]: `sgproc-render` Phase 18's `VulkanInitMutex` re-entrancy deadlock was open during Phase 4 execution — it gated some local end-to-end verification (skip-gated in plan 04-04); check its current status before relying on `ProcessingManager::Create()` re-entrancy on this machine — **applies directly to Phase 13 E2E verification (SGF-01)**
+- [Phase 13]: Externalized-weight SGFP4 models likely don't load (`external={offset,size}` set but `op->externalPath` not auto-injected for `OpType_SGFP4Dequant`) — use small/inline test models only
+
+### Roadmap Evolution
+
+- Phase 13 added: SGFP4 v2 Model Support — run SGFP4-quantized `.mnn` models through MNNInferenceEngine → SGProcessingManager (direct call only); promoted from SGFP4-INTEGRATION-SEED.md 2026-09-02
 
 ## Cognitive Phases (7–11)
 
@@ -102,6 +111,6 @@ Post-production cognitive system evolution. Defined in ROADMAP.md, referencing `
 
 ## Session Continuity
 
-Last session: 2026-07-26
-Stopped at: Roadmap audit complete — Phase 3 reworked, Phase 8 artifacts discarded, Phase 9 re-scoped. ROADMAP.md and REQUIREMENTS.md updated.
-Resume file: None — next action is Phase 2 Waves 4–5 or Phase 3 discuss/plan
+Last session: 2026-09-02T21:23:43.673Z
+Stopped at: Phase 13 context gathered
+Resume file: .planning/workstreams/neoswarm/phases/13-sgfp4-v2-model-support/13-CONTEXT.md
