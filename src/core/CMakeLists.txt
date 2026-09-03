@@ -53,6 +53,23 @@ if(EXISTS "${_MOLTENVK_LIB}")
 endif()
 
 # ---------------------------------------------------------------------------
+# Vulkan headers — SuperGenius's exported headers (capability_types.hpp,
+# processing_processor.hpp, processing_processor_render.hpp) include
+# <vulkan/vulkan.h>. neoswarm_core still does NOT link Vulkan (MNN's
+# thirdparty build carries the actual backend — see 088fac3); only the
+# header path needs to resolve. Prefer the vendored Vulkan-Headers that
+# MNN/vk-bootstrap were built against, then a system SDK.
+find_path(VULKAN_HEADERS_INCLUDE_DIR vulkan/vulkan.h
+    PATHS "${THIRDPARTY_BUILD_DIR}/Vulkan-Headers/include"
+    NO_DEFAULT_PATH)
+if(NOT VULKAN_HEADERS_INCLUDE_DIR)
+    find_path(VULKAN_HEADERS_INCLUDE_DIR vulkan/vulkan.h)
+endif()
+if(VULKAN_HEADERS_INCLUDE_DIR)
+    target_include_directories(neoswarm_core PUBLIC "${VULKAN_HEADERS_INCLUDE_DIR}")
+endif()
+
+# ---------------------------------------------------------------------------
 # SGProcessingManager integration (pre-built from SuperGenius)
 # ---------------------------------------------------------------------------
 # Resolution order (union of the app-restructure and phase-04 strategies):
