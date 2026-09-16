@@ -63,8 +63,10 @@ set(_SGPROC_LIB_DIR "${THIRDPARTY_BUILD_DIR}/SGProcessingManager/lib")
 # checkout. The release install tree keeps the same subpaths one level under
 # ${SUPERGENIUS_BUILD_DIR}/SuperGenius (include/SGProcessingManager for the
 # headers, lib/SGProcessingManager for the six static libs), so fall back to
-# it when the source-layout sibling paths are absent.
-if(NOT EXISTS "${_SGPROC_INCLUDE}"
+# it when the source-layout sibling paths are absent. Dev machines with a
+# sibling checkout also fall back when thirdparty carries no SGProcessingManager
+# libs (the SuperGenius build installs them into its own tree, not thirdparty).
+if((NOT EXISTS "${_SGPROC_INCLUDE}" OR NOT EXISTS "${THIRDPARTY_BUILD_DIR}/SGProcessingManager/lib")
         AND EXISTS "${SUPERGENIUS_BUILD_DIR}/SuperGenius/include/SGProcessingManager")
     set(_SGPROC_INCLUDE "${SUPERGENIUS_BUILD_DIR}/SuperGenius/include/SGProcessingManager")
     set(_SGPROC_GEN_INCLUDE
@@ -126,7 +128,9 @@ if(_SGPROC_PROCESSING_BASE AND EXISTS "${_SGPROC_INCLUDE}" AND EXISTS "${_SGPROC
     file(GLOB _IPFS_PUBSUB_LIBS "${THIRDPARTY_BUILD_DIR}/ipfs-pubsub/lib/*.a")
     find_library(_SORALOG_LIB soralog PATHS "${THIRDPARTY_BUILD_DIR}/soralog/lib" NO_DEFAULT_PATH)
     find_library(_CARES_LIB cares PATHS "${THIRDPARTY_BUILD_DIR}/cares/lib" NO_DEFAULT_PATH)
-    find_library(_ED25519_LIB ed25519 PATHS "${THIRDPARTY_BUILD_DIR}/ed25519/lib" NO_DEFAULT_PATH)
+    # No direct ed25519 link: the static GeniusSDK chain embeds the same orlp
+    # ed25519/sha3 code (wallet-core's TrezorCrypto + sgns keccak), and linking
+    # thirdparty libed25519.a alongside them duplicates ed25519_*/sha3_* symbols.
     find_library(_XXHASH_LIB xxhash PATHS "${THIRDPARTY_BUILD_DIR}/xxhash/lib" NO_DEFAULT_PATH)
     find_library(_TSL_LIB tsl PATHS "${THIRDPARTY_BUILD_DIR}/tsl_hat_trie/lib" NO_DEFAULT_PATH)
     find_library(_SQLITE3_LIB sqlite3 PATHS "${THIRDPARTY_BUILD_DIR}/sqlite3/lib" NO_DEFAULT_PATH)
@@ -146,7 +150,7 @@ if(_SGPROC_PROCESSING_BASE AND EXISTS "${_SGPROC_INCLUDE}" AND EXISTS "${_SGPROC
         p2p::p2p
         ${_IPFS_PUBSUB_LIBS}
     )
-    foreach(_dep_lib _SORALOG_LIB _CARES_LIB _ED25519_LIB _XXHASH_LIB _TSL_LIB _SQLITE3_LIB _ROCKSDB_LIB _SNAPPY_LIB)
+    foreach(_dep_lib _SORALOG_LIB _CARES_LIB _XXHASH_LIB _TSL_LIB _SQLITE3_LIB _ROCKSDB_LIB _SNAPPY_LIB)
         if(${_dep_lib})
             target_link_libraries(neoswarm_core PUBLIC "${${_dep_lib}}")
         endif()
