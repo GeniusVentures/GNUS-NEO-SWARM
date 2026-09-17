@@ -12,4 +12,9 @@ namespace sgns::neoswarm::memory
     // Plan 08-02: memory_storage.cpp
     // Plan 08-03: fact_extraction.cpp, context_mapping.cpp, write_evaluation.cpp
     // Plan 08-04: memory_governor.cpp
+
+    // External-linkage placeholder symbol: libtool drops symbol-less object
+    // files from archives, which left this transitional library empty and
+    // made ranlib warn on every build. Removed when the Phase 8 sources land.
+    const char* kMemoryModulePlaceholder = "neoswarm_memory";
 } // namespace sgns::neoswarm::memory

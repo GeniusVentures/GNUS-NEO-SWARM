@@ -17,10 +17,4 @@ project(GNUS-NEO-SWARM
     LANGUAGES C CXX
 )
 
-# Common functions (print, add_flag, addtest, add_proto_library, ...)
-include(${CMAKE_CURRENT_SOURCE_DIR}/build/cmake/functions.cmake)
-
-# Full thirdparty dependency setup + src/ targets + install/export.
-# Uses NEOSWARM_ROOT (derived from its own location) for all self-references,
-# and the parent-provided _THIRDPARTY_BUILD_DIR / PROJECT_SUPER_ROOT.
-include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CommonBuildParameters.cmake)
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/src src)

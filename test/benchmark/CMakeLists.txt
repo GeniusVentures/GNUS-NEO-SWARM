@@ -10,7 +10,7 @@ target_include_directories(bench_mnn_llm PRIVATE
 )
 
 target_link_libraries(bench_mnn_llm PRIVATE
-    MNN
+    MNN::MNN
     Threads::Threads
 )
 
