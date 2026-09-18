@@ -14,14 +14,16 @@
 
 GNUS-NEO-SWARM currently exposes the specialist model layer primarily through `IELM`, where ELM means **Expert Language Model**. The current interface is intentionally simple and language-oriented: an expert accepts text/context and returns text. That abstraction was sufficient while specialist execution was predominantly autoregressive language generation.
 
-GCS now requires multiple expert computation families whose public contracts are not all language generation:
+GCS now requires expert execution to describe several **orthogonal dimensions** rather than one inheritance taxonomy:
 
-- **Expert Language Models (ELMs)** generate or transform language.
-- **Expert Judgment Models (EJMs)** perform bounded semantic judgment and return typed probabilities, scores, rankings, classifications, or choice distributions. A JEV-style direct-logit implementation is an EJM even when its backbone was pretrained as a language model.
-- **Expert Diffusion Models (EDMs)** iteratively denoise, infill, or refine a bounded state or structured block. The existing Micro-Diffusion Block Drafter is the first planned EDM use case.
-- future expert families may include embedding, reranking, vision, audio, multimodal, or other model types.
+- **Cognitive role** — Planner, Verifier, Router, Formatter, Grounding, domain specialist, and similar jobs.
+- **Public contract/capability** — language generation, bounded judgment, classification, ranking, refinement, infill, embedding, vision, and similar operations.
+- **Processor architecture** — autoregressive, direct-logit/classifier, diffusion/denoising, encoder, reranker, multimodal, or another computation mechanism.
+- **Execution backend** — MNN, SGProcessing, Vulkan/CPU, or a remote SuperGenius node.
 
-The architecture therefore must stop treating `language` as synonymous with `model execution` while preserving ELM as the correct name for experts whose contract really is language generation.
+**ELM — Expert Language Model** remains the precise label for an expert exposing a language-generation/transformation contract. **EJM — Expert Judgment Model** remains the precise label for an expert exposing bounded typed judgment. Diffusion is a processor architecture and may implement refinement **or judgment**; an Expert Diffusion Model (EDM) is therefore a useful implementation label, not a mutually exclusive peer contract that prevents the same expert from also acting as an EJM.
+
+The architecture therefore must stop treating `language` as synonymous with `model execution`, and it must also stop treating `judgment` and `diffusion` as mutually exclusive model families.
 
 This refactor also preserves a critical GCS authority boundary: expert outputs are advisory cognitive artifacts. Deterministic policy, capability, privacy, authorization, approval, and side-effect services remain authoritative.
 
@@ -31,15 +33,21 @@ This refactor also preserves a critical GCS authority boundary: expert outputs a
 
 `IExpertModel` is the common lifecycle and metadata contract for model-backed cognitive experts.
 
-Conceptually:
+Conceptually, the neutral expert object owns metadata and composes operation capabilities with one or more processors:
 
 ```text
 IExpertModel
-|-- IExpertLanguageModel   (ELM)
-|-- IExpertJudgmentModel   (EJM)
-|-- IExpertDiffusionModel  (EDM)
-`-- future expert model interfaces
+|-- role / domain / policy metadata
+|-- advertised capabilities
+|-- model artifact(s)
+`-- processor adapter(s)
+      |-- GENERATE
+      |-- JUDGE / CLASSIFY / RANK / SCORE
+      |-- REFINE / INFILL
+      `-- future capabilities
 ```
+
+Do **not** encode ELM, EJM, and diffusion as mutually exclusive subclasses. One loaded model artifact may expose multiple contracts through the same runtime state.
 
 The common contract should own only concerns that are genuinely shared:
 
@@ -97,29 +105,19 @@ Representative uses:
 
 A JEV-style selected-logit evaluator is an EJM backend even if it reuses a causal language-model backbone. The **backbone provenance does not define the expert contract**.
 
-### 4. Use EDM for diffusion-based experts
+### 4. Treat diffusion as a processor architecture, not an exclusive contract
 
-**EDM — Expert Diffusion Model** represents expert behavior based on iterative denoising, infill, or state refinement.
+A diffusion-backed expert uses iterative denoising or masked/block refinement internally. **EDM — Expert Diffusion Model** may remain as shorthand for such an implementation, but it is not mutually exclusive with ELM/EJM contract labels.
 
-Initial GCS use is deliberately small and bounded:
+A diffusion processor may expose, for example:
 
-```text
-masked / partial structured block
-        -> tiny role-specific denoiser
-        -> few refinement steps
-        -> deterministic or expert verification
-        -> accepted block
-```
+- **REFINE / INFILL** for missing JSON fields, code-patch skeleton completion, schema/template repair, or tool-call argument infill;
+- **JUDGE / CLASSIFY / SCORE** by seeding a mostly fixed answer canvas, leaving bounded answer slots unresolved, and reading the exact candidate-token distributions at those slots;
+- future multimodal judgment or refinement when the underlying model supports vision/audio inputs.
 
-Initial targets include:
+Initial GCS diffusion use remains deliberately small and bounded. Refinement output remains provisional until verified, and diffusion-based judgment remains advisory like any other EJM result.
 
-- missing JSON fields;
-- code patch skeleton completion;
-- schema/template repair;
-- tool-call argument infill;
-- other low-entropy structured regions.
-
-This does not require GCS to treat image diffusion as an MVP dependency. The abstraction merely avoids preventing future image/audio/video/latent diffusion experts.
+This does not make image, audio, or video diffusion an MVP dependency.
 
 ### 5. Separate cognitive expert identity from processing mechanism
 
@@ -146,20 +144,22 @@ Examples:
 
 ```text
 Verifier role
-  -> Expert Judgment Model
-  -> selected-logit / judgment processor
-  -> MNN
+  -> required capability: JUDGE
+  -> EJM contract
+  -> direct-logit/autoregressive processor OR diffusion structured-read processor
+  -> MNN / compatible runtime
   -> CPU/Vulkan/SGProcessing execution
 
 Primary Draft role
-  -> Expert Language Model
+  -> required capability: GENERATE
+  -> ELM contract
   -> autoregressive processor
   -> MNN
   -> local or distributed execution
 
 Formatter role
-  -> Expert Diffusion Model
-  -> micro-diffusion processor
+  -> required capability: REFINE
+  -> diffusion processor
   -> MNN or compatible runtime
   -> local execution + schema verification
 ```
@@ -170,7 +170,7 @@ The runtime must not infer cognitive semantics merely from which backend execute
 
 The processor layer should expose computation primitives without embedding GCS cognitive roles.
 
-Conceptual target:
+Conceptual target separates **operation interfaces** from **processor architecture**:
 
 ```cpp
 class IModelProcessor {
@@ -181,26 +181,38 @@ public:
     virtual bool IsLoaded() const = 0;
 };
 
-class IAutoregressiveProcessor : public virtual IModelProcessor {
+class IGenerationCapability {
 public:
     virtual outcome::result<GenerationResult>
     Generate(const GenerationRequest& request) = 0;
 };
 
-class IJudgmentProcessor : public virtual IModelProcessor {
+class IJudgmentCapability {
 public:
     virtual outcome::result<JudgmentResult>
     Judge(const JudgmentRequest& request) = 0;
 };
 
-class IDiffusionProcessor : public virtual IModelProcessor {
+class IRefinementCapability {
 public:
-    virtual outcome::result<DiffusionResult>
-    Refine(const DiffusionRequest& request) = 0;
+    virtual outcome::result<RefinementResult>
+    Refine(const RefinementRequest& request) = 0;
 };
 ```
 
-These names are illustrative; implementation may use adapters if changing the existing engine hierarchy directly would cause unnecessary churn.
+Concrete processor adapters may implement more than one operation interface:
+
+```text
+AutoregressiveProcessor
+  -> IGenerationCapability
+  -> IJudgmentCapability       (selected-logit / bounded read)
+
+DiffusionProcessor
+  -> IJudgmentCapability       (structured read)
+  -> IRefinementCapability     (denoise / infill / repair)
+```
+
+These names are illustrative; adapters are preferred when changing the existing engine hierarchy directly would cause unnecessary churn.
 
 ### 7. Prefer composition over a deep inheritance tree
 
@@ -241,13 +253,15 @@ JUDGE
 CLASSIFY
 RANK
 SCORE
-DENOISE
 INFILL
 REFINE
 EMBED
+VISION
 ```
 
-A node or processor may advertise multiple capabilities. The Router/RuntimeCoordinator selects an expert contract appropriate for the stage rather than assuming every loaded model supports generation.
+Processor architecture is advertised separately, for example `AUTOREGRESSIVE`, `DIFFUSION`, `ENCODER`, or `MULTIMODAL`.
+
+A node or processor may advertise multiple capabilities. The Router/RuntimeCoordinator selects the required contract first, then a compatible processor architecture and execution backend.
 
 Distributed capability advertisement should eventually expose stable identifiers such as:
 
@@ -256,7 +270,9 @@ expert.language.generate
 expert.language.stream
 expert.judgment
 expert.judgment.bundle
-expert.diffusion.block
+expert.refine
+processor.autoregressive
+processor.diffusion
 ```
 
 ### 9. Judgment output must be typed and must not replace content state
@@ -301,43 +317,73 @@ struct JudgmentResult {
 
 The real implementation should also carry model/artifact version, prompt/template version, tokenizer version, quantization/runtime identity, timing, and enough provenance for calibration and replay.
 
-### 11. Generation-free EJM execution
+### 11. Bounded EJM execution is processor-independent
 
-For JEV-style EJMs, the preferred fast path is:
+The public `JudgmentRequest` remains semantic. The processor adapter compiles it into the representation required by the selected architecture.
+
+For a causal/direct-logit processor:
 
 ```text
 context + criterion + bounded choices
         -> tokenize/validate choice labels
         -> prefill shared context
         -> one forward evaluation at answer boundary
-        -> select allowed logits only
+        -> fetch logits for every allowed token id
         -> normalize/calibrate
         -> JudgmentResult
 ```
 
-No prose generation or parser loop is required.
+For a diffusion structured-read processor:
+
+```text
+context + criterion + bounded choices
+        -> tokenize/validate single-token slot labels
+        -> seed fixed answer canvas
+        -> leave bounded answer slots unresolved
+        -> run one bounded/read-only denoise step
+        -> fetch logits for every allowed token id at each answer slot
+        -> normalize/calibrate
+        -> optional additional noise draws only when uncertainty is high
+        -> JudgmentResult / JudgmentBundleResult
+```
+
+No prose generation or parser loop is required in either path.
+
+The compiled processor request should carry the exact candidate token ids. It must **not** depend on global top-k logprobs, because a valid bounded choice may fall outside the returned top-k even though it must still participate in the normalized choice distribution.
 
 The current MNN implementation already has a lower-level forward primitive internally. The refactor should expose an appropriate processor-level primitive without forcing the RuntimeCoordinator to depend on MNN internals.
 
 Required correctness checks include:
 
-- choice labels map to exactly one valid tokenizer token at the actual answer boundary;
+- choice labels map to exactly one valid tokenizer token at the actual answer boundary when the selected processor requires single-token slots;
 - labels are distinct and round-trip correctly;
+- all allowed candidate token logits are requested/evaluated explicitly;
+- read-only/bounded execution stops once the judgment state is available rather than completing an unnecessary generation/commit loop;
 - cached and uncached execution agree within declared tolerance;
 - option-order reversal/paraphrase tests do not reveal pathological instability;
+- uncertainty/entropy thresholds trigger bounded rereads or escalation rather than silently converting uncertainty into confidence;
 - SGFP4 and other quantization modes are tested for judgment argmax, margin, and calibration drift rather than perplexity alone.
 
-### 12. Shared-prefix judgment bundles
+### 12. Judgment bundles declare dependency semantics
 
-The EJM API should support a bundle of independent judgments against the same context packet.
+The EJM API should support multiple judgments against the same context packet while distinguishing **independent** from **sequential/dependent** judgments.
 
-This enables native shared-prefix/KV reuse and avoids repeating expensive context prefill for router, verifier, risk, grounding, or arbitration judgments.
+Conceptually:
 
-A bundle remains a collection of independent typed judgments; sharing compute must not silently couple their semantics.
+```cpp
+enum class JudgmentDependency {
+    Independent,
+    Sequential
+};
+```
 
-### 13. EDM execution remains verified and bounded
+Independent judgments may share a prefix, forward pass, or diffusion canvas when supported. Sequential judgments are staged so later judgments may condition on earlier results.
 
-Micro-diffusion output is provisional until accepted by the configured verifier path.
+This enables native shared-prefix/KV reuse or multi-slot diffusion reads without silently coupling semantics. Additional stochastic/noise draws used only to estimate uncertainty remain an internal processor operation, not separate cognitive stages.
+
+### 13. Diffusion-backed refinement remains verified and bounded
+
+Diffusion REFINE/INFILL output is provisional until accepted by the configured verifier path. Diffusion JUDGE output follows the same advisory/calibration rules as any other EJM result.
 
 Verification may be:
 
@@ -352,34 +398,38 @@ The initial EDM implementation should remain focused on low-entropy structured r
 
 ## Naming and terminology
 
-The preferred taxonomy is:
+The preferred terminology is deliberately multi-axis:
 
-| Abbreviation | Name | Primary contract |
-|---|---|---|
-| **ELM** | Expert Language Model | generate/transform language |
-| **EJM** | Expert Judgment Model | bounded semantic judgment |
-| **EDM** | Expert Diffusion Model | iterative denoise/infill/refine |
-| **EM** | Expert Model | neutral umbrella term |
+| Term | Meaning |
+|---|---|
+| **EM** | Expert Model; neutral umbrella for a model-backed cognitive expert |
+| **ELM** | Expert Language Model; expert exposing a language-generation/transformation contract |
+| **EJM** | Expert Judgment Model; expert exposing a bounded typed judgment contract |
+| **EDM** | Expert Diffusion Model; shorthand for a diffusion-backed expert implementation; may also expose EJM and/or refinement capabilities |
+| **Autoregressive / Diffusion / Encoder / Multimodal** | processor architecture labels, orthogonal to cognitive role and public contract |
 
-`Decision ELM` is a transitional/deprecated architecture term. Existing code/comments may keep the old term temporarily during migration, but new interfaces and documentation should use **EJM**.
+`Decision ELM` is a transitional/deprecated architecture term. Existing code/comments may keep the old term temporarily during migration, but new interfaces and documentation should use **EJM** for the judgment contract.
+
+Critically, **EDM is not a third exclusive contract alongside ELM and EJM**. A diffusion-backed Verifier can be an EJM; a diffusion-backed Formatter can expose REFINE; one artifact may expose both.
 
 ## Migration plan
 
 ### Phase 1 — Types and adapters, no behavioral break
 
 - Add neutral `IExpertModel` metadata/lifecycle abstraction.
-- Add capability flags.
-- Introduce `IExpertLanguageModel`, initially adapting existing `IELM` behavior.
-- Keep existing ELM registry and API paths operational.
-- Add typed `JudgmentRequest`, `JudgmentResult`, and optional `JudgmentBundle` structures.
+- Add capability flags independently from processor-architecture flags.
+- Add small operation interfaces for generation, judgment, and refinement rather than a deep ELM/EJM/EDM inheritance tree.
+- Keep existing `IELM` registry and API paths operational through a generation-capability adapter.
+- Add typed `JudgmentRequest`, `JudgmentResult`, and `JudgmentBundle` structures with dependency semantics.
 
 ### Phase 2 — EJM runtime path
 
-- Add `IExpertJudgmentModel` and judgment processor adapter.
+- Add a judgment-capability adapter over the existing causal/direct-logit path.
 - Expose selected-logit/forward functionality through the processor boundary.
-- Implement tokenizer answer-boundary validation.
+- Implement tokenizer answer-boundary validation and exact candidate-token-logit retrieval.
 - Implement normalized probabilities plus calibration metadata.
 - Add cached/shared-prefix judgment execution where supported.
+- Keep the public EJM contract processor-independent so a diffusion structured-read adapter can implement the same `Judge(...)` operation later.
 
 ### Phase 3 — Execution graph semantics
 
@@ -390,15 +440,16 @@ The preferred taxonomy is:
 
 ### Phase 4 — Distributed capability support
 
-- Advertise ELM/EJM/EDM capabilities through node capability profiles.
-- Add judgment and diffusion job/result contracts where SGProcessing or remote execution requires them.
-- Preserve local cache affinity for shared-prefix judgment bundles.
+- Advertise cognitive capabilities separately from processor architecture through node capability profiles.
+- Add typed judgment/refinement job/result contracts where SGProcessing or remote execution requires them.
+- Preserve local cache affinity for shared-prefix judgment bundles and architecture-specific shared state.
 
-### Phase 5 — EDM micro-diffusion prototype
+### Phase 5 — Diffusion processor prototype
 
-- Introduce `IExpertDiffusionModel` / diffusion processor contract.
+- Introduce a diffusion processor adapter that can expose `IRefinementCapability` and, where supported, `IJudgmentCapability`.
 - Implement one Micro-Diffusion Block Drafter experiment for a schema/JSON or code-patch workload.
-- Require deterministic validation before committing output.
+- Prototype one bounded structured-read judgment using fixed single-token slots and exact candidate logits if a suitable diffusion model/runtime is available.
+- Require deterministic validation before committing refinement output.
 
 ### Phase 6 — Calibration, retraining, and compatibility cleanup
 
@@ -417,13 +468,17 @@ The preferred taxonomy is:
 ### EJM
 
 - fixed-choice correctness;
-- probability normalization;
+- probability normalization over the complete allowed choice set;
+- exact candidate-token retrieval independent of top-k;
 - option order reversal;
 - criterion paraphrase robustness;
 - irrelevant-context robustness;
 - missing-evidence/abstain behavior;
 - cached vs fresh forward agreement;
-- batch-one vs shared-prefix fanout agreement;
+- batch-one vs shared-prefix or shared-canvas agreement;
+- independent vs sequential bundle semantics;
+- bounded/read-only termination;
+- uncertainty-triggered reread behavior;
 - quantization precision variants;
 - Brier/log-loss/calibration and confident-error metrics;
 - escalation threshold behavior.
@@ -467,4 +522,4 @@ This ADR does not:
 
 ## Decision summary
 
-GCS/NeoSwarm should treat **Expert Model (EM)** as the umbrella abstraction and preserve **ELM** specifically for language experts. Bounded JEV-style models become **EJMs — Expert Judgment Models**. Diffusion-based experts become **EDMs — Expert Diffusion Models**. Expert identity remains a cognitive-layer concern, while model processors and execution backends remain separate implementation concerns.
+GCS/NeoSwarm should treat **Expert Model (EM)** as the umbrella abstraction and keep **cognitive role**, **public capability contract**, **processor architecture**, and **execution backend** as separate dimensions. **ELM** identifies a language-generation contract; **EJM** identifies a bounded judgment contract. **Diffusion** identifies a processor architecture, and **EDM** may be used as shorthand for a diffusion-backed expert without implying that it cannot also be an EJM. Autoregressive and diffusion processors may both implement the same `JUDGE` contract, while diffusion may additionally implement `REFINE/INFILL`.
