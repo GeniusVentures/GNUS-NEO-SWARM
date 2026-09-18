@@ -17,4 +17,16 @@ project(GNUS-NEO-SWARM
     LANGUAGES C CXX
 )
 
+# Nested mode: the parent build's PROJECT_ROOT points at GeniusCognitiveSystem,
+# but module CMakeLists resolve their include root as ${PROJECT_ROOT}/src. This
+# is a subdirectory-scoped set — it shadows the inherited value for the src tree
+# below and does not leak back to the parent.
+set(PROJECT_ROOT "${CMAKE_CURRENT_LIST_DIR}")
+
+# Standalone builds get nlohmann/json via include_directories() in this repo's
+# own cmake/CommonBuildParameters.cmake; nested builds never run that file, and
+# common/types.hpp (consumed across modules) includes <nlohmann/json.hpp>
+# without a per-target link.
+include_directories(${THIRDPARTY_BUILD_DIR}/json/include)
+
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/src src)
