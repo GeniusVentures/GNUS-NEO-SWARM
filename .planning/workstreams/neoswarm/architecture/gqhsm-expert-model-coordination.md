@@ -8,12 +8,16 @@
 
 ## Context
 
-The Expert Model refactor introduces multiple model-processing contracts beneath a common cognitive expert layer:
+The Expert Model refactor separates **cognitive role**, **required capability**, **processor architecture**, and **execution backend**.
+
+Examples of contracts/capabilities include:
 
 - **ELM — Expert Language Model** for language generation/transformation;
-- **EJM — Expert Judgment Model** for bounded typed judgments, including JEV-style selected-logit evaluation;
-- **EDM — Expert Diffusion Model** for iterative denoising, infill, or bounded refinement;
-- future processor families such as embedding, reranking, vision, audio, or multimodal execution.
+- **EJM — Expert Judgment Model** for bounded typed judgments;
+- **REFINE / INFILL** for bounded repair or completion;
+- future embedding, reranking, vision, audio, or multimodal capabilities.
+
+Processor architectures are orthogonal: autoregressive, direct-logit/classifier, diffusion, encoder, reranker, or multimodal processors may implement one or more of those capabilities. In particular, a diffusion processor may implement **JUDGE** through a bounded structured read as well as **REFINE** through denoising.
 
 These processors differ in their internal inference loops, but most GCS orchestration around them is the same: resolve an expert, verify capability and policy, prepare context, execute, validate the result, emit artifacts, and either continue, escalate, retry, or fall back.
 
@@ -56,7 +60,7 @@ Those remain processor/runtime responsibilities.
 
 ### 2. Use one generic processor-execution state machine
 
-Do not create separate top-level state machines for ELM, EJM, and EDM.
+Do not create separate top-level state machines for ELM, EJM, or processor architectures such as diffusion.
 
 Prefer one reusable execution lifecycle carrying a typed invocation in request state:
 
@@ -80,7 +84,7 @@ verify / consume / commit
 complete | continue | fallback | escalate
 ```
 
-The processor family changes the typed request/result and validation callback, not the overall orchestration model.
+The **required capability and result contract** determine the typed request/result and validation callback. Processor architecture changes implementation details behind the adapter, not the overall orchestration model.
 
 ### 3. Processor selection is capability-driven
 
@@ -105,10 +109,10 @@ struct ExpertInvocation {
 GenerationRequest
 JudgmentRequest
 JudgmentBundleRequest
-DiffusionRequest
+RefinementRequest
 ```
 
-The processor registry resolves the invocation to an adapter supporting the requested capability.
+The processor registry resolves the invocation to an adapter supporting the requested capability, then selects an allowed processor architecture and execution backend. A `JudgmentRequest` may therefore resolve to a causal selected-logit adapter or a diffusion structured-read adapter without changing GQHSM state.
 
 Conceptually:
 
@@ -132,7 +136,7 @@ using ProcessorResult = std::variant<
     GenerationResult,
     JudgmentResult,
     JudgmentBundleResult,
-    DiffusionResult
+    RefinementResult
 >;
 ```
 
@@ -142,7 +146,7 @@ A result-type-aware callback determines how it affects cognitive state:
 
 - `GenerationResult` may update or append content state;
 - `JudgmentResult` normally updates control/judgment state and must not overwrite generated content by default;
-- `DiffusionResult` remains provisional until its configured verifier accepts the refined block;
+- `RefinementResult` remains provisional until its configured verifier accepts the refined block, regardless of whether the processor was diffusion-based or another implementation;
 - all results may emit provenance, timing, model identity, quantization identity, and execution-integrity metadata.
 
 ### 5. Keep callback glue small
@@ -165,13 +169,15 @@ emit_stage_event
 select_fallback
 ```
 
-Processor-specific behavior lives behind adapter interfaces such as:
+Processor-specific behavior lives behind small capability interfaces/adapters such as:
 
 ```text
-IAutoregressiveProcessor::Generate(...)
-IJudgmentProcessor::Judge(...)
-IDiffusionProcessor::Refine(...)
+IGenerationCapability::Generate(...)
+IJudgmentCapability::Judge(...)
+IRefinementCapability::Refine(...)
 ```
+
+A concrete `AutoregressiveProcessor` or `DiffusionProcessor` may implement more than one of these interfaces.
 
 Adding a new implementation of an existing capability should normally require registry/configuration changes, not new GQHSM states.
 
@@ -199,32 +205,38 @@ expert_stage
 
 The `execute` state's callback dispatches the typed invocation through the processor registry. It should not branch into a large hard-coded switch over every model artifact.
 
-### 7. Processor family may influence guards and verification policy
+### 7. Capability and processor architecture may influence guards
 
-The state graph remains shared, but guards may inspect capabilities and artifact type.
+The state graph remains shared, but guards may inspect the **required capability**, processor architecture, and artifact type independently.
 
 Examples:
 
 ```text
-EJM
-- require bounded choice/token validation when selected-logit mode is used
+JUDGE capability
+- require bounded-choice validation
+- require exact candidate-token evaluation when the adapter uses token labels
 - evaluate calibration/uncertainty thresholds
+- optionally trigger bounded rereads/noise draws
 - escalate when confidence or margin is insufficient
 
-EDM
-- require bounded iteration budget
+REFINE capability
+- require bounded iteration/work budget
 - require schema/compiler/tool/target verification before commit
 
-ELM
+GENERATE capability
 - enforce generation/token/deadline budgets
 - optionally stream partial content events
+
+DIFFUSION processor architecture
+- enforce canvas/step bounds where applicable
+- keep stochastic rereads and denoising loops inside the processor adapter
 ```
 
 These are policy/validation differences inside a common lifecycle, not separate orchestration systems.
 
-### 8. Shared-prefix EJM fan-out is one processor operation
+### 8. Judgment bundles remain one processor operation unless semantically dependent
 
-A JEV-style parallel judgment bundle should normally appear to GQHSM as one stage execution:
+A parallel judgment bundle should normally appear to GQHSM as one stage execution:
 
 ```text
 prepare shared context
@@ -236,9 +248,9 @@ JudgmentBundleResult
 consume independent judgments
 ```
 
-The EJM processor/runtime owns prefix/KV reuse and suffix fan-out. GQHSM should not model each tensor-level branch as a cognitive state unless the individual judgments themselves have different downstream cognitive dependencies.
+The selected processor/runtime owns prefix/KV reuse, shared diffusion canvas reads, candidate-logit extraction, and bounded uncertainty rereads. GQHSM should not model tensor-level branches or repeated noise draws as cognitive states.
 
-This preserves the performance advantage of shared-prefix evaluation while keeping the state graph compact.
+If judgments are declared **sequential/dependent**, GQHSM may stage them as separate cognitive steps so later judgments can consume earlier semantic results. Independence/dependency is therefore a request-level semantic property, not an inference-architecture property.
 
 ### 9. Distributed execution uses the same cognitive lifecycle
 
@@ -286,9 +298,9 @@ The Expert Model refactor does not require a large new orchestration framework i
 The first useful implementation can be limited to:
 
 1. neutral Expert Model metadata/capability types;
-2. typed `GenerationRequest/Result`, `JudgmentRequest/Result`, and `DiffusionRequest/Result` contracts as needed;
-3. a processor registry keyed by artifact + capability + execution requirements;
-4. thin adapters over the existing MNN/ELM path and the new EJM/EDM primitives;
+2. typed `GenerationRequest/Result`, `JudgmentRequest/Result`, and `RefinementRequest/Result` contracts as needed;
+3. a processor registry keyed by artifact + capability + processor/runtime requirements;
+4. thin adapters over the existing MNN generation path, causal/direct-logit judgment path, and diffusion judgment/refinement primitives;
 5. a typed stage-artifact container in request state;
 6. generic GQHSM callbacks for resolve, execute, validate, verify, commit, fallback, and escalation;
 7. one shared processor-execution state-machine definition.
@@ -304,9 +316,9 @@ This addendum does not:
 - make state-machine definitions aware of MNN graph internals;
 - replace SGProcessingManager or SuperGenius scheduling;
 - make EJM judgments authoritative over deterministic policy;
-- commit unverified EDM output;
+- commit unverified refinement output;
 - require all stages to use a state machine when a direct deterministic call is simpler.
 
 ## Consequence
 
-The combination of **Expert Model contracts + capability-oriented processor adapters + GQHSM lifecycle coordination** should keep the implementation delta small. New model processors become pluggable execution capabilities under a stable cognitive state machine instead of requiring new top-level orchestration code for each model family.
+The combination of **Expert Model contracts + capability-oriented processor adapters + GQHSM lifecycle coordination** should keep the implementation delta small. GQHSM selects what operation is required; the registry selects how that operation is computed. New autoregressive, diffusion, encoder, or multimodal processors therefore remain pluggable beneath a stable cognitive state machine instead of requiring new orchestration code for each processor architecture.
