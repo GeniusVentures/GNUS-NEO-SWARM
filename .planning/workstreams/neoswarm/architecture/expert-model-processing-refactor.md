@@ -396,6 +396,169 @@ Verification may be:
 
 The initial EDM implementation should remain focused on low-entropy structured regions where verification is cheap.
 
+### 14. EJM distillation storage separates canonical decisions from target-specific views
+
+The EJM training store should not duplicate full teacher contexts for every target expert or encode training data directly in one tokenizer's answer-token IDs.
+
+Instead, storage is split into four layers:
+
+```text
+Canonical Decision Corpus
+        ↓
+Target-Specific Distillation View
+        ↓
+State + Branch Training Shards
+        ↓
+Trained Adapter / Decision Head / Micro-Model
+```
+
+#### 14.1 Canonical shared state and isolated decision branches
+
+A canonical decision corpus stores the reusable semantic state once and lets one or more decision branches reference it.
+
+Conceptually:
+
+```cpp
+struct DecisionStateRecord {
+    ContentId stateId;
+    ContextSchemaVersion schemaVersion;
+    PolicyHash policyHash;
+    ProvenanceRef provenance;
+    ContentRef canonicalContext;
+};
+
+struct DecisionBranchRecord {
+    ContentId branchId;
+    ContentId stateId;
+    std::string criterion;
+    std::vector<JudgmentChoice> choices;
+    std::vector<float> teacherProbabilities;
+    std::optional<std::size_t> verifiedOutcome;
+    JudgmentDependency dependency;
+    std::vector<ContentId> predecessorBranches;
+};
+```
+
+For `JudgmentDependency::Independent`, a branch may attend to the shared state but **must not observe sibling questions, sibling answers, or sibling intermediate state**. Shared-prefix/KV reuse, batching, or a shared diffusion canvas may optimize execution without changing this semantic isolation rule.
+
+Sequential/dependent branches must declare their predecessors explicitly rather than gaining accidental sibling visibility.
+
+#### 14.2 Canonical targets are semantic, not tokenizer-specific
+
+Canonical decision records store semantic choice IDs/descriptions and teacher probability targets such as:
+
+```text
+approve = 0.73
+review  = 0.21
+reject  = 0.06
+```
+
+They should not store a target model's compiled token IDs as the canonical truth.
+
+Token IDs, answer-slot layouts, prompt wrappers, and processor-specific encodings belong to a target-specific compiled view. This allows the same teacher-generated decision record to train experts with different tokenizers, backbones, adapters, or processor architectures.
+
+#### 14.3 Distillation views are keyed by target lineage and capability
+
+A target-specific view selects canonical records and compiles them for one retraining target.
+
+Conceptually:
+
+```cpp
+enum class JudgmentReadoutKind {
+    NextToken,
+    CandidateReadout,
+    DecisionHead,
+    DiffusionStructuredRead
+};
+
+struct DistillationViewManifest {
+    ArtifactId targetModelLineage;
+    ArtifactId targetExpert;
+    std::optional<ArtifactId> pairedLanguageExpert;
+
+    ExpertCapability capability;       // normally JUDGE
+    JudgmentFamily judgmentFamily;
+
+    ArtifactId backbone;
+    std::optional<ArtifactId> adapterOrHead;
+    Hash tokenizerHash;
+    Hash promptTemplateHash;
+    JudgmentReadoutKind readoutKind;
+
+    std::vector<ContentId> canonicalShardRefs;
+    TrainingObjectiveRef objective;
+    GovernanceRef governance;
+};
+```
+
+The primary partition key is therefore **model lineage + target expert + capability + judgment family**, not simply an ELM name. A Code Expert may expose both GENERATE and JUDGE artifacts, while a Router EJM may expose only JUDGE and have no paired language-generating ELM.
+
+#### 14.4 State shards and branch shards are independently content-addressed
+
+Large shared contexts and decision branches should be sharded independently:
+
+```text
+StateShard
+  State A
+  State B
+  State C
+
+BranchShard
+  State A -> Q1
+  State A -> Q2
+  State A -> Q3
+  State B -> Q1
+```
+
+A training shard manifest joins them without duplicating the shared state:
+
+```cpp
+struct JudgmentTrainingShardManifest {
+    ContentId distillationViewRef;
+    ContentId stateShardRef;
+    ContentId branchShardRef;
+
+    ArtifactId targetModelLineage;
+    ArtifactId targetExpert;
+    JudgmentFamily judgmentFamily;
+
+    TrainingObjectiveRef objective;
+    ValidationPolicyRef validationPolicy;
+    GovernanceRef governance;
+};
+```
+
+Grouping many branches that reference the same state allows a worker to load or prefill that state once and evaluate multiple isolated judgment branches. The storage layout therefore improves both deduplication and retraining compute locality.
+
+#### 14.5 EGGROLL task shards should resolve through these manifests
+
+For EJM retraining, an EGGROLL `task_shard_ref` should resolve to a content-addressed training-shard manifest rather than an opaque dataset blob.
+
+Placement should prefer workers or beehives that already hold:
+
+1. the target backbone/model lineage;
+2. the target adapter or decision head;
+3. the referenced state shard;
+4. the referenced branch shard;
+5. compatible privacy/training-policy scope;
+6. compatible processor/runtime support.
+
+This allows one expert lineage to evolve without moving unrelated ELM/EJM training state through the same generation.
+
+#### 14.6 Shared canonical data does not imply shared promotion
+
+Multiple expert views may reference the same canonical decisions, but each target artifact keeps independent:
+
+- training objectives;
+- calibration state;
+- benchmark history;
+- promotion gates;
+- rollback history;
+- quantization/runtime validation;
+- policy and privacy compatibility.
+
+A change to a Code EJM must therefore not implicitly promote or modify a Math, Grounding, Router, or generic Verifier EJM merely because their views overlap.
+
 ## Naming and terminology
 
 The preferred terminology is deliberately multi-axis:
@@ -429,6 +592,7 @@ Critically, **EDM is not a third exclusive contract alongside ELM and EJM**. A d
 - Implement tokenizer answer-boundary validation and exact candidate-token-logit retrieval.
 - Implement normalized probabilities plus calibration metadata.
 - Add cached/shared-prefix judgment execution where supported.
+- Define canonical `DecisionStateRecord` / `DecisionBranchRecord` storage and target-specific `DistillationViewManifest` compilation.
 - Keep the public EJM contract processor-independent so a diffusion structured-read adapter can implement the same `Judge(...)` operation later.
 
 ### Phase 3 — Execution graph semantics
@@ -442,6 +606,7 @@ Critically, **EDM is not a third exclusive contract alongside ELM and EJM**. A d
 
 - Advertise cognitive capabilities separately from processor architecture through node capability profiles.
 - Add typed judgment/refinement job/result contracts where SGProcessing or remote execution requires them.
+- Advertise cached model lineage, adapter/head, state-shard, and branch-shard locality where useful for retraining placement.
 - Preserve local cache affinity for shared-prefix judgment bundles and architecture-specific shared state.
 
 ### Phase 5 — Diffusion processor prototype
@@ -481,6 +646,10 @@ Critically, **EDM is not a third exclusive contract alongside ELM and EJM**. A d
 - uncertainty-triggered reread behavior;
 - quantization precision variants;
 - Brier/log-loss/calibration and confident-error metrics;
+- independent-branch isolation under shared-state batching;
+- deterministic compilation of one canonical decision record for different target tokenizers/readout kinds;
+- canonical records contain semantic choices/probabilities rather than target-specific token IDs;
+- shard-level permutation/paraphrase/OOD/dependency-depth metrics;
 - escalation threshold behavior.
 
 ### EDM
@@ -523,3 +692,5 @@ This ADR does not:
 ## Decision summary
 
 GCS/NeoSwarm should treat **Expert Model (EM)** as the umbrella abstraction and keep **cognitive role**, **public capability contract**, **processor architecture**, and **execution backend** as separate dimensions. **ELM** identifies a language-generation contract; **EJM** identifies a bounded judgment contract. **Diffusion** identifies a processor architecture, and **EDM** may be used as shorthand for a diffusion-backed expert without implying that it cannot also be an EJM. Autoregressive and diffusion processors may both implement the same `JUDGE` contract, while diffusion may additionally implement `REFINE/INFILL`.
+
+For retraining, canonical semantic decision data is shared and content-addressed, while compiled distillation views and EGGROLL training shards are target-specific. Shared state is stored once, independent decision branches remain semantically isolated, and retraining placement is keyed to the target model/expert lineage plus cached state/branch shards and governance scope.
