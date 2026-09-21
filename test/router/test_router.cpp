@@ -118,3 +118,49 @@ TEST( RuleBasedRouter, ConfidenceInRange )
     EXPECT_GE( res.value().confidence_, 0.0f );
     EXPECT_LE( res.value().confidence_, 1.0f );
 }
+
+// -----------------------------------------------------------------------
+// Phase 7 (Plan 04) — Grounding and formatting feature tests
+// -----------------------------------------------------------------------
+
+TEST( PromptAnalyzer, GroundingRequestPositive )
+{
+    PromptAnalyzer analyzer;
+    auto f = analyzer.Analyze( "is it true that the earth is flat?" );
+    EXPECT_TRUE( f.has_grounding_request_ );
+}
+
+TEST( PromptAnalyzer, GroundingRequestNegative )
+{
+    PromptAnalyzer analyzer;
+    auto f = analyzer.Analyze( "tell me a story about dragons" );
+    EXPECT_FALSE( f.has_grounding_request_ );
+}
+
+TEST( PromptAnalyzer, FormattingRequestPositive )
+{
+    PromptAnalyzer analyzer;
+    auto f = analyzer.Analyze( "format as markdown with bullet points" );
+    EXPECT_TRUE( f.has_formatting_request_ );
+}
+
+TEST( PromptAnalyzer, FormattingRequestNegative )
+{
+    PromptAnalyzer analyzer;
+    auto f = analyzer.Analyze( "what is 2+2" );
+    EXPECT_FALSE( f.has_formatting_request_ );
+}
+
+TEST( PromptAnalyzer, GroundingRequestViaVerify )
+{
+    PromptAnalyzer analyzer;
+    auto f = analyzer.Analyze( "verify the claim that climate change is accelerating" );
+    EXPECT_TRUE( f.has_grounding_request_ );
+}
+
+TEST( PromptAnalyzer, FormattingRequestViaRewrite )
+{
+    PromptAnalyzer analyzer;
+    auto f = analyzer.Analyze( "rewrite in bullet points" );
+    EXPECT_TRUE( f.has_formatting_request_ );
+}

@@ -10,6 +10,8 @@
 #include "common/logging.hpp"
 #include "GeniusSDK.h"
 
+#include <nlohmann/json.hpp>
+
 namespace sgns::neoswarm::network
 {
     namespace
@@ -44,6 +46,12 @@ namespace sgns::neoswarm::network
 
     outcome::result<void> SGClient::Initialize()
     {
+        // Guard: moved-from SGClient has null m_impl (defaulted move ctor).
+        if ( !m_impl )
+        {
+            ClientLogger()->error( "Initialize: SGClient in moved-from state" );
+            return outcome::failure( Error::InternalError );
+        }
         m_impl->m_jobSubmitter = std::make_unique<SGJobSubmitter>();
 
         SGResultCollectorConfig rcCfg;
@@ -52,12 +60,19 @@ namespace sgns::neoswarm::network
 
         // SDK generates its own keypair internally for blockchain identity.
         // NEO-SWARM's NodeIdentity is separate (P2P swarm identity).
+        // GeniusSDKInit takes the dev config as a JSON string (Address/Cut/TokenValue/TokenID).
+        // Serialize via nlohmann::json so user-supplied strings are properly escaped (CR-02).
+        const auto& nodeCfg = m_impl->m_cfg.m_geniusNodeConfig;
+        const nlohmann::json devConfig = {
+            { "Address",    nodeCfg.Addr },
+            { "Cut",        nodeCfg.Cut },
+            { "TokenValue", nodeCfg.TokenValueInGNUS },
+            { "TokenID",    nodeCfg.TokenID.ToHex() },
+        };
+        const std::string devConfigJson = devConfig.dump();
         const char* initResult = GeniusSDKInit(
-            m_impl->m_cfg.m_sdkBasePath.c_str(),
-            m_impl->m_cfg.m_autoDht,
-            m_impl->m_cfg.m_enableProcessing,
-            m_impl->m_cfg.m_basePort,
-            false );
+            nodeCfg.BaseWritePath.c_str(),
+            devConfigJson.c_str() );
 
         if ( initResult == nullptr )
         {
@@ -72,7 +87,8 @@ namespace sgns::neoswarm::network
 
     outcome::result<std::vector<uint8_t>> SGClient::SubmitJob( const std::string& gnusSchemaJson )
     {
-        if ( !m_impl->m_initialized )
+        // Guard: moved-from SGClient has null m_impl (defaulted move ctor).
+        if ( !m_impl || !m_impl->m_initialized )
         {
             ClientLogger()->error( "SubmitJob: SGClient not initialized" );
             return outcome::failure( Error::InternalError );
@@ -106,16 +122,27 @@ namespace sgns::neoswarm::network
 
     void SGClient::Disconnect()
     {
+        // Guard: moved-from SGClient has null m_impl (defaulted move ctor).
+        if ( !m_impl )
+        {
+            return;
+        }
         m_impl->m_jobSubmitter.reset();
         m_impl->m_resultCollector.reset();
-        m_impl->m_initialized = false;
-        GeniusSDKShutdown();
-        ClientLogger()->info( "SGClient shut down — SDK node stopped" );
+        // Only shut down the SDK if it was actually initialized — avoids
+        // GeniusSDKShutdown() with no node up and double-shutdown via ~SGClient().
+        if ( m_impl->m_initialized )
+        {
+            m_impl->m_initialized = false;
+            GeniusSDKShutdown();
+            ClientLogger()->info( "SGClient shut down — SDK node stopped" );
+        }
     }
 
     bool SGClient::IsConnected() const noexcept
     {
-        if ( !m_impl->m_initialized )
+        // Guard: moved-from SGClient has null m_impl (defaulted move ctor).
+        if ( !m_impl || !m_impl->m_initialized )
         {
             return false;
         }

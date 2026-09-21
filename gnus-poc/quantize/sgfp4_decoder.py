@@ -1,23 +1,14 @@
-"""Reference SGFP4 decoder — normative decode semantics.
+"""Reference SGFP4 decoder implementing the normative decode semantics.
 
-Implements the closed decode specification of "SGFP4: Adaptive Dual-Mode
-Macroblock Quantization with GPU-Friendly Unpacking and Verifiable Decode
-Semantics" so that containers can be replayed bit-exactly by an independent
-implementation (paper Sec 8 conformance-vector use case):
+The decoder covers both SGFP4 profiles from the format specification:
 
-  - Sec 3.2  affine reconstruction w = S*c + beta; FP16 (S, beta) packed
-             scale-in-high-halfword (packHalf2x16 order)
-  - Sec 4    v1 profile: headers[B] | offsets[B] | 2048-byte payload blob;
-             mode flag in bit 0 of the 16-byte-aligned offsets
-  - Sec 4.3  normative code ordering (nibble i at bit 4*(i mod 8); ternary
-             symbol i at bit 2*(i mod 16); 11 reserved -> 0)
-  - Sec 6.1  v2 framing: 'SGF4' | 0x02 | B(u32) | 7B pad | record_offsets[B]
-  - Sec 6.2  v2 record: sb_header | split map (MIXED) | block headers |
-             pad | 16B-padded payloads; Eq (6) beta flag truncation
+* v1 fixed payload: ``headers[B] | offsets[B] | codes_blob[B*2048]``.
+* v2 adaptive: ``SGF4 | 0x02 | B | pad0 | record_offsets[B] | pad1 |
+  records``.
 
-All wire-format constants come from quantize.sgfp4_format; this module
-contains decode logic only. Decoders raise SGFP4FormatError on malformed
-streams.
+The v2 stream frames its record structure. The original tensor dimensions
+``(O, I)`` are supplied by the enclosing model manifest and are required to
+recover the macroblock grid and crop edge padding.
 """
 
 import math
@@ -54,17 +45,20 @@ from quantize.sgfp4_format import (
     SPLIT_MAP_MAX_BITS,
     T158_BITS_PER_CODE,
     T158_CODES_PER_WORD,
+    T158_RESERVED_WORD_START,
     T158_SYMBOL_MASK,
     T158_SYMBOL_NEG,
     T158_SYMBOL_POS,
     UINT32_BITS,
+    UINT32_BYTES,
     V2_FIXED_HEADER_BYTES,
     V2_HEADER_PAD_BYTES,
     CodeMode,
     Layout,
+    align_up,
 )
 
-# Uniform layouts imply both the leaf geometry and the leaf count
+
 _LAYOUT_LEAF_SIZE = {
     Layout.UNIFORM_64: 64,
     Layout.UNIFORM_32: 32,
@@ -79,17 +73,18 @@ class SGFP4FormatError(ValueError):
 
 
 def _half_from_bits(bits: int) -> float:
+    """Decode one IEEE-754 binary16 value from its little-endian bit pattern."""
     return struct.unpack("<e", struct.pack("<H", bits & HALF_MASK))[0]
 
 
 def int4_to_int(nib: int) -> int:
-    """Two's-complement 4-bit code (paper Sec 4.3, Listing 1)."""
+    """Decode a two's-complement 4-bit code."""
     nib &= FP4_NIBBLE_MASK
     return nib if nib < FP4_SIGN_THRESHOLD else nib - FP4_CODE_BIAS
 
 
 def sym2_to_ternary(sym: int) -> int:
-    """2-bit ternary symbol map; 11 is reserved and decodes as 0."""
+    """Decode a 2-bit ternary symbol; reserved ``11`` decodes as zero."""
     sym &= T158_SYMBOL_MASK
     if sym == T158_SYMBOL_POS:
         return 1
@@ -98,8 +93,12 @@ def sym2_to_ternary(sym: int) -> int:
     return 0
 
 
-def _decode_codes(words: np.ndarray, mode: CodeMode, n_weights: int) -> np.ndarray:
-    """Normative code extraction (paper Sec 4.3, Eq. 3 and 4)."""
+def _decode_codes(
+    words: np.ndarray,
+    mode: CodeMode,
+    n_weights: int,
+) -> np.ndarray:
+    """Extract integer codes in the normative least-significant-bit order."""
     codes = np.empty(n_weights, dtype=np.int32)
     if mode == CodeMode.FP4_AFFINE:
         for i in range(n_weights):
@@ -115,73 +114,91 @@ def _decode_codes(words: np.ndarray, mode: CodeMode, n_weights: int) -> np.ndarr
 
 
 def decode_v1(binary: bytes, O: int, I: int) -> np.ndarray:
-    """Decode a v1 fixed-payload container to a float32 (O, I) tensor.
-
-    Args:
-        binary: headers[B] | offsets[B] | codes blob (B*2048 bytes).
-        O: unpadded output-channel count (carried by the model manifest).
-        I: unpadded input-channel count.
-
-    Returns:
-        Decoded float32 array of shape (O, I).
-
-    Raises:
-        SGFP4FormatError: on size mismatches or reserved-bit violations.
-    """
+    """Decode a v1 fixed-payload container to a float32 ``(O, I)`` tensor."""
     binary = bytes(binary)
     tiles_y = math.ceil(O / MACROBLOCK_SIZE)
     tiles_x = math.ceil(I / MACROBLOCK_SIZE)
-    B = tiles_y * tiles_x
-    expected_bytes = B * 8 + B * PAYLOAD_BYTES  # headers + offsets + blob
+    block_count = tiles_y * tiles_x
+    expected_bytes = block_count * (2 * UINT32_BYTES + PAYLOAD_BYTES)
     if len(binary) != expected_bytes:
         raise SGFP4FormatError(
             f"v1 stream is {len(binary)} bytes, expected {expected_bytes}"
         )
 
-    headers = np.frombuffer(binary, dtype=np.uint32, count=B, offset=0)
-    offsets = np.frombuffer(binary, dtype=np.uint32, count=B, offset=B * 4)
-    blob = binary[B * 8:]
+    headers = np.frombuffer(
+        binary,
+        dtype="<u4",
+        count=block_count,
+        offset=0,
+    )
+    offsets = np.frombuffer(
+        binary,
+        dtype="<u4",
+        count=block_count,
+        offset=block_count * UINT32_BYTES,
+    )
+    blob = binary[block_count * 2 * UINT32_BYTES:]
 
     out = np.zeros(
-        (tiles_y * MACROBLOCK_SIZE, tiles_x * MACROBLOCK_SIZE), dtype=np.float32
+        (tiles_y * MACROBLOCK_SIZE, tiles_x * MACROBLOCK_SIZE),
+        dtype=np.float32,
     )
-    for b in range(B):
-        header = int(headers[b])
+    for block_index in range(block_count):
+        header = int(headers[block_index])
         scale = _half_from_bits(header >> HALF_SHIFT)
         bias = _half_from_bits(header & HALF_MASK)
 
-        offset_word = int(offsets[b])
+        offset_word = int(offsets[block_index])
         flags = offset_word & OFFSET_FLAG_MASK
         base = offset_word & ~OFFSET_FLAG_MASK
         if (flags & OFFSET_RESERVED_MASK) != 0:
             raise SGFP4FormatError(
-                f"block {b}: reserved offset flag bits 2-3 nonzero"
+                f"block {block_index}: reserved offset flag bits 2-3 nonzero"
             )
+        if base % ALIGNMENT != 0:
+            raise SGFP4FormatError(
+                f"block {block_index}: payload offset {base} is not aligned"
+            )
+        if base + PAYLOAD_BYTES > len(blob):
+            raise SGFP4FormatError(f"block {block_index}: payload truncated")
+
         mode = CodeMode(flags & OFFSET_MODE_MASK)
+        words = np.frombuffer(
+            blob,
+            dtype="<u4",
+            count=PAYLOAD_U32,
+            offset=base,
+        )
+        if (
+            mode == CodeMode.T158_AFFINE
+            and np.any(words[T158_RESERVED_WORD_START:] != 0)
+        ):
+            raise SGFP4FormatError(
+                f"block {block_index}: reserved T158 payload tail is nonzero"
+            )
 
-        words = np.frombuffer(blob, dtype=np.uint32, count=PAYLOAD_U32, offset=base)
-        codes = _decode_codes(words, mode, MACROBLOCK_SIZE * MACROBLOCK_SIZE)
-
-        by, bx = divmod(b, tiles_x)
+        codes = _decode_codes(
+            words,
+            mode,
+            MACROBLOCK_SIZE * MACROBLOCK_SIZE,
+        )
+        block_y, block_x = divmod(block_index, tiles_x)
         tile = (
             np.float32(scale) * codes.astype(np.float32) + np.float32(bias)
         ).reshape(MACROBLOCK_SIZE, MACROBLOCK_SIZE)
         out[
-            by * MACROBLOCK_SIZE:(by + 1) * MACROBLOCK_SIZE,
-            bx * MACROBLOCK_SIZE:(bx + 1) * MACROBLOCK_SIZE,
+            block_y * MACROBLOCK_SIZE:(block_y + 1) * MACROBLOCK_SIZE,
+            block_x * MACROBLOCK_SIZE:(block_x + 1) * MACROBLOCK_SIZE,
         ] = tile
+
     return out[:O, :I]
 
 
 def _parse_split_map(buf: bytes) -> List[Tuple[int, int, int]]:
-    """Rebuild leaf (y, x, size) list from a 12-byte split bitmap.
-
-    Pre-order DFS, quadrant order TL, TR, BL, BR; one bit per node of
-    size >= 8 (1 = split, 0 = leaf); 4x4 nodes contribute no bit
-    (paper Sec 6.2).
-    """
+    """Rebuild mixed-layout leaves from the normative 12-byte split map."""
     if len(buf) < SPLIT_MAP_BYTES:
         raise SGFP4FormatError("split map truncated")
+
     words = struct.unpack_from("<3I", buf, 0)
     leaves: List[Tuple[int, int, int]] = []
     bit_pos = 0
@@ -195,6 +212,7 @@ def _parse_split_map(buf: bytes) -> List[Tuple[int, int, int]]:
             raise SGFP4FormatError(
                 f"split map overrun (>{SPLIT_MAP_MAX_BITS} bits)"
             )
+
         word_index = bit_pos // UINT32_BITS
         bit_index = bit_pos % UINT32_BITS
         bit_pos += 1
@@ -208,103 +226,136 @@ def _parse_split_map(buf: bytes) -> List[Tuple[int, int, int]]:
             leaves.append((y, x, size))
 
     walk(0, 0, MACROBLOCK_SIZE)
+
+    packed_bits = words[0] | (words[1] << 32) | (words[2] << 64)
+    if (packed_bits >> bit_pos) != 0:
+        raise SGFP4FormatError("split map has nonzero unused upper bits")
+
     return leaves
 
 
 def _record_leaves(
-    binary: bytes, layout: Layout, pos: int
+    binary: bytes,
+    layout: Layout,
+    pos: int,
 ) -> Tuple[List[Tuple[int, int, int]], int]:
-    """Resolve the leaf list of one v2 record per paper Sec 6.2.
-
-    Uniform layouts imply row-major raster order; LAYOUT_MIXED consumes a
-    12-byte split map and yields leaves in pre-order DFS order.
-
-    Returns:
-        (leaves, new_pos): leaf (y, x, size) list and the offset just past
-        the split map (unchanged for uniform layouts).
-    """
+    """Resolve one record's leaf geometry and return the next header offset."""
     if layout == Layout.MIXED:
         leaves = _parse_split_map(binary[pos:pos + SPLIT_MAP_BYTES])
         return leaves, pos + SPLIT_MAP_BYTES
     if layout in _LAYOUT_LEAF_SIZE:
         leaf_size = _LAYOUT_LEAF_SIZE[layout]
         leaves = [
-            (ry, rx, leaf_size)
-            for ry in range(0, MACROBLOCK_SIZE, leaf_size)
-            for rx in range(0, MACROBLOCK_SIZE, leaf_size)
+            (row, col, leaf_size)
+            for row in range(0, MACROBLOCK_SIZE, leaf_size)
+            for col in range(0, MACROBLOCK_SIZE, leaf_size)
         ]
         return leaves, pos
     raise SGFP4FormatError(f"unknown layout {int(layout)}")
 
 
 def decode_v2(binary: bytes, O: int, I: int) -> np.ndarray:
-    """Decode a v2 quadtree-adaptive container to a float32 (O, I) tensor.
-
-    Args:
-        binary: self-framed v2 stream (paper Sec 6.1).
-        O: unpadded output-channel count (carried by the model manifest).
-        I: unpadded input-channel count.
-
-    Returns:
-        Decoded float32 array of shape (O, I).
-
-    Raises:
-        SGFP4FormatError: on framing, alignment, or reserved-bit violations.
-    """
+    """Decode a v2 quadtree-adaptive container using manifest shape metadata."""
     binary = bytes(binary)
+    if len(binary) < V2_FIXED_HEADER_BYTES:
+        raise SGFP4FormatError("v2 fixed header truncated")
     if binary[:4] != SGFP4_MAGIC:
         raise SGFP4FormatError("bad magic")
     if binary[4] != SGFP4_VERSION_V2:
         raise SGFP4FormatError(f"bad version {binary[4]:#x}")
-    B = struct.unpack_from("<I", binary, 5)[0]
-    pad = binary[9:V2_FIXED_HEADER_BYTES]
-    if pad != b"\x00" * V2_HEADER_PAD_BYTES:
+
+    block_count = struct.unpack_from("<I", binary, 5)[0]
+    pad0 = binary[9:V2_FIXED_HEADER_BYTES]
+    if pad0 != b"\x00" * V2_HEADER_PAD_BYTES:
         raise SGFP4FormatError("missing 7-byte header pad (Sec 6.1)")
-    rec_offs = [
-        struct.unpack_from("<I", binary, V2_FIXED_HEADER_BYTES + 4 * i)[0]
-        for i in range(B)
+
+    offset_table_start = V2_FIXED_HEADER_BYTES
+    offset_table_end = offset_table_start + UINT32_BYTES * block_count
+    if len(binary) < offset_table_end:
+        raise SGFP4FormatError("record offset table truncated")
+
+    record_offsets = [
+        struct.unpack_from(
+            "<I",
+            binary,
+            offset_table_start + UINT32_BYTES * index,
+        )[0]
+        for index in range(block_count)
     ]
-    record_region = V2_FIXED_HEADER_BYTES + 4 * B
+    record_region = align_up(offset_table_end)
+    pad1 = binary[offset_table_end:record_region]
+    if pad1 != b"\x00" * (record_region - offset_table_end):
+        raise SGFP4FormatError("offset-table pad missing or nonzero")
+    if len(binary) < record_region:
+        raise SGFP4FormatError("v2 record region truncated")
 
     tiles_y = math.ceil(O / MACROBLOCK_SIZE)
     tiles_x = math.ceil(I / MACROBLOCK_SIZE)
-    if tiles_y * tiles_x != B:
-        raise SGFP4FormatError(f"record count {B} != tiling {tiles_y * tiles_x}")
+    expected_blocks = tiles_y * tiles_x
+    if expected_blocks != block_count:
+        raise SGFP4FormatError(
+            f"record count {block_count} != tiling {expected_blocks}"
+        )
 
     out = np.zeros(
-        (tiles_y * MACROBLOCK_SIZE, tiles_x * MACROBLOCK_SIZE), dtype=np.float32
+        (tiles_y * MACROBLOCK_SIZE, tiles_x * MACROBLOCK_SIZE),
+        dtype=np.float32,
     )
-    for b in range(B):
-        if rec_offs[b] % ALIGNMENT != 0:
+    previous_offset = -1
+    for block_index, record_offset in enumerate(record_offsets):
+        if record_offset % ALIGNMENT != 0:
             raise SGFP4FormatError(
-                f"record {b} offset {rec_offs[b]} not 16-byte aligned"
+                f"record {block_index} offset {record_offset} not 16-byte aligned"
             )
-        base = record_region + rec_offs[b]
+        if record_offset <= previous_offset:
+            raise SGFP4FormatError("record offsets are not strictly increasing")
+        previous_offset = record_offset
+
+        base = record_region + record_offset
+        if base + UINT32_BYTES > len(binary):
+            raise SGFP4FormatError(f"record {block_index}: header truncated")
+
         sb_header = struct.unpack_from("<I", binary, base)[0]
-        layout = Layout(sb_header & SB_HEADER_LAYOUT_MASK)
+        layout_value = sb_header & SB_HEADER_LAYOUT_MASK
+        try:
+            layout = Layout(layout_value)
+        except ValueError as exc:
+            raise SGFP4FormatError(
+                f"record {block_index}: unknown layout {layout_value}"
+            ) from exc
         if (sb_header >> SB_HEADER_RESERVED_SHIFT) != 0:
-            raise SGFP4FormatError(f"record {b}: sb_header reserved bits set")
+            raise SGFP4FormatError(
+                f"record {block_index}: sb_header reserved bits set"
+            )
 
-        leaves, pos = _record_leaves(binary, layout, base + 4)
-
+        leaves, pos = _record_leaves(binary, layout, base + UINT32_BYTES)
+        block_header_bytes = UINT32_BYTES * len(leaves)
+        if pos + block_header_bytes > len(binary):
+            raise SGFP4FormatError(
+                f"record {block_index}: leaf header table truncated"
+            )
         block_headers = [
-            struct.unpack_from("<I", binary, pos + 4 * i)[0]
-            for i in range(len(leaves))
+            struct.unpack_from("<I", binary, pos + UINT32_BYTES * index)[0]
+            for index in range(len(leaves))
         ]
-        pos += 4 * len(leaves)
+        pos += block_header_bytes
+
         header_pad = (-(pos - base)) % ALIGNMENT
         if binary[pos:pos + header_pad] != b"\x00" * header_pad:
-            raise SGFP4FormatError(f"record {b}: header pad missing/nonzero")
+            raise SGFP4FormatError(
+                f"record {block_index}: header pad missing or nonzero"
+            )
         pos += header_pad
 
-        by, bx = divmod(b, tiles_x)
+        block_y, block_x = divmod(block_index, tiles_x)
         for (y, x, size), header in zip(leaves, block_headers):
             scale = _half_from_bits(header >> HALF_SHIFT)
-            bias = _half_from_bits(header & BETA_TRUNC_MASK)  # Eq (6)
+            bias = _half_from_bits(header & BETA_TRUNC_MASK)
             flags = header & LEAF_FLAG_MASK
             if (flags & LEAF_RESERVED_MASK) != 0:
                 raise SGFP4FormatError(
-                    f"record {b} leaf ({y},{x}): reserved header flag bits set"
+                    f"record {block_index} leaf ({y},{x}): "
+                    "reserved header flag bits set"
                 )
             mode = CodeMode(flags & LEAF_MODE_MASK)
 
@@ -313,18 +364,36 @@ def decode_v2(binary: bytes, O: int, I: int) -> np.ndarray:
                 n_words = n_weights // FP4_CODES_PER_WORD
             else:
                 n_words = n_weights // T158_CODES_PER_WORD
-            payload_bytes = n_words * 4
-            n_bytes = payload_bytes + (-payload_bytes) % ALIGNMENT
+            payload_bytes = n_words * UINT32_BYTES
+            padded_bytes = align_up(payload_bytes)
+            if pos + padded_bytes > len(binary):
+                raise SGFP4FormatError(
+                    f"record {block_index} leaf ({y},{x}): payload truncated"
+                )
+
             words = np.frombuffer(
-                binary, dtype=np.uint32, count=n_words, offset=pos
+                binary,
+                dtype="<u4",
+                count=n_words,
+                offset=pos,
             )
+            payload_pad = binary[pos + payload_bytes:pos + padded_bytes]
+            if payload_pad != b"\x00" * (padded_bytes - payload_bytes):
+                raise SGFP4FormatError(
+                    f"record {block_index} leaf ({y},{x}): "
+                    "payload pad nonzero"
+                )
+
             codes = _decode_codes(words, mode, n_weights)
             tile = (
                 np.float32(scale) * codes.astype(np.float32) + np.float32(bias)
             ).reshape(size, size)
             out[
-                by * MACROBLOCK_SIZE + y:by * MACROBLOCK_SIZE + y + size,
-                bx * MACROBLOCK_SIZE + x:bx * MACROBLOCK_SIZE + x + size,
+                block_y * MACROBLOCK_SIZE + y:
+                block_y * MACROBLOCK_SIZE + y + size,
+                block_x * MACROBLOCK_SIZE + x:
+                block_x * MACROBLOCK_SIZE + x + size,
             ] = tile
-            pos += n_bytes
+            pos += padded_bytes
+
     return out[:O, :I]

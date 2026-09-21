@@ -41,6 +41,15 @@ namespace sgns::neoswarm
         InvalidArgument = 15,
         NotImplemented = 16,
         InternalError = 17,
+        // Memory (Phase 8 — GAML v1 — per D-20)
+        MemoryNotFound = 18,          ///< D-20: requested memory object not found
+        MemoryUnavailable = 19,       ///< storage offline but not fatal
+        MemoryIngestionFailed = 20,   ///< failed write evaluation
+        // ELM (Phase 7 — fail-close when Process() called before Load())
+        NotLoaded = 21,               ///< ELM/ engine not loaded — cannot process
+        // GCS GlobalDB (Phase 3)
+        GcsDbError = 22,              ///< GCS GlobalDB operation failed (init, start, topic wiring)
+        SdkNotInitialized = 23,       ///< GeniusSDKGetNode() returned nullptr — SDK init chain has not run
     };
 
 } // namespace sgns::neoswarm

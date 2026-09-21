@@ -17,6 +17,7 @@
 #define NEOSWARM_NETWORK_SG_CLIENT_SUPERGENIUSCLIENT_HPP
 
 #include "common/error.hpp"
+#include "account/TokenID.hpp"
 #include <chrono>
 #include <cstdint>
 #include <memory>
@@ -25,16 +26,40 @@
 
 namespace sgns::neoswarm::network
 {
+    /**
+     * @brief Runtime configuration values used to bootstrap a Genius node instance.
+     *
+     * Lightweight mirror of sgns::GeniusNodeConfig (SuperGenius GeniusNode.hpp)
+     * so SGClient consumers don't pull in the full node header chain.
+     */
+    struct GeniusNodeConfig
+    {
+        std::string   Addr;             ///< Developer payout address.
+        std::string   Cut;              ///< Developer or peer cut encoded as a string.
+        std::string   TokenValueInGNUS; ///< Conversion rate used for child-token.
+        // Default TokenID{} is intentionally all-zero = the GNUS token.
+        // ToHex() emits 64 zeros, which GeniusSDK's ParseDevConfig accepts and
+        // IsGNUS() reports as the GNUS token (IN-02).
+        sgns::TokenID TokenID;          ///< Child token identifier (default = GNUS token).
+        std::string   BaseWritePath;    ///< Base directory for node databases, logs, and account storage.
+    };
+
+    // Dev-config defaults — match GeniusSDK/example/dev_config.json (WR-01).
+    // kDefaultDevAddr is a placeholder only; a production deployment MUST
+    // override it with a real payout address ("0x" + 40 hex chars).
+    inline constexpr const char* kDefaultDevAddr       = "0xcafe";
+    inline constexpr const char* kDefaultDevCut        = "0.65";
+    inline constexpr const char* kDefaultDevTokenValue = "1.0";
+    inline constexpr unsigned int kDefaultResultTimeoutSeconds = 300; ///< 5 minutes (WR-02)
+
     class SGClient
     {
         public:
         struct Config
         {
-            std::string m_sdkBasePath = "./sdk";           ///< GeniusSDK data directory
-            uint16_t m_basePort = 40001;                   ///< SDK network port
-            bool m_autoDht = true;                         ///< Enable DHT
-            bool m_enableProcessing = true;                ///< Enable job processing
-            std::chrono::seconds m_resultTimeout{ 300 };   ///< Inference result timeout (5 min)
+            GeniusNodeConfig m_geniusNodeConfig{ kDefaultDevAddr, kDefaultDevCut, kDefaultDevTokenValue,
+                                                 sgns::TokenID{}, "./sdk" };
+            std::chrono::seconds m_resultTimeout{ kDefaultResultTimeoutSeconds };   ///< Inference result timeout
         };
 
         explicit SGClient( Config cfg );

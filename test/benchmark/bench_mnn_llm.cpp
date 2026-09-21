@@ -29,7 +29,7 @@
 
 #include "os_memory.hpp"
 
-#include <MNN/llm/llm.hpp>
+#include <llm/llm.hpp>
 
 namespace
 {

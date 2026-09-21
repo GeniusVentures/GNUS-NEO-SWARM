@@ -2,6 +2,14 @@
  * @file       fp4_codec.hpp
  * @brief      FP4 v3 4-bit floating-point quantization codec (PTDS §4.1)
  * @date       2026-05-06
+ *
+ * @note Flagged per Phase 4 D-13: this NF4-style (non-uniform 16-value LUT)
+ *       codec predates and does not match MNN_Ultra's E2M1 target format for
+ *       InputFormat::FP4_ULTRA. MNNInferenceEngine's reference to this class
+ *       was confirmed orphaned and removed (Phase 4 plan 04-04). This class
+ *       is a candidate for removal or explicit re-justification in a future
+ *       phase -- it is left in place here only because a full-file removal
+ *       is a separate, bigger decision this phase does not make unilaterally.
  */
 
 #ifndef NEOSWARM_CORE_FP4_FP4CODEC_HPP

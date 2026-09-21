@@ -12,15 +12,24 @@ target_include_directories(neoswarm_network PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
+# SuperGenius account headers (TokenID.hpp — used by super_genius_client.hpp)
+if(TARGET sgns::GeniusSDK_shared OR TARGET sgns::GeniusSDK)
+    target_include_directories(neoswarm_network PUBLIC
+        "${SUPERGENIUS_BUILD_DIR}/SuperGenius/include"
+    )
+endif()
+
 target_link_libraries(neoswarm_network PUBLIC neoswarm_common neoswarm_security)
 
-# GeniusSDK — link via imported target (provides include dirs + library automatically)
-if(TARGET sgns::GeniusSDK_shared)
-    target_link_libraries(neoswarm_network PUBLIC sgns::GeniusSDK_shared)
-    message(STATUS "GeniusSDK linked to neoswarm_network")
-elseif(TARGET sgns::GeniusSDK)
+# GeniusSDK — link via imported target (provides include dirs + library automatically).
+# Prefer the static target: avoids a runtime DLL search-path dependency on
+# GeniusSDK_shared.dll for every executable that links this module.
+if(TARGET sgns::GeniusSDK)
     target_link_libraries(neoswarm_network PUBLIC sgns::GeniusSDK)
     message(STATUS "GeniusSDK (static) linked to neoswarm_network")
+elseif(TARGET sgns::GeniusSDK_shared)
+    target_link_libraries(neoswarm_network PUBLIC sgns::GeniusSDK_shared)
+    message(STATUS "GeniusSDK (shared) linked to neoswarm_network")
 else()
     message(STATUS "GeniusSDK not found — network module will build without SuperGenius connectivity")
 endif()

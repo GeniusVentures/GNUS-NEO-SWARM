@@ -2,6 +2,18 @@
 
 Generated: 2026-06-18 | Mode: merge | Precedence: ADR > SPEC > PRD > DOC
 
+> **RESOLVED (2026-08-17)** — All items dispositioned. The 15 BLOCKERS were cross-ref
+> cycles from the doc series' previous/next navigation links; accepted as navigational
+> artifacts (they never blocked per-document extraction). Both WARNINGS were resolved
+> same-day by `poc/PROJECT.md` Key Decisions:
+> - Warning 1 (adapter vs standalone) → **Decision 1: LoRA adapters on shared
+>   Qwen3-30B-A3B backbone** (Decided 2026-06-18).
+> - Warning 2 (undefined per-specialist quantization policy) → **Decision 2:
+>   per-specialist quantization policy** (Decided 2026-06-18), implemented as
+>   D-01..D-10 in `phases/03-fp4-quantization-artifact-integrity/03-CONTEXT.md`.
+> Phases 1–4 all planned and executed against those decisions; milestone v1.0
+> complete. File retained for audit trail only.
+
 ---
 
 ### BLOCKERS (15)

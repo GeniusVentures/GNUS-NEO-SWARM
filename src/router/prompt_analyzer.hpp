@@ -62,6 +62,20 @@ namespace sgns::neoswarm::router
         bool HasGrammarRequest( const std::string& prompt ) const;
 
         /**
+         * @brief Check for grounding/factuality verification requests.
+         * @param prompt  Input string.
+         * @return        True if grounding keywords are present.
+         */
+        bool HasGroundingRequest( const std::string& prompt ) const;
+
+        /**
+         * @brief Check for formatting/structure/style requests.
+         * @param prompt  Input string.
+         * @return        True if formatting keywords are present.
+         */
+        bool HasFormattingRequest( const std::string& prompt ) const;
+
+        /**
          * @brief Count whitespace-delimited tokens.
          * @param text  Input string.
          * @return      Token count.

@@ -17,21 +17,26 @@ Two navigational cross-ref cycles detected between documentation pairs (auto-res
 
 ### WARNINGS (2)
 
-[WARNING] Adapter-based vs standalone specialist models — STILL UNRESOLVED
+[WARNING] Adapter-based vs standalone specialist models — RESOLVED (2026-08-17 annotation)
   Source: docs/architecture/distributed-swarm-thinking-context.md (not in the 14 changed docs; content unchanged)
   Found: Section describing both adapter-based ELMs (fine-tuning a shared base) and standalone specialist models
   Impact: Implementation strategy choice affects model loading, memory usage, and inference batching
-  Status: This doc was not part of the d100f68 update. The architecture does not mandate one path over the other.
-  -> Defer to neoswarm Phase 7 (ELM Router) for benchmark-driven resolution.
-  -> Suggested: Both paths remain viable; choose based on per-specialist benchmarks.
+  Resolution: Resolved for the poc workstream by poc/PROJECT.md Key Decision 1
+    (2026-06-18): specialists are LoRA adapters on a shared Qwen3-30B-A3B backbone.
+    Implemented across poc Phases 1-2 (MLX LoRA training, adapter artifacts).
+    neoswarm Phase 7 (ELMs + Router) completed with the same adapter-based design.
+  Original note: Defer to neoswarm Phase 7 (ELM Router) for benchmark-driven resolution.
 
-[WARNING] Undefined quantization policy per specialist role — STILL UNRESOLVED
+[WARNING] Undefined quantization policy per specialist role — RESOLVED (2026-08-17 annotation)
   Source: docs/architecture/distributed-swarm-thinking-context.md (not in the 14 changed docs; content unchanged)
   Found: Section mentioning per-specialist quantization without defining the mapping
   Impact: Without per-role quantization policy, SGFP4 processor configuration is underspecified for ELM specialists
-  Status: This doc was not part of the d100f68 update. The warning predates the SGFP4 format renaming (from FP4 Ultra).
-  -> Define quantization levels per ELM role type (Grammar=Q4, Math=Q8, etc.) in Phase 4 (SGProcessing Integration).
-  -> The updated SGFP4 format spec (constraints.md SPEC-03) now defines dual-mode FP4_AFFINE/T158_AFFINE but does not address per-role policy.
+  Resolution: Resolved by poc/PROJECT.md Key Decision 2 (2026-06-18): per-specialist
+    quantization policy — FP4_AFFINE for accuracy-critical specialists, T158_AFFINE
+    for latency-tolerant, adaptive per-block mode selection; configurable per
+    specialist in config/specialists/<niche>.yaml. Implemented in poc Phase 3
+    (SGFP4 v2, D-01..D-10 in 03-CONTEXT.md; UAT 97/97 passing).
+  Original note: Define quantization levels per ELM role type in Phase 4 (SGProcessing Integration).
 
 ---
 

@@ -82,6 +82,8 @@ TEST(PromptFeatures, DefaultConstructor_AllFalse)
     EXPECT_EQ( pf.token_count_, 0 );
     EXPECT_FALSE( pf.has_math_keywords_ );
     EXPECT_FALSE( pf.has_grammar_request_ );
+    EXPECT_FALSE( pf.has_grounding_request_ );
+    EXPECT_FALSE( pf.has_formatting_request_ );
 }
 
 TEST(KnowledgeFact, DefaultConstructor_ReasonableDefaults)
@@ -90,4 +92,214 @@ TEST(KnowledgeFact, DefaultConstructor_ReasonableDefaults)
     EXPECT_FLOAT_EQ( fact.m_relevanceScore, 0.0f );
     EXPECT_TRUE( fact.m_source.empty() );
     EXPECT_TRUE( fact.m_content.empty() );
+}
+
+// ---------------------------------------------------------------------------
+// Phase 8 — GAML v1 Memory Types (GAML-01, GAML-02)
+// ---------------------------------------------------------------------------
+
+TEST(MemoryObjectType, EnumValues_AreDistinct)
+{
+    // Verify 5 distinct values for 5 subtypes (D-02)
+    EXPECT_EQ(static_cast<int>(MemoryObjectType::BRIDGE_BLOCK), 0);
+    EXPECT_EQ(static_cast<int>(MemoryObjectType::FACT), 1);
+    EXPECT_EQ(static_cast<int>(MemoryObjectType::POLICY), 2);
+    EXPECT_EQ(static_cast<int>(MemoryObjectType::EVENT), 3);
+    EXPECT_EQ(static_cast<int>(MemoryObjectType::TENANT_OPERATIONAL), 4);
+}
+
+TEST(TrustClass, EnumValues_AreDistinct)
+{
+    // Verify 4 distinct values (D-01, D-09)
+    EXPECT_EQ(static_cast<int>(TrustClass::UNVERIFIED), 0);
+    EXPECT_EQ(static_cast<int>(TrustClass::VERIFIED), 1);
+    EXPECT_EQ(static_cast<int>(TrustClass::PREMIUM), 2);
+    EXPECT_EQ(static_cast<int>(TrustClass::REPLICA), 3);
+}
+
+TEST(MemoryObjectType, IsScopedEnum)
+{
+    // Verify scoped enum — unqualified names should not compile
+    // (This test simply verifies the values exist in scoped form)
+    MemoryObjectType t = MemoryObjectType::FACT;
+    EXPECT_EQ(static_cast<int>(t), 1);
+}
+
+TEST(TrustClass, IsScopedEnum)
+{
+    TrustClass t = TrustClass::UNVERIFIED;
+    EXPECT_EQ(static_cast<int>(t), 0);
+}
+
+TEST(MemoryObjectType, UnderlyingTypeIsUint8)
+{
+    // sizeof(uint8_t) == 1, scoped enums with : uint8_t should also be 1 byte
+    EXPECT_EQ(sizeof(MemoryObjectType), 1);
+}
+
+TEST(TrustClass, UnderlyingTypeIsUint8)
+{
+    EXPECT_EQ(sizeof(TrustClass), 1);
+}
+
+// ---------------------------------------------------------------------------
+// Phase 8 — CognitiveAsset default construction (GAML-01)
+// ---------------------------------------------------------------------------
+
+TEST(CognitiveAsset, DefaultConstruction)
+{
+    CognitiveAsset a;
+    EXPECT_TRUE(a.m_id.empty());
+    EXPECT_TRUE(a.m_entity.empty());
+    EXPECT_EQ(a.m_type, MemoryObjectType::FACT);
+    EXPECT_EQ(a.m_timestamp, 0);
+    EXPECT_FLOAT_EQ(a.m_confidence, 0.0f);
+    EXPECT_FLOAT_EQ(a.m_provenance, 0.0f);
+    EXPECT_EQ(a.m_trustClass, TrustClass::UNVERIFIED);
+    EXPECT_TRUE(a.m_sourceNode.empty());
+}
+
+TEST(CognitiveAsset, AggregateInitialization)
+{
+    // Ordered aggregate init (C++17) — designated initializers are C++20 and
+    // MSVC rejects them under /std:c++17 (C7555). m_payload sits between
+    // m_type and m_timestamp in the declaration, so it is spelled out.
+    CognitiveAsset a{
+        "test-001",
+        "physics",
+        MemoryObjectType::FACT,
+        nlohmann::json{},
+        1000,
+        "node-1",
+        0.85f,
+        0.6f,
+        TrustClass::VERIFIED,
+    };
+    EXPECT_EQ(a.m_id, "test-001");
+    EXPECT_EQ(a.m_entity, "physics");
+    EXPECT_EQ(a.m_type, MemoryObjectType::FACT);
+    EXPECT_EQ(a.m_timestamp, 1000);
+    EXPECT_FLOAT_EQ(a.m_confidence, 0.85f);
+    EXPECT_EQ(a.m_sourceNode, "node-1");
+}
+
+TEST(ExecutionChain, NeedsRetrievalDefaultsToFalse)
+{
+    ExecutionChain chain;
+    EXPECT_FALSE(chain.m_needsRetrieval);
+}
+
+TEST(ELMContext, MemoryFieldsDefaultEmpty)
+{
+    ELMContext ctx;
+    EXPECT_TRUE(ctx.m_memoryFacts.empty());
+    EXPECT_TRUE(ctx.m_memoryPolicies.empty());
+}
+
+TEST(MemoryContext, EmptyByDefault)
+{
+    MemoryContext mctx;
+    EXPECT_TRUE(mctx.m_facts.empty());
+    EXPECT_TRUE(mctx.m_policies.empty());
+}
+
+// ---------------------------------------------------------------------------
+// Phase 8 — JSON serialization roundtrip (GAML-01)
+// ---------------------------------------------------------------------------
+
+static std::string SerializeCognitiveAsset(const CognitiveAsset& obj)
+{
+    nlohmann::json j;
+    j["id"] = obj.m_id;
+    j["entity"] = obj.m_entity;
+    j["type"] = static_cast<int>(obj.m_type);
+    j["payload"] = obj.m_payload;
+    j["timestamp"] = obj.m_timestamp;
+    j["source_node"] = obj.m_sourceNode;
+    j["confidence"] = obj.m_confidence;
+    j["provenance"] = obj.m_provenance;
+    j["trust_class"] = static_cast<int>(obj.m_trustClass);
+    return j.dump();
+}
+
+static CognitiveAsset DeserializeCognitiveAsset(const std::string& data)
+{
+    auto j = nlohmann::json::parse(data);
+    CognitiveAsset obj;
+    obj.m_id = j.value("id", "");
+    obj.m_entity = j.value("entity", "");
+    obj.m_type = static_cast<MemoryObjectType>(j.value("type", 0));
+    obj.m_payload = j.value("payload", nlohmann::json::object());
+    obj.m_timestamp = j.value("timestamp", int64_t(0));
+    obj.m_sourceNode = j.value("source_node", "");
+    obj.m_confidence = j.value("confidence", 0.0f);
+    obj.m_provenance = j.value("provenance", 0.0f);
+    obj.m_trustClass = static_cast<TrustClass>(j.value("trust_class", 0));
+    return obj;
+}
+
+TEST(CognitiveAsset, JsonSerializationRoundtrip)
+{
+    CognitiveAsset original;
+    original.m_id = "roundtrip-1";
+    original.m_entity = "chemistry";
+    original.m_type = MemoryObjectType::FACT;
+    original.m_payload = nlohmann::json::object({{"content", "H2O is water"}});
+    original.m_timestamp = 1234567890;
+    original.m_sourceNode = "node-XYZ";
+    original.m_confidence = 0.75f;
+    original.m_provenance = 0.5f;
+    original.m_trustClass = TrustClass::VERIFIED;
+
+    std::string serialized = SerializeCognitiveAsset(original);
+    auto restored = DeserializeCognitiveAsset(serialized);
+
+    EXPECT_EQ(restored.m_id, "roundtrip-1");
+    EXPECT_EQ(restored.m_entity, "chemistry");
+    EXPECT_EQ(restored.m_type, MemoryObjectType::FACT);
+    EXPECT_EQ(restored.m_timestamp, 1234567890);
+    EXPECT_EQ(restored.m_sourceNode, "node-XYZ");
+    EXPECT_FLOAT_EQ(restored.m_confidence, 0.75f);
+    EXPECT_FLOAT_EQ(restored.m_provenance, 0.5f);
+    EXPECT_EQ(restored.m_trustClass, TrustClass::VERIFIED);
+    EXPECT_EQ(restored.m_payload["content"], "H2O is water");
+}
+
+TEST(ELMRole, EnumValues_AreDistinct)
+{
+    EXPECT_NE( static_cast<int>( ELMRole::Planner ), static_cast<int>( ELMRole::PrimaryDraft ) );
+    EXPECT_NE( static_cast<int>( ELMRole::Verifier ), static_cast<int>( ELMRole::Arbiter ) );
+    EXPECT_NE( static_cast<int>( ELMRole::Refiner ), static_cast<int>( ELMRole::Grounding ) );
+    EXPECT_NE( static_cast<int>( ELMRole::ToolSupport ), static_cast<int>( ELMRole::Math ) );
+    EXPECT_NE( static_cast<int>( ELMRole::Code ), static_cast<int>( ELMRole::Science ) );
+}
+
+TEST(ExecutionMode, ElmAssistedValue_IsDistinct)
+{
+    EXPECT_NE( static_cast<int>( ExecutionMode::ElmAssisted ), static_cast<int>( ExecutionMode::SingleNode ) );
+    EXPECT_NE( static_cast<int>( ExecutionMode::ElmAssisted ), static_cast<int>( ExecutionMode::Specialist ) );
+    EXPECT_NE( static_cast<int>( ExecutionMode::ElmAssisted ), static_cast<int>( ExecutionMode::Swarm ) );
+}
+
+TEST(ELMContext, DefaultConstructor_HasReasonableDefaults)
+{
+    ELMContext ctx;
+    EXPECT_TRUE( ctx.m_originalTask.empty() );
+    EXPECT_TRUE( ctx.m_stepConfidences.empty() );
+    EXPECT_TRUE( ctx.m_groundingFacts.empty() );
+}
+
+TEST(ChainStep, DefaultConstructor_HasReasonableDefaults)
+{
+    ChainStep step;
+    EXPECT_EQ( step.m_role, ELMRole::PrimaryDraft );
+    EXPECT_FALSE( step.m_domain.has_value() );
+}
+
+TEST(ExecutionChain, DefaultConstructor_HasReasonableDefaults)
+{
+    ExecutionChain chain;
+    EXPECT_TRUE( chain.m_steps.empty() );
+    EXPECT_TRUE( chain.m_reasoning.empty() );
+    EXPECT_FLOAT_EQ( chain.m_chainConfidence, 0.0f );
 }

@@ -10,22 +10,16 @@
 #include "mnn_inference_engine.hpp"
 #include "common/logging.hpp"
 
-#include <algorithm>
 #include <boost/asio/io_context.hpp>
 #include <chrono>
-#include <cmath>
 #include <numeric>
-#include <random>
 #include <stdexcept>
 
 #include <InputFormat.hpp>
 
-#include <MNN/Interpreter.hpp>
 #include <MNN/MNNDefine.h>
-#include <MNN/MNNForwardType.h>
-#include <MNN/Tensor.hpp>
 #include <MNN/expr/Executor.hpp>
-#include <MNN/llm/llm.hpp>
+#include <llm/llm.hpp>
 
 namespace sgns::neoswarm::core
 {
@@ -79,7 +73,6 @@ namespace sgns::neoswarm::core
     MNNInferenceEngine::MNNInferenceEngine( Config cfg )
         : m_cfg( std::move( cfg ) )
     {
-        (void) m_fp4Codec;
     }
 
     MNNInferenceEngine::~MNNInferenceEngine()
@@ -89,21 +82,6 @@ namespace sgns::neoswarm::core
             MNN::Transformer::Llm::destroy( mnn_llm_ );
             mnn_llm_ = nullptr;
         }
-        if ( m_interpreter && m_session )
-        {
-            m_interpreter->releaseSession( m_session );
-        }
-
-    }
-
-    // -----------------------------------------------------------------------
-    // SelectBackend — Vulkan (cross-platform) or CPU
-    // -----------------------------------------------------------------------
-    int MNNInferenceEngine::SelectBackend() const
-    {
-        // MNN_FORWARD_VULKAN = 7, MNN_FORWARD_CPU = 0
-        return ( m_cfg.m_backend == "vulkan" ) ? 7 : 0;
-
     }
 
     std::string MNNInferenceEngine::BackendName() const
@@ -208,24 +186,14 @@ namespace sgns::neoswarm::core
                 return outcome::success();
             }
 
-            // Standard single-file .mnn model (non-LLM)
-            m_interpreter.reset( MNN::Interpreter::createFromFile( model_path.c_str() ) );
-            if ( !m_interpreter )
-            {
-                return outcome::failure( Error::ModelLoadFailed );
-            }
-            MNN::ScheduleConfig sched_cfg;
-            sched_cfg.type = static_cast<MNNForwardType>( SelectBackend() );
-            sched_cfg.numThread = m_cfg.m_numThreads;
-            m_session = m_interpreter->createSession( sched_cfg );
-            if ( !m_session )
-            {
-                return outcome::failure( Error::ModelLoadFailed );
-            }
-            m_modelPath = model_path;
-            m_loaded.store( true );
-            EngineLogger()->info( "Model loaded (Interpreter, backend={})", BackendName() );
-            return outcome::success();
+            // No LLM-directory model detected — "interpreter" mode only supports
+            // mnn_llm_-backed native generation (D-06). The hand-rolled raw-MNN
+            // single-file-.mnn sampling loop has been removed; fail closed instead
+            // of falling through to a silently-equivalent hidden path.
+            EngineLogger()->error( "No MNN LLM model directory found at '{}' — 'interpreter' mode requires an "
+                                    "MNN LLM model (llm_config.json)",
+                                    model_path );
+            return outcome::failure( Error::ModelLoadFailed );
         }
 
         // ---- Stub mode (no engine configured or MNN not compiled) ----
@@ -262,14 +230,16 @@ namespace sgns::neoswarm::core
             return InferViaSGProcessing( task );
         }
 
-        // MNN Interpreter path (fallback)
+        // MNN Interpreter path (fallback) — mnn_llm_-backed native generation only
+        // (D-06: the hand-rolled raw-MNN sampling loop has been removed; fail
+        // closed rather than silently falling through to an equivalent hidden path)
         if ( m_cfg.m_engineMode == "interpreter" )
         {
             if ( mnn_llm_ )
             {
                 return InferViaMnnLlm( task );
             }
-            return InferViaStandardInterpreter( task );
+            return outcome::failure( Error::InferenceFailed );
         }
 
         // Unconfigured — stub response
@@ -345,78 +315,6 @@ namespace sgns::neoswarm::core
     }
 
     // -----------------------------------------------------------------------
-    // InferViaStandardInterpreter — MNN Interpreter with token generation loop
-    // -----------------------------------------------------------------------
-    outcome::result<InferenceResponse> MNNInferenceEngine::InferViaStandardInterpreter( const Task& task )
-    {
-        if ( !m_tokenizer )
-        {
-            return outcome::failure( Error::InferenceFailed );
-        }
-
-        auto t0 = std::chrono::steady_clock::now();
-
-        auto enc_res = m_tokenizer->Encode( task.m_prompt );
-        if ( !enc_res.has_value() )
-        {
-            return outcome::failure( enc_res.error() );
-        }
-        std::vector<int> input_ids = enc_res.value();
-        std::vector<int> generated;
-        generated.reserve( task.m_maxTokens );
-
-        std::string output_text;
-        float total_log_prob = 0.0f;
-        int token_count = 0;
-
-        for ( uint32_t step = 0; step < task.m_maxTokens; ++step )
-        {
-            std::vector<int> context_ids = input_ids;
-            context_ids.insert( context_ids.end(), generated.begin(), generated.end() );
-
-            auto logits_res = RunForward( context_ids );
-            if ( !logits_res.has_value() )
-            {
-                return outcome::failure( logits_res.error() );
-            }
-
-            auto& logits = logits_res.value();
-            ApplyRepetitionPenalty( logits, generated, m_cfg.m_repetitionPenalty );
-            int next_token = SampleToken( logits, task.m_temperature, m_cfg.m_topP, m_cfg.m_topK );
-
-            float max_l = *std::max_element( logits.begin(), logits.end() );
-            float sum_exp = 0.0f;
-            for ( auto v : logits )
-                sum_exp += std::exp( v - max_l );
-            total_log_prob += logits[next_token] - max_l - std::log( sum_exp );
-            ++token_count;
-
-            if ( m_tokenizer->IsEOS( next_token ) )
-                break;
-            generated.push_back( next_token );
-
-            auto dec_res = m_tokenizer->Decode( { next_token } );
-            if ( dec_res.has_value() )
-                output_text += dec_res.value();
-        }
-
-        auto t1 = std::chrono::steady_clock::now();
-        double latency_ms = std::chrono::duration<double, std::milli>( t1 - t0 ).count();
-        float perplexity = token_count > 0 ? std::exp( -total_log_prob / static_cast<float>( token_count ) ) : 1.0f;
-
-        InferenceResponse resp;
-        resp.m_output = output_text;
-        resp.m_perplexity = perplexity;
-        resp.m_latencyMs = latency_ms;
-        resp.m_nodeId = task.m_nodeId;
-        resp.m_success = true;
-
-        EngineLogger()->debug( "Inference done: {} tokens, {:.1f} ms, perplexity={:.2f}", generated.size(),
-                               latency_ms, perplexity );
-        return outcome::success( std::move( resp ) );
-    }
-
-    // -----------------------------------------------------------------------
     // StreamInfer
     // -----------------------------------------------------------------------
     outcome::result<void> MNNInferenceEngine::StreamInfer( const Task& task,
@@ -441,45 +339,11 @@ namespace sgns::neoswarm::core
                 return outcome::success();
             }
 
-            if ( !m_tokenizer )
-            {
-                return outcome::failure( Error::InferenceFailed );
-            }
-
-            auto enc_res = m_tokenizer->Encode( task.m_prompt );
-            if ( !enc_res.has_value() )
-            {
-                return outcome::failure( enc_res.error() );
-            }
-            std::vector<int> input_ids = enc_res.value();
-            std::vector<int> generated;
-
-            for ( uint32_t step = 0; step < task.m_maxTokens; ++step )
-            {
-                std::vector<int> context_ids = input_ids;
-                context_ids.insert( context_ids.end(), generated.begin(), generated.end() );
-
-                auto logits_res = RunForward( context_ids );
-                if ( !logits_res.has_value() )
-                {
-                    return outcome::failure( logits_res.error() );
-                }
-
-                auto& logits = logits_res.value();
-                ApplyRepetitionPenalty( logits, generated, m_cfg.m_repetitionPenalty );
-                int next_token = SampleToken( logits, task.m_temperature, m_cfg.m_topP, m_cfg.m_topK );
-
-                if ( m_tokenizer->IsEOS( next_token ) )
-                    break;
-                generated.push_back( next_token );
-
-                auto dec_res = m_tokenizer->Decode( { next_token } );
-                if ( dec_res.has_value() && callback )
-                {
-                    callback( dec_res.value() );
-                }
-            }
-            return outcome::success();
+            // No LLM-directory model loaded — "interpreter" mode only supports
+            // mnn_llm_-backed native generation (D-06). The hand-rolled raw-MNN
+            // token-generation-loop fallback has been removed; fail closed
+            // rather than silently falling through to an equivalent hidden path.
+            return outcome::failure( Error::InferenceFailed );
         }
 
         // Fallback: run batch inference and emit the full result as one token.
@@ -493,143 +357,6 @@ namespace sgns::neoswarm::core
             callback( result.value().m_output );
         }
         return outcome::success();
-    }
-
-    // -----------------------------------------------------------------------
-    // RunForward — Interpreter path only
-    // -----------------------------------------------------------------------
-    outcome::result<std::vector<float>> MNNInferenceEngine::RunForward( const std::vector<int>& input_ids )
-    {
-        if ( !m_session )
-        {
-            // No model loaded — cannot infer without tokenizer vocab size
-            if ( !m_tokenizer )
-            {
-                return outcome::failure( Error::TokenizerFailed );
-            }
-            const size_t kVocabSize = m_tokenizer->VocabSize();
-            std::vector<float> logits( kVocabSize, 0.0f );
-            static std::mt19937 rng( 42 );
-            std::normal_distribution<float> dist( 0.0f, 1.0f );
-            for ( auto& v : logits )
-                v = dist( rng );
-            return outcome::success( std::move( logits ) );
-        }
-
-        auto* input_tensor = m_interpreter->getSessionInput( m_session, "input_ids" );
-        if ( !input_tensor )
-        {
-            return outcome::failure( Error::InferenceFailed );
-        }
-        m_interpreter->resizeTensor( input_tensor, { 1, static_cast<int>( input_ids.size() ) } );
-        m_interpreter->resizeSession( m_session );
-
-        auto* host_tensor = new MNN::Tensor( input_tensor, MNN::Tensor::CAFFE );
-        for ( size_t i = 0; i < input_ids.size(); ++i )
-        {
-            host_tensor->host<int>()[i] = input_ids[i];
-        }
-        input_tensor->copyFromHostTensor( host_tensor );
-        delete host_tensor;
-
-        m_interpreter->runSession( m_session );
-
-        auto* logits_tensor = m_interpreter->getSessionOutput( m_session, "logits" );
-        if ( !logits_tensor )
-        {
-            return outcome::failure( Error::InferenceFailed );
-        }
-        auto* host_logits = new MNN::Tensor( logits_tensor, MNN::Tensor::CAFFE );
-        logits_tensor->copyToHostTensor( host_logits );
-        int vocab_size = host_logits->elementSize();
-        std::vector<float> logits( host_logits->host<float>(), host_logits->host<float>() + vocab_size );
-        delete host_logits;
-        return outcome::success( std::move( logits ) );
-
-    }
-
-    // -----------------------------------------------------------------------
-    // ApplyRepetitionPenalty
-    // -----------------------------------------------------------------------
-    void MNNInferenceEngine::ApplyRepetitionPenalty( std::vector<float>& logits,
-                                                     const std::vector<int>& generated,
-                                                     float penalty ) const
-    {
-        for ( int id : generated )
-        {
-            if ( id >= 0 && static_cast<size_t>( id ) < logits.size() )
-            {
-                logits[id] = logits[id] > 0 ? logits[id] / penalty : logits[id] * penalty;
-            }
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // SampleToken
-    // -----------------------------------------------------------------------
-    int MNNInferenceEngine::SampleToken( const std::vector<float>& logits,
-                                         float temperature,
-                                         float top_p,
-                                         int top_k ) const
-    {
-        if ( logits.empty() )
-            return 0;
-
-        std::vector<float> scaled( logits.size() );
-        float t = std::max( temperature, 1e-6f );
-        for ( size_t i = 0; i < logits.size(); ++i )
-            scaled[i] = logits[i] / t;
-
-        float max_val = *std::max_element( scaled.begin(), scaled.end() );
-        float sum = 0.0f;
-        for ( auto& v : scaled )
-        {
-            v = std::exp( v - max_val );
-            sum += v;
-        }
-        for ( auto& v : scaled )
-            v /= sum;
-
-        std::vector<std::pair<float, int>> probs;
-        probs.reserve( scaled.size() );
-        for ( size_t i = 0; i < scaled.size(); ++i )
-        {
-            probs.push_back( { scaled[i], static_cast<int>( i ) } );
-        }
-        std::partial_sort( probs.begin(), probs.begin() + std::min( top_k, static_cast<int>( probs.size() ) ),
-                           probs.end(), []( const auto& a, const auto& b ) { return a.first > b.first; } );
-        probs.resize( std::min( top_k, static_cast<int>( probs.size() ) ) );
-
-        float cum_sum = 0.0f;
-        size_t cutoff = probs.size();
-        for ( size_t i = 0; i < probs.size(); ++i )
-        {
-            cum_sum += probs[i].first;
-            if ( cum_sum >= top_p )
-            {
-                cutoff = i + 1;
-                break;
-            }
-        }
-        probs.resize( cutoff );
-
-        float p_sum = 0.0f;
-        for ( auto& p : probs )
-            p_sum += p.first;
-        for ( auto& p : probs )
-            p.first /= p_sum;
-
-        static thread_local std::mt19937 rng( std::random_device{}() );
-        std::uniform_real_distribution<float> dist( 0.0f, 1.0f );
-        float r = dist( rng );
-        float acc = 0.0f;
-        for ( auto& p : probs )
-        {
-            acc += p.first;
-            if ( r <= acc )
-                return p.second;
-        }
-        return probs.back().second;
     }
 
     // -----------------------------------------------------------------------

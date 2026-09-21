@@ -79,15 +79,15 @@
 ## Known Bugs
 
 ### Test Binaries Fail to Link with SGProcessingManager
-- Symptoms: Test executables fail with duplicate protobuf symbol errors when `GENIUS_HAS_SGPROCESSING` is active. The main dylib builds fine, suggesting the test CMakeLists don't use the same `-ld_classic` workaround.
+- Symptoms: Test executables fail with duplicate protobuf symbol errors when SGProcessingManager is linked. The main library builds fine, suggesting the test CMakeLists don't use the same `-ld_classic` workaround.
 - Files: `test/CMakeLists.txt` (and subdirectory CMakeLists)
 - Trigger: Build with SGProcessingManager linked, run `ninja` in a test-enabled build.
-- Workaround: Use `-ld_classic` linker flag for test targets, matching the dylib configuration.
+- Workaround: The `-ld_classic` linker flag is applied via `target_link_options(neoswarm_core PUBLIC ...)` (PUBLIC/INTERFACE) on `neoswarm_core` in `src/core/CMakeLists.txt` — it propagates transitively to every `neoswarm_test()`-built test binary via normal CMake target-property propagation, since every test target links `neoswarm_core` (directly or transitively). Status: re-verify empirically per D-12 once relinked against GeniusNetwork's SuperGenius build output (Phase 4, plan 04-01) — not yet confirmed fixed on this checkout.
 
-### SentencePiece/SGProcessing Protobuf Conflict
-- Symptoms: Both SentencePiece and SGProcessingManager depend on protobuf, but potentially different versions. When both are linked, symbol conflicts occur.
-- Trigger: Building with both `GENIUS_HAS_SENTENCEPIECE` and `GENIUS_HAS_SGPROCESSING` active.
-- Workaround: Currently SentencePiece is conditionally skipped when SGProcessing is linked. The system can use either real tokenization (SentencePiece) or SGProcessing, but not both simultaneously.
+### SentencePiece/SGProcessing Protobuf Conflict — CORRECTED (2026-08-18)
+- Prior claim (as of 2026-05-27): both SentencePiece and SGProcessingManager depend on protobuf, and linking both when their respective legacy compile-time feature flags were simultaneously active caused symbol conflicts.
+- Correction: SentencePiece does not exist anywhere in the current source tree as of Phase 4 research (2026-08-18) — no implementation file, no compile flag of any kind (those legacy flags predate the current no-`#ifdef` architecture). There is no active protobuf conflict to resolve.
+- The remaining protobuf-consolidation concern is that NEO-SWARM must link a single, consistent SGProcessingManager build — resolved by Phase 4's CMake relink to GeniusNetwork's SuperGenius build output (plan 04-01), which pulls one consistent protobuf version through the whole SGProcessing dependency chain.
 
 ## Security Considerations
 
@@ -155,8 +155,9 @@
 - Safe modification: Replace with `nlohmann/json` parsing. The library is already in the dependency chain.
 - Test coverage: No direct tests — only exercised through integration pipeline tests.
 
-### Compile-time Conditional Features
-- Files: Throughout the codebase — `#ifdef GENIUS_HAS_MNN`, `#ifdef GENIUS_HAS_SECP256K1`, `#ifdef GENIUS_HAS_ROCKSDB`, `#ifdef GENIUS_HAS_SENTENCEPIECE`, `#ifdef GENIUS_HAS_SGPROCESSING`, `#ifdef GENIUS_HAS_LIBP2P`, `#ifdef GENIUS_HAS_MNN_LLM`, `#ifdef GENIUS_HAS_OPENSSL`
+### Compile-time Conditional Features (historical — pre-2026-06-18 refactor)
+- Note: This entry describes the codebase as of 2026-05-27, before the 2026-06-18 REFACTOR_ROADMAP work removed all `#ifdef` feature gates project-wide (see STATE.md decisions log). The flags below — including the SentencePiece-tokenizer flag referenced elsewhere in this file — no longer exist in the current architecture; CMake now links-or-fails-at-configure-time unconditionally (`if(TARGET ...)` pattern) instead of gating via compile-time flags.
+- Files (historical): Throughout the codebase — `#ifdef GENIUS_HAS_MNN`, `#ifdef GENIUS_HAS_SECP256K1`, `#ifdef GENIUS_HAS_ROCKSDB`, a SentencePiece-tokenizer flag, `#ifdef GENIUS_HAS_SGPROCESSING`, `#ifdef GENIUS_HAS_LIBP2P`, `#ifdef GENIUS_HAS_MNN_LLM`, `#ifdef GENIUS_HAS_OPENSSL`
 - Why fragile: The code supports 8 different feature flags, each with a stub fallback. The combination matrix (2^8 = 256 possible build configurations) is never tested. Many stubs silently return success (e.g., `MessageSigning::Verify`, `NodeIdentity::Verify`, `ReputationStorage::Open`, `SGProcessingBridge::SubmitDirect`), masking the fact that real functionality is missing.
 - Safe modification: When adding a new `#ifdef` path, always ensure the stub fallback returns an explicit error or at minimum logs at `warn` level so operators know a feature is missing.
 - Test coverage: Only the stub modes are tested in CI. The real implementations (with libraries linked) require manual testing.
@@ -185,10 +186,9 @@
 - Impact: MNN upgrades require careful testing of both engine paths. The LLM engine sources from `thirdparty/MNN/transformers/llm/engine/src/*.cpp` are compiled directly into `genius_core`, not as a separate library.
 - Migration plan: Pin MNN to a known-good version. Abstract the LLM interface behind `IInferenceEngine` so the engine implementation can be swapped without affecting the rest of the system. (Note: `InferenceEngine.hpp` exists at `src/core/engine/InferenceEngine.hpp` but appears to be a typedef/alias, not a full abstraction.)
 
-### SentencePiece / Protobuf Conflict
-- Risk: SentencePiece and SGProcessingManager both link protobuf. When both `GENIUS_HAS_SENTENCEPIECE` and `GENIUS_HAS_SGPROCESSING` are active, the linker sees duplicate protobuf symbols.
-- Impact: Cannot use real tokenization and SGProcessing simultaneously. One must be disabled at build time.
-- Migration plan: Resolve protobuf version conflict — either upgrade SentencePiece to use the same protobuf as SGProcessingManager or use a different tokenizer (e.g., MNN's built-in `tokenizer.mtok` which is already used in the LLM path).
+### SentencePiece / Protobuf Conflict — CORRECTED (2026-08-18)
+- Prior claim (as of 2026-05-27): SentencePiece and SGProcessingManager both link protobuf, and enabling both of their (now-removed) legacy compile-time feature flags simultaneously caused duplicate protobuf symbols.
+- Correction: SentencePiece does not exist anywhere in the current source tree — no implementation file, no compile flag. There is no active conflict, and nothing to migrate. The system already uses MNN's built-in `tokenizer.mtok` in the LLM path. The only remaining protobuf-consolidation concern is linking a single, consistent SGProcessingManager build (resolved by Phase 4's CMake relink to GeniusNetwork's SuperGenius build output, plan 04-01).
 
 ### Boost Version
 - Risk: The project pins Boost 1.85.0 (see `cmake/CommonBuildParameters.cmake` line 19). CMake 4.x has removed `FindBoost` and requires CONFIG mode, which the build already uses (line 84), but this is a known friction point.

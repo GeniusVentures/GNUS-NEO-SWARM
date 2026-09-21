@@ -57,13 +57,20 @@ namespace sgns::neoswarm::core
          * @param model_uri    IPFS URI or path to the MNN model.
          * @param input_uri    IPFS URI or path to the input data.
          * @param input_format Tensor element format.
-         * @param shape        Tensor shape dimensions.
+         * @param shape        Tensor shape dimensions (one block/window's shape).
+         * @param total_width  Total input element count, for inputs processed as multiple
+         *                     windows over data wider than one block. 0 => derive from
+         *                     `shape` (product of its dims), i.e. the whole input is one block.
+         * @param chunk_stride Step between window starts. 0 => defaults to `shape.back()`
+         *                     (the block length), i.e. non-overlapping windows.
          * @return             JSON string or InvalidArgument.
          */
         outcome::result<std::string> BuildSchemaJson( const std::string& model_uri,
                                                       const std::string& input_uri,
                                                       sgns::InputFormat input_format,
-                                                      const std::vector<int64_t>& shape ) const;
+                                                      const std::vector<int64_t>& shape,
+                                                      int64_t total_width = 0,
+                                                      int64_t chunk_stride = 0 ) const;
 
         /**
          * @brief Submit a job and return raw tensor output bytes.
@@ -74,15 +81,19 @@ namespace sgns::neoswarm::core
          * @param model_uri    IPFS URI or path to the MNN model.
          * @param input_uri    IPFS URI or path to the input data.
          * @param input_format Tensor element format.
-         * @param shape        Tensor shape dimensions.
+         * @param shape        Tensor shape dimensions (one block/window's shape).
          * @param ioc          Boost ASIO io_context for async operations.
+         * @param total_width  Total input element count; see BuildSchemaJson().
+         * @param chunk_stride Step between window starts; see BuildSchemaJson().
          * @return             Raw output bytes or InferenceFailed / NotImplemented.
          */
         outcome::result<std::vector<uint8_t>> SubmitJob( const std::string& model_uri,
                                                          const std::string& input_uri,
                                                          sgns::InputFormat input_format,
                                                          const std::vector<int64_t>& shape,
-                                                         std::shared_ptr<boost::asio::io_context> ioc );
+                                                         std::shared_ptr<boost::asio::io_context> ioc,
+                                                         int64_t total_width = 0,
+                                                         int64_t chunk_stride = 0 );
 
         private:
         Config m_cfg;

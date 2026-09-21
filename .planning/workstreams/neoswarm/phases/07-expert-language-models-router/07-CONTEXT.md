@@ -18,6 +18,7 @@ Deploy 7 role-based ELMs (Planner, Primary Draft, Verifier, Arbiter, Refiner/For
 - **D-02:** If config provides a model path for a role/domain, that ELM loads its own quantized `.mnn` (SGFP4 export from gnus-poc) instead of the shared backbone. Same `IELM` interface either way.
 - **D-03:** Role prompt templates live as named constants/resources in the ELM implementations — not user-editable config in Phase 7.
 - **D-04:** Missing model file for a configured path → `outcome::result` error at load, ELM falls back to shared-backbone mode with a logged warning (graceful degradation pattern from Phase 2).
+- **D-19:** ELM `Process()` failures return `outcome::failure()` with specific error codes (`ModelLoadFailed`, `InferenceFailed`, `KnowledgeUnavailable`, `InternalError`). The chain executor `RunELMChain` handles these by stopping the chain gracefully and returning a partial response with whatever output accumulated from prior steps. This replaces the earlier unwritten fail-close convention where ELMs silently returned input unchanged on error.
 
 ### Interface design and legacy mapping
 - **D-05:** New `IELM` interface (`I`-prefix convention): `GetName()`, `GetRole()`, `IsLoaded()`, `Load(path)`, `Process(input, ELMContext)`, `GetConfidence()`. `ISpecialist` remains untouched.
