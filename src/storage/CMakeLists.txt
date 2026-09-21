@@ -18,34 +18,15 @@ else()
 endif()
 
 # GeniusSDK — hard required: GcsGlobalDb::Initialize() calls GeniusSDKGetPubSub() (D-16a).
-#
-# Prefer the static target: avoids a runtime DLL search-path dependency on
-# GeniusSDK_shared.dll for every executable that links neoswarm_storage.
-#
-# If only the shared target is available, note: its CMake-imported IMPORTED_LOCATION/IMPLIB
-# point at the GeniusSDK install prefix (${GENIUS_SDK_BUILD_DIR}/GeniusSDK/{lib,bin}/...),
-# which can lag the GeniusSDK build tree if `cmake --install`/`ninja install` hasn't been
-# re-run there after a GeniusSDK.cpp/.h source change (e.g. a newly added accessor). Redirect
-# to a newer build-tree dylib when one exists (Apple/.dylib layout only, currently); on other
-# platforms (including this Windows build), re-run the GeniusSDK install step after any
-# GeniusSDK source change so the installed .lib/.dll pick up new/changed exported symbols.
+# Static target first (no runtime shared-lib search path); shared is the fallback.
 if(TARGET sgns::GeniusSDK)
     target_link_libraries(neoswarm_storage PUBLIC sgns::GeniusSDK)
     message(STATUS "GeniusSDK (static) linked to neoswarm_storage")
 elseif(TARGET sgns::GeniusSDK_shared)
-    set(_GENIUSSDK_BUILD_DYLIB "${GENIUS_SDK_BUILD_DIR}/src/libGeniusSDK_shared.dylib")
-    if(EXISTS "${_GENIUSSDK_BUILD_DYLIB}")
-        set_target_properties(sgns::GeniusSDK_shared PROPERTIES
-            IMPORTED_LOCATION_DEBUG   "${_GENIUSSDK_BUILD_DYLIB}"
-            IMPORTED_LOCATION_RELEASE "${_GENIUSSDK_BUILD_DYLIB}"
-            IMPORTED_LOCATION         "${_GENIUSSDK_BUILD_DYLIB}"
-        )
-        message(STATUS "sgns::GeniusSDK_shared redirected to build-tree dylib: ${_GENIUSSDK_BUILD_DYLIB}")
-    endif()
     target_link_libraries(neoswarm_storage PUBLIC sgns::GeniusSDK_shared)
     message(STATUS "GeniusSDK (shared) linked to neoswarm_storage")
 else()
-    message(FATAL_ERROR "sgns::GeniusSDK_shared / sgns::GeniusSDK target not found — GeniusSDK package must be configured before neoswarm_storage")
+    message(FATAL_ERROR "sgns::GeniusSDK / sgns::GeniusSDK_shared target not found — GeniusSDK package must be configured before neoswarm_storage")
 endif()
 
 # SuperGenius account headers (mirrors src/network/CMakeLists.txt)
@@ -53,10 +34,7 @@ target_include_directories(neoswarm_storage PUBLIC
     "${SUPERGENIUS_BUILD_DIR}/SuperGenius/include"
 )
 
-# Headers for direct deps of gcs_global_db.cpp that sgns::crdt_globaldb does not
-# re-export via INTERFACE_INCLUDE_DIRECTORIES (its interface carries only the
-# SuperGenius install include dir). The ipfs-pubsub imported target is a stub
-# (cmake/CommonBuildParameters.cmake), so include its headers directly.
+# Direct deps of gcs_global_db.cpp not re-exported by sgns::crdt_globaldb's interface.
 target_include_directories(neoswarm_storage PUBLIC
     "${THIRDPARTY_BUILD_DIR}/ipfs-pubsub/include"
     "${THIRDPARTY_BUILD_DIR}/ipfs-lite-cpp/include"

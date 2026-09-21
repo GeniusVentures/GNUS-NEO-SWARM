@@ -162,24 +162,53 @@ include_directories(${Boost.DI_INCLUDE_DIR})
 if(CMP0169)
     cmake_policy(SET CMP0169 OLD)
 endif()
-# ---------------------------------------------------------------------------
-# Boost
-# ---------------------------------------------------------------------------
-set(_BOOST_ROOT       "${THIRDPARTY_BUILD_DIR}/boost/build")
-set(Boost_LIB_DIR     "${_BOOST_ROOT}/lib")
-set(Boost_INCLUDE_DIR "${_BOOST_ROOT}/include")
-set(Boost_DIR         "${Boost_LIB_DIR}/cmake/Boost-${BOOST_VERSION}")
-set(Boost_USE_MULTITHREADED  ON)
-set(Boost_USE_STATIC_LIBS    ON)
-set(Boost_USE_STATIC_RUNTIME ON)
-set(Boost_NO_SYSTEM_PATHS    ON)
+# --------------------------------------------------------
+# Set config of Boost project
+set(_BOOST_ROOT "${THIRDPARTY_BUILD_DIR}/boost/build")
+set(Boost_LIB_DIR "${_BOOST_ROOT}/lib")
+set(Boost_INCLUDE_DIR "${_BOOST_ROOT}/include/boost-${BOOST_VERSION_2U}")
+set(Boost_DIR "${Boost_LIB_DIR}/cmake/Boost-${BOOST_VERSION}")
+# Per-component DIR hints (needed by GeniusSDK's own component list below —
+# ported from GeniusNetwork/GeniusSDK/cmake/CommonBuildParameters.cmake).
+set(boost_atomic_DIR "${Boost_LIB_DIR}/cmake/boost_atomic-${BOOST_VERSION}")
+set(boost_chrono_DIR "${Boost_LIB_DIR}/cmake/boost_chrono-${BOOST_VERSION}")
+set(boost_container_DIR "${Boost_LIB_DIR}/cmake/boost_container-${BOOST_VERSION}")
+set(boost_context_DIR "${Boost_LIB_DIR}/cmake/boost_context-${BOOST_VERSION}")
+set(boost_date_time_DIR "${Boost_LIB_DIR}/cmake/boost_date_time-${BOOST_VERSION}")
+set(boost_filesystem_DIR "${Boost_LIB_DIR}/cmake/boost_filesystem-${BOOST_VERSION}")
+set(boost_headers_DIR "${Boost_LIB_DIR}/cmake/boost_headers-${BOOST_VERSION}")
+set(boost_json_DIR "${Boost_LIB_DIR}/cmake/boost_json-${BOOST_VERSION}")
+set(boost_log_DIR "${Boost_LIB_DIR}/cmake/boost_log-${BOOST_VERSION}")
+set(boost_log_setup_DIR "${Boost_LIB_DIR}/cmake/boost_log_setup-${BOOST_VERSION}")
+set(boost_program_options_DIR "${Boost_LIB_DIR}/cmake/boost_program_options-${BOOST_VERSION}")
+set(boost_random_DIR "${Boost_LIB_DIR}/cmake/boost_random-${BOOST_VERSION}")
+set(boost_regex_DIR "${Boost_LIB_DIR}/cmake/boost_regex-${BOOST_VERSION}")
+set(boost_system_DIR "${Boost_LIB_DIR}/cmake/boost_system-${BOOST_VERSION}")
+set(boost_thread_DIR "${Boost_LIB_DIR}/cmake/boost_thread-${BOOST_VERSION}")
+set(boost_coroutine_DIR "${Boost_LIB_DIR}/cmake/boost_coroutine-${BOOST_VERSION}")
+set(boost_unit_test_framework_DIR "${Boost_LIB_DIR}/cmake/boost_unit_test_framework-${BOOST_VERSION}")
+set(Boost_USE_MULTITHREADED ON)
+set(Boost_USE_STATIC_LIBS ON)
+set(Boost_NO_SYSTEM_PATHS ON)
+option(Boost_USE_STATIC_RUNTIME "Use static runtimes" ON)
 
 if(POLICY CMP0167)
     cmake_policy(SET CMP0167 OLD)
 endif()
-find_package(Boost ${BOOST_VERSION} CONFIG REQUIRED COMPONENTS
-    date_time filesystem random regex system thread log log_setup program_options)
+
+option(SGNS_STACKTRACE_BACKTRACE "Use BOOST_STACKTRACE_USE_BACKTRACE in stacktraces, for POSIX" OFF)
+if(SGNS_STACKTRACE_BACKTRACE)
+    add_definitions(-DSGNS_STACKTRACE_BACKTRACE=1)
+    if(BACKTRACE_INCLUDE)
+        add_definitions(-DBOOST_STACKTRACE_BACKTRACE_INCLUDE_FILE=${BACKTRACE_INCLUDE})
+    endif()
+endif()
+
+# Component list is the union of GCS's own needs and GeniusSDK's genius_node
+# needs (container, unit_test_framework, coroutine added per GeniusSDK's file).
+find_package(Boost REQUIRED COMPONENTS container date_time filesystem random regex system thread log log_setup program_options json unit_test_framework coroutine)
 include_directories(${Boost_INCLUDE_DIRS})
+
 
 # --------------------------------------------------------
 # Set config of SQLiteModernCpp project
@@ -213,54 +242,6 @@ include_directories(${libsecp256k1_INCLUDE_DIR})
 if(TARGET libsecp256k1::secp256k1 AND NOT TARGET secp256k1)
     add_library(secp256k1 ALIAS libsecp256k1::secp256k1)
 endif()
-
-# ---------------------------------------------------------------------------
-# MNN
-# ---------------------------------------------------------------------------
-set(MNN_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/MNN/include")
-if(TARGET MNN::MNN)
-    # Nested build (add_subdirectory'd from GeniusCognitiveSystem): the outer
-    # project's own find_package(MNN CONFIG REQUIRED) already resolved the
-    # correct, fully-merged MNN::MNN target. Reuse it via a bare-name ALIAS
-    # (same pattern as the libsecp256k1::secp256k1 -> secp256k1 alias above)
-    # instead of re-resolving MNN independently below: that find_library()
-    # call searches default system/PATH-derived locations *before* the given
-    # PATHS, so any unrelated "MNN.lib" elsewhere on PATH silently shadows
-    # the project's vendored one (bare MNN was landing on a stray, non-LLM
-    # MNN.lib from an unrelated local MNN tools install on PATH, distinct
-    # from — but linked alongside — the correct MNN::MNN, causing missing
-    # LLM symbols in MNN-only targets and duplicate-symbol link errors in
-    # targets that pulled in both).
-    if(NOT TARGET MNN)
-        add_library(MNN ALIAS MNN::MNN)
-    endif()
-    message(STATUS "MNN: reusing MNN::MNN (nested build)")
-else()
-    # Standalone build: no outer MNN::MNN exists yet, resolve it ourselves.
-    # NO_DEFAULT_PATH avoids picking up an unrelated MNN.lib from PATH/system
-    # search locations instead of the intended vendored thirdparty one.
-    find_library(MNN_LIBRARY MNN PATHS "${THIRDPARTY_BUILD_DIR}/MNN/lib" NO_DEFAULT_PATH REQUIRED)
-    add_library(MNN UNKNOWN IMPORTED)
-    set_target_properties(MNN PROPERTIES
-        IMPORTED_LOCATION "${MNN_LIBRARY}"
-        INTERFACE_INCLUDE_DIRECTORIES "${MNN_INCLUDE_DIR}"
-    )
-    message(STATUS "MNN: ${MNN_LIBRARY}")
-endif()
-
-# ---------------------------------------------------------------------------
-# SGProcessingManager (from SuperGenius submodule)
-# ---------------------------------------------------------------------------
-set(SGPROCESSING_DIR "${PROJECT_SUPER_ROOT}/SuperGenius/SGProcessingManager")
-if(EXISTS "${SGPROCESSING_DIR}/generated/InputFormat.hpp")
-    include_directories("${SGPROCESSING_DIR}/generated")
-    include_directories("${SGPROCESSING_DIR}/src")
-    include_directories("${SGPROCESSING_DIR}/include")
-    message(STATUS "SGProcessingManager: ${SGPROCESSING_DIR}")
-else()
-    message(STATUS "SGProcessingManager not found — SGProcessing bridge runs in stub mode")
-endif()
-
 # ---------------------------------------------------------------------------
 # RocksDB + Snappy
 # ---------------------------------------------------------------------------
@@ -306,180 +287,192 @@ if (NOT TARGET c-ares::cares_static)
 endif()
 include_directories(${c-ares_INCLUDE_DIR})
 
-# Vulkan
-find_package(Vulkan)
-
-if(NOT TARGET Vulkan::Vulkan)
-    if(NOT DEFINED $ENV{VULKAN_SDK})
-        set(ENV{VULKAN_SDK} "${THIRDPARTY_BUILD_DIR}/Vulkan-Loader")
-    endif()
-
-    find_package(Vulkan REQUIRED)
-endif()
-
 # ---------------------------------------------------------------------------
 # Threads
 # ---------------------------------------------------------------------------
 find_package(Threads REQUIRED)
 
-# ---------------------------------------------------------------------------
-# Project include root
-# ---------------------------------------------------------------------------
-include_directories(${NEOSWARM_ROOT}/src)
+# gnus_upnp
+set(gnus_upnp_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/gnus_upnp/include")
+set(gnus_upnp_LIBRARY_DIR "${THIRDPARTY_BUILD_DIR}/gnus_upnp/lib")
+set(gnus_upnp_DIR "${THIRDPARTY_BUILD_DIR}/gnus_upnp/lib/cmake/gnus_upnp")
+find_package(gnus_upnp CONFIG REQUIRED)
 
-# ---------------------------------------------------------------------------
-# GeniusSDK (dynamic library — transitive deps resolved at link time)
-# Following the same pattern as GeniusSDK's SUPERGENIUS_BUILD_DIR discovery.
-# Override via -DGENIUSSDK_BUILD_DIR=... for CI or custom layouts.
-# ---------------------------------------------------------------------------
-if(DEFINED GENIUSSDK_BUILD_DIR AND NOT GENIUSSDK_BUILD_DIR STREQUAL "")
-    # User provided explicit path
-    set(GENIUS_SDK_BUILD_DIR "${GENIUSSDK_BUILD_DIR}" CACHE STRING "GeniusSDK Build Directory" FORCE)
-    message(STATUS "Using provided GENIUSSDK_BUILD_DIR: ${GENIUS_SDK_BUILD_DIR}")
+# RapidJSON
+set(RapidJSON_DIR "${THIRDPARTY_BUILD_DIR}/rapidjson/lib/cmake/RapidJSON")
+set(RapidJSON_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/rapidjson/include")
+find_package(RapidJSON CONFIG REQUIRED)
+include_directories(${RapidJSON_INCLUDE_DIR})
+
+# wallet-core
+set(TrustWalletCore_LIBRARY_DIR "${THIRDPARTY_BUILD_DIR}/wallet-core/lib")
+set(TrustWalletCore_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/wallet-core/include")
+
+find_library(TrezorCrypto_PATH TrezorCrypto PATHS ${TrustWalletCore_LIBRARY_DIR} REQUIRED)
+find_library(wallet_core_rs_PATH wallet_core_rs PATHS ${TrustWalletCore_LIBRARY_DIR} REQUIRED)
+find_library(TrustWalletCore_PATH TrustWalletCore PATHS ${TrustWalletCore_LIBRARY_DIR} REQUIRED)
+
+add_library(TrezorCrypto STATIC IMPORTED)
+add_library(wallet_core_rs STATIC IMPORTED)
+add_library(TrustWalletCore STATIC IMPORTED)
+
+set_target_properties(TrezorCrypto PROPERTIES IMPORTED_LOCATION "${TrezorCrypto_PATH}")
+set_target_properties(wallet_core_rs PROPERTIES IMPORTED_LOCATION "${wallet_core_rs_PATH}")
+set_target_properties(TrustWalletCore PROPERTIES IMPORTED_LOCATION "${TrustWalletCore_PATH}")
+
+target_include_directories(TrustWalletCore INTERFACE "${TrustWalletCore_INCLUDE_DIR}")
+
+# zkLLVM / crypto3 (CommonCompilerOptions.cmake already resolves
+# ZKLLVM_BUILD_DIR — this only adds the IMPORTED targets the exported
+# SuperGenius/GeniusSDK link interfaces reference, plus LLVM itself).
+add_library(crypto3::algebra INTERFACE IMPORTED)
+add_library(crypto3::block INTERFACE IMPORTED)
+add_library(crypto3::blueprint INTERFACE IMPORTED)
+add_library(crypto3::codec INTERFACE IMPORTED)
+add_library(crypto3::math INTERFACE IMPORTED)
+add_library(crypto3::multiprecision INTERFACE IMPORTED)
+add_library(crypto3::pkpad INTERFACE IMPORTED)
+add_library(crypto3::pubkey INTERFACE IMPORTED)
+add_library(crypto3::random INTERFACE IMPORTED)
+add_library(crypto3::zk INTERFACE IMPORTED)
+add_library(marshalling::core INTERFACE IMPORTED)
+add_library(marshalling::crypto3_algebra INTERFACE IMPORTED)
+add_library(marshalling::crypto3_multiprecision INTERFACE IMPORTED)
+add_library(marshalling::crypto3_zk INTERFACE IMPORTED)
+
+foreach(_crypto3_tgt crypto3::algebra crypto3::block crypto3::blueprint crypto3::codec
+                     crypto3::math crypto3::multiprecision crypto3::pkpad crypto3::pubkey
+                     crypto3::random crypto3::zk marshalling::core marshalling::crypto3_algebra
+                     marshalling::crypto3_multiprecision marshalling::crypto3_zk)
+    set_target_properties(${_crypto3_tgt} PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${ZKLLVM_BUILD_DIR}/zkLLVM/include"
+    )
+endforeach()
+
+set(zkLLVM_INCLUDE_DIR "${ZKLLVM_BUILD_DIR}/zkLLVM/include")
+
+# llvm — SuperGenius exported targets reference LLVMIRReader/LLVMCore/
+# LLVMSupport by bare name; zkLLVM's install tree provides them as real
+# un-namespaced targets (same as parent GCS CommonBuildParameters.cmake).
+set(LLVM_DIR "${ZKLLVM_BUILD_DIR}/zkLLVM/lib/cmake/llvm")
+find_package(LLVM CONFIG REQUIRED)
+
+find_package(Vulkan)
+
+set(vk-bootstrap_DIR "${THIRDPARTY_BUILD_DIR}/vk-bootstrap/lib/cmake/vk-bootstrap")
+find_package(vk-bootstrap CONFIG REQUIRED)
+
+add_library(shaderc::shaderc STATIC IMPORTED GLOBAL)
+set_target_properties(shaderc::shaderc PROPERTIES
+        IMPORTED_LOCATION "${THIRDPARTY_BUILD_DIR}/shaderc/lib/${CMAKE_STATIC_LIBRARY_PREFIX}shaderc_combined${CMAKE_STATIC_LIBRARY_SUFFIX}"
+        INTERFACE_INCLUDE_DIRECTORIES "${THIRDPARTY_BUILD_DIR}/shaderc/include"
+)
+
+# MNN
+set(MNN_DIR "${_THIRDPARTY_BUILD_DIR}/MNN/lib/cmake/MNN")
+find_package(MNN CONFIG REQUIRED)
+set(MNN_INCLUDE_DIR "${_THIRDPARTY_BUILD_DIR}/MNN/include")
+message(STATUS "INCLUDE DIR ${MNN_INCLUDE_DIR}")
+include_directories(${MNN_INCLUDE_DIR})
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    get_target_property(MNN_LIB_PATH MNN::MNN IMPORTED_LOCATION_DEBUG)
+elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
+    get_target_property(MNN_LIB_PATH MNN::MNN IMPORTED_LOCATION_RELEASE)
+elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+    get_target_property(MNN_LIB_PATH MNN::MNN IMPORTED_LOCATION_RELWITHDEBINFO)
+endif()
+
+
+set(SUPERGENIUS_BUILD_DIR "${PROJECT_SUPER_ROOT}/SuperGenius/build/${BUILD_PLATFORM_NAME}/${CMAKE_BUILD_TYPE}${ABI_SUBFOLDER_NAME}" CACHE STRING "Default SuperGenius Build Directory")
+
+# SuperGenius project
+set(evmrelay_DIR "${SUPERGENIUS_BUILD_DIR}/SuperGenius/lib/cmake/evmrelay/")
+set(SuperGenius_DIR "${SUPERGENIUS_BUILD_DIR}/SuperGenius/lib/cmake/SuperGenius/")
+set(ProofSystem_DIR "${SUPERGENIUS_BUILD_DIR}/SuperGenius/lib/cmake/ProofSystem/")
+set(SGProcessingManager_DIR "${SUPERGENIUS_BUILD_DIR}/SuperGenius/lib/cmake/SGProcessingManager/")
+
+print("SuperGenius_DIR: ${SuperGenius_DIR}")
+
+find_package(evmrelay CONFIG REQUIRED)
+find_package(ProofSystem CONFIG REQUIRED)
+find_package(SGProcessingManager CONFIG REQUIRED)
+find_package(SuperGenius CONFIG REQUIRED)
+
+message(STATUS "Looking for GeniusSDK at ${PROJECT_SUPER_ROOT}/GeniusSDK")
+if(EXISTS "${PROJECT_SUPER_ROOT}/GeniusSDK")
+    set(GENIUS_SDK_DIR "${PROJECT_SUPER_ROOT}/GeniusSDK")
+    message(STATUS "Found GeniusSDK source at ${GENIUS_SDK_DIR}")
 else()
-    # Auto-detect from PROJECT_SUPER_ROOT
-    message(STATUS "Looking for GeniusSDK at ${PROJECT_SUPER_ROOT}/GeniusSDK")
-    if(EXISTS "${PROJECT_SUPER_ROOT}/GeniusSDK")
-        set(GENIUS_SDK_DIR "${PROJECT_SUPER_ROOT}/GeniusSDK")
-        message(STATUS "Found GeniusSDK source at ${GENIUS_SDK_DIR}")
+    message(STATUS "GeniusSDK not found locally — attempting to obtain from releases")
+
+    set(GITHUB_SDK_REPO "GeniusVentures/GeniusSDK")
+    set(SDK_TARGET_BRANCH "${BUILD_PLATFORM_NAME}-develop-${CMAKE_BUILD_TYPE}")
+    if(ANDROID)
+        set(SDK_TARGET_BRANCH "${BUILD_PLATFORM_NAME}-${ANDROID_ABI}-develop-${CMAKE_BUILD_TYPE}")
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND DEFINED ARCH)
+        set(SDK_TARGET_BRANCH "${BUILD_PLATFORM_NAME}-${ARCH}-develop-${CMAKE_BUILD_TYPE}")
+    endif()
+
+    set(SDK_ARCHIVE_NAME "${BUILD_PLATFORM_NAME}-${CMAKE_BUILD_TYPE}.tar.gz")
+    set(SDK_RELEASE_URL "https://github.com/${GITHUB_SDK_REPO}/releases/download/${SDK_TARGET_BRANCH}/${SDK_ARCHIVE_NAME}")
+    set(SDK_ARCHIVE "${CMAKE_BINARY_DIR}/geniussdk-${SDK_ARCHIVE_NAME}")
+    set(SDK_EXTRACT_DIR "${PROJECT_SUPER_ROOT}/GeniusSDK")
+
+    message(STATUS "Downloading GeniusSDK from ${SDK_RELEASE_URL}")
+    execute_process(
+        COMMAND curl -L -o ${SDK_ARCHIVE} ${SDK_RELEASE_URL}
+        RESULT_VARIABLE SDK_DOWNLOAD_RESULT
+    )
+
+    if(NOT SDK_DOWNLOAD_RESULT EQUAL 0)
+        message(WARNING "Failed to download GeniusSDK from ${SDK_RELEASE_URL} — build without connectivity")
+        set(GENIUS_SDK_DIR "")
     else()
-        message(STATUS "GeniusSDK not found locally — attempting to obtain from releases")
-
-        set(GITHUB_SDK_REPO "GeniusVentures/GeniusSDK")
-        set(SDK_TARGET_BRANCH "${BUILD_PLATFORM_NAME}-develop-${CMAKE_BUILD_TYPE}")
-        if(ANDROID)
-            set(SDK_TARGET_BRANCH "${BUILD_PLATFORM_NAME}-${ANDROID_ABI}-develop-${CMAKE_BUILD_TYPE}")
-        elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND DEFINED ARCH)
-            set(SDK_TARGET_BRANCH "${BUILD_PLATFORM_NAME}-${ARCH}-develop-${CMAKE_BUILD_TYPE}")
-        endif()
-
-        set(SDK_ARCHIVE_NAME "${BUILD_PLATFORM_NAME}-${CMAKE_BUILD_TYPE}.tar.gz")
-        set(SDK_RELEASE_URL "https://github.com/${GITHUB_SDK_REPO}/releases/download/${SDK_TARGET_BRANCH}/${SDK_ARCHIVE_NAME}")
-        set(SDK_ARCHIVE "${CMAKE_BINARY_DIR}/geniussdk-${SDK_ARCHIVE_NAME}")
-        set(SDK_EXTRACT_DIR "${PROJECT_SUPER_ROOT}/GeniusSDK")
-
-        message(STATUS "Downloading GeniusSDK from ${SDK_RELEASE_URL}")
+        file(MAKE_DIRECTORY ${SDK_EXTRACT_DIR})
         execute_process(
-            COMMAND curl -L -o ${SDK_ARCHIVE} ${SDK_RELEASE_URL}
-            RESULT_VARIABLE SDK_DOWNLOAD_RESULT
+            COMMAND ${CMAKE_COMMAND} -E tar xzf ${SDK_ARCHIVE}
+            WORKING_DIRECTORY ${SDK_EXTRACT_DIR}
+            RESULT_VARIABLE SDK_EXTRACT_RESULT
         )
 
-        if(NOT SDK_DOWNLOAD_RESULT EQUAL 0)
-            message(WARNING "Failed to download GeniusSDK from ${SDK_RELEASE_URL} — build without connectivity")
+        if(NOT SDK_EXTRACT_RESULT EQUAL 0)
+            message(WARNING "Failed to extract GeniusSDK archive — build without connectivity")
             set(GENIUS_SDK_DIR "")
         else()
-            file(MAKE_DIRECTORY ${SDK_EXTRACT_DIR})
-            execute_process(
-                COMMAND ${CMAKE_COMMAND} -E tar xzf ${SDK_ARCHIVE}
-                WORKING_DIRECTORY ${SDK_EXTRACT_DIR}
-                RESULT_VARIABLE SDK_EXTRACT_RESULT
-            )
-
-            if(NOT SDK_EXTRACT_RESULT EQUAL 0)
-                message(WARNING "Failed to extract GeniusSDK archive — build without connectivity")
-                set(GENIUS_SDK_DIR "")
-            else()
-                set(GENIUS_SDK_DIR "${SDK_EXTRACT_DIR}")
-                message(STATUS "GeniusSDK downloaded and extracted to ${SDK_EXTRACT_DIR}")
-            endif()
-            file(REMOVE ${SDK_ARCHIVE})
+            set(GENIUS_SDK_DIR "${SDK_EXTRACT_DIR}")
+            message(STATUS "GeniusSDK downloaded and extracted to ${SDK_EXTRACT_DIR}")
         endif()
-    endif()
-
-    # Compute GENIUS_SDK_BUILD_DIR from GENIUS_SDK_DIR
-    if(GENIUS_SDK_DIR AND NOT "${GENIUS_SDK_DIR}" STREQUAL "")
-        set(GENIUS_SDK_BUILD_DIR "${GENIUS_SDK_DIR}/build/${BUILD_PLATFORM_NAME}/${CMAKE_BUILD_TYPE}${ABI_SUBFOLDER_NAME}" CACHE STRING "Default GeniusSDK Build Directory")
-        cmake_path(SET GENIUS_SDK_BUILD_DIR NORMALIZE "${GENIUS_SDK_BUILD_DIR}")
-        message(STATUS "GENIUS_SDK_BUILD_DIR set to ${GENIUS_SDK_BUILD_DIR}")
+        file(REMOVE ${SDK_ARCHIVE})
     endif()
 endif()
 
-# --------------------------------------------------------------------------
-# SuperGenius (provides sgns::genius_node and other sgns:: targets)
-# GeniusSDK depends on SuperGenius, so we need to find it first
-# If GeniusSDK is provided, match its build type for SuperGenius
-# --------------------------------------------------------------------------
-if(NOT DEFINED SUPERGENIUS_BUILD_DIR AND GENIUS_SDK_BUILD_DIR)
-    # Extract build type from GeniusSDK path (e.g., .../Release -> Release)
-    get_filename_component(_SDK_BUILD_TYPE "${GENIUS_SDK_BUILD_DIR}" NAME)
-    if(EXISTS "${PROJECT_SUPER_ROOT}/SuperGenius")
-        set(SUPERGENIUS_DIR "${PROJECT_SUPER_ROOT}/SuperGenius")
-        set(SUPERGENIUS_BUILD_DIR "${SUPERGENIUS_DIR}/build/${BUILD_PLATFORM_NAME}/${_SDK_BUILD_TYPE}${ABI_SUBFOLDER_NAME}" CACHE STRING "SuperGenius Build Directory")
-        cmake_path(SET SUPERGENIUS_BUILD_DIR NORMALIZE "${SUPERGENIUS_BUILD_DIR}")
-        message(STATUS "Auto-detected SUPERGENIUS_BUILD_DIR (${_SDK_BUILD_TYPE} to match GeniusSDK): ${SUPERGENIUS_BUILD_DIR}")
-    endif()
-elseif(NOT DEFINED SUPERGENIUS_BUILD_DIR)
-    if(EXISTS "${PROJECT_SUPER_ROOT}/SuperGenius")
-        set(SUPERGENIUS_DIR "${PROJECT_SUPER_ROOT}/SuperGenius")
-        set(SUPERGENIUS_BUILD_DIR "${SUPERGENIUS_DIR}/build/${BUILD_PLATFORM_NAME}/${CMAKE_BUILD_TYPE}${ABI_SUBFOLDER_NAME}" CACHE STRING "SuperGenius Build Directory")
-        cmake_path(SET SUPERGENIUS_BUILD_DIR NORMALIZE "${SUPERGENIUS_BUILD_DIR}")
-        message(STATUS "Auto-detected SUPERGENIUS_BUILD_DIR: ${SUPERGENIUS_BUILD_DIR}")
-    endif()
+# Compute GENIUS_SDK_BUILD_DIR from GENIUS_SDK_DIR
+if(GENIUS_SDK_DIR AND NOT "${GENIUS_SDK_DIR}" STREQUAL "")
+    set(GENIUS_SDK_BUILD_DIR "${GENIUS_SDK_DIR}/build/${BUILD_PLATFORM_NAME}/${CMAKE_BUILD_TYPE}${ABI_SUBFOLDER_NAME}" CACHE STRING "Default GeniusSDK Build Directory")
+    cmake_path(SET GENIUS_SDK_BUILD_DIR NORMALIZE "${GENIUS_SDK_BUILD_DIR}")
+    message(STATUS "GENIUS_SDK_BUILD_DIR set to ${GENIUS_SDK_BUILD_DIR}")
 endif()
 
-if(SUPERGENIUS_BUILD_DIR AND NOT "${SUPERGENIUS_BUILD_DIR}" STREQUAL "")
-    # SuperGenius has complex transitive dependencies that may not resolve cleanly
-    # Create interface stubs for known missing targets to allow configuration.
-    set(_MISSING_DEPS
-        "ProofSystem::ProofSystem"
-        "evmrelay::evmrelay"
-        "MNN::MNN"
-        "Boost::json"
-        "Boost::unit_test_framework"
-        "xxHash::xxhash"
-        "gnus_upnp"
-        "ipfs-pubsub"
-        "TrustWalletCore"
-        "wallet_core_rs"
-        "TrezorCrypto"
-        "ProcessingBase"
-        "AsyncIOManager"
-        "rapidjson"
-        "LLVMIRReader"
-        "LLVMCore"
-        "LLVMSupport"
-        "LLVMBinaryFormat"
-    )
-    foreach(_dep ${_MISSING_DEPS})
-        if(NOT TARGET ${_dep})
-            add_library(${_dep} INTERFACE IMPORTED)
-        endif()
-    endforeach()
+set(ipfs-pubsub_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/ipfs-pubsub/include")
+set(ipfs-pubsub_DIR "${THIRDPARTY_BUILD_DIR}/ipfs-pubsub/lib/cmake/ipfs-pubsub")
+find_package(ipfs-pubsub CONFIG REQUIRED)
 
-    set(SuperGenius_DIR "${SUPERGENIUS_BUILD_DIR}/SuperGenius/lib/cmake/SuperGenius/" CACHE PATH "SuperGenius cmake config")
-    find_package(SuperGenius CONFIG QUIET)
-    if(NOT SuperGenius_FOUND)
-        set(SuperGenius_DIR "${SUPERGENIUS_BUILD_DIR}" CACHE PATH "")
-        find_package(SuperGenius CONFIG QUIET)
-    endif()
+set(xxHash_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/xxhash/include")
+set(xxHash_LIBRARY_DIR "${THIRDPARTY_BUILD_DIR}/xxhash/lib")
+set(xxHash_DIR "${THIRDPARTY_BUILD_DIR}/xxhash/lib/cmake/xxHash")
+find_package(xxHash CONFIG REQUIRED)
 
-    if(SuperGenius_FOUND)
-        message(STATUS "SuperGenius: ${SUPERGENIUS_BUILD_DIR}")
-    else()
-        message(STATUS "SuperGenius cmake config not found — GeniusSDK may have missing dependencies")
-    endif()
-else()
-    message(STATUS "SuperGenius not configured — GeniusSDK targets may have unresolved dependencies")
-endif()
+# libssh2 (required by AsyncIOManager's exported link interface)
+set(Libssh2_DIR "${THIRDPARTY_BUILD_DIR}/libssh2/lib/cmake/libssh2")
+find_package(Libssh2 CONFIG REQUIRED)
 
-# --------------------------------------------------------------------------
-# GeniusSDK (depends on SuperGenius for sgns::genius_node and other targets)
-# --------------------------------------------------------------------------
-if(GENIUS_SDK_BUILD_DIR AND NOT "${GENIUS_SDK_BUILD_DIR}" STREQUAL "")
-    set(GeniusSDK_DIR "${GENIUS_SDK_BUILD_DIR}/GeniusSDK/lib/cmake/GeniusSDK/" CACHE PATH "GeniusSDK cmake config")
-    find_package(GeniusSDK CONFIG QUIET)
-    if(NOT GeniusSDK_FOUND)
-        set(GeniusSDK_DIR "${GENIUS_SDK_BUILD_DIR}" CACHE PATH "")
-        find_package(GeniusSDK CONFIG REQUIRED)
-    endif()
-    message(STATUS "GeniusSDK: ${GENIUS_SDK_BUILD_DIR}")
-else()
-    message(STATUS "GeniusSDK not available — SuperGenius connectivity disabled")
-endif()
+set(AsyncIOManager_INCLUDE_DIR "${THIRDPARTY_BUILD_DIR}/AsyncIOManager/include")
+set(AsyncIOManager_LIBRARY_DIR "${THIRDPARTY_BUILD_DIR}/AsyncIOManager/lib")
+set(AsyncIOManager_DIR "${THIRDPARTY_BUILD_DIR}/AsyncIOManager/lib/cmake/AsyncIOManager")
+find_package(AsyncIOManager CONFIG REQUIRED)
 
-# ============================================================================
-# Build targets
-# ============================================================================
+set(GeniusSDK_DIR "${GENIUS_SDK_BUILD_DIR}/GeniusSDK/lib/cmake/GeniusSDK/" CACHE PATH "GeniusSDK cmake config")
+find_package(GeniusSDK CONFIG QUIET)
 
 # Source tree
 add_subdirectory(${NEOSWARM_ROOT}/src ${CMAKE_BINARY_DIR}/src)
@@ -488,12 +481,15 @@ add_subdirectory(${NEOSWARM_ROOT}/src ${CMAKE_BINARY_DIR}/src)
 # APP_RPATH_TOKEN_*), keyed on BUILD_PLATFORM_NAME set by the build wrapper.
 include(${NEOSWARM_ROOT}/cmake/CompilationFlags.cmake)
 
+# Platform link options apply to every linkable target created below (FFI
+# dylib, tests, benchmarks), not just the app binary.
+if(APP_LINK_OPTIONS)
+    add_link_options(${APP_LINK_OPTIONS})
+endif()
+
 # Main binary
 add_executable(neo-swarm ${NEOSWARM_ROOT}/src/main.cpp)
 target_link_libraries(neo-swarm PRIVATE neoswarm_api Threads::Threads)
-if(APP_LINK_OPTIONS)
-    target_link_options(neo-swarm PRIVATE ${APP_LINK_OPTIONS})
-endif()
 if(APP_LINK_LIBRARIES)
     target_link_libraries(neo-swarm PRIVATE ${APP_LINK_LIBRARIES})
 endif()

@@ -29,7 +29,7 @@ namespace
         KnowledgeRetrieval::Config cfg;
         cfg.m_factsPath = "";
         auto ret = std::make_shared<KnowledgeRetrieval>( cfg );
-        ret->Load();
+        EXPECT_TRUE( ret->Load().has_value() );
         return ret;
     }
 } // namespace
@@ -84,7 +84,7 @@ TEST( KnowledgeRetrieval, LoadEmptyPathDoesNotCrash )
     KnowledgeRetrieval::Config cfg;
     cfg.m_factsPath = "";
     KnowledgeRetrieval retriever( cfg );
-    retriever.Load();
+    EXPECT_TRUE( retriever.Load().has_value() );
 
     // Retrieve should handle empty facts gracefully
     auto result = retriever.Retrieve( "What is gravity?" );
@@ -96,7 +96,7 @@ TEST( KnowledgeRetrieval, NotLoadedReturnsEmpty )
     KnowledgeRetrieval::Config cfg;
     cfg.m_factsPath = "/nonexistent/path/facts.csv";
     KnowledgeRetrieval retriever( cfg );
-    retriever.Load();
+    EXPECT_FALSE( retriever.Load().has_value() );
 
     EXPECT_FALSE( retriever.IsLoaded() );
 

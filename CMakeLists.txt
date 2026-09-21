@@ -17,10 +17,16 @@ project(GNUS-NEO-SWARM
     LANGUAGES C CXX
 )
 
-# Common functions (print, add_flag, addtest, add_proto_library, ...)
-include(${CMAKE_CURRENT_SOURCE_DIR}/build/cmake/functions.cmake)
+# Nested mode: the parent build's PROJECT_ROOT points at GeniusCognitiveSystem,
+# but module CMakeLists resolve their include root as ${PROJECT_ROOT}/src. This
+# is a subdirectory-scoped set — it shadows the inherited value for the src tree
+# below and does not leak back to the parent.
+set(PROJECT_ROOT "${CMAKE_CURRENT_LIST_DIR}")
 
-# Full thirdparty dependency setup + src/ targets + install/export.
-# Uses NEOSWARM_ROOT (derived from its own location) for all self-references,
-# and the parent-provided _THIRDPARTY_BUILD_DIR / PROJECT_SUPER_ROOT.
-include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CommonBuildParameters.cmake)
+# Standalone builds get nlohmann/json via include_directories() in this repo's
+# own cmake/CommonBuildParameters.cmake; nested builds never run that file, and
+# common/types.hpp (consumed across modules) includes <nlohmann/json.hpp>
+# without a per-target link.
+include_directories(${THIRDPARTY_BUILD_DIR}/json/include)
+
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/src src)
