@@ -46,6 +46,12 @@ Training objectives:
 
     * Each specialist receives filtered data by task type.
 
+    * Distinguish two artifact classes when a specialist exposes both language and bounded judgment:
+      * **ELM artifact** - language-generation/transformation adapter or micro-model.
+      * **EJM artifact** - bounded judgment adapter, candidate readout, decision head, or equivalent processor binding.
+
+    * One specialist lineage may publish both artifacts against the same backbone without forcing them into one training dataset or one promotion lifecycle.
+
 3. **Quantization (SGFP4)**
 
     * After training, weights are quantized into SGFP4 format:
@@ -119,18 +125,71 @@ Training objectives:
 ### 5.2 Data Flow
 
 ```text
-Teacher logits → Parent LoRA fine‑tune → Parent checkpoints → Specialist distillation → SGFP4 export → Swarm retraining
+Teacher outputs
+    ↓
+Parent LoRA fine-tune
+    ↓
+Parent checkpoints
+    ↓
+Specialist distillation
+    ├── ELM generation artifact
+    └── EJM judgment artifact / readout
+    ↓
+SGFP4 / adapter export
+    ↓
+Swarm retraining
 ```
 
 ### 5.3 Loss Functions
 
-* **Teacher → Parent:** KL divergence + cross‑entropy on reasoning traces.
+* **Teacher -> Parent:** KL divergence + cross-entropy on reasoning traces.
 
-* **Parent → Specialist:** task‑specific CE + distillation loss.
+* **Parent -> Specialist ELM:** task-specific CE + language/logit distillation loss.
 
-* **Verifier training:** binary correctness classification.
+* **Parent -> Specialist EJM:** bounded decision loss over semantic choice distributions, including cross-entropy/KL where appropriate plus calibration-aware objectives such as Brier score or log loss.
 
-* **Arbiter training:** ranking loss over multiple candidate outputs.
+* **Verifier training:** binary or multi-choice correctness judgment; generation of an explanation is a separate ELM capability when needed.
+
+* **Arbiter training:** ranking or bounded-choice loss over candidate outputs; generated synthesis remains a separate ELM capability.
+
+Canonical EJM teacher targets should store semantic choice IDs/descriptions and probabilities rather than target-token IDs so the same decision record can be compiled for multiple student tokenizers/readout architectures.
+
+### 5.3.1 EJM Distillation Storage and Sharding
+
+EJM decision data is stored in two forms:
+
+1. **Canonical decision corpus** - shared semantic state plus isolated decision branches, content-addressed and reusable across compatible expert lineages.
+2. **Target-specific distillation views** - compiled manifests for one target model/expert lineage, tokenizer/template version, judgment family, readout/head type, and governance scope.
+
+Shared state is stored once. Decision branches reference the state by content ID. Independent branches may share the same state/prefix computation during training but must not observe sibling questions or sibling answers.
+
+```text
+Canonical State
+    ├── Decision Branch 1
+    ├── Decision Branch 2
+    └── Decision Branch 3
+            ↓
+Target-Specific Distillation View
+            ↓
+State Shard + Branch Shard
+            ↓
+ELM/EJM lineage-specific retraining
+```
+
+This lets Code, Math, Grounding, Verifier, Router, or other experts reference overlapping canonical decision data while retraining independently. The primary training partition is the **target model lineage + expert + capability + judgment family**, not merely an ELM name.
+
+For EJM targets, EGGROLL task shards should resolve to content-addressed manifests that identify:
+
+* target backbone/model lineage
+* target expert/adapter/readout
+* state-shard reference
+* branch-shard reference
+* training objective
+* validation policy
+* tokenizer/template/readout version where applicable
+* effective privacy/training policy
+
+Beehive placement should prefer nodes that already cache the target model, target adapter/head, referenced state shard, and compatible policy scope.
 
 ### 5.4 Optimizers
 
@@ -313,36 +372,59 @@ save_adapter(merged, "merged_parent_adapter")
 
 1. **Data Sources**
 
-    * Common Pile, GSM8K, CodeAlpaca, Grokipedia, GNUS logs.
+    * Common Pile, GSM8K, CodeAlpaca, Grokipedia, GNUS logs.
 
-2. **Pre‑processing**
+    * synthetic teacher-generated decision states and bounded choice distributions for EJM training.
 
-    * tokenization
+2. **Canonicalization / Pre-processing**
+
+    * tokenize generation corpora only when needed by the target ELM path
+
+    * normalize EJM choices to semantic IDs/descriptions and probability targets before target-specific token compilation
+
+    * deduplicate shared decision state and content-address it independently from decision branches
 
     * filtering by task type and complexity
 
-    * memory context injection (GAML)
+    * memory context injection (GAML) where policy permits
 
-3. **Batching**
+3. **View Compilation**
 
-    * dynamic sequence length (up to 4 K tokens)
+    * select records by target model lineage, expert, capability, domain, and judgment family
 
-    * mixed general + domain samples
+    * bind tokenizer/template/readout metadata
 
-4. **Augmentation**
+    * compile semantic choices to target-specific token IDs or decision-head indices only inside the view
+
+4. **Batching / Sharding**
+
+    * dynamic sequence length for ELM generation data
+
+    * group EJM branches by shared state where possible so one state load/prefill can serve multiple isolated decisions
+
+    * shard state records independently from branch records for cache locality and deduplication
+
+5. **Augmentation**
 
     * paraphrasing
 
-    * reasoning trace expansion (for Planner/Verifier roles)
+    * reasoning trace expansion for Planner/Verifier language capabilities
+
+    * option permutations and choice-description variants for EJM robustness
+
+    * novel-symbol/compositional tasks for measuring latent decision generalization
 
 ## 12. Deployment Artifacts
 
-| Artifact            | Format             | Description                     |
-| ------------------- | ------------------ | ------------------------------- |
-| Parent model        | `.gfp4`            | Quantized generalist checkpoint |
-| Specialist adapters | `.lora` or `.gfp4` | Role/domain micro‑models        |
-| Router weights      | `.pt`              | Task classifier                 |
-| Consensus logs      | `.jsonl`           | Reputation and merge history    |
+| Artifact | Format | Description |
+| --- | --- | --- |
+| Parent model | `.gfp4` | Quantized generalist checkpoint |
+| Specialist ELM artifacts | `.lora` or `.gfp4` | Role/domain language-generation adapters or micro-models |
+| Specialist EJM artifacts | `.lora`, head/readout, or `.gfp4` | Bounded judgment adapters, heads, readouts, or micro-models |
+| Distillation views | content-addressed manifest | Target lineage/tokenizer/template/readout mapping over canonical decision data |
+| Training shards | content-addressed manifest | State-shard + branch-shard references and training objective/policy |
+| Router weights | `.pt` | Task classifier or judgment artifact |
+| Consensus logs | `.jsonl` | Reputation and merge history |
 
 ## 13. Future Extensions
 
@@ -364,6 +446,10 @@ Genius LLM PTDS v4 formalizes a modular, quantization‑aware training pip
 
 * Swarm retraining via EGGROLL CRDT merge.
 
-* Role‑based specialists (Planner, Solver, Verifier, Arbiter, Refiner) for distributed reasoning.
+* Role-based specialists (Planner, Solver, Verifier, Arbiter, Refiner) for distributed reasoning.
+
+* Separate but composable ELM and EJM artifacts within one specialist lineage.
+
+* Content-addressed canonical decision corpora plus target-specific EJM views and shards for locality-aware retraining.
 
 This architecture enables Genius LLM to scale reasoning quality across decentralized hardware while maintaining inspectability and low cost.
