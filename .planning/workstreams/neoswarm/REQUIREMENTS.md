@@ -111,10 +111,10 @@ Requirements derived from `docs/architecture/` ingest (2026-07-18). Maps to cogn
 
 Added 2026-09-02, promoted from `SGFP4-INTEGRATION-SEED.md` (created 2026-08-26). SGFP4 is a **model-weight compression format** decoded inside MNN's graph via `OpType_SGFP4Dequant` — not an input-tensor format like E2M1 `FP4_ULTRA`. Never conflate the two.
 
-- [ ] **SGF-01**: A real SGFP4-quantized `.mnn` model (produced manually via `mnnconvert --sgfp4`, small/inline — below MNN's `_largeModel` externalization threshold) loads and runs through `MNNInferenceEngine` → `SGProcessingBridge::SubmitDirect()` → `ProcessingManager::Create/Process` on the direct-call path (no SuperGenius network/job submission)
-- [ ] **SGF-02**: Defensive null-check fix in `SGProcessingManager/src/processors/processing_processor_mnn_tensor.cpp` — `Process()` can return `nullptr` (malformed/incompatible model) and `StartProcessing()` dereferences it unchecked (`procresults->host<float>()`); a bad model must error cleanly, not crash
-- [ ] **SGF-03**: Delete orphaned NF4 `fp4_codec.{hpp,cpp}` + `test/core/test_fp4_codec.cpp` (self-flagged dead code; consumer removed in commit `8ee7fa4`)
-- [ ] **SGF-04**: Fix stale FP4-area tests: SuperGenius `test/processors/mnn_tensor_fp4_test.cpp` (asserts FP4_ULTRA decode unavailable; it is live) and NEO-SWARM `test_sg_connectivity.cpp` fp4_ultra lowercase-literal assertion (contradicts `test_sgprocessing_pipeline.cpp`)
+- [x] **SGF-01**: A real SGFP4-quantized `.mnn` model (produced manually via `mnnconvert --sgfp4`, small/inline — below MNN's `_largeModel` externalization threshold) loads and runs through `MNNInferenceEngine` → `SGProcessingBridge::SubmitDirect()` → `ProcessingManager::Create/Process` on the direct-call path (no SuperGenius network/job submission)
+- [x] **SGF-02**: Defensive null-check fix in `SGProcessingManager/src/processors/processing_processor_mnn_tensor.cpp` — `Process()` can return `nullptr` (malformed/incompatible model) and `StartProcessing()` dereferences it unchecked (`procresults->host<float>()`); a bad model must error cleanly, not crash
+- [x] **SGF-03**: Delete orphaned NF4 `fp4_codec.{hpp,cpp}` + `test/core/test_fp4_codec.cpp` (self-flagged dead code; consumer removed in commit `8ee7fa4`)
+- [x] **SGF-04**: Fix stale FP4-area tests: SuperGenius `test/processors/mnn_tensor_fp4_test.cpp` (asserts FP4_ULTRA decode unavailable; it is live) and NEO-SWARM `test_sg_connectivity.cpp` fp4_ultra lowercase-literal assertion (contradicts `test_sgprocessing_pipeline.cpp`)
 
 **Verification constraint:** local E2E of `ProcessingManager::Create()` is gated by the `VulkanInitMutex` re-entrancy deadlock (`sgproc-render` Phase 18) — skip-gate with `HasUsableVulkanDevice()` → `GTEST_SKIP()` citing the tracked bug (per plan 04-04 precedent), or confirm the bug is fixed before promising real local E2E. Do not silently work around or omit.
 
@@ -209,17 +209,17 @@ Which phases cover which requirements. Updated 2026-06-18 after refactor.
 | REP-01..03, SWARM-01..02 | Phase 9 | Pending (re-scoped to consensus logic 2026-07-26) |
 | SAFE-01..05 | Phase 10 | Pending |
 | COG-01..04 | Phase 11 | Pending |
-| SGF-01 | Phase 13 | Pending (seed promoted 2026-09-02) |
-| SGF-02 | Phase 13 | Pending |
-| SGF-03 | Phase 13 | Pending (dead code — quick win) |
-| SGF-04 | Phase 13 | Pending |
+| SGF-01 | Phase 13 | ✅ Done (13-02) |
+| SGF-02 | Phase 13 | ✅ Done (13-01) |
+| SGF-03 | Phase 13 | ✅ Done (13-03) |
+| SGF-04 | Phase 13 | ✅ Done (13-01/13-03) |
 
 **Coverage:**
 
 - v1 requirements: 40 total (26 original + NET-01/02 + 8 ELM Phase 7 + 4 SGF Phase 13)
-- Done: 22 (55%)
+- Done: 26 (65%)
 - Reworked/Regenerating: 5 (PERS-01, GAML-01..04)
-- Pending: 13 (33%) — includes Phase 13 SGF-01..04, promoted from seed 2026-09-02
+- Pending: 9 (23%)
 - Unmapped: 0
 
 ---

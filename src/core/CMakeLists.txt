@@ -1,6 +1,5 @@
 
 add_library(neoswarm_core STATIC
-    fp4/fp4_codec.cpp
     engine/mnn_inference_engine.cpp
     sgprocessing/sg_processing_bridge.cpp
     sgprocessing/tensor_interpreter.cpp

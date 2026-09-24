@@ -95,12 +95,26 @@ namespace sgns::neoswarm::core
                                                          int64_t total_width = 0,
                                                          int64_t chunk_stride = 0 );
 
-        private:
-        Config m_cfg;
-        network::SGClient* m_client = nullptr;
-
+            /**
+         * @brief Run a pre-built GNUS_Schema JSON through the local direct-call
+         *        path (Phase 13, SGF-01: exposed for tests/integrations that
+         *        need to inject schema `parameters` — e.g. the MNN session
+         *        `backend` selector — which SubmitJob's schema builder does
+         *        not emit).
+         *
+         * Calls ProcessingManager::Create() + Process() directly — the exact
+         * same body SubmitJob() reaches when m_networkMode is false.
+         *
+         * @param jsondata GNUS_Schema JSON (e.g. from BuildSchemaJson, patched).
+         * @param ioc      Boost ASIO io_context for async operations.
+         * @return         Raw output bytes or InferenceFailed.
+         */
         outcome::result<std::vector<uint8_t>> SubmitDirect( const std::string& jsondata,
                                                             std::shared_ptr<boost::asio::io_context> ioc ) const;
+
+    private:
+        Config m_cfg;
+        network::SGClient* m_client = nullptr;
 
         outcome::result<std::vector<uint8_t>> SubmitNetwork( const std::string& jsondata ) const;
     };
